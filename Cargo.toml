@@ -1,0 +1,88 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+repository = "https://github.com/abelokoj/ExcellentPDF"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unreachable_pub = "deny"
+
+# Every dependency is declared here once; crates use `name.workspace = true`.
+[workspace.dependencies]
+# Build tools
+cc = { version = "1.2", features = ["parallel"] }
+bindgen = "0.73"
+
+# UI: NSH, pinned to the installed CLI's version (AGENTS D2). No default features: we use NSH's Rust components
+# only, so neither QuickJS nor the optional components (editor, plots, terminal, ...) are built in.
+nsh-core = "=0.5.0"
+nsh-base = { version = "=0.5.0", default-features = false }
+nsh-platform-windows = { version = "=0.5.0", default-features = false }
+nsh-platform-macos = { version = "=0.5.0", default-features = false }
+nsh-platform-linux = { version = "=0.5.0", default-features = false }
+nsh-engine = { version = "=0.5.0", default-features = false }
+nsh-testing = { version = "=0.5.0", default-features = false }
+env_logger = "0.11"
+log = "0.4"
+# Theme and settings files (K.17, K.16). serde_json is NSH's already.
+serde_json = "1"
+toml = "1"
+# Property tests (plan K.6). No default features: no forking test runner.
+proptest = { version = "1", default-features = false, features = ["std"] }
+# Win32 for the page canvas (D5): the version NSH 0.5.0 uses, so one copy is built.
+windows = { version = "0.62", features = [
+    "std",
+    "Wdk_System_SystemServices",
+    "Win32_Foundation",
+    "Win32_Graphics_Direct2D",
+    "Win32_Graphics_Direct2D_Common",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_DirectComposition",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+    "Win32_System_Performance",
+    "Win32_System_SystemInformation",
+    "Win32_UI_Controls",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Input_Pointer",
+    "Win32_UI_WindowsAndMessaging",
+] }
+windows-numerics = { version = "0.3", default-features = false }
+
+# Our crates
+excellent-mupdf-sys = { path = "crates/excellent-mupdf-sys" }
+excellent-mupdf = { path = "crates/excellent-mupdf" }
+excellent-core = { path = "crates/excellent-core" }
+excellent-canvas = { path = "crates/excellent-canvas" }
+excellent-canvas-win = { path = "crates/excellent-canvas-win" }
+excellent-canvas-mac = { path = "crates/excellent-canvas-mac" }
+excellent-canvas-gtk = { path = "crates/excellent-canvas-gtk" }
+excellent-canvas-ios = { path = "crates/excellent-canvas-ios" }
+excellent-canvas-android = { path = "crates/excellent-canvas-android" }
+excellent-ink = { path = "crates/excellent-ink" }
+excellent-text = { path = "crates/excellent-text" }
+excellent-store = { path = "crates/excellent-store" }
+excellent-platform = { path = "crates/excellent-platform" }
+excellent-packs = { path = "crates/excellent-packs" }
+excellent-ai = { path = "crates/excellent-ai" }
+excellent-features = { path = "crates/excellent-features" }
+excellent-app = { path = "crates/excellent-app" }
+excellent-cli = { path = "crates/excellent-cli" }
+
+# Shipping builds (T10): smaller and faster code. Panics stay `unwind`: NSH catches a component's panic
+# (`catch_unwind` in nsh-core) so one broken view doesn't take the window down.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true

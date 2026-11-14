@@ -1,0 +1,13 @@
+{
+  "name": "ExcellentPDF",
+  "id": "com.excellentpdf.app",
+  "version": "0.1.0",
+  "build": 1,
+  "appearance": "system",
+  "rust": "../crates/excellent-app",
+  "root": "App",
+  "capabilities": {
+    "openUrl": true,
+    "clipboard": true
+  }
+}

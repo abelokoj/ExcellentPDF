@@ -1,0 +1,25 @@
+# Android: ready, but run by hand only until Phase 8, tablets (plan §18). Cross-compiled with the runner's NDK; the tests
+# are built, not run. To build it on every change, copy the `push` and `pull_request` triggers from windows.yml
+# (dev notes/dev_decisions.md, DD2).
+name: android
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arm64:
+    uses: ./.github/workflows/build.yml
+    with:
+      name: android-arm64
+      runner: ubuntu-24.04
+      target: aarch64-linux-android
+
+  x64:
+    uses: ./.github/workflows/build.yml
+    with:
+      name: android-x64
+      runner: ubuntu-24.04
+      target: x86_64-linux-android

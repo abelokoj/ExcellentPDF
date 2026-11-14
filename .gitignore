@@ -1,0 +1,9 @@
+/private notes/
+/target/
+
+# cargo-fuzz output
+/tests/fuzz/target/
+/tests/fuzz/corpus/
+/tests/fuzz/artifacts/
+/tests/fuzz/coverage/
+/tests/fuzz/Cargo.lock

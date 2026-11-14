@@ -1,0 +1,14 @@
+[package]
+name = "excellent-text"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "The text layer: reading order, words and lines, selection and copy, between MuPDF's structured text and every feature"
+
+[dependencies]
+excellent-mupdf.workspace = true
+
+[lints]
+workspace = true

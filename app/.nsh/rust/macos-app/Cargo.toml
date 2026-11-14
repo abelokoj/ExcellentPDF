@@ -1,0 +1,18 @@
+[package]
+name = "nsh-app-excellent-app-macos-app"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "nsh-app-excellent-app-macos-app"
+path = "main.rs"
+
+[dependencies]
+nsh-macos-app = { version = "=0.5.0" }
+nsh-core = { version = "=0.5.0" }
+nsh-base = { version = "=0.5.0", features = ["highlight"] }
+app_excellent_app = { package = "excellent-app", path = "C:\\dev\\ExcellentPDF\\crates\\excellent-app" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+nsh-platform-macos = { version = "=0.5.0" }

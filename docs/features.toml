@@ -1,0 +1,102 @@
+# The state of every feature tag (AGENTS.md section 4): planned, in-progress, shipped or dropped, and the tests that
+# prove it. Tags not listed are planned.
+
+["K.5"]
+status = "shipped"
+tests = ["a_file_opened_twice_is_parsed_once_and_shared", "hibernates_only_without_unsaved_changes", "a_changed_page_drops_its_list_and_refuses_stale_ones"]
+open = "View serialization (R.9); annotation model and operation log (K.13, K.14); tiles shared between views"
+
+["K.6"]
+status = "shipped"
+tests = ["pages_never_overlap_and_stay_inside", "bands_hold_every_page_once_in_order", "queries_find_every_page", "page_to_device_and_back", "lays_out_ten_thousand_pages_quickly"]
+open = "non-PDF formats load each page for its size"
+
+["R.1"]
+status = "in-progress"
+tests = ["a_new_layout_keeps_the_reading_position", "book_view_puts_the_cover_alone_on_the_right"]
+open = "toolbar toggle and menus; remember per document (K.5, K.20)"
+
+["R.2"]
+status = "in-progress"
+tests = ["zooming_keeps_the_point_under_the_pointer", "fit_modes_stay_on_through_a_resize"]
+open = "fit content; presets; custom zoom dialog; pinch (U.3); remember per document"
+
+["R.3"]
+status = "in-progress"
+tests = ["right_to_left_mirrors_the_rows_and_the_strip", "page_boxes_are_read_without_loading_and_match_the_page"]
+open = "arrow keys and swipe follow the direction; EPUB page progression"
+
+["R.4"]
+status = "shipped"
+tests = ["page_to_device_and_back", "a_point_comes_back_under_every_rotation"]
+open = "selection uses the same placement when it is built"
+
+["K.17"]
+status = "in-progress"
+tests = ["every_theme_passes_contrast", "the_theme_picker_previews_live_escape_goes_back_and_enter_keeps"]
+open = "step 3: density and UI scaling"
+
+["K.16"]
+status = "in-progress"
+tests = ["keeps_unknown_keys_and_writes_only_what_is_set", "a_broken_file_is_never_overwritten", "the_palette_lists_every_command_and_runs_one", "the_defaults_bind_with_no_problem_on_any_platform", "a_users_key_wins_over_a_default_and_an_empty_list_unbinds", "what_cannot_be_bound_is_reported_not_bound", "only_window_commands_are_offered_without_a_document", "an_edit_of_the_file_is_read_in_and_its_own_saves_are_not", "a_file_broken_by_an_edit_is_kept_out_until_fixed", "the_settings_window_opens_from_its_key_and_hands_over_to_the_theme_picker", "every_class_of_the_controls_is_known"]
+open = "menus and toolbars (and a Settings entry in them); the mode column; changing a key inside the Settings window; Enhanced import; needs K.5"
+
+["R.5"]
+status = "in-progress"
+tests = ["frames_keep_the_page_shape_and_fit_the_box", "the_rows_shown_and_a_margin_are_wanted", "names_change_with_the_file_the_page_and_its_revision", "a_page_becomes_a_png_file_of_the_asked_width"]
+open = "measure 60 fps on 5,000 pages (K.24); follow the reader's page; trim the cache (K.20); the view's rotation"
+
+["R.6"]
+status = "shipped"
+tests = ["typing_a_roman_label_finds_its_page", "a_label_wins_over_a_number_and_numbers_fill_the_rest", "page_labels_are_read_and_absent_labels_are_none"]
+open = "the page indicator moves from the title bar to the status bar when it exists; label editing is O.1"
+
+["R.7"]
+status = "in-progress"
+tests = ["links_are_read_and_resolved", "web_links_open_and_other_protocols_ask", "scripts_never_run_and_files_always_ask", "a_link_target_shows_at_the_top", "file_links_become_paths"]
+open = "page preview on hover (needs R.5); link_protocols in the settings UI; tests with EPUB and XPS links"
+
+["K.13"]
+status = "in-progress"
+tests = ["the_caret_falls_between_the_characters_either_side_of_the_pointer", "words_lines_and_paragraphs_snap_around_a_character", "a_highlight_is_one_quad_per_line", "copied_text_breaks_lines_and_separates_blocks", "a_word_hyphenated_across_lines_is_copied_whole", "a_selection_across_pages_takes_all_of_the_pages_between", "copying_a_page_gives_the_same_words_as_mupdf", "a_text_layout_covers_its_characters_in_order", "quick_presses_in_one_place_count_up"]
+open = "reading order and ICU4X normalization and words (steps 2, 3); rectangle selection; edge scrolling; select all of the document; text-quality corpus (step 5)"
+
+["B.1"]
+status = "in-progress"
+tests = ["ids_are_paths_and_find_their_entries", "the_reader_is_in_the_nearest_entry_before_the_page", "a_chosen_entry_stays_while_it_opens_the_page", "an_outline_is_read_on_the_workers"]
+open = "reading only: adding entries needs K.13, K.14, K.15; hover preview; 10,000-entry check (K.24)"
+
+["R.8"]
+status = "shipped"
+tests = ["three_jumps_and_three_backs_return_to_the_start", "a_new_jump_forgets_the_places_ahead", "history_is_bounded"]
+open = "search pushes when it is built"
+
+["R.19"]
+status = "in-progress"
+tests = ["focus_mode_lights_the_reading_lines_paragraph_or_the_line_alone", "the_title_bar_comes_back_at_the_top_edge"]
+open = "try Esc and full screen by hand; follow a text caret once one exists; settings UI for focus_scope"
+
+["R.14"]
+status = "in-progress"
+tests = ["black_becomes_ink_and_white_becomes_paper", "link_blue_becomes_the_link_colour_and_red_does_not", "kept_pixels_and_alpha_are_left_alone", "the_largest_photo_is_kept_and_small_ones_follow_the_page", "a_sliced_illustration_is_kept_whole", "a_page_sized_scan_and_an_undecodable_picture_follow_the_page", "artwork_on_a_white_backdrop_follows_the_page", "a_dark_painting_keeps_its_colours_even_filling_the_page", "reads_page_colours_and_falls_back_to_the_document_own", "document_colours_round_trip_and_unknown_values_are_the_default"]
+open = "object-level OKLab device and Enhanced's PdfDarkMode*_ut.cpp tests; golden images against Enhanced on the corpus; thumbnails not recoloured; speed not measured (K.24); its need K.7 is not marked here"
+
+["R.20"]
+status = "in-progress"
+tests = ["arrow_keys_move_the_ruler_exactly_one_text_line_in_two_columns", "blank_lines_and_pieces_of_one_printed_line_are_one_step", "the_band_holds_its_line_and_is_centred_on_it", "the_ruler_prop_falls_back_to_defaults_value_by_value"]
+open = "try by hand on a two-column paper; settings UI for the reading_ruler_* settings"
+
+["R.21"]
+status = "in-progress"
+tests = ["frames_of_any_rate_cover_the_same_distance", "it_moves_by_whole_pixels", "paused_it_moves_nothing_and_a_stall_does_not_jump", "speeds_step_through_the_table_and_stop_at_its_ends"]
+open = "measure smoothness at 60 and 120 Hz and idle CPU while paused (K.24); its need K.7 is not marked here"
+
+["R.15"]
+status = "in-progress"
+tests = ["each_reading_theme_renders_the_corpus_with_aa_text_contrast", "every_built_in_theme_passes_aa", "contrast_matches_wcag", "a_custom_palette_is_judged_and_gets_light_links_on_dark_paper", "reading_theme_ids_round_trip", "hex_colours_round_trip"]
+open = "per-document override (needs K.20); reflowable formats through MuPDF's user stylesheet (step 2); live preview tried by hand; its need R.14 is in progress"
+
+["R.12"]
+status = "in-progress"
+tests = ["closing_shows_the_tab_shown_before_and_reopening_puts_it_back", "close_others_and_to_the_right_spare_pinned_tabs", "tabs_move_within_their_group", "ctrl_tab_follows_recent_use_or_the_strip", "duplicates_are_found_and_closed", "a_closed_tab_is_reopened_by_its_path_and_the_list_is_bounded", "only_window_commands_are_offered_without_a_document"]
+open = "50 tabs tried by hand; mouse drag to reorder; tab context menu (airspace: popups fall behind the canvas); workspaces (W.1, W.4, W.9); Explorer and second-launch files (R.11)"

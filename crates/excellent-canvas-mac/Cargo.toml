@@ -1,0 +1,11 @@
+[package]
+name = "excellent-canvas-mac"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "macOS page canvas: NSView with CAMetalLayer and tablet events"
+
+[lints]
+workspace = true

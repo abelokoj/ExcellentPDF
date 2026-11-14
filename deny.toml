@@ -1,0 +1,56 @@
+# cargo-deny configuration (plan §17, AGENTS.md §6). Run: cargo deny check
+
+[graph]
+all-features = true
+
+[advisories]
+# Fail on known vulnerabilities and unmaintained or yanked crates.
+yanked = "deny"
+# Unmaintained, not vulnerable, and only reachable through NSH 0.5.0's SVG renderer (resvg/usvg). Pinned by D2;
+# remove these when an NSH update drops them.
+ignore = [
+    { id = "RUSTSEC-2026-0206", reason = "rustybuzz unmaintained; via nsh-core -> resvg, pinned by D2" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained; via nsh-core -> resvg, pinned by D2" },
+]
+
+[licenses]
+# Licences compatible with the AGPL-3.0 the plan proposes (§4; Q1 is still open).
+# Add to this list only after checking compatibility.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.8
+# Per-crate, so the global list stays strict. All three come in through NSH 0.5.0 (T6).
+exceptions = [
+    # Public-domain dedication; via naga.
+    { allow = ["CC0-1.0"], crate = "hexf-parse" },
+    # Mozilla's root-certificate data, permissive with attribution only; via NSH's TLS stack.
+    { allow = ["CDLA-Permissive-2.0"], crate = "webpki-roots" },
+    { allow = ["CDLA-Permissive-2.0"], crate = "webpki-root-certs" },
+]
+
+[licenses.private]
+# Our own crates are `publish = false` and carry no licence field until Q1 is answered.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+deny = []
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

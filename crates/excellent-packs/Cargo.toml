@@ -1,0 +1,11 @@
+[package]
+name = "excellent-packs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Optional packs: download, Ed25519 verification, install, removal and offline use"
+
+[lints]
+workspace = true

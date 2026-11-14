@@ -1,0 +1,16 @@
+# Neutral: graphite and paper, no tint. The mode accents bring the colour.
+#
+# A theme family (plan §10.3, K.17). `hue` (degrees), `chroma` and `tint` are OKLCH: `chroma` colours the accents
+# (primary, focus ring), `tint` (0 to 1) how much of the hue the surfaces take. Every token the palette makes can be
+# overridden for one variant in [light], [dark], [contrast.light] or [contrast.dark], as a CSS colour.
+hue = 0
+chroma = 0
+tint = 0
+
+[light]
+primary = "oklch(0.24 0 0)"
+sidebar-primary = "oklch(0.24 0 0)"
+
+[dark]
+primary = "oklch(0.92 0 0)"
+sidebar-primary = "oklch(0.92 0 0)"

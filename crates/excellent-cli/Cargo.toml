@@ -1,0 +1,11 @@
+[package]
+name = "excellent-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Batch tools (merge, split, convert, OCR, redact) on the same core"
+
+[lints]
+workspace = true

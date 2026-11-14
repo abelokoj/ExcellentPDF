@@ -1,0 +1,11 @@
+[package]
+name = "excellent-canvas-android"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Android page canvas: the Rust side of a Java/Kotlin view over JNI"
+
+[lints]
+workspace = true

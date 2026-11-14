@@ -1,0 +1,18 @@
+[package]
+name = "nsh-app-excellent-app-rust-linux"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "nsh-app-excellent-app-rust-linux"
+path = "main.rs"
+
+[dependencies]
+nsh-linux-app = { version = "=0.5.0", default-features = false }
+nsh-core = { version = "=0.5.0" }
+nsh-base = { version = "=0.5.0", features = ["highlight"] }
+app_excellent_app = { package = "excellent-app", path = "C:\\dev\\ExcellentPDF\\crates\\excellent-app" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nsh-platform-linux = { version = "=0.5.0", default-features = false, features = ["shader", "editor", "emoji-picker", "highlight", "math", "plot", "rich-editor", "term"] }

@@ -1,0 +1,18 @@
+[package]
+name = "excellent-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Document model, layout, coordinate transforms, selection, render scheduling, tile cache and save"
+
+[dependencies]
+excellent-canvas.workspace = true
+excellent-mupdf.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

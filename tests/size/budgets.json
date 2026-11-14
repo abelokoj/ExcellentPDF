@@ -1,0 +1,7 @@
+{
+  "$comment": "Size budgets, plan §13.1 and the Small rule (§2.1). Sizes in megabytes. A baseline is the last accepted measurement (tests/budgets.ps1); change it deliberately, in the pull request that changes the size.",
+  "regression_tolerance_percent": 10,
+  "budgets": {
+    "core_installer_mb": { "budget": 15, "baseline": 11.79 }
+  }
+}

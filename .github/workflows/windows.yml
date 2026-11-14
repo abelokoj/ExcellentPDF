@@ -1,0 +1,60 @@
+# Windows: built and tested on every push to main and every pull request (plan §18, Phase 0).
+name: windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: fmt and cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: rustup toolchain install
+      - run: cargo fmt --all --check
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
+  x64:
+    uses: ./.github/workflows/build.yml
+    with:
+      name: windows-x64
+      runner: windows-latest
+      target: x86_64-pc-windows-msvc
+      test: true
+      clippy: true
+
+  # Size and startup budgets of the release build (plan §13.1, K.24): reported in the job summary, failed on a
+  # regression over a recorded baseline (tests/budgets.ps1).
+  budgets:
+    name: budgets (windows-x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: rustup toolchain install
+      - uses: ilammy/setup-nasm@v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+      - run: cargo build --release --locked -p excellent-app
+      - run: ./tests/budgets.ps1 -Exe target/release/excellentpdf.exe
+        shell: pwsh
+
+  # Not built on push yet: run it from the Actions tab until Windows on ARM is a release target.
+  arm64:
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/build.yml
+    with:
+      name: windows-arm64
+      runner: windows-11-arm
+      target: aarch64-pc-windows-msvc
+      test: true

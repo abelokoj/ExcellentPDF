@@ -1,0 +1,25 @@
+# iOS and iPadOS: ready, but run by hand only until Phase 8, tablets (plan §18). Cross-compiled on macOS; the tests are
+# built, not run. To build it on every change, copy the `push` and `pull_request` triggers from windows.yml
+# (dev notes/dev_decisions.md, DD2).
+name: ios
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  device:
+    uses: ./.github/workflows/build.yml
+    with:
+      name: ios-arm64
+      runner: macos-15
+      target: aarch64-apple-ios
+
+  simulator:
+    uses: ./.github/workflows/build.yml
+    with:
+      name: ios-simulator-arm64
+      runner: macos-15
+      target: aarch64-apple-ios-sim

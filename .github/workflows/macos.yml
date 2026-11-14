@@ -1,0 +1,26 @@
+# macOS: ready, but run by hand only until Phase 2 (plan §18). To build it on every change, copy the `push` and
+# `pull_request` triggers from windows.yml (dev notes/dev_decisions.md, DD2).
+name: macos
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arm64:
+    uses: ./.github/workflows/build.yml
+    with:
+      name: macos-arm64
+      runner: macos-15
+      target: aarch64-apple-darwin
+      test: true
+
+  x64:
+    uses: ./.github/workflows/build.yml
+    with:
+      name: macos-x64
+      runner: macos-15-intel
+      target: x86_64-apple-darwin
+      test: true

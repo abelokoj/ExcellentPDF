@@ -1,0 +1,15 @@
+{
+  "$comment": "Performance budgets, plan §13.1. A pull request that makes one worse by more than 10 % fails CI (K.24). Times in milliseconds, memory in megabytes.",
+  "regression_tolerance_percent": 10,
+  "budgets": {
+    "cold_start_to_usable_window_ms": { "budget": 300, "stretch": 150 },
+    "open_typical_pdf_first_page_ms": { "budget": 150, "stretch": 60 },
+    "open_10000_page_pdf_first_page_ms": { "budget": 400 },
+    "scroll_and_page_turn_fps": { "budget": 60, "budget_120hz": 120 },
+    "ink_pen_down_to_pixels_frames": { "budget": 1 },
+    "search_1000_pages_indexed_ms": { "budget": 100 },
+    "idle_memory_one_small_document_mb": { "budget": 60, "stretch": 30 },
+    "twenty_open_tabs_memory_mb": { "budget": 500 },
+    "ui_thread_stall_max_ms": { "budget": 50 }
+  }
+}

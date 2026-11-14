@@ -1,0 +1,85 @@
+# Reusable job: builds the workspace for one Rust target and, where the runner can run it, tests it.
+# The per-platform workflows (windows.yml, linux.yml, macos.yml, android.yml, ios.yml) call it.
+# See dev notes/dev_decisions.md (DD2).
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: Job name shown in the checks list
+        type: string
+        required: true
+      runner:
+        description: GitHub-hosted runner image
+        type: string
+        required: true
+      target:
+        description: Rust target triple
+        type: string
+        required: true
+      test:
+        description: Run the tests (only where the runner can execute the target)
+        type: boolean
+        default: false
+      clippy:
+        description: Run clippy with warnings as errors
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ inputs.name }}
+    runs-on: ${{ inputs.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Rust toolchain (rust-toolchain.toml) and target
+        run: |
+          rustup toolchain install
+          rustup target add ${{ inputs.target }}
+
+      # libjpeg-turbo's SIMD code; without NASM it builds its slower C code.
+      - name: NASM
+        if: startsWith(inputs.target, 'x86_64') || startsWith(inputs.target, 'i686')
+        uses: ilammy/setup-nasm@v1
+
+      # fontconfig for system fonts, OpenSSL for PDF signatures and encrypted ZIP entries.
+      - name: Linux libraries
+        if: contains(inputs.target, 'linux-gnu')
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libssl-dev
+
+      - name: cargo-ndk
+        if: contains(inputs.target, 'android')
+        run: cargo install cargo-ndk --locked
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ inputs.target }}
+
+      - name: Clippy
+        if: inputs.clippy
+        run: cargo clippy --workspace --all-targets --locked --target ${{ inputs.target }} -- -D warnings
+
+      # Android API level 28: the first with iconv, which libarchive uses for file names.
+      - name: Build
+        run: |
+          if [[ "${{ inputs.target }}" == *android* ]]; then
+            export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+            cargo ndk --target ${{ inputs.target }} --platform 28 build --workspace --all-targets --locked
+          else
+            cargo build --workspace --all-targets --locked --target ${{ inputs.target }}
+          fi
+
+      - name: Test
+        if: inputs.test
+        run: cargo test --workspace --locked --target ${{ inputs.target }}

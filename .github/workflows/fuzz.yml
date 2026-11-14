@@ -1,0 +1,57 @@
+# Sanitizers and fuzzing (plan K.3, K.4, §16): the corpus and render stress tests under AddressSanitizer (with
+# leak checks), then five minutes of fuzzing MuPDF's open, render and text paths. Weekly and by hand: Linux, the only
+# place both tools work, is not built on every change until Phase 2 (dev notes/dev_decisions.md, DD2).
+name: fuzz
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # MuPDF and its libraries are built with the same sanitizer as the Rust code.
+  CC: clang
+  CXX: clang++
+
+jobs:
+  asan:
+    name: corpus tests under AddressSanitizer
+    runs-on: ubuntu-24.04
+    env:
+      CFLAGS: -fsanitize=address -fno-omit-frame-pointer
+      CXXFLAGS: -fsanitize=address -fno-omit-frame-pointer
+      RUSTFLAGS: -Zsanitizer=address
+      ASAN_OPTIONS: detect_leaks=1
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libssl-dev
+      - run: rustup toolchain install nightly --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: asan
+      # --target keeps the sanitizer off build scripts.
+      - run: cargo +nightly test -p excellent-mupdf -p excellent-core --target x86_64-unknown-linux-gnu --locked
+
+  fuzz:
+    name: fuzz open_render
+    runs-on: ubuntu-24.04
+    env:
+      CFLAGS: -fsanitize=address,fuzzer-no-link -fno-omit-frame-pointer
+      CXXFLAGS: -fsanitize=address,fuzzer-no-link -fno-omit-frame-pointer
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libssl-dev
+      - run: rustup toolchain install nightly --profile minimal
+      - run: cargo +nightly install cargo-fuzz --locked
+      - name: Seed with the test corpus
+        run: mkdir -p tests/fuzz/corpus/open_render && cp tests/corpus/*.pdf tests/fuzz/corpus/open_render/
+      - run: cargo +nightly fuzz run --fuzz-dir tests/fuzz open_render -- -max_total_time=300 -rss_limit_mb=4096
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crash
+          path: tests/fuzz/artifacts/

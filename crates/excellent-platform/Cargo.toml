@@ -1,0 +1,11 @@
+[package]
+name = "excellent-platform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Platform service traits and their Windows, macOS, Linux, iOS and Android implementations"
+
+[lints]
+workspace = true
