@@ -259,6 +259,12 @@ status = "in-progress"
 tests = ["same_position_stays_level_across_different_page_sizes", "same_page_keeps_the_place_on_the_page_and_stops_at_the_last", "pairs_count_on_from_the_nearest_pair", "marks_pair_the_panes_open_at_the_time"]
 open = "not tried by hand; page pairs are not kept per file"
 
+["V.9"]
+label = "Ph3: 8/49"
+status = "in-progress"
+tests = ["a_link_place_reads_its_point_only_when_it_has_one"]
+open = "not tried by hand; a search result opens at its page, not the hit"
+
 ["V.13"]
 label = "Ph1: 44/60"
 status = "in-progress"

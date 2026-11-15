@@ -445,6 +445,10 @@ impl CanvasView {
     /// The first button: the pen draws (plan §7.3); the mouse follows links and selects text (K.13).
     fn on_down(&self, event: &NSEvent) {
         let tablet = event.subtype() == NSEventSubtype::TabletPoint;
+        // V.9: Command-click on a link opens it in another pane.
+        let elsewhere = event
+            .modifierFlags()
+            .contains(NSEventModifierFlags::Command);
         let at = self.device_point(event);
         let sample = tablet.then(|| self.pen_sample(event));
         let pen = self
@@ -457,7 +461,7 @@ impl CanvasView {
                         return true;
                     }
                 }
-                if !canvas.stop_pan() {
+                if !canvas.stop_pan() && !(elsewhere && canvas.open_elsewhere(at.0, at.1)) {
                     let limits = ClickLimits {
                         time: (NSEvent::doubleClickInterval() * 1000.0) as u32,
                         width: CLICK_DISTANCE,

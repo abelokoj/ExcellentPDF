@@ -34,6 +34,7 @@ pub(crate) use edit::OutlineAction;
 use crate::commands::{self, CommandId};
 use crate::editing::Editing;
 use crate::goto::PageState;
+use crate::panes::Place;
 use crate::tabs::TabState;
 use edit::Awaiting;
 
@@ -173,6 +174,14 @@ impl OutlineState {
         })
     }
 
+    /// The page and spot entry `id` opens (V.9).
+    fn place_of(self, id: &str) -> Option<(usize, model::Spot)> {
+        self.entries.with_untracked(|entries| {
+            let entry = model::find(entries.as_deref()?, id)?;
+            Some((entry.page?, model::spot(entry.uri.as_deref())))
+        })
+    }
+
     /// Why entry `id` opens nowhere, if it does (B.9).
     fn broken_of(self, id: &str) -> Option<Broken> {
         let count = self.pages.count();
@@ -248,6 +257,7 @@ pub(crate) fn outline_panel(
     state: OutlineState,
     go: impl Fn(usize) + Copy + 'static,
     run: impl Fn(CommandId) + Copy + 'static,
+    elsewhere: impl Fn(Place) + Copy + 'static,
     pages_focus: ElementRef,
 ) -> impl IntoElement {
     let pages = state.pages;
@@ -270,7 +280,7 @@ pub(crate) fn outline_panel(
     view().flex_1().element_ref(&holder).child(
         when(
             move || state.has_entries(),
-            move || outline_tree(state, go, run),
+            move || outline_tree(state, go, run, elsewhere),
         )
         .otherwise(move || when(move || state.is_empty(), move || no_outline(state, run))),
     )
@@ -295,6 +305,7 @@ fn outline_keys(
         on_key("shift+tab", act(OutlineAction::Move(Shift::Out)));
         on_key("mod+shift+b", act(OutlineAction::Style(Restyle::Bold)));
         on_key("mod+shift+i", act(OutlineAction::Style(Restyle::Italic)));
+        on_key("mod+enter", act(OutlineAction::OpenElsewhere));
         on_key("escape", move |_: &str| state.leave(pages_focus));
     });
 }
@@ -333,6 +344,7 @@ fn outline_tree(
     state: OutlineState,
     go: impl Fn(usize) + Copy + 'static,
     run: impl Fn(CommandId) + Copy + 'static,
+    elsewhere: impl Fn(Place) + Copy + 'static,
 ) -> impl IntoElement {
     let pages = state.pages;
     let tree_ref = state.tree;
@@ -373,21 +385,23 @@ fn outline_tree(
             "group flex-row items-center h-8 pr-2 rounded-md hover:bg-sidebar-accent \
              selected:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring",
         )
-        .render_item(move |row: &TreeEntry| entry_row(row, state, go, run))
+        .render_item(move |row: &TreeEntry| entry_row(row, state, go, run, elsewhere))
         .flex_1()
 }
 
 /// One entry's row: its chevron, its title (or the field editing it) and the label of the page it opens, with the
 /// outline commands in its context menu. A marked entry has the accent's tint and a bar at its start.
-fn entry_row<Go, Run>(
+fn entry_row<Go, Run, Elsewhere>(
     row: &TreeEntry,
     state: OutlineState,
     go: Go,
     run: Run,
-) -> impl IntoElement + use<Go, Run>
+    elsewhere: Elsewhere,
+) -> impl IntoElement + use<Go, Run, Elsewhere>
 where
     Go: Fn(usize) + Copy + 'static,
     Run: Fn(CommandId) + Copy + 'static,
+    Elsewhere: Fn(Place) + Copy + 'static,
 {
     let pages = state.pages;
     let id = row.id.to_string();
@@ -447,6 +461,20 @@ where
         .rounded(px(6.0))
         .style_when(marked.clone(), |s| s.bg(move || theme().accent))
         .on_press(pressed)
+        // V.9: the middle button shows the entry's destination in the other pane (Ctrl+click marks entries).
+        .on_mouse_up({
+            let id = id.clone();
+            move |event: &MouseEvent| {
+                if event.button == Some(MouseButton::Middle)
+                    && let Some((page, spot)) = state.place_of(&id)
+                {
+                    elsewhere(Place {
+                        page,
+                        spot: Some(spot),
+                    });
+                }
+            }
+        })
         .focus_visible(|s| s.border_2().border_color(move || theme().ring))
         .child(
             // The mark's bar: marked rows read as a group without relying on the tint alone.
@@ -589,6 +617,7 @@ fn entry_menu(
         .child(item(OutlineAction::Move(Shift::Out)))
         .child(item(OutlineAction::Sort))
         .child(separator())
+        .child(item(OutlineAction::OpenElsewhere))
         .child(item(OutlineAction::ToBookmark))
         .child(item(OutlineAction::Check))
         .child(item(OutlineAction::Fix))

@@ -30,7 +30,7 @@ use crate::list_dialog::{list_dialog, style};
 use crate::modes::{self, Modes};
 use crate::onboarding::{self, Onboarding};
 use crate::outline::{self, OutlineAction};
-use crate::panes::{self, CELLS, FileDrag, Pane, Panes, Shared};
+use crate::panes::{self, CELLS, FileDrag, Pane, Panes, Place, Shared};
 use crate::print::{Printing, print_strip};
 use crate::reading::Reading;
 use crate::reading_theme_bar::reading_theme_bar;
@@ -282,6 +282,18 @@ pub(crate) fn shell() -> impl IntoElement {
             CommandId::Outline(OutlineAction::ToBookmark) => {
                 if let Some((title, page, spot)) = pane.outline.selected_place() {
                     pane.bookmarks.add_from_outline(title, page, spot);
+                }
+            }
+            // V.9: the selected outline entry's destination, in the other pane.
+            CommandId::Outline(OutlineAction::OpenElsewhere) => {
+                if let Some((_, page, spot)) = pane.outline.selected_place() {
+                    panes.open_elsewhere(
+                        pane.cell,
+                        Place {
+                            page,
+                            spot: Some(spot),
+                        },
+                    );
                 }
             }
             CommandId::Bookmark(BookmarkAction::ToOutline) => {
@@ -593,7 +605,7 @@ fn docks(
                 }
                 Some(
                     side @ (Panel::Pages | Panel::Outline | Panel::Bookmarks | Panel::Results),
-                ) => of_active(panes, move |pane| side_panel(side, pane, run)),
+                ) => of_active(panes, move |pane| side_panel(side, pane, panes, run)),
                 _ => empty_state(panel).into_element(),
             }
         })
@@ -645,17 +657,23 @@ pub(crate) fn primary_button(key: &'static str, on_press: impl Fn() + 'static) -
 fn side_panel(
     panel: Panel,
     pane: Pane,
+    panes: Panes,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
     let shown = move || pane.tabs.has_shown();
     let go = move |index: usize| pane.go_to(index);
+    let elsewhere = move |place: Place| panes.open_elsewhere(pane.cell, place);
     when(shown, move || match panel {
         Panel::Pages => thumbnails::thumbnail_list(pane.thumbs, pane.pages, go).into_element(),
-        Panel::Outline => outline::outline_panel(pane.outline, go, run, pane.focus).into_element(),
+        Panel::Outline => {
+            outline::outline_panel(pane.outline, go, run, elsewhere, pane.focus).into_element()
+        }
         Panel::Bookmarks => {
             bookmarks::bookmark_panel(pane.bookmarks, pane.canvas, run, pane.focus).into_element()
         }
-        Panel::Results => crate::find::results_panel(pane.find, pane.pages).into_element(),
+        Panel::Results => {
+            crate::find::results_panel(pane.find, pane.pages, elsewhere).into_element()
+        }
         Panel::Document | Panel::Inspector => empty_state(Some(panel)).into_element(),
     })
     .otherwise(move || empty_state(Some(panel)))

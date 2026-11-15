@@ -39,6 +39,8 @@ pub(crate) enum OutlineAction {
     /// A personal bookmark with the selected entry's title and destination; the entry stays (B.10). The shell runs it,
     /// as it needs the bookmarks.
     ToBookmark,
+    /// Shows the selected entry's destination in the other pane (V.9). The shell runs it, as it needs the panes.
+    OpenElsewhere,
 }
 
 /// What the place the pages report next is for.
@@ -86,7 +88,7 @@ impl OutlineState {
             OutlineAction::Style(how) => self.restyle(how),
             OutlineAction::Fix => self.fix(),
             OutlineAction::Sort => self.sort(),
-            OutlineAction::Check | OutlineAction::ToBookmark => {}
+            OutlineAction::Check | OutlineAction::ToBookmark | OutlineAction::OpenElsewhere => {}
         }
     }
 

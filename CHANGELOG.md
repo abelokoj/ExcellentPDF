@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 21:30; Ph3: 8/49 | V.9: Open a link in the other pane
+
+- Ctrl+click (Command-click on a Mac) or middle-click on a link in the pages shows where it goes in the other pane;
+  the pane clicked in stays where it is. With one pane, the window splits. A link out of the document opens as a
+  click would.
+- In the outline, the middle button, Ctrl+Enter, the entry's menu and the palette ("Open outline entry in other
+  pane") do the same; Ctrl+click still marks entries (B.10). A search result opens its page there with the middle
+  button.
+- The other pane shows the document's tab, or a copy of the clicked pane's tab, and goes there with a history step,
+  so Back returns. A tab that opens waits for its file before going (`TabState::show_then`).
+
 ### 2026-11-15 20:00; Ph3: 7/49 | V.8: Synchronized scrolling
 
 - Ctrl+Alt+S, or the Sync menu in a split pane's header, makes the other panes follow the one you move: by page, by

@@ -763,6 +763,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &[],
     },
     Command {
+        id: CommandId::Outline(OutlineAction::OpenElsewhere),
+        name: "outline.open_in_other_pane",
+        label: "command.outline_open_elsewhere",
+        group: "command.group.outline",
+        // Ctrl+Enter while the outline has the keyboard (the panel binds it).
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
         id: CommandId::Outline(OutlineAction::ToBookmark),
         name: "outline.to_bookmark",
         label: "command.outline_to_bookmark",

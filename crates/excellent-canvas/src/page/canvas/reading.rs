@@ -485,9 +485,13 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
-    /// The middle button went down at client pixel (`x`, `y`): middle-click scrolling starts from there, or stops
-    /// if it was on. Returns whether it is on, when the window holds the mouse so the pointer can leave it.
+    /// The middle button went down at client pixel (`x`, `y`): over a link, it opens in another pane (V.9);
+    /// elsewhere middle-click scrolling starts from there, or stops if it was on. Returns whether it is on, when the
+    /// window holds the mouse so the pointer can leave it.
     pub fn middle_down(&mut self, x: i32, y: i32) -> bool {
+        if self.reading.pan.is_none() && self.open_elsewhere(x, y) {
+            return false;
+        }
         let at = (x as f32, y as f32);
         if self.reading.pan.take().is_none() {
             self.reading.pan = Some(Pan::new(at.0, at.1));

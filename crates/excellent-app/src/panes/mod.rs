@@ -12,6 +12,7 @@
 //! Two panes showing one file share its document (the registry of `excellent_core::shared`), so it is read once and
 //! an edit made in one is the other's too.
 
+mod elsewhere;
 mod grid;
 mod layout;
 mod sync;
@@ -40,6 +41,7 @@ use crate::tabs::{self, Closed, Step, TabState, Tabs};
 use crate::thumbnails::Thumbnails;
 use crate::workspaces::Workspaces;
 
+pub(crate) use elsewhere::Place;
 pub(crate) use grid::pane_grid;
 pub(crate) use layout::{CELLS, Layout, Side};
 use sync::SyncScroll;

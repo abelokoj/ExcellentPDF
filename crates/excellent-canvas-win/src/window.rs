@@ -42,7 +42,7 @@ const NOTCH: f32 = 120.0;
 const NOTCH_SCROLL: f32 = 100.0;
 /// How much one notch with Ctrl zooms.
 const NOTCH_ZOOM: f32 = 1.1;
-/// `MK_SHIFT` and `MK_CONTROL` in a wheel message's key state.
+/// `MK_SHIFT` and `MK_CONTROL` in a mouse message's key state.
 const MK_SHIFT: usize = 0x0004;
 const MK_CONTROL: usize = 0x0008;
 
@@ -231,6 +231,10 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
                 return LRESULT(0);
             }
             let (x, y) = client_point(lparam);
+            // V.9: Ctrl+click on a link opens it in another pane.
+            if wparam.0 & MK_CONTROL != 0 && canvas.open_elsewhere(x, y) {
+                return LRESULT(0);
+            }
             // SAFETY: plain queries of the current message and the user's settings.
             let (time, limits) = unsafe {
                 (

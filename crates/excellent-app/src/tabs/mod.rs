@@ -338,6 +338,30 @@ impl TabState {
         })
     }
 
+    /// Shows `copy`'s file here (V.9): its tab when there is one, else `copy` as a new tab; then sends `then` to
+    /// `canvas` once the file is open, or at once when it was shown already.
+    pub(crate) fn show_then(self, copy: Closed, then: Then, canvas: ElementRef) {
+        let shown = self.tabs.with_untracked(|tabs| {
+            tabs.active()
+                .is_some_and(|tab| !tab.missing && tab.path == copy.path)
+        });
+        if shown {
+            canvas.command(then.0, then.1);
+            return;
+        }
+        self.change(|tabs| match tabs.find(&copy.path) {
+            Some(id) => tabs.activate(id),
+            None => {
+                tabs.adopt(copy);
+            }
+        });
+        self.restore.with(|restore| {
+            if let Some(restore) = restore {
+                restore.then = Some(then);
+            }
+        });
+    }
+
     /// Runs one of the tab commands on the shown tab.
     pub(crate) fn run(self, action: Action) {
         let Some(id) = self.tabs.with(|tabs| tabs.active().map(|tab| tab.id)) else {
@@ -416,17 +440,20 @@ impl TabState {
         }
     }
 
-    /// Takes the shown tab back to where it was left, now that its file is open.
+    /// Takes the shown tab back to where it was left, now that its file is open, then sends the command waiting for
+    /// it (V.9).
     fn come_back(self, canvas: ElementRef) {
         self.shown_view.with(Option::take);
-        match self.restore.with(Option::take) {
-            Some(Restore {
-                view: Some(view), ..
-            }) => canvas.command("setView", view),
-            Some(Restore { page, view: None }) if page > 0 => {
-                canvas.command("goToPage", serde_json::json!({ "index": page }));
-            }
-            _ => {}
+        let Some(Restore { page, view, then }) = self.restore.with(Option::take) else {
+            return;
+        };
+        match view {
+            Some(view) => canvas.command("setView", view),
+            None if page > 0 => canvas.command("goToPage", serde_json::json!({ "index": page })),
+            None => {}
+        }
+        if let Some((name, args)) = then {
+            canvas.command(name, args);
         }
     }
 
@@ -515,7 +542,12 @@ pub(crate) fn pick_documents(then: impl FnOnce(Vec<PathBuf>) + 'static) {
 struct Restore {
     page: usize,
     view: Option<JsonValue>,
+    /// A canvas command to send once the view is back (V.9: a link opened from another pane).
+    then: Option<Then>,
 }
+
+/// A canvas command and its arguments.
+pub(crate) type Then = (&'static str, JsonValue);
 
 impl Restore {
     /// Where `tab` was left.
@@ -528,6 +560,7 @@ impl Restore {
         Self {
             page: tab.page,
             view,
+            then: None,
         }
     }
 }

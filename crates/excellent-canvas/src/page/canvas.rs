@@ -540,6 +540,28 @@ impl<H: Host> PageCanvas<H> {
         self.invalidate();
     }
 
+    /// A Ctrl+click (Command on a Mac) or middle-click at client pixel (`x`, `y`) (V.9). Over a link to a place in
+    /// this document, the app hears where it goes (`openElsewhere`: `{page, x, y}`, the point in page points when the
+    /// link names one) to show it in another pane, and this pane stays where it is; over any other link, it is
+    /// followed as a click would. Returns whether a link was there: then the press does nothing else.
+    pub fn open_elsewhere(&mut self, x: i32, y: i32) -> bool {
+        let Some(link) = self.link_at(x, y).cloned() else {
+            return false;
+        };
+        match link.target {
+            Some(target) => {
+                let mut data = serde_json::json!({ "page": target.page });
+                if let Some(point) = target.point {
+                    data["x"] = point.x.into();
+                    data["y"] = point.y.into();
+                }
+                self.emit("openElsewhere", data);
+            }
+            None => self.follow(&link),
+        }
+        true
+    }
+
     /// The page under client pixel (`x`, `y`) and the point on it there, in page points.
     fn page_point(&self, x: i32, y: i32) -> Option<(usize, PagePoint)> {
         let (x, y) = self.viewport.to_layout_point(x as f32, y as f32);

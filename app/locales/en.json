@@ -41,6 +41,7 @@
   "command.outline_outdent": "Outdent outline entry",
   "command.outline_delete": "Delete outline entry",
   "command.outline_sort": "Sort outline entries by page",
+  "command.outline_open_elsewhere": "Open outline entry in other pane",
   "command.outline_to_bookmark": "Add outline entry as bookmark",
   "command.bookmark_to_outline": "Add bookmark to outline",
   "outline.op.sort": "Sort outline entries",

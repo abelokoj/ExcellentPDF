@@ -564,6 +564,12 @@ fn page_canvas(
                 "pages" if untracked(|| panes.active_cell()) == cell => focus.focus(),
                 // V.8: while synced, the pane the reader moves leads the others.
                 "view" => panes.on_view(cell, &event.data),
+                // V.9: Ctrl+click or middle-click on a link shows where it goes in the other pane.
+                "openElsewhere" => {
+                    if let Some(place) = super::Place::from_json(&event.data) {
+                        panes.open_elsewhere(cell, place);
+                    }
+                }
                 _ => {}
             }
             pages.on_canvas_event(event);

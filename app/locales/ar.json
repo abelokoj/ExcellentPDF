@@ -41,6 +41,7 @@
   "command.outline_outdent": "إنقاص مسافة عنصر المخطط",
   "command.outline_delete": "حذف عنصر المخطط",
   "command.outline_sort": "ترتيب عناصر المخطط حسب الصفحة",
+  "command.outline_open_elsewhere": "فتح عنصر المخطط في اللوحة الأخرى",
   "command.outline_to_bookmark": "إضافة عنصر المخطط كإشارة مرجعية",
   "command.bookmark_to_outline": "إضافة الإشارة المرجعية إلى المخطط",
   "outline.op.sort": "ترتيب عناصر المخطط",

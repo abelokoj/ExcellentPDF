@@ -392,6 +392,16 @@ impl CanvasWidget {
             if canvas.stop_pan() {
                 return;
             }
+            // V.9: Ctrl+click on a link opens it in another pane.
+            if drag
+                .current_event_state()
+                .contains(gdk::ModifierType::CONTROL_MASK)
+            {
+                let (px, py) = widget.device_point(x, y);
+                if canvas.open_elsewhere(px, py) {
+                    return;
+                }
+            }
             let settings = gtk::Settings::default();
             let distance = settings
                 .as_ref()

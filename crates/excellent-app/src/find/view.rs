@@ -7,6 +7,7 @@ use nsh_core::prelude::*;
 use super::{FindAction, FindState, Hit, Toggle, status};
 use crate::commands::{self, CommandId};
 use crate::goto::PageState;
+use crate::panes::Place;
 
 /// The result list shows this many rows at most; the bar's count and F3 still reach every hit.
 ///
@@ -174,7 +175,12 @@ fn bar_button(
 }
 
 /// The Results tab: every hit with the words round it, in document order. A press goes to it.
-pub(crate) fn results_panel(state: FindState, pages: PageState) -> impl IntoElement {
+/// The find results (F.1); `elsewhere` shows a hit's page in the other pane (V.9).
+pub(crate) fn results_panel(
+    state: FindState,
+    pages: PageState,
+    elsewhere: impl Fn(Place) + Copy + 'static,
+) -> impl IntoElement {
     let searching = move || state.is_open() && !state.query().trim().is_empty();
     when(searching, move || {
         let header = move || status(&state.query(), state.progress());
@@ -200,7 +206,7 @@ pub(crate) fn results_panel(state: FindState, pages: PageState) -> impl IntoElem
                     .child(view().p_2().pt(px(0.0)).gap(px(2.0)).child(each(
                         shown,
                         |hit: &Hit| (hit.page, hit.nth),
-                        move |hit, _| result_row(state, pages, hit),
+                        move |hit, _| result_row(state, pages, hit, elsewhere),
                     )))
                     .child(when(
                         move || more() > 0,
@@ -228,14 +234,19 @@ pub(crate) fn results_panel(state: FindState, pages: PageState) -> impl IntoElem
 }
 
 /// One hit: its page's label, and the hit in bold between the words round it.
-fn result_row(state: FindState, pages: PageState, hit: ReadSignal<Hit>) -> impl IntoElement {
+fn result_row(
+    state: FindState,
+    pages: PageState,
+    hit: ReadSignal<Hit>,
+    elsewhere: impl Fn(Place) + Copy + 'static,
+) -> impl IntoElement {
     let hit = hit.get_untracked();
     let key = (hit.page, hit.nth);
     let current = move || state.current_key() == Some(key);
     let page = move || pages.label(key.0);
     let spoken = format!("{}{}{}", hit.before, hit.hit, hit.after);
     let target = hit.clone();
-    button()
+    let row = button()
         .accessibility_label(move || {
             Some(SharedString::from(t!(
                 "find.row",
@@ -271,5 +282,17 @@ fn result_row(state: FindState, pages: PageState, hit: ReadSignal<Hit>) -> impl 
                 .text_size(px(12.0))
                 .tabular_nums()
                 .text_color(move || theme().muted_foreground),
-        )
+        );
+    // V.9: the middle button shows the hit's page in the other pane. The button takes only presses, which carry
+    // no modifier keys, so the row around it listens.
+    view()
+        .on_mouse_up(move |event: &MouseEvent| {
+            if event.button == Some(MouseButton::Middle) {
+                elsewhere(Place {
+                    page: key.0,
+                    spot: None,
+                });
+            }
+        })
+        .child(row)
 }
