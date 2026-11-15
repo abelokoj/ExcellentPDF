@@ -571,12 +571,22 @@ fn a_page_lists_its_pictures_and_samples_them_in_rgb() {
         .display_list(None)
         .expect("list");
     let images = list.images(None).expect("listed");
+    // Where a picture goes missing (macOS CI): whether the list and the page draw anything at all.
+    let inked = |p: Result<Pixmap, _>| p.map(|p| p.samples().iter().filter(|&&b| b < 128).count());
     assert_eq!(
         images.len(),
         1,
-        "one picture; the list's bounds {:?}, the PNG {} bytes",
+        "one picture; the list's bounds {:?}, the PNG {} bytes, pages {:?}; dark samples drawn by the list {:?}, by          the page {:?}",
         list.bounds(),
-        png.len()
+        png.len(),
+        picture.page_count(),
+        inked(list.render(&Matrix::IDENTITY, Background::White)),
+        inked(
+            picture
+                .load_page(0)
+                .expect("its page")
+                .render(&Matrix::IDENTITY, Background::White)
+        ),
     );
     let image = &images[0];
     let page = list.bounds().expect("bounds");
