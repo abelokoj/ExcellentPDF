@@ -102,6 +102,12 @@ pub fn components(components: &nsh_platform_windows::Components) {
     excellent_canvas_win::register(components);
 }
 
+/// The app's native components on Linux: the page canvas (K.10).
+#[native_components(linux)]
+pub fn components(components: &nsh_platform_linux::Components) {
+    excellent_canvas_gtk::register(components);
+}
+
 /// [`App`] as the runners and tests start it, with the app's translations (U.7) and the user's theme in place before
 /// the window shows (K.17).
 pub fn root() -> Root {

@@ -387,6 +387,11 @@ impl<H: Host> PageCanvas<H> {
         &self.host
     }
 
+    /// The platform's side of the canvas, to change.
+    pub fn host_mut(&mut self) -> &mut H {
+        &mut self.host
+    }
+
     /// Reports the document's pages (`pages`: `{count, labels, sizes}`, labels `null` when the pages go by number,
     /// sizes `[width, height]` in points as laid out), and that no page is reported yet.
     fn report_pages(&mut self, labels: Option<Vec<String>>) {

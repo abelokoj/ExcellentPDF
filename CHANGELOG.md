@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 10:06; Ph2: 2/3 | K.10: Page canvas on Linux (GTK widget)
+
+- `excellent-canvas-gtk` is the shared canvas's GTK 4 host: frames are GSK render nodes drawn in the widget's
+  `snapshot`, tiles are `GdkMemoryTexture`s, darkest-wins highlights blend with `GskBlendMode::Darken`, and workers
+  wake the widget through the main context.
+- The widget follows its size and the surface's (fractional) scale, and takes the wheel and touchpad (Ctrl zooms,
+  Shift scrolls sideways), the mouse (links, selection with the system's double-click limits, middle-click
+  scrolling, back and forward buttons) and the pen through `GtkGestureStylus` (pressure, eraser end).
+- The app registers it on Linux (`#[native_components(linux)]`), so the Linux build shows pages.
+- CI: the 20 ms cancel test allows 100 ms when `CI` is set; shared runners in debug builds missed it at 32 ms.
+
 ### 2026-11-15 06:48; Ph2: 2/3 | K.10: Page canvas on Linux (shared canvas core)
 
 #### Changed

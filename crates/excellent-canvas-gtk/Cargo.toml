@@ -7,5 +7,13 @@ publish.workspace = true
 repository.workspace = true
 description = "Linux page canvas: GTK 4 widget with GtkGestureStylus axes"
 
+# GTK comes through NSH's Linux backend (`nsh_platform_linux::gtk4`), so the canvas uses the very GTK the app runs.
+[target.'cfg(target_os = "linux")'.dependencies]
+excellent-canvas.workspace = true
+excellent-mupdf.workspace = true
+log.workspace = true
+nsh-core.workspace = true
+nsh-platform-linux.workspace = true
+
 [lints]
 workspace = true

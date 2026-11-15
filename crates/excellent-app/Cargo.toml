@@ -36,6 +36,7 @@ nsh-platform-windows.workspace = true
 nsh-platform-macos.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
+excellent-canvas-gtk.workspace = true
 nsh-platform-linux.workspace = true
 
 [dev-dependencies]

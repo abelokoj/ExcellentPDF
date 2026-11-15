@@ -744,6 +744,7 @@ name = "excellent-app"
 version = "0.1.0"
 dependencies = [
  "env_logger",
+ "excellent-canvas-gtk",
  "excellent-canvas-win",
  "excellent-core",
  "excellent-features",
@@ -783,6 +784,13 @@ version = "0.1.0"
 [[package]]
 name = "excellent-canvas-gtk"
 version = "0.1.0"
+dependencies = [
+ "excellent-canvas",
+ "excellent-mupdf",
+ "log",
+ "nsh-core",
+ "nsh-platform-linux",
+]
 
 [[package]]
 name = "excellent-canvas-ios"
