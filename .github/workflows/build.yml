@@ -36,6 +36,9 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # Line tables only: backtraces keep their lines, and linking the app's test binaries fits the runners' memory (the
+  # Linux arm64 runner was shut down while linking with full debug info).
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:
   build:

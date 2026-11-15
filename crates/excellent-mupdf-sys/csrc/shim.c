@@ -495,7 +495,9 @@ int ex_display_list_images(fz_context *ctx, fz_display_list *list, fz_cookie *co
 	{
 		dev = fz_new_derived_device(ctx, ex_image_device);
 		dev->super.fill_image = ex_list_image;
-		fz_run_display_list(ctx, list, &dev->super, fz_identity, fz_infinite_rect, cookie);
+		/* Culled to the page, not to the infinite rect: what lands on the page is what's listed, and MuPDF's culling
+		 * of the infinite rect's edge values listed nothing on macOS. */
+		fz_run_display_list(ctx, list, &dev->super, fz_identity, fz_bound_display_list(ctx, list), cookie);
 		fz_close_device(ctx, &dev->super);
 	}
 	fz_always(ctx)
