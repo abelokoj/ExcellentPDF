@@ -266,7 +266,8 @@ impl Tree {
 /// A static library of third-party C code: always optimized, as SumatraPDF does, with its warnings off.
 fn library(target: Target) -> cc::Build {
     let mut build = cc::Build::new();
-    build.opt_level(2).warnings(false).cargo_warnings(false);
+    // `-w` silences the warnings; cargo still shows the compiler's errors, so a failing source says why.
+    build.opt_level(2).warnings(false);
     build.define("_CRT_SECURE_NO_WARNINGS", None);
     if target.msvc {
         // Some sources (zxing-cpp's u8 literals, Tesseract) are UTF-8; cl.exe would read them in the ANSI code page.
@@ -327,7 +328,14 @@ fn main() {
         s.spawn(|| build_libjpeg(tree));
         s.spawn(|| build_cmark(tree));
         s.spawn(|| build_extract(tree));
-        s.spawn(|| build_simple(tree, "a-zlib", "zlib.c", &[]));
+        // zlib's gz* functions call read, write and lseek, which unistd.h declares; SumatraPDF builds only for Windows,
+        // where io.h does. Clang treats an undeclared call as an error.
+        let zlib: &[(&str, &str)] = if tree.target.os == Os::Windows {
+            &[]
+        } else {
+            &[("HAVE_UNISTD_H", "1")]
+        };
+        s.spawn(move || build_simple(tree, "a-zlib", "zlib.c", zlib));
         s.spawn(|| build_simple(tree, "a-brotli", "brotli.c", &[]));
         s.spawn(|| {
             build_simple(
