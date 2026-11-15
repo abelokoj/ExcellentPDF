@@ -6,11 +6,11 @@
 
 pub mod history;
 
-use excellent_canvas::layout::{Mode, Spec};
-use excellent_canvas::viewport::ZoomMode;
+use excellent_core::transform::Rotation;
 use excellent_mupdf::PageBox;
 
-use crate::transform::Rotation;
+use crate::layout::{Mode, Spec};
+use crate::viewport::ZoomMode;
 use history::History;
 
 /// Device pixels a grid cell gets at least, so a grid page stays recognisable.
@@ -155,7 +155,7 @@ fn grid_columns(width: f32) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use excellent_canvas::layout::{Direction, Flow};
+    use crate::layout::{Direction, Flow};
 
     use super::*;
 

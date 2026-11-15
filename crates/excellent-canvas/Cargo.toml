@@ -7,6 +7,16 @@ publish.workspace = true
 repository.workspace = true
 description = "Platform-neutral page canvas: viewport, gestures, hit testing, overlays and the ink capture model"
 
+[dependencies]
+excellent-core.workspace = true
+excellent-features.workspace = true
+excellent-ink.workspace = true
+excellent-mupdf.workspace = true
+excellent-text.workspace = true
+log.workspace = true
+nsh-core.workspace = true
+serde_json.workspace = true
+
 [dev-dependencies]
 proptest.workspace = true
 

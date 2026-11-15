@@ -1,36 +1,30 @@
 //! Windows page canvas (plan §5.4, K.8): the `excellent.page-canvas` NSH component, a child window drawn with
-//! Direct2D on a DXGI flip-model swap chain, showing tiles that `excellent-core`'s workers render.
+//! Direct2D on a DXGI flip-model swap chain, showing tiles that `excellent-core`'s workers render. The canvas's logic
+//! is `excellent_canvas::page`, shared with macOS and Linux; this crate is its Windows [`host`](excellent_canvas::page::Host),
+//! input and screen-reader provider.
 //!
 //! Built so far: the window, presenting, scroll and zoom, and tiles (T7); pen input through `WM_POINTER` with a
 //! pressure-width stroke drawn in the same frame (the T8 spike); layouts, fit modes, view rotation and page boxes
-//! (K.6, R.1–R.4: `excellent_core::view`'s commands, and `placement` keeping ink on its page); one shared document per
+//! (K.6, R.1–R.4: `excellent_canvas::view`'s commands, and `placement` keeping ink on its page); one shared document per
 //! file through `excellent_core::registry` (K.5), back and forward (R.8), text selection and copy (K.13), and a UI
 //! Automation provider with the Text pattern for screen readers (U.2, `uia`). Still to come: the GDI fallback (K.8),
 //! touch (U.3) and overlays.
 
 #[cfg(target_os = "windows")]
-mod canvas;
-#[cfg(target_os = "windows")]
-mod clicks;
-#[cfg(target_os = "windows")]
 mod component;
 #[cfg(target_os = "windows")]
 mod gfx;
 #[cfg(target_os = "windows")]
-mod near;
-#[cfg(target_os = "windows")]
-mod placement;
+mod host;
 #[cfg(target_os = "windows")]
 mod pointer;
-#[cfg(target_os = "windows")]
-mod saved;
 #[cfg(target_os = "windows")]
 mod uia;
 #[cfg(target_os = "windows")]
 mod window;
 
 #[cfg(target_os = "windows")]
-pub use component::NAME;
+pub use excellent_canvas::page::NAME;
 
 /// Registers the page canvas with NSH under [`NAME`].
 #[cfg(target_os = "windows")]

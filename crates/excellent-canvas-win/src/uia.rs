@@ -34,7 +34,7 @@ use windows::core::{
     BOOL, BSTR, Error, HRESULT, IUnknown, IUnknownImpl, Interface, Ref, Result, implement,
 };
 
-use crate::canvas::Canvas;
+use crate::host::Canvas;
 
 /// The canvas window's message that raises a UI Automation event: `wparam` is [`TEXT_CHANGED`] or
 /// [`SELECTION_CHANGED`].

@@ -15,4 +15,3 @@ mod save;
 pub mod shared;
 pub mod thumbnail;
 pub mod transform;
-pub mod view;

@@ -1,50 +1,40 @@
-//! One canvas's state on the UI thread: its document, layout, viewport and tiles, and drawing a frame
-//! (plan §7.2, §7.4).
+//! One canvas's state on its view's thread: its document, layout, viewport and tiles, and drawing a frame
+//! (plan §7.2, §7.4), on any platform through its [`Host`].
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
-use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
-use excellent_canvas::layout::{Axis, Direction, Layout, PageSize};
-use excellent_canvas::tiles::{self, TileCache, TileKey};
-use excellent_canvas::viewport::{self, Side, Viewport, ZoomMode};
+use crate::layout::{Axis, Direction, Layout, PageSize};
+use crate::tiles::{self, TileCache, TileKey};
+use crate::view::history::Place;
+use crate::view::{Effect, View, ViewCommand};
+use crate::viewport::{self, Side, Viewport, ZoomMode};
 use excellent_core::darkmode::{PageColors, PageImages};
 use excellent_core::document::{self, Document};
 use excellent_core::formats;
 use excellent_core::render::{Job, Note, Priority, Recolor};
 use excellent_core::shared::{pool, registry};
 use excellent_core::transform::Transform;
-use excellent_core::view::history::Place;
-use excellent_core::view::{Effect, View, ViewCommand};
 use excellent_ink::stroke::{InkPoint, Stroke, WidthCurve};
 use excellent_mupdf::{
     DeviceRect, DisplayList, Link, PageBox, PagePoint, PageRect, Pixmap, Reflow, Target, TextLayout,
 };
 use excellent_text::{Granularity, PageText, Selection, TextPos};
 use nsh_core::JsonValue;
-use nsh_platform_windows::ComponentContext;
-use windows::Win32::Foundation::{HWND, LPARAM, POINT, WPARAM};
-use windows::Win32::Graphics::Direct2D::ID2D1Bitmap1;
-use windows::Win32::Graphics::Gdi::{ClientToScreen, InvalidateRect};
-use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
-use windows::Win32::UI::WindowsAndMessaging::PostMessageW;
 
-use crate::clicks::{ClickLimits, Clicks};
-use crate::gfx::{self, Gfx, Wash};
-use crate::near::Near;
-use crate::placement::Placement;
-use crate::pointer::Sample;
-use crate::saved::SavedView;
+use super::host::{Host, InkPixel, Wake, Wash};
+use crate::page::clicks::{ClickLimits, Clicks};
+use crate::page::near::Near;
+use crate::page::placement::Placement;
+use crate::page::saved::SavedView;
 
 mod access;
 mod find;
 mod reading;
-
-/// Posted to the canvas window when a background job is done.
-pub(crate) const WM_JOB_DONE: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 1;
 
 /// Behind the pages until the app sets its theme's `page-area` colour.
 const BACKGROUND: u32 = 0x2b2d31;
@@ -67,7 +57,7 @@ const SELECTION: u32 = 0xb4d5fe;
 
 /// The pointer's shape over the canvas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Cursor {
+pub enum Cursor {
     /// The default arrow.
     Arrow,
     /// Over a link: the hand.
@@ -78,28 +68,37 @@ pub(crate) enum Cursor {
     Pan,
 }
 
-/// Wakes the canvas window from a worker thread, once per batch of finished jobs.
-#[derive(Debug)]
+/// Wakes the canvas's thread from a worker thread, once per batch of finished jobs.
 struct Waker {
-    /// The window, as an integer: `HWND` isn't `Send`.
-    hwnd: isize,
     posted: AtomicBool,
+    wake: Wake,
 }
 
 impl Waker {
     fn wake(&self) {
         if !self.posted.swap(true, Ordering::AcqRel) {
-            // SAFETY: a plain post; if the window is gone the call fails and nothing happens.
-            unsafe {
-                let _ = PostMessageW(
-                    Some(HWND(self.hwnd as *mut _)),
-                    WM_JOB_DONE,
-                    WPARAM(0),
-                    LPARAM(0),
-                );
-            }
+            (self.wake)();
         }
     }
+}
+
+/// A pen sample, in the view's pixels.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PenSample {
+    /// The pointer it belongs to: a stroke follows one pointer.
+    pub id: u32,
+    /// Where, in the view's pixels.
+    pub x: f32,
+    /// Where, in the view's pixels.
+    pub y: f32,
+    /// 0 to 1; `None` when the pen doesn't say.
+    pub pressure: Option<f32>,
+    /// Touching the screen.
+    pub contact: bool,
+    /// The pen's eraser end, or the pen turned over.
+    pub eraser: bool,
+    /// When the input happened, on the host's clock (0: unknown), for the latency log ([`Host::since_input_ms`]).
+    pub input: u64,
 }
 
 /// An open document, its pages' sizes and its reading direction.
@@ -129,11 +128,10 @@ enum List {
     Failed,
 }
 
-/// What a canvas shows and everything it needs to show it.
-pub(crate) struct Canvas {
-    hwnd: HWND,
+/// What a canvas shows and everything it needs to show it, drawn through its platform's `H`.
+pub struct PageCanvas<H: Host> {
+    host: H,
     waker: Arc<Waker>,
-    gfx: Option<Gfx>,
     path: Option<PathBuf>,
     opening: Option<Receiver<document::Result<Opened>>>,
     document: Option<Arc<Document>>,
@@ -145,16 +143,14 @@ pub(crate) struct Canvas {
     layout: Layout,
     viewport: Viewport,
     lists: HashMap<usize, List>,
-    tiles: TileCache<Job<Pixmap>, ID2D1Bitmap1>,
+    tiles: TileCache<Job<Pixmap>, H::Image>,
     /// Finished strokes, each on its page, in page points.
     // shortcut: kept in memory until the document closes; H.1 commits them to the document as one operation each.
     ink: Vec<PageStroke>,
     /// The stroke the pen is drawing.
     pen: Option<PenStroke>,
-    /// Tokens of the points handed to the compositor's ink trail that it still draws, oldest first.
+    /// Tokens of the points handed to the host's ink trail that it still draws, oldest first.
     trail: Vec<u32>,
-    /// Where the canvas tells the app about the document and the page shown.
-    events: Option<ComponentContext>,
     /// The page last reported as the reader's.
     reported_page: Option<usize>,
     /// The view last reported, for the app to save with the tab (R.9).
@@ -213,8 +209,8 @@ struct PenStroke {
     latency: Latency,
 }
 
-/// Input-to-present times of one stroke's frames, in milliseconds: from the newest sample's performance counter to
-/// `Present` returning. The frame shows on the next refresh after that, which this doesn't see.
+/// Input-to-present times of one stroke's frames, in milliseconds: from the newest sample's time stamp to the frame
+/// being handed to the display. The frame shows on the next refresh after that, which this doesn't see.
 #[derive(Debug, Default)]
 struct Latency {
     frames: u32,
@@ -223,47 +219,26 @@ struct Latency {
 }
 
 impl Latency {
-    /// Adds a frame whose newest sample happened at performance counter `input` (0: unknown, not counted).
-    fn add(&mut self, input: u64) {
-        if input == 0 {
+    /// Adds a frame whose newest sample happened `ms` milliseconds ago (`None`: unknown, not counted).
+    fn add(&mut self, ms: Option<f64>) {
+        let Some(ms) = ms else {
             return;
-        }
-        let ms = (now() - input as i64) as f64 * 1000.0 / frequency() as f64;
+        };
         self.frames += 1;
         self.total += ms;
         self.worst = self.worst.max(ms);
     }
 }
 
-/// The performance counter now.
-fn now() -> i64 {
-    let mut count = 0;
-    // SAFETY: plain query; `count` lives for the call. It cannot fail on Windows XP and later.
-    let _ = unsafe { QueryPerformanceCounter(&mut count) };
-    count
-}
-
-/// Performance counter ticks per second.
-fn frequency() -> i64 {
-    static FREQUENCY: OnceLock<i64> = OnceLock::new();
-    *FREQUENCY.get_or_init(|| {
-        let mut frequency = 1;
-        // SAFETY: plain query; `frequency` lives for the call.
-        let _ = unsafe { QueryPerformanceFrequency(&mut frequency) };
-        frequency.max(1)
-    })
-}
-
-impl Canvas {
-    /// A canvas drawing into `hwnd`, on a screen of `dpi`.
-    pub(crate) fn new(hwnd: HWND, dpi: u32) -> Self {
+impl<H: Host> PageCanvas<H> {
+    /// A canvas drawing through `host`, on a screen of `pixels_per_point` (device pixels to a page point at 100 %).
+    pub fn new(host: H, pixels_per_point: f32) -> Self {
         Self {
-            hwnd,
             waker: Arc::new(Waker {
-                hwnd: hwnd.0 as isize,
                 posted: AtomicBool::new(false),
+                wake: host.waker(),
             }),
-            gfx: None,
+            host,
             path: None,
             opening: None,
             document: None,
@@ -271,13 +246,12 @@ impl Canvas {
             measuring: None,
             view: View::default(),
             layout: Layout::default(),
-            viewport: Viewport::new(dpi as f32 / 72.0),
+            viewport: Viewport::new(pixels_per_point),
             lists: HashMap::new(),
             tiles: TileCache::new(TILE_BUDGET),
             ink: Vec::new(),
             pen: None,
             trail: Vec::new(),
-            events: None,
             reported_page: None,
             reported_view: None,
             links: Near::new("links"),
@@ -303,7 +277,7 @@ impl Canvas {
     }
 
     /// Shows the document at `path` (`None`: nothing). It opens on a background thread.
-    pub(crate) fn open(&mut self, path: Option<&Path>) {
+    pub fn open(&mut self, path: Option<&Path>) {
         if self.path.as_deref() == path {
             return;
         }
@@ -325,11 +299,13 @@ impl Canvas {
     fn reflow_size(&self) -> Reflow {
         let (width, height) = self.viewport_size();
         let ppp = self.viewport.pixels_per_point();
-        formats::reflow_pages(width / ppp, height / ppp, self.font_size)
+        // The layout keeps a gap round the pages; the book's pages fill what is left.
+        let gaps = 2.0 * crate::layout::GAP;
+        formats::reflow_pages(width / ppp - gaps, height / ppp - gaps, self.font_size)
     }
 
     /// The reader's text size for books, in points (`None`: the default).
-    pub(crate) fn set_reflow_font_size(&mut self, points: Option<f32>) {
+    pub fn set_reflow_font_size(&mut self, points: Option<f32>) {
         let range = formats::FONT_SIZES;
         let points = points.unwrap_or(formats::DEFAULT_FONT_SIZE);
         self.font_size = points.clamp(*range.start(), *range.end());
@@ -365,7 +341,7 @@ impl Canvas {
         });
     }
 
-    /// Runs `work` on a thread of its own and wakes the canvas when it is done; `None` (logged) if Windows can't
+    /// Runs `work` on a thread of its own and wakes the canvas when it is done; `None` (logged) if the system can't
     /// start the thread.
     fn in_background<T: Send + 'static>(
         &self,
@@ -390,31 +366,29 @@ impl Canvas {
         }
     }
 
-    /// Tells the app, through `events`, about the document's pages (`pages`: `{count, labels, sizes}`, labels `null`
-    /// when the pages go by number, sizes `[width, height]` in points as laid out) and the reader's page (`page`:
-    /// `{index}`).
-    pub(crate) fn set_events(&mut self, events: ComponentContext) {
-        self.events = Some(events);
-    }
-
     /// Tells the app the reader pressed on the pages (`press`), so the keyboard goes to them: a window of its own,
     /// the canvas never takes the app's keyboard focus.
-    pub(crate) fn pressed(&self) {
+    pub fn pressed(&self) {
         self.emit("press", JsonValue::Null);
     }
 
     /// A pen touched the canvas (`penContact`), wherever it landed.
-    pub(crate) fn pen_contact(&self) {
+    pub fn pen_contact(&self) {
         self.emit("penContact", JsonValue::Null);
     }
 
+    /// Tells the app something happened, through the host.
     fn emit(&self, name: &str, data: JsonValue) {
-        if let Some(events) = &self.events {
-            events.emit(name, data);
-        }
+        self.host.emit(name, data);
     }
 
-    /// Reports the document's pages, and that no page is reported yet.
+    /// The platform's side of the canvas.
+    pub fn host(&self) -> &H {
+        &self.host
+    }
+
+    /// Reports the document's pages (`pages`: `{count, labels, sizes}`, labels `null` when the pages go by number,
+    /// sizes `[width, height]` in points as laid out), and that no page is reported yet.
     fn report_pages(&mut self, labels: Option<Vec<String>>) {
         self.reported_page = None;
         let labels = labels.map_or(JsonValue::Null, |labels| labels.into());
@@ -484,7 +458,7 @@ impl Canvas {
 
     /// Jumps to `point` on page `page` (B.6), at `zoom` when there is one (1 is 100 %), else in the reader's zoom,
     /// remembering where the reader was (R.8).
-    pub(crate) fn go_to_point(&mut self, page: usize, point: PagePoint, zoom: Option<f32>) {
+    pub fn go_to_point(&mut self, page: usize, point: PagePoint, zoom: Option<f32>) {
         if let Some(zoom) = zoom {
             self.viewport.set_zoom(zoom, &self.layout);
         }
@@ -495,7 +469,7 @@ impl Canvas {
     }
 
     /// Jumps to page `index` (R.6), remembering where the reader was (R.8).
-    pub(crate) fn go_to_page(&mut self, index: usize) {
+    pub fn go_to_page(&mut self, index: usize) {
         self.jump(Target {
             page: index,
             point: None,
@@ -564,7 +538,7 @@ impl Canvas {
     }
 
     /// The pointer's shape where the mouse is.
-    pub(crate) fn cursor(&self) -> Cursor {
+    pub fn cursor(&self) -> Cursor {
         if self.reading.is_panning() {
             Cursor::Pan
         } else if self.selecting || (self.over_text && self.hovered.is_none()) {
@@ -579,7 +553,7 @@ impl Canvas {
     /// The mouse moved to client pixel (`x`, `y`), or left the canvas (`None`). While selecting, the selection
     /// follows it. Otherwise tells the app when the link under it changes (`linkHover`: `{uri, page}`, page `null`
     /// for a link out of the document; `null` for no link).
-    pub(crate) fn mouse_moved(&mut self, at: Option<(i32, i32)>) {
+    pub fn mouse_moved(&mut self, at: Option<(i32, i32)>) {
         self.reading_mouse(at);
         if self.selecting {
             // shortcut: the selection stops at the screen's edge; dragging past it doesn't scroll yet.
@@ -610,7 +584,7 @@ impl Canvas {
     /// button to come up. On text it starts a selection: by characters, or by words, lines or paragraphs for a
     /// second, third or fourth click. Anywhere else it clears the selection. Returns whether a selection started,
     /// when the window should capture the mouse until the button comes up.
-    pub(crate) fn mouse_down(&mut self, x: i32, y: i32, time: u32, limits: ClickLimits) -> bool {
+    pub fn mouse_down(&mut self, x: i32, y: i32, time: u32, limits: ClickLimits) -> bool {
         let clicks = self.clicks.press(time, x, y, limits);
         self.pressed = self.link_at(x, y).cloned();
         if self.pressed.is_some() {
@@ -632,13 +606,13 @@ impl Canvas {
     /// The left button came up at client pixel (`x`, `y`): a selection ends there; over the link it went down on,
     /// the link is followed. A link inside the document jumps; any other goes to the app (`openLink`: `{uri}`),
     /// which decides whether to open it. Returns whether a selection ended, when the window lets the mouse go.
-    pub(crate) fn mouse_up(&mut self, x: i32, y: i32) -> bool {
+    pub fn mouse_up(&mut self, x: i32, y: i32) -> bool {
         if self.selecting {
             self.selecting = false;
             if self.selection.is_some_and(|s| s.is_collapsed()) {
                 self.selection = None;
             }
-            crate::uia::selection_changed(self.hwnd);
+            self.host.selection_changed();
             return true;
         }
         let Some(pressed) = self.pressed.take() else {
@@ -652,14 +626,14 @@ impl Canvas {
     }
 
     /// Something else took the mouse while a selection was being dragged: the selection stays as it is.
-    pub(crate) fn capture_lost(&mut self) {
+    pub fn capture_lost(&mut self) {
         self.selecting = false;
         self.stop_pan();
     }
 
     /// Copies the selected text: the canvas sends it to the app (`copy`: `{text}`), which puts it on the clipboard.
     /// Pages of the selection whose text isn't read yet are waited for.
-    pub(crate) fn copy(&mut self) {
+    pub fn copy(&mut self) {
         let Some(selection) = self.selection else {
             return;
         };
@@ -677,7 +651,7 @@ impl Canvas {
 
     /// Selects all the text of the reader's page.
     // shortcut: the reader's page, not the whole document, until K.13's document-wide text index (search, R.18).
-    pub(crate) fn select_page(&mut self) {
+    pub fn select_page(&mut self) {
         let Some(page) = self.viewport.current_page(&self.layout) else {
             return;
         };
@@ -693,14 +667,14 @@ impl Canvas {
             granularity: Granularity::Char,
         });
         self.invalidate();
-        crate::uia::selection_changed(self.hwnd);
+        self.host.selection_changed();
     }
 
     /// Tells the app where the reader is, for a new outline entry or bookmark (B.1, B.4, B.6), as `readerPlace`:
     /// `{page, x, y, zoom, title}`, the place in page points. With selected text it is the top of the selection's
     /// first line and `title` is the text; otherwise the top left of what shows of the first page in view, and
     /// `title` is `null`. `zoom` is the reader's (1 is 100 %), `null` while a fit mode sets it.
-    pub(crate) fn reader_place(&self) {
+    pub fn reader_place(&self) {
         let selected = self
             .selection
             .filter(|selection| !selection.is_collapsed())
@@ -744,12 +718,12 @@ impl Canvas {
     }
 
     /// Jumps to the first page.
-    pub(crate) fn first_page(&mut self) {
+    pub fn first_page(&mut self) {
         self.go_to_page(0);
     }
 
     /// Jumps to the last page.
-    pub(crate) fn last_page(&mut self) {
+    pub fn last_page(&mut self) {
         if let Some(last) = self.layout.len().checked_sub(1) {
             self.go_to_page(last);
         }
@@ -783,7 +757,7 @@ impl Canvas {
         self.ink.clear();
         self.links.clear();
         self.notes.clear();
-        crate::uia::content_changed(self.hwnd);
+        self.host.content_changed();
         self.texts.clear();
         self.selection = None;
         self.selecting = false;
@@ -794,10 +768,9 @@ impl Canvas {
         self.finder.forget(true);
     }
 
-    /// The window is `width` × `height` pixels on a screen of `dpi`.
-    pub(crate) fn resize(&mut self, width: u32, height: u32, dpi: u32) {
-        log::debug!("page canvas: {width} x {height} pixels at {dpi} dpi");
-        let ppp = dpi as f32 / 72.0;
+    /// The view is `width` × `height` pixels on a screen of `ppp` pixels per point.
+    pub fn resize(&mut self, width: u32, height: u32, ppp: f32) {
+        log::debug!("page canvas: {width} x {height} pixels at {ppp} pixels a point");
         if ppp != self.viewport.pixels_per_point() {
             self.viewport.set_pixels_per_point(ppp, &self.layout);
         }
@@ -807,23 +780,21 @@ impl Canvas {
             self.relayout();
         }
         self.reflow();
-        if let Some(gfx) = &mut self.gfx
-            && let Err(err) = gfx.resize(width, height)
-        {
-            log::warn!("cannot resize the swap chain ({err}); starting over");
+        if let Err(err) = self.host.resize(width, height) {
+            log::warn!("the page canvas can't follow the new size ({err}); starting over");
             self.lose_device();
         }
         self.invalidate();
     }
 
     /// Scrolls by device pixels.
-    pub(crate) fn scroll_by(&mut self, dx: f32, dy: f32) {
+    pub fn scroll_by(&mut self, dx: f32, dy: f32) {
         self.viewport.scroll_by(dx, dy, &self.layout);
         self.invalidate();
     }
 
     /// Scrolls by a mouse wheel's device pixels: in the horizontal layout the plain wheel moves along the strip.
-    pub(crate) fn scroll_wheel(&mut self, dx: f32, dy: f32) {
+    pub fn scroll_wheel(&mut self, dx: f32, dy: f32) {
         if dx == 0.0 && self.layout.axis() == Axis::Horizontal {
             self.viewport.scroll_forward(dy, &self.layout);
             self.invalidate();
@@ -834,14 +805,14 @@ impl Canvas {
 
     /// The Left or Right arrow (R.3): a row of pages back or on by the reading direction, or sideways when the pages
     /// are wider than the screen.
-    pub(crate) fn step_side(&mut self, side: Side) {
+    pub fn step_side(&mut self, side: Side) {
         let pixels = self.viewport.width() * SIDE_STEP;
         self.viewport.step_side(side, pixels, &self.layout);
         self.invalidate();
     }
 
     /// Scrolls one screen toward the later pages (`direction` 1) or the earlier ones (-1), along the layout.
-    pub(crate) fn scroll_screen(&mut self, direction: f32) {
+    pub fn scroll_screen(&mut self, direction: f32) {
         let length = self.viewport.screen_length(&self.layout) * SCREEN_STEP;
         self.viewport
             .scroll_forward(direction * length, &self.layout);
@@ -849,13 +820,13 @@ impl Canvas {
     }
 
     /// Multiplies the zoom by `factor` about device pixel (`x`, `y`).
-    pub(crate) fn zoom_about(&mut self, factor: f32, x: f32, y: f32) {
+    pub fn zoom_about(&mut self, factor: f32, x: f32, y: f32) {
         self.viewport.zoom_about(factor, x, y, &self.layout);
         self.invalidate();
     }
 
     /// Zooms to the next step in (`ZoomChange::In`) or out.
-    pub(crate) fn zoom_step(&mut self, change: ZoomChange) {
+    pub fn zoom_step(&mut self, change: ZoomChange) {
         let zoom = self.viewport.zoom();
         let next = match change {
             ZoomChange::In => viewport::step_in(zoom),
@@ -866,13 +837,13 @@ impl Canvas {
     }
 
     /// Shows the page at its printed size.
-    pub(crate) fn actual_size(&mut self) {
+    pub fn actual_size(&mut self) {
         self.viewport.set_zoom(1.0, &self.layout);
         self.invalidate();
     }
 
     /// Changes how the pages are shown (layout, rotation, box, fit), keeping the reader's place.
-    pub(crate) fn view_command(&mut self, command: ViewCommand) {
+    pub fn view_command(&mut self, command: ViewCommand) {
         match self.view.apply(command, self.viewport.width()) {
             Effect::None => {}
             Effect::Relayout => self.relayout(),
@@ -908,7 +879,7 @@ impl Canvas {
     }
 
     /// Back to where the reader was before the last jump (R.8).
-    pub(crate) fn history_back(&mut self) {
+    pub fn history_back(&mut self) {
         let Some(here) = self.place() else { return };
         if let Some(place) = self.view.history.back(here) {
             self.go_to_place(place);
@@ -916,7 +887,7 @@ impl Canvas {
     }
 
     /// Forward again to where back came from (R.8).
-    pub(crate) fn history_forward(&mut self) {
+    pub fn history_forward(&mut self) {
         let Some(here) = self.place() else { return };
         if let Some(place) = self.view.history.forward(here) {
             self.go_to_place(place);
@@ -959,25 +930,14 @@ impl Canvas {
         });
     }
 
-    /// The window's top-left corner on the screen, in pixels: pen samples come in screen coordinates.
-    fn client_origin(&self) -> POINT {
-        let mut origin = POINT::default();
-        // SAFETY: a plain call on our live window; `origin` lives for it.
-        let _ = unsafe { ClientToScreen(self.hwnd, &mut origin) };
-        origin
-    }
-
     /// The pen touched down. Returns whether the canvas takes it: not the eraser end, and only over a document.
-    pub(crate) fn pen_down(&mut self, sample: &Sample) -> bool {
+    pub fn pen_down(&mut self, sample: &PenSample) -> bool {
         // shortcut: the eraser end does nothing until H.5's erasers.
         if sample.eraser || self.document.is_none() {
             return false;
         }
         // Ink belongs to a page: a stroke starts only on one.
-        let origin = self.client_origin();
-        let (x, y) = self
-            .viewport
-            .to_layout_point((sample.x - origin.x) as f32, (sample.y - origin.y) as f32);
+        let (x, y) = self.viewport.to_layout_point(sample.x, sample.y);
         let Some(page) = self.layout.page_at(x, y) else {
             return false;
         };
@@ -988,16 +948,14 @@ impl Canvas {
             latency: Latency::default(),
         });
         self.trail.clear();
-        if let Some(gfx) = &self.gfx {
-            gfx.trail_start(INK);
-        }
+        self.host.trail_start(INK);
         self.pen_moved(std::slice::from_ref(sample));
         true
     }
 
-    /// The pen moved through `samples`, oldest first. The compositor's ink trail gets them at once; our frame with
-    /// them is drawn now if the swap chain takes one without waiting, else as soon as it does.
-    pub(crate) fn pen_moved(&mut self, samples: &[Sample]) {
+    /// The pen moved through `samples`, oldest first. The host's ink trail, if it has one, gets them at once; our
+    /// frame with them is drawn now if the host takes one without waiting, else as soon as it does.
+    pub fn pen_moved(&mut self, samples: &[PenSample]) {
         let Some(page) = self.pen.as_ref().map(|pen| pen.page) else {
             return;
         };
@@ -1006,7 +964,6 @@ impl Canvas {
         else {
             return;
         };
-        let origin = self.client_origin();
         let Some(pen) = &mut self.pen else {
             return;
         };
@@ -1015,7 +972,7 @@ impl Canvas {
         let mut on_screen = Vec::with_capacity(samples.len());
         let mut newest = None;
         for sample in samples.iter().filter(|s| s.id == pen.id && s.contact) {
-            let (sx, sy) = ((sample.x - origin.x) as f32, (sample.y - origin.y) as f32);
+            let (sx, sy) = (sample.x, sample.y);
             let (x, y) = self.viewport.to_layout_point(sx, sy);
             let on_page = placement.to_page(x, y);
             let width = curve.width(sample.pressure);
@@ -1025,32 +982,30 @@ impl Canvas {
                 width,
             });
             on_screen.push((sx, sy, width * scale));
-            newest = Some(sample.performance_count);
+            newest = Some(sample.input);
         }
         let Some(input) = newest else {
             return;
         };
-        let ready = match &mut self.gfx {
-            Some(gfx) => {
-                if let Some(token) = gfx.trail_add(&on_screen) {
-                    self.trail.push(token);
-                }
-                gfx.frame_ready()
-            }
-            None => true,
-        };
+        if let Some(token) = self.host.trail_add(&on_screen) {
+            self.trail.push(token);
+        }
+        let ready = self.host.frame_ready();
         if !ready {
             self.invalidate();
             return;
         }
         self.paint();
+        let ms = (input != 0)
+            .then(|| self.host.since_input_ms(input))
+            .flatten();
         if let Some(pen) = &mut self.pen {
-            pen.latency.add(input);
+            pen.latency.add(ms);
         }
     }
 
-    /// The pen lifted (or Windows took the pointer away): the stroke is finished.
-    pub(crate) fn pen_up(&mut self) {
+    /// The pen lifted (or the system took the pointer away): the stroke is finished.
+    pub fn pen_up(&mut self) {
         let Some(pen) = self.pen.take() else {
             return;
         };
@@ -1076,12 +1031,12 @@ impl Canvas {
     }
 
     /// Whether pointer `id` is drawing a stroke.
-    pub(crate) fn is_drawing(&self, id: u32) -> bool {
+    pub fn is_drawing(&self, id: u32) -> bool {
         self.pen.as_ref().is_some_and(|pen| pen.id == id)
     }
 
     /// A worker finished something: take what is done.
-    pub(crate) fn jobs_done(&mut self) {
+    pub fn jobs_done(&mut self) {
         self.waker.posted.store(false, Ordering::Release);
         let mut changed = self.take_opened();
         changed |= self.take_measured();
@@ -1099,7 +1054,7 @@ impl Canvas {
             }
         }
         if read {
-            crate::uia::content_changed(self.hwnd);
+            self.host.content_changed();
         }
         for (&page, list) in &mut self.lists {
             let List::Building(job, revision) = list else {
@@ -1123,11 +1078,12 @@ impl Canvas {
             }
             changed = true;
         }
-        if let Some(gfx) = &self.gfx {
+        if self.host.can_upload() {
+            let host = &mut self.host;
             changed |= self.tiles.poll(|job| {
                 let result = job.try_take()?;
                 Some(match result {
-                    Ok(pixmap) => to_bitmap(gfx, &pixmap),
+                    Ok(pixmap) => host.upload(&pixmap),
                     Err(err) => {
                         if !err.is_aborted() {
                             log::warn!("cannot render a tile: {err}");
@@ -1228,39 +1184,28 @@ impl Canvas {
         true
     }
 
-    /// The window's client size in pixels.
+    /// The view's size in pixels.
     fn viewport_size(&self) -> (f32, f32) {
-        let mut rect = windows::Win32::Foundation::RECT::default();
-        // SAFETY: a plain call on our live window.
-        let _ =
-            unsafe { windows::Win32::UI::WindowsAndMessaging::GetClientRect(self.hwnd, &mut rect) };
-        (
-            (rect.right - rect.left) as f32,
-            (rect.bottom - rect.top) as f32,
-        )
+        self.host.size()
     }
 
     /// Draws a frame and asks for what it is missing.
-    pub(crate) fn paint(&mut self) {
+    pub fn paint(&mut self) {
         let (width, height) = self.viewport_size();
         if width < 1.0 || height < 1.0 {
             return;
         }
-        if self.gfx.is_none() {
-            log::debug!("page canvas: new device, {width} x {height}");
-            match Gfx::new(self.hwnd, width as u32, height as u32) {
-                Ok(gfx) => self.gfx = Some(gfx),
-                Err(err) => {
-                    log::error!("cannot draw the page canvas: {err}");
-                    return;
-                }
-            }
+        if let Err(err) = self.host.begin(width, height) {
+            // No frame until something asks for one again: a device that can't be made now won't be in a loop.
+            log::error!("cannot draw the page canvas: {err}");
+            self.lose_device();
+            return;
         }
         let moving = self.advance_motion();
         let needed = tiles::visible_tiles(&self.layout, &self.viewport);
         self.request(&needed);
         self.tiles.begin_frame();
-        if let Err(err) = self.draw(&needed) {
+        if let Err(err) = self.draw(&needed).and_then(|()| self.host.end()) {
             log::warn!("the page canvas lost its device ({err}); starting over");
             self.lose_device();
             self.invalidate();
@@ -1270,7 +1215,7 @@ impl Canvas {
         if !moving {
             self.report_view();
         }
-        // The next frame waits for the display's refresh (`Gfx::begin`), so moving pages go at its rate.
+        // The next frame waits for the display's refresh (`Host::begin`), so moving pages go at its rate.
         if moving {
             self.invalidate();
         }
@@ -1380,21 +1325,20 @@ impl Canvas {
         }
     }
 
-    /// Draws the pages: paper first, then any older zoom's tiles while this zoom's render, then this zoom's.
-    fn draw(&mut self, needed: &[TileKey]) -> windows::core::Result<()> {
+    /// Draws the pages: paper first, then any older zoom's tiles while this zoom's render, then this zoom's; then the
+    /// selection, find's hits, the reading aids and the ink. The frame is begun and ended by [`Self::paint`].
+    fn draw(&mut self, needed: &[TileKey]) -> Result<(), H::Error> {
         let aids = self.aids();
         let found = self.found_on_screen();
         let (paper, wash) = (self.paper(), self.wash());
-        let gfx = self.gfx.as_mut().expect("paint made the device");
-        let context = gfx.begin()?.clone();
-        gfx::clear(&context, self.background);
-        let screen =
-            excellent_canvas::Rect::new(0.0, 0.0, self.viewport.width(), self.viewport.height());
+        let host = &mut self.host;
+        host.clear(self.background);
+        let screen = crate::Rect::new(0.0, 0.0, self.viewport.width(), self.viewport.height());
         let visible = self.viewport.visible();
         let mut first_complete = None;
         for (index, page) in self.layout.pages_in(&visible) {
             let on_screen = self.viewport.to_screen(&page);
-            gfx::fill(&context, &gfx::rect(&on_screen), paper)?;
+            host.fill(&on_screen, paper)?;
             let page_tiles = needed.iter().filter(|k| k.page == index);
             let complete = page_tiles.clone().all(|k| self.tiles.ready(k).is_some());
             first_complete.get_or_insert(complete);
@@ -1409,8 +1353,8 @@ impl Canvas {
                     if dest.intersect(&screen).is_none() {
                         continue;
                     }
-                    if let Some(bitmap) = self.tiles.ready(&key) {
-                        gfx::draw_bitmap(&context, bitmap, &gfx::rect(&dest));
+                    if let Some(image) = self.tiles.ready(&key) {
+                        host.image(image, &dest);
                     }
                 }
             }
@@ -1418,8 +1362,8 @@ impl Canvas {
                 let Some(dest) = key.on_screen(&self.layout, &self.viewport) else {
                     continue;
                 };
-                if let Some(bitmap) = self.tiles.ready(key) {
-                    gfx::draw_bitmap(&context, bitmap, &gfx::rect(&dest));
+                if let Some(image) = self.tiles.ready(key) {
+                    host.image(image, &dest);
                 }
             }
         }
@@ -1451,10 +1395,10 @@ impl Canvas {
                     }));
                 }
             }
-            gfx.highlight(&quads, SELECTION, wash)?;
+            host.highlight(&quads, SELECTION, wash)?;
         }
-        found.draw(gfx, wash)?;
-        aids.draw_under(gfx)?;
+        found.draw(host, wash)?;
+        aids.draw_under(host)?;
         let scale = self.viewport.scale();
         let strokes = self
             .ink
@@ -1467,7 +1411,7 @@ impl Canvas {
             else {
                 continue;
             };
-            let points: Vec<(f32, f32, f32)> = stroke
+            let points: Vec<InkPixel> = stroke
                 .points()
                 .iter()
                 .map(|p| {
@@ -1476,28 +1420,28 @@ impl Canvas {
                     (x, y, p.width * scale)
                 })
                 .collect();
-            gfx::polyline(&context, gfx.round(), &points, INK)?;
+            host.polyline(&points, INK)?;
         }
-        aids.draw_over(gfx)?;
+        aids.draw_over(host)?;
         // This frame shows every point the trail has. While the pen draws, the trail keeps the newest batch, so its
         // next points join on to it; once the stroke is done, the trail empties.
         let keep = usize::from(self.pen.is_some());
         if self.trail.len() > keep {
             let last = self.trail.len() - 1 - keep;
-            gfx.trail_remove(self.trail[last]);
+            host.trail_remove(self.trail[last]);
             self.trail.drain(..=last);
         }
-        gfx.end()
+        Ok(())
     }
 
-    /// The device is gone: its bitmaps go with it; the next frame makes a new one.
+    /// The device is gone: its images go with it; the next frame makes a new one.
     fn lose_device(&mut self) {
-        self.gfx = None;
+        self.host.lose_device();
         self.tiles.clear();
     }
 
     /// Draws `rgb` (`0xRRGGBB`) behind the pages: the theme's page area (K.17).
-    pub(crate) fn set_background(&mut self, rgb: u32) {
+    pub fn set_background(&mut self, rgb: u32) {
         if self.background != rgb {
             self.background = rgb;
             self.invalidate();
@@ -1505,7 +1449,7 @@ impl Canvas {
     }
 
     /// Draws the pages in `colors` (`None`: their own), rendering them again (R.14).
-    pub(crate) fn set_page_colors(&mut self, colors: Option<PageColors>) {
+    pub fn set_page_colors(&mut self, colors: Option<PageColors>) {
         if self.page_colors != colors {
             self.page_colors = colors;
             self.tiles.clear();
@@ -1530,11 +1474,8 @@ impl Canvas {
     }
 
     /// Asks for a frame.
-    pub(crate) fn invalidate(&self) {
-        // SAFETY: a plain call on our live window.
-        unsafe {
-            let _ = InvalidateRect(Some(self.hwnd), None, false);
-        }
+    pub fn invalidate(&self) {
+        self.host.invalidate();
     }
 }
 
@@ -1545,8 +1486,10 @@ fn is_dark([r, g, b]: [u8; 3]) -> bool {
 
 /// Which way to zoom.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ZoomChange {
+pub enum ZoomChange {
+    /// A step closer.
     In,
+    /// A step back.
     Out,
 }
 
@@ -1606,29 +1549,4 @@ fn open_document(path: &Path, page_box: PageBox, reflow: Reflow) -> document::Re
         labels,
         reflow,
     })
-}
-
-/// A rendered tile as a bitmap, with its size in bytes.
-// shortcut: RGB is swizzled to BGRA on the UI thread (about 0.1 ms a tile); move it to the worker if it shows in K.24.
-fn to_bitmap(gfx: &Gfx, pixmap: &Pixmap) -> Option<(ID2D1Bitmap1, usize)> {
-    let (width, height) = (pixmap.width(), pixmap.height());
-    if width == 0 || height == 0 {
-        return None;
-    }
-    let n = pixmap.components();
-    let stride = pixmap.stride();
-    let samples = pixmap.samples();
-    let mut bgra = Vec::with_capacity(width as usize * height as usize * 4);
-    for row in samples.chunks_exact(stride).take(height as usize) {
-        for px in row[..width as usize * n].chunks_exact(n) {
-            bgra.extend_from_slice(&[px[2], px[1], px[0], 0xff]);
-        }
-    }
-    match gfx.bitmap(width, height, &bgra) {
-        Ok(bitmap) => Some((bitmap, bgra.len())),
-        Err(err) => {
-            log::warn!("cannot make a tile bitmap: {err}");
-            None
-        }
-    }
 }

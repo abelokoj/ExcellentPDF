@@ -6,8 +6,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Once;
 
+use excellent_canvas::page::{ClickLimits, Cursor, PenSample};
+use nsh_platform_windows::ComponentContext;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-use windows::Win32::Graphics::Gdi::{ScreenToClient, ValidateRect};
+use windows::Win32::Graphics::Gdi::{ClientToScreen, ScreenToClient, ValidateRect};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::{
     FEEDBACK_PEN_BARRELVISUALIZATION, FEEDBACK_PEN_DOUBLETAP, FEEDBACK_PEN_PRESSANDHOLD,
@@ -29,9 +31,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::BOOL;
 use windows::core::{Result, w};
 
-use crate::canvas::{Canvas, Cursor, WM_JOB_DONE};
-use crate::clicks::ClickLimits;
-use crate::pointer::{self, Device};
+use crate::host::{Canvas, WM_JOB_DONE, WinHost};
+use crate::pointer::{self, Device, Sample};
 
 const CLASS: windows::core::PCWSTR = w!("ExcellentPDF.PageCanvas");
 
@@ -45,8 +46,9 @@ const NOTCH_ZOOM: f32 = 1.1;
 const MK_SHIFT: usize = 0x0004;
 const MK_CONTROL: usize = 0x0008;
 
-/// Makes the canvas window, hidden and without a parent: NSH adopts it as a child of the app window.
-pub(crate) fn create() -> Result<(HWND, Rc<RefCell<Canvas>>)> {
+/// Makes the canvas window, hidden and without a parent: NSH adopts it as a child of the app window. The canvas
+/// tells the app what happens through `events`.
+pub(crate) fn create(events: ComponentContext) -> Result<(HWND, Rc<RefCell<Canvas>>)> {
     // SAFETY: plain Win32 calls; the class's procedure is `proc` below, and the window's user data holds one counted
     // reference to its canvas, released in WM_NCDESTROY.
     unsafe {
@@ -96,7 +98,8 @@ pub(crate) fn create() -> Result<(HWND, Rc<RefCell<Canvas>>)> {
                 Some(std::ptr::from_ref(&off).cast()),
             );
         }
-        let canvas = Rc::new(RefCell::new(Canvas::new(hwnd, GetDpiForWindow(hwnd))));
+        let ppp = pixels_per_point(GetDpiForWindow(hwnd));
+        let canvas = Rc::new(RefCell::new(Canvas::new(WinHost::new(hwnd, events), ppp)));
         crate::uia::register(hwnd, &canvas);
         SetWindowLongPtrW(
             hwnd,
@@ -154,7 +157,7 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
             canvas.resize(
                 (rect.right - rect.left).max(0) as u32,
                 (rect.bottom - rect.top).max(0) as u32,
-                dpi,
+                pixels_per_point(dpi),
             );
             LRESULT(0)
         }
@@ -313,13 +316,18 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
                         Some(sample) => {
                             // K.18: the app may switch to Write mode.
                             canvas.pen_contact();
-                            canvas.pen_down(&sample)
+                            canvas.pen_down(&pen_sample(&sample, client_origin(hwnd)))
                         }
                         None => false,
                     }
                 }
                 WM_POINTERUPDATE if canvas.is_drawing(id) => {
-                    canvas.pen_moved(&pointer::pen_history(id));
+                    let origin = client_origin(hwnd);
+                    let samples: Vec<PenSample> = pointer::pen_history(id)
+                        .iter()
+                        .map(|sample| pen_sample(sample, origin))
+                        .collect();
+                    canvas.pen_moved(&samples);
                     true
                 }
                 WM_POINTERUP | WM_POINTERCAPTURECHANGED if canvas.is_drawing(id) => {
@@ -341,6 +349,32 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
             // SAFETY: plain default handling.
             unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
         }
+    }
+}
+
+/// Device pixels to a page point at 100 % on a screen of `dpi`.
+fn pixels_per_point(dpi: u32) -> f32 {
+    dpi as f32 / 72.0
+}
+
+/// The window's top-left corner on the screen, in pixels: pen samples come in screen coordinates.
+fn client_origin(hwnd: HWND) -> POINT {
+    let mut origin = POINT::default();
+    // SAFETY: a plain call on our live window; `origin` lives for it.
+    let _ = unsafe { ClientToScreen(hwnd, &mut origin) };
+    origin
+}
+
+/// A pen sample as the shared canvas takes it: in the window's pixels.
+fn pen_sample(sample: &Sample, origin: POINT) -> PenSample {
+    PenSample {
+        id: sample.id,
+        x: (sample.x - origin.x) as f32,
+        y: (sample.y - origin.y) as f32,
+        pressure: sample.pressure,
+        contact: sample.contact,
+        eraser: sample.eraser,
+        input: sample.performance_count,
     }
 }
 

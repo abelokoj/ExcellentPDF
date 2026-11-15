@@ -171,3 +171,25 @@ never offers an empty mode:
 - If the maintainer wants the mode per workspace, `Modes` reads and writes it through the workspace instead of
   `settings.toml`; the toolbars stay app-wide.
 
+
+## DD9. One page canvas for every platform, behind a `Host` trait (2026-11-15; agent's call, flagged)
+
+**Decision (agent):** K.9 and K.10 item 3 say the shared logic stays in `excellent-canvas`. Before them, all of it
+lived in `excellent-canvas-win`, tied to Win32 and Direct2D. It now lives in `excellent_canvas::page`:
+
+- `PageCanvas<H: Host>` holds the document, layout, viewport, tiles, input, selection, links, find, the reading aids
+  and ink, and parses the component's JSON props and commands (`set_prop`, `command`). Each platform implements
+  `page::Host` for its view: size, redraws, events, waking from workers, uploading tiles and a few drawing calls
+  (fill, image, highlight, band, dim outside, polyline), with optional hooks for screen readers and an ink trail.
+- The reader's view model (`view`, `view/history`) moved from `excellent-core` to `excellent-canvas`, since only the
+  canvas uses it; `excellent-core` no longer depends on `excellent-canvas`, which keeps the crates acyclic.
+- `formats::reflow_pages` takes the room inside the layout's gaps; the canvas subtracts them.
+- `excellent-canvas-win` keeps the window, Direct2D (`gfx`), `WM_POINTER` input, UI Automation and the `label` prop.
+  Pen samples reach the shared canvas in the view's pixels (`PenSample`).
+
+**What it means:**
+
+- The GTK and macOS canvases are a host, input wiring and the `label` prop each; behaviour fixes land once.
+- A host that can draw only inside its toolkit's draw callback (GTK) says so through `Host::frame_ready`.
+- If the maintainer prefers each platform to keep its own canvas logic, this is reverted by moving `page` back; no
+  public behaviour changed.

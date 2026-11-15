@@ -2,8 +2,8 @@
 //! rotation, so input lands on the page and what is drawn on the page stays on it through any layout, zoom,
 //! rotation or box (plan R.4). The rotation itself is `excellent-core::transform`'s.
 
-use excellent_canvas::Rect;
-use excellent_canvas::layout::Layout;
+use crate::Rect;
+use crate::layout::Layout;
 use excellent_core::transform::{Rotation, Transform};
 use excellent_mupdf::{DevicePoint, Matrix, PagePoint, PageRect};
 

@@ -765,7 +765,15 @@ dependencies = [
 name = "excellent-canvas"
 version = "0.1.0"
 dependencies = [
+ "excellent-core",
+ "excellent-features",
+ "excellent-ink",
+ "excellent-mupdf",
+ "excellent-text",
+ "log",
+ "nsh-core",
  "proptest",
+ "serde_json",
 ]
 
 [[package]]
@@ -789,15 +797,11 @@ name = "excellent-canvas-win"
 version = "0.1.0"
 dependencies = [
  "excellent-canvas",
- "excellent-core",
- "excellent-features",
- "excellent-ink",
  "excellent-mupdf",
  "excellent-text",
  "log",
  "nsh-core",
  "nsh-platform-windows",
- "serde_json",
  "windows",
  "windows-core",
  "windows-numerics",
@@ -811,7 +815,6 @@ version = "0.1.0"
 name = "excellent-core"
 version = "0.1.0"
 dependencies = [
- "excellent-canvas",
  "excellent-mupdf",
  "log",
  "proptest",

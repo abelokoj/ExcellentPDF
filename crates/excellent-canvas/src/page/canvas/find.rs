@@ -15,9 +15,10 @@ use excellent_mupdf::{PageRect, Quad, TextLayout};
 use excellent_text::PageText;
 use serde_json::json;
 
-use super::Canvas;
-use crate::gfx::{Gfx, Wash};
-use crate::placement::Placement;
+use super::PageCanvas;
+use crate::page::host::Host;
+use crate::page::host::{Quad as ScreenQuad, Wash};
+use crate::page::placement::Placement;
 
 /// Pages read at once.
 const IN_FLIGHT: usize = 4;
@@ -82,10 +83,10 @@ fn bounds(quads: &[Quad]) -> Option<PageRect> {
     Some(rect)
 }
 
-impl Canvas {
+impl<H: Host> PageCanvas<H> {
     /// Searches the document for `text` (F.1) as `options` say, from the reader's page round to it; the app's number
     /// for the search is `id`. Blank text clears the search.
-    pub(crate) fn find(&mut self, id: u64, text: &str, options: Options) {
+    pub fn find(&mut self, id: u64, text: &str, options: Options) {
         self.finder.forget(false);
         match Query::new(text, options) {
             Some(query) => self.start_find(id, query),
@@ -121,7 +122,7 @@ impl Canvas {
     }
 
     /// Stops the search and takes its hits off the pages.
-    pub(crate) fn find_clear(&mut self) {
+    pub fn find_clear(&mut self) {
         self.finder.forget(false);
         self.invalidate();
     }
@@ -204,7 +205,7 @@ impl Canvas {
     }
 
     /// Goes to the next or previous hit (F3, Shift+F3).
-    pub(crate) fn find_step(&mut self, direction: Direction) {
+    pub fn find_step(&mut self, direction: Direction) {
         let page = self.viewport.current_page(&self.layout).unwrap_or(0);
         let Some(search) = &mut self.finder.search else {
             return;
@@ -216,7 +217,7 @@ impl Canvas {
     }
 
     /// Goes to hit `id`, from the result list.
-    pub(crate) fn find_show(&mut self, id: HitId) {
+    pub fn find_show(&mut self, id: HitId) {
         let Some(search) = &mut self.finder.search else {
             return;
         };
@@ -326,22 +327,22 @@ impl Canvas {
 /// The hits on the screen, in client pixels.
 #[derive(Debug, Default)]
 pub(super) struct FoundOnScreen {
-    others: Vec<[(f32, f32); 4]>,
+    others: Vec<ScreenQuad>,
     /// The reader's hit.
-    mine: Vec<[(f32, f32); 4]>,
+    mine: Vec<ScreenQuad>,
 }
 
 impl FoundOnScreen {
     /// Draws them, the reader's in a stronger colour.
-    pub(super) fn draw(&self, gfx: &Gfx, wash: Wash) -> windows::core::Result<()> {
-        gfx.highlight(&self.others, HIT, wash)?;
-        gfx.highlight(&self.mine, CURRENT, wash)
+    pub(super) fn draw<H: Host>(&self, host: &mut H, wash: Wash) -> Result<(), H::Error> {
+        host.highlight(&self.others, HIT, wash)?;
+        host.highlight(&self.mine, CURRENT, wash)
     }
 }
 
 /// `found`'s quads on screen.
-fn screen_quads<'a>(
-    canvas: &'a Canvas,
+fn screen_quads<'a, H: Host>(
+    canvas: &'a PageCanvas<H>,
     placement: &'a Placement,
     found: &'a Found,
 ) -> impl Iterator<Item = [(f32, f32); 4]> + 'a {

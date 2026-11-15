@@ -9,16 +9,12 @@ description = "Windows page canvas: Win32 child window, DXGI swap chain, Direct2
 
 [target.'cfg(target_os = "windows")'.dependencies]
 excellent-canvas.workspace = true
-excellent-core.workspace = true
-excellent-features.workspace = true
-excellent-ink.workspace = true
 excellent-mupdf.workspace = true
 excellent-text.workspace = true
 log.workspace = true
 nsh-core.workspace = true
 nsh-platform-windows.workspace = true
 windows-core.workspace = true
-serde_json.workspace = true
 windows.workspace = true
 windows-numerics.workspace = true
 

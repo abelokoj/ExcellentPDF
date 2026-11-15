@@ -1,7 +1,7 @@
 //! Back and forward (plan R.8): where the reader was before each jump (a link, go to page, the outline, a search
 //! result). Scrolling is not a jump and adds nothing.
 
-use excellent_canvas::viewport::{Anchor, ZoomMode};
+use crate::viewport::{Anchor, ZoomMode};
 
 /// Places kept each way; the oldest goes first.
 const LIMIT: usize = 256;

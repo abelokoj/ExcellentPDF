@@ -6,6 +6,24 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 06:48; Ph2: 2/3 | K.10: Page canvas on Linux (shared canvas core)
+
+#### Changed
+
+- **One page canvas for every platform** (DD9): the canvas's logic moved from `excellent-canvas-win` to
+  `excellent_canvas::page`, as `PageCanvas<H: Host>`, with the component's props and commands. Windows is now one
+  host of it; GTK and macOS follow. The reader's view model moved from `excellent-core` to `excellent-canvas`.
+- The size budget's baseline is 13.98 MB, up from 11.79 MB at Phase 0 (still under the 15 MB limit); the budget
+  script prints the app's log when a run draws no first page.
+
+#### Fixed
+
+- Tests: the file-link test checks drive letters only on Windows and rooted paths on macOS and Linux, where it failed.
+
+#### Not done
+
+- Nothing tried by hand on Windows after the move; checked by clippy and the tests only.
+
 ### 2026-11-15 05:37; Ph1: 8/60 | K.18: Modes and toolbars
 
 #### Added

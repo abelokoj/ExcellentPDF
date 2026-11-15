@@ -8,15 +8,16 @@
 
 use std::time::Instant;
 
-use excellent_canvas::Rect;
+use crate::Rect;
 use excellent_features::read::autoscroll::{self, AutoScroll, Change, Pan};
 use excellent_features::read::focus::{self, Scope};
 use excellent_features::read::ruler::{self, Step, Style};
 use excellent_mupdf::{PagePoint, PageRect};
 
-use super::Canvas;
-use crate::gfx::{self, Gfx, Wash};
-use crate::placement::Placement;
+use super::PageCanvas;
+use crate::page::host::Host;
+use crate::page::host::Wash;
+use crate::page::placement::Placement;
 
 /// Where the reading line starts, as a share of the window's height from the top (Enhanced's `yFrac`).
 const START_AT: f32 = 0.40;
@@ -127,23 +128,17 @@ pub(super) struct Aids {
 
 impl Aids {
     /// Draws what goes under the ink: the band.
-    pub(super) fn draw_under(&self, gfx: &Gfx) -> windows::core::Result<()> {
+    pub(super) fn draw_under<H: Host>(&self, host: &mut H) -> Result<(), H::Error> {
         match &self.band {
-            Some((band, rgb)) => gfx.band(&gfx::rect(band), self.radius, *rgb, self.wash),
+            Some((band, rgb)) => host.band(band, self.radius, *rgb, self.wash),
             None => Ok(()),
         }
     }
 
     /// Draws what goes over everything: the dimmed page around what is lit.
-    pub(super) fn draw_over(&self, gfx: &Gfx) -> windows::core::Result<()> {
+    pub(super) fn draw_over<H: Host>(&self, host: &mut H) -> Result<(), H::Error> {
         for lit in &self.lit {
-            gfx.dim_outside(
-                &gfx::rect(&self.screen),
-                &gfx::rect(lit),
-                self.radius,
-                self.shade,
-                DIM,
-            )?;
+            host.dim_outside(&self.screen, lit, self.radius, self.shade, DIM)?;
         }
         Ok(())
     }
@@ -159,7 +154,7 @@ fn grown(rect: Rect, x: f32, y: f32) -> Rect {
     }
 }
 
-impl Canvas {
+impl<H: Host> PageCanvas<H> {
     /// Device pixels to a pixel at 96 dpi.
     fn dpi_scale(&self) -> f32 {
         self.viewport.pixels_per_point() * 72.0 / 96.0
@@ -350,21 +345,21 @@ impl Canvas {
     }
 
     /// Turns the reading ruler on or off (R.20).
-    pub(crate) fn toggle_ruler(&mut self) {
+    pub fn toggle_ruler(&mut self) {
         self.reading.ruler = !self.reading.ruler;
         self.start_line();
         self.invalidate();
     }
 
     /// Turns focus mode on or off (R.19).
-    pub(crate) fn toggle_focus(&mut self) {
+    pub fn toggle_focus(&mut self) {
         self.reading.focus = !self.reading.focus;
         self.start_line();
         self.invalidate();
     }
 
     /// The ruler's look: the settings `reading_ruler_*`.
-    pub(crate) fn set_ruler_style(&mut self, style: Style) {
+    pub fn set_ruler_style(&mut self, style: Style) {
         let style = style.clamped();
         if style != self.reading.style {
             self.reading.style = style;
@@ -373,7 +368,7 @@ impl Canvas {
     }
 
     /// What focus mode keeps lit: the setting `focus_scope`.
-    pub(crate) fn set_focus_scope(&mut self, scope: Scope) {
+    pub fn set_focus_scope(&mut self, scope: Scope) {
         if scope != self.reading.scope {
             self.reading.scope = scope;
             self.invalidate();
@@ -382,13 +377,13 @@ impl Canvas {
 
     /// Auto-scroll's speed the next time it starts, in pixels a second at 96 dpi: the setting
     /// `auto_scroll_speed`.
-    pub(crate) fn set_auto_scroll_speed(&mut self, speed: f32) {
+    pub fn set_auto_scroll_speed(&mut self, speed: f32) {
         self.reading.speed = autoscroll::clamp_speed(speed);
     }
 
     /// The Down or Up arrow: moves the reading line one line in reading order, scrolling to keep it in view. With
     /// neither the ruler nor focus mode on, scrolls a line's worth.
-    pub(crate) fn line_step(&mut self, step: Step) {
+    pub fn line_step(&mut self, step: Step) {
         let sign = match step {
             Step::Next => 1.0,
             Step::Previous => -1.0,
@@ -446,7 +441,7 @@ impl Canvas {
     }
 
     /// Starts auto-scroll at the last speed chosen, or stops it (R.21).
-    pub(crate) fn toggle_auto_scroll(&mut self) {
+    pub fn toggle_auto_scroll(&mut self) {
         self.reading.auto = match self.reading.auto {
             Some(_) => None,
             None => Some(AutoScroll::new(self.reading.speed)),
@@ -456,7 +451,7 @@ impl Canvas {
     }
 
     /// Space: pauses or resumes auto-scroll; without it, scrolls a screen down.
-    pub(crate) fn pause_or_screen_down(&mut self) {
+    pub fn pause_or_screen_down(&mut self) {
         match &mut self.reading.auto {
             Some(auto) => {
                 auto.toggle_pause();
@@ -469,7 +464,7 @@ impl Canvas {
 
     /// Auto-scroll goes one speed step faster or slower, and tells the app the new speed to keep
     /// (`autoScrollSpeed`: `{speed}`). Nothing while it is off.
-    pub(crate) fn change_auto_scroll_speed(&mut self, change: Change) {
+    pub fn change_auto_scroll_speed(&mut self, change: Change) {
         let Some(auto) = &mut self.reading.auto else {
             return;
         };
@@ -479,7 +474,7 @@ impl Canvas {
     }
 
     /// Escape: the ruler, focus mode, auto-scroll and middle-click scrolling all stop.
-    pub(crate) fn leave_modes(&mut self) {
+    pub fn leave_modes(&mut self) {
         let reading = &mut self.reading;
         let was = reading.wants_line() || reading.auto.is_some() || reading.pan.is_some();
         reading.ruler = false;
@@ -492,7 +487,7 @@ impl Canvas {
 
     /// The middle button went down at client pixel (`x`, `y`): middle-click scrolling starts from there, or stops
     /// if it was on. Returns whether it is on, when the window holds the mouse so the pointer can leave it.
-    pub(crate) fn middle_down(&mut self, x: i32, y: i32) -> bool {
+    pub fn middle_down(&mut self, x: i32, y: i32) -> bool {
         let at = (x as f32, y as f32);
         if self.reading.pan.take().is_none() {
             self.reading.pan = Some(Pan::new(at.0, at.1));
@@ -504,7 +499,7 @@ impl Canvas {
     }
 
     /// Stops middle-click scrolling. Returns whether it was on: then the press that stopped it does nothing else.
-    pub(crate) fn stop_pan(&mut self) -> bool {
+    pub fn stop_pan(&mut self) -> bool {
         let was = self.reading.pan.take().is_some();
         if was {
             self.invalidate();

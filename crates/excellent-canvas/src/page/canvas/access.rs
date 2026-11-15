@@ -3,17 +3,18 @@
 
 use std::ops::Range;
 
-use excellent_canvas::Rect;
+use crate::Rect;
 use excellent_core::render::Note;
 use excellent_mupdf::{Link, PageRect};
 use excellent_text::{DocumentText, Granularity, Selection, TextPos};
 
-use super::Canvas;
-use crate::placement::Placement;
+use super::PageCanvas;
+use crate::page::host::Host;
+use crate::page::placement::Placement;
 
-impl Canvas {
+impl<H: Host> PageCanvas<H> {
     /// The open file's name, once one is open.
-    pub(crate) fn file_name(&self) -> Option<String> {
+    pub fn file_name(&self) -> Option<String> {
         self.document.as_ref()?;
         Some(
             self.path
@@ -25,7 +26,7 @@ impl Canvas {
     }
 
     /// The number of pages shown; none before a document is open.
-    pub(crate) fn page_count(&self) -> usize {
+    pub fn page_count(&self) -> usize {
         if self.document.is_some() {
             self.layout.len()
         } else {
@@ -34,7 +35,7 @@ impl Canvas {
     }
 
     /// The document's text as far as it is read: the pages on and near the screen.
-    pub(crate) fn document_text(&self) -> DocumentText<'_> {
+    pub fn document_text(&self) -> DocumentText<'_> {
         DocumentText::new(
             (0..self.page_count())
                 .map(|page| self.texts.get(page))
@@ -43,7 +44,7 @@ impl Canvas {
     }
 
     /// The first and last pages on the screen.
-    pub(crate) fn shown_pages(&self) -> Option<Range<usize>> {
+    pub fn shown_pages(&self) -> Option<Range<usize>> {
         let visible = self.viewport.visible();
         let mut pages = self.layout.pages_in(&visible).map(|(index, _)| index);
         let first = pages.next()?;
@@ -54,12 +55,12 @@ impl Canvas {
     }
 
     /// Page `page`'s area in client pixels; off the window when it isn't on the screen.
-    pub(crate) fn page_area(&self, page: usize) -> Option<Rect> {
+    pub fn page_area(&self, page: usize) -> Option<Rect> {
         Some(self.viewport.to_screen(&self.layout.page(page)?))
     }
 
     /// Area `rect` of page `page` (page points), in client pixels.
-    pub(crate) fn area_on_page(&self, page: usize, rect: PageRect) -> Option<Rect> {
+    pub fn area_on_page(&self, page: usize, rect: PageRect) -> Option<Rect> {
         let placement = self.placement(page)?;
         let corners = [
             (rect.x0, rect.y0),
@@ -73,7 +74,7 @@ impl Canvas {
     }
 
     /// The areas of characters `range` of page `page`, one per line, in client pixels.
-    pub(crate) fn text_areas(&self, page: usize, range: Range<usize>) -> Vec<Rect> {
+    pub fn text_areas(&self, page: usize, range: Range<usize>) -> Vec<Rect> {
         let (Some(text), Some(placement)) = (self.texts.get(page), self.placement(page)) else {
             return Vec::new();
         };
@@ -103,27 +104,27 @@ impl Canvas {
     }
 
     /// Page `page`'s links, once read.
-    pub(crate) fn links_on(&self, page: usize) -> &[Link] {
+    pub fn links_on(&self, page: usize) -> &[Link] {
         self.links.get(page).map_or(&[], Vec::as_slice)
     }
 
     /// Page `page`'s notes, once read.
-    pub(crate) fn notes_on(&self, page: usize) -> &[Note] {
+    pub fn notes_on(&self, page: usize) -> &[Note] {
         self.notes.get(page).map_or(&[], Vec::as_slice)
     }
 
     /// The characters of page `page` inside `rect` (a link's words), once its text is read.
-    pub(crate) fn text_within(&self, page: usize, rect: PageRect) -> Option<Range<usize>> {
+    pub fn text_within(&self, page: usize, rect: PageRect) -> Option<Range<usize>> {
         self.texts.get(page)?.within(rect)
     }
 
     /// The caret nearest client pixel (`x`, `y`), on the page there.
-    pub(crate) fn caret_at(&self, x: i32, y: i32) -> Option<TextPos> {
+    pub fn caret_at(&self, x: i32, y: i32) -> Option<TextPos> {
         self.text_pos(x, y, Granularity::Char)
     }
 
     /// The selected text's first and last carets, once the text of its first and last pages is read.
-    pub(crate) fn selected(&self) -> Option<(TextPos, TextPos)> {
+    pub fn selected(&self) -> Option<(TextPos, TextPos)> {
         let selection = self.selection?;
         let mut ranges = selection
             .pages()
@@ -143,7 +144,7 @@ impl Canvas {
     }
 
     /// Selects `start..end` (a screen reader's selection); an empty one clears it.
-    pub(crate) fn select(&mut self, start: TextPos, end: TextPos) {
+    pub fn select(&mut self, start: TextPos, end: TextPos) {
         let selection = Selection {
             anchor: start,
             focus: end,
@@ -154,7 +155,7 @@ impl Canvas {
     }
 
     /// Scrolls to `at`: its line at the top of the window, or its page's top while its text isn't read.
-    pub(crate) fn show_text(&mut self, at: TextPos) {
+    pub fn show_text(&mut self, at: TextPos) {
         let point = self.texts.get(at.page).and_then(|text| {
             let index = at.index.min(text.len().checked_sub(1)?);
             Some(text.highlight(index..index + 1).first()?.ul)
@@ -167,7 +168,7 @@ impl Canvas {
 
     /// Follows `link`: a place in the document jumps there; any other goes to the app (`openLink`: `{uri}`), which
     /// decides whether to open it.
-    pub(crate) fn follow(&mut self, link: &Link) {
+    pub fn follow(&mut self, link: &Link) {
         match link.target {
             Some(target) => self.jump(target),
             None => self.emit("openLink", serde_json::json!({ "uri": link.uri })),

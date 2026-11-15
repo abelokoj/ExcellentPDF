@@ -8,7 +8,6 @@ repository.workspace = true
 description = "Document model, layout, coordinate transforms, selection, render scheduling, tile cache and save"
 
 [dependencies]
-excellent-canvas.workspace = true
 excellent-mupdf.workspace = true
 log.workspace = true
 serde_json.workspace = true

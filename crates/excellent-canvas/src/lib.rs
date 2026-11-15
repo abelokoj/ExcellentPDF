@@ -1,11 +1,15 @@
 //! Platform-neutral page canvas: viewport, gestures, hit testing, overlays and the ink capture model (plan §7.2).
 //!
-//! Everything here is pure Rust with no OS or MuPDF types, so each platform layer (`excellent-canvas-win` and the
-//! others) only presents pixels and delivers input. Built so far (T7): the continuous page [`layout`], the
-//! [`viewport`] with scroll and zoom, and the [`tiles`] the viewport needs and their cache.
+//! Nothing here touches the OS, so each platform layer (`excellent-canvas-win`, `-gtk`, `-mac`) only presents pixels
+//! and delivers input (plan D5, K.8–K.10). The continuous page [`layout`], the [`viewport`] with scroll and zoom, the
+//! [`tiles`] the viewport needs and their cache, the reader's [`view`] (layout, rotation, page box, zoom mode), and
+//! the [`page`] canvas itself: its document, input, drawing through a platform's [`page::Host`], and the
+//! component's props and commands.
 
 pub mod layout;
+pub mod page;
 pub mod tiles;
+pub mod view;
 pub mod viewport;
 
 /// A rectangle in floating-point units (page points or device pixels, as the field using it says).

@@ -1,16 +1,16 @@
 //! Counting clicks: a second press soon enough and near enough to the first is a double click, a third a triple. Win32
-//! reports double clicks only; selection wants triple and quadruple ones too (K.13).
+//! and the other platforms report double clicks only; selection wants triple and quadruple ones too (K.13).
 
 /// How soon and how near a press must be to the last one to count as the next click (`GetDoubleClickTime`,
 /// `SM_CXDOUBLECLK` and `SM_CYDOUBLECLK`).
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct ClickLimits {
+pub struct ClickLimits {
     /// Milliseconds.
-    pub(crate) time: u32,
+    pub time: u32,
     /// Pixels across the area, centred on the last press.
-    pub(crate) width: i32,
+    pub width: i32,
     /// Pixels down it.
-    pub(crate) height: i32,
+    pub height: i32,
 }
 
 /// The presses so far.

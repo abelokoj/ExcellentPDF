@@ -68,7 +68,7 @@ $coldStartMs = ($times | Sort-Object)[[int][math]::Floor($Runs / 2)]
 # (excellent-canvas-win, `Canvas::draw`). The median of $Runs launches with the document.
 $opens = @()
 $log = Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-budget-$PID.log"
-$env:RUST_LOG = 'excellent_canvas_win=info'
+$env:RUST_LOG = 'info,excellent_canvas_win=debug'
 try {
     for ($i = 0; $i -lt $Runs; $i++) {
         $p = Start-Process -FilePath $Exe -ArgumentList "`"$Document`"" -PassThru -RedirectStandardError $log
@@ -79,6 +79,9 @@ try {
             if ($line) { $ms = [double]$line.Matches[0].Groups[1].Value; break }
             if ($p.HasExited -or (Get-Date) -gt $deadline) {
                 if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+                # The app's own account of the run, so a failure on CI says where it stopped.
+                Write-Host "excellentpdf's log of run $($i + 1):"
+                Get-Content $log -Tail 60 -ErrorAction SilentlyContinue | Write-Host
                 throw "excellentpdf drew no first page of $Document within 15 s (run $($i + 1))"
             }
             Start-Sleep -Milliseconds 20

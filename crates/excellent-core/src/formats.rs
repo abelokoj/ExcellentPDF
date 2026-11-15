@@ -5,7 +5,6 @@
 //! HTML, Markdown) lay their text out on pages the size of the reader's window, at the reader's font size, and again
 //! when either changes.
 
-use excellent_canvas::layout::GAP;
 use excellent_mupdf::Reflow;
 
 /// The extensions of the files the app opens, as MuPDF reads them (plan D3). DjVu, CHM and CBR are R.29's.
@@ -90,16 +89,15 @@ const WIDEST: f32 = 36.0;
 const NARROWEST: f32 = 14.0;
 const SHORTEST: f32 = 12.0;
 
-/// The pages a reflowable document is laid out on in a window `width` × `height` points (its size at zoom 1): as
-/// tall as the window, so a page is a screen, and as wide as it up to a comfortable line length, with the text at
-/// `font_size` points (clamped to [`FONT_SIZES`]).
+/// The pages a reflowable document is laid out on in a window with `width` × `height` points of room for a page
+/// (its size at zoom 1, less the gaps the layout puts around a page): as tall as that room, so a page is a screen,
+/// and as wide as it up to a comfortable line length, with the text at `font_size` points (clamped to
+/// [`FONT_SIZES`]).
 pub fn reflow_pages(width: f32, height: f32, font_size: f32) -> Reflow {
     let em = font_size.clamp(*FONT_SIZES.start(), *FONT_SIZES.end());
-    // The layout puts a gap around every page.
-    let inner = |size: f32| (size - 2.0 * GAP).max(0.0);
     Reflow {
-        width: inner(width).clamp(NARROWEST * em, WIDEST * em),
-        height: inner(height).max(SHORTEST * em),
+        width: width.max(0.0).clamp(NARROWEST * em, WIDEST * em),
+        height: height.max(0.0).max(SHORTEST * em),
         font_size: em,
     }
 }
@@ -174,8 +172,8 @@ mod tests {
 
     #[test]
     fn reflowed_pages_fill_the_window_up_to_a_readable_line() {
-        // A small window: the page is the window, less the gaps.
-        let page = reflow_pages(400.0, 700.0, 12.0);
+        // A small window: the page is the room it has.
+        let page = reflow_pages(384.0, 684.0, 12.0);
         assert_eq!(
             (page.width, page.height, page.font_size),
             (384.0, 684.0, 12.0)

@@ -44,6 +44,8 @@ use windows::Win32::System::SystemInformation::OSVERSIONINFOW;
 use windows::Win32::System::Threading::WaitForSingleObjectEx;
 use windows::core::{Interface, Result};
 
+use excellent_canvas::page::host::{WASH_OPACITY, Wash};
+
 /// The swap chain's flags; `ResizeBuffers` must be given the same.
 const FLAGS: DXGI_SWAP_CHAIN_FLAG = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 
@@ -74,19 +76,6 @@ pub(crate) fn rect(r: &excellent_canvas::Rect) -> D2D_RECT_F {
     }
 }
 
-/// The device, the drawing context and the swap chain of one canvas window.
-/// How a highlight or the ruler's band lies over the pages.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Wash {
-    /// Darkest wins: on light paper the colour tints the paper and dark text stays as it is.
-    Darkest,
-    /// Laid over at [`WASH_OPACITY`]: on dark paper (R.14), where darkest-wins would leave the paper as it is.
-    Translucent,
-}
-
-/// How much of a translucent wash shows: enough to see on dark paper, little enough to keep its light text readable.
-const WASH_OPACITY: f32 = 0.3;
-
 /// Sets `context` and `brush` up for a fill laid as `wash`; the caller sets the blend back to source-over.
 ///
 /// # Safety
@@ -102,6 +91,7 @@ unsafe fn set_wash(context: &ID2D1DeviceContext, brush: &ID2D1SolidColorBrush, w
     }
 }
 
+/// The device, the drawing context and the swap chain of one canvas window.
 pub(crate) struct Gfx {
     /// Makes the geometry of a selection's highlight.
     factory: ID2D1Factory1,
@@ -264,6 +254,11 @@ impl Gfx {
             self.context.EndDraw(None, None)?;
             self.swap_chain.Present(1, DXGI_PRESENT(0)).ok()
         }
+    }
+
+    /// The drawing context, for drawing between [`Self::begin`] and [`Self::end`].
+    pub(crate) fn context(&self) -> &ID2D1DeviceContext {
+        &self.context
     }
 
     /// The stroke style with round ends and joins.

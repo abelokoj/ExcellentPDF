@@ -305,24 +305,41 @@ mod tests {
 
     #[test]
     fn file_links_become_paths() {
-        let base = Path::new(r"C:\docs");
-        assert_eq!(
-            file_path("file:///C:/Some%20Dir/a.pdf#page=2", Some(base)),
-            Some(PathBuf::from("C:/Some Dir/a.pdf"))
-        );
+        let base = Path::new("docs");
         assert_eq!(
             file_path("file:other.pdf#page=1", Some(base)),
             Some(base.join("other.pdf"))
-        );
-        assert_eq!(
-            file_path(r"C:\Windows\calc.exe", Some(base)),
-            Some(PathBuf::from(r"C:\Windows\calc.exe"))
         );
         assert_eq!(
             file_path("file://server/share/x.pdf", None),
             Some(PathBuf::from("//server/share/x.pdf"))
         );
         assert_eq!(file_path("file:#page=3", Some(base)), None);
+    }
+
+    // Drive letters make a path absolute only on Windows.
+    #[cfg(windows)]
+    #[test]
+    fn drive_links_stay_absolute() {
+        let base = Path::new(r"C:\docs");
+        assert_eq!(
+            file_path("file:///C:/Some%20Dir/a.pdf#page=2", Some(base)),
+            Some(PathBuf::from("C:/Some Dir/a.pdf"))
+        );
+        assert_eq!(
+            file_path(r"C:\Windows\calc.exe", Some(base)),
+            Some(PathBuf::from(r"C:\Windows\calc.exe"))
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rooted_links_stay_absolute() {
+        let base = Path::new("/docs");
+        assert_eq!(
+            file_path("file:///home/me/Some%20Dir/a.pdf#page=2", Some(base)),
+            Some(PathBuf::from("/home/me/Some Dir/a.pdf"))
+        );
     }
 
     #[test]

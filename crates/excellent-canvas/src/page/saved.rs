@@ -7,10 +7,10 @@
 //!  "layout": "facing", "paged": false, "rtl": false, "rotation": 90}
 //! ```
 
-use excellent_canvas::layout::{Direction, Flow, Mode, Spec};
-use excellent_canvas::viewport::{Anchor, ZoomMode};
+use crate::layout::{Direction, Flow, Mode, Spec};
+use crate::view::history::Place;
+use crate::viewport::{Anchor, ZoomMode};
 use excellent_core::transform::Rotation;
-use excellent_core::view::history::Place;
 use nsh_core::JsonValue;
 
 /// Where the reader is, and how the pages are shown.
