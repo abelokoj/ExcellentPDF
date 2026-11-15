@@ -46,6 +46,14 @@ jobs:
         with:
           key: release
       - run: cargo build --release --locked -p excellent-app
+      # The test installer (K.25): N is 0, a test build, not a release (dev_decisions.md, DD3).
+      - run: ./packaging/windows/build-msi.ps1 -Release 0
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-installer
+          path: dist/*.msi
+          retention-days: 14
       - run: ./tests/budgets.ps1 -Exe target/release/excellentpdf.exe
         shell: pwsh
 

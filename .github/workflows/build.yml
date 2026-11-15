@@ -26,6 +26,10 @@ on:
         description: Run clippy with warnings as errors
         type: boolean
         default: false
+      package:
+        description: Build the release app and upload it as an artifact (desktop targets)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -53,10 +57,13 @@ jobs:
         if: startsWith(inputs.target, 'x86_64') || startsWith(inputs.target, 'i686')
         uses: ilammy/setup-nasm@v1
 
-      # fontconfig for system fonts, OpenSSL for PDF signatures and encrypted ZIP entries.
+      # fontconfig for system fonts, OpenSSL for PDF signatures and encrypted ZIP entries, GTK 4 and GStreamer for
+      # NSH's Linux backend (nsh-platform-linux).
       - name: Linux libraries
         if: contains(inputs.target, 'linux-gnu')
-        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libssl-dev
+        run: >-
+          sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libssl-dev libgtk-4-dev
+          libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       - name: cargo-ndk
         if: contains(inputs.target, 'android')
@@ -83,3 +90,24 @@ jobs:
       - name: Test
         if: inputs.test
         run: cargo test --workspace --locked --target ${{ inputs.target }}
+
+      # A test build, not a release: N is 0 in the name (dev_decisions.md, DD3). The installers (a .app bundle, a
+      # package for Linux) come with their platforms' packaging work; until then the binary is archived.
+      - name: Package
+        if: inputs.package
+        run: |
+          cargo build --release --locked -p excellent-app --target ${{ inputs.target }}
+          version=$(cargo pkgid -p excellent-app | sed 's/.*[#@]//')
+          name="ExcellentPDF-v$(date +%y-%m-%d).0-v$version-${{ inputs.name }}"
+          mkdir -p "dist/$name"
+          cp target/${{ inputs.target }}/release/excellentpdf "dist/$name/"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          echo "ARTIFACT=$name" >> "$GITHUB_ENV"
+
+      - name: Upload
+        if: inputs.package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: dist/${{ env.ARTIFACT }}.tar.gz
+          retention-days: 14

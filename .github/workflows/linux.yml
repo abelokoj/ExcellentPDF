@@ -1,12 +1,19 @@
-# Linux: ready, but run by hand only until Phase 2 (plan §18). To build it on every change, copy the `push` and
-# `pull_request` triggers from windows.yml (dev notes/dev_decisions.md, DD2).
+# Linux: built and tested on every push to main and every pull request since Phase 2 (plan §18,
+# dev notes/dev_decisions.md, DD2). Each job uploads the release binary as an artifact.
 name: linux
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   x64:
@@ -16,6 +23,7 @@ jobs:
       runner: ubuntu-24.04
       target: x86_64-unknown-linux-gnu
       test: true
+      package: true
 
   arm64:
     uses: ./.github/workflows/build.yml
@@ -24,3 +32,4 @@ jobs:
       runner: ubuntu-24.04-arm
       target: aarch64-unknown-linux-gnu
       test: true
+      package: true

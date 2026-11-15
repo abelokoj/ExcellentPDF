@@ -52,6 +52,11 @@ choice is the maintainer's: keep everything in, or move OCR back into a pack (pl
 **Decision (maintainer):** GitHub builds every platform automatically, and the infrastructure is always in place, but
 for now only Windows is built.
 
+**Update (maintainer, 2026-11-15):** from Phase 2 on, every supported desktop (Windows, macOS, Linux) is built and
+tested on every push, and each build uploads the app as an artifact (the Windows MSI; the release binary, archived,
+on macOS and Linux, until their packaging exists). Platforms this machine can't build are checked through these runs
+and their artifacts. Test builds carry N = 0 in their names (DD3). Tablets stay by hand until Phase 8.
+
 **What it means:**
 
 - `.github/workflows/build.yml` is one reusable workflow (`workflow_call`) that builds, lints and tests one Rust
@@ -62,8 +67,8 @@ for now only Windows is built.
   | Workflow | Targets | Runs |
   | --- | --- | --- |
   | `windows.yml` | `x86_64-pc-windows-msvc` (tests, clippy); `aarch64-pc-windows-msvc` | every push to `main` and every pull request; arm64 by hand. Also `cargo fmt` and `cargo deny` |
-  | `linux.yml` | `x86_64-` and `aarch64-unknown-linux-gnu` (tests) | by hand until Phase 2 |
-  | `macos.yml` | `aarch64-` and `x86_64-apple-darwin` (tests) | by hand until Phase 2 |
+  | `linux.yml` | `x86_64-` and `aarch64-unknown-linux-gnu` (tests) | every push to `main` and every pull request since Phase 2 |
+  | `macos.yml` | `aarch64-` and `x86_64-apple-darwin` (tests) | every push to `main` and every pull request since Phase 2 |
   | `android.yml` | `aarch64-` and `x86_64-linux-android` (build only) | by hand until Phase 8 |
   | `ios.yml` | `aarch64-apple-ios`, `aarch64-apple-ios-sim` (build only) | by hand until Phase 8 |
 

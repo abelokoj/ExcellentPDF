@@ -1,3 +1,7 @@
 # Vendored code keeps its exact bytes (LF sources, binary fonts), so the byte comparison in
 # third_party/mupdf-patches/README.md keeps passing on every checkout.
 third_party/** -text
+
+# Test documents keep their exact bytes: a PDF's xref counts bytes, so a CRLF checkout on Windows breaks it.
+*.pdf -text
+tests/corpus/** -text
