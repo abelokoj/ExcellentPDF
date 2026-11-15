@@ -2,7 +2,7 @@
 //! applies them. One [`Operation`] is one step of undo, however many changes it holds (B.5: a move of several
 //! entries undoes at once).
 
-use excellent_mupdf::{Edit, NewOutlineEntry, OutlineChange};
+use excellent_mupdf::{Edit, NewOutlineEntry, OutlineChange, OutlineStyle};
 use serde_json::{Map, Value, json};
 
 use crate::annot::Annotation;
@@ -36,6 +36,13 @@ pub enum Change {
     DeleteOutlineEntry {
         /// The entry.
         at: Vec<usize>,
+    },
+    /// The outline entry at `at` drawn bold, italic or in a colour (B.7).
+    StyleOutlineEntry {
+        /// The entry.
+        at: Vec<usize>,
+        /// How it is drawn.
+        style: OutlineStyle,
     },
     /// The outline entry at `from` moved, with the entries under it, to `to`: a path in the outline once it has left
     /// (B.3).
@@ -77,6 +84,7 @@ impl Change {
             Self::DeleteAnnotation { page, .. } => Some(*page),
             Self::InsertOutlineEntry { .. }
             | Self::UpdateOutlineEntry { .. }
+            | Self::StyleOutlineEntry { .. }
             | Self::DeleteOutlineEntry { .. }
             | Self::MoveOutlineEntry { .. } => None,
         }
@@ -101,6 +109,7 @@ impl Change {
                     open: *open,
                 },
             ),
+            Self::StyleOutlineEntry { at, style } => edit.style_outline_entry(at, *style),
             Self::DeleteOutlineEntry { at } => edit.delete_outline_entry(at),
             Self::MoveOutlineEntry { from, to } => edit.move_outline_entry(from, to),
             Self::CreateAnnotation(annotation) => {
@@ -126,6 +135,10 @@ impl Change {
                 open,
             } => {
                 json!({"kind": "outline.update", "target": at, "title": title, "uri": uri, "open": open})
+            }
+            Self::StyleOutlineEntry { at, style } => {
+                json!({"kind": "outline.style", "target": at, "bold": style.bold, "italic": style.italic,
+                    "color": style.color.map(hex)})
             }
             Self::DeleteOutlineEntry { at } => json!({"kind": "outline.delete", "target": at}),
             Self::MoveOutlineEntry { from, to } => {
@@ -160,6 +173,17 @@ impl Change {
                 title: text("title"),
                 uri: text("uri"),
                 open: object.get("open")?.as_bool()?,
+            },
+            "outline.style" => Self::StyleOutlineEntry {
+                at: target()?,
+                style: OutlineStyle {
+                    bold: object.get("bold")?.as_bool()?,
+                    italic: object.get("italic")?.as_bool()?,
+                    color: match object.get("color")? {
+                        Value::Null => None,
+                        value => Some(rgb(value.as_str()?)?),
+                    },
+                },
             },
             "outline.delete" => Self::DeleteOutlineEntry { at: target()? },
             "outline.move" => Self::MoveOutlineEntry {
@@ -226,6 +250,18 @@ impl Operation {
     }
 }
 
+/// A colour as the log writes it: `#rrggbb`.
+fn hex([r, g, b]: [u8; 3]) -> String {
+    format!("#{r:02x}{g:02x}{b:02x}")
+}
+
+/// The colour the log wrote as `#rrggbb`.
+fn rgb(text: &str) -> Option<[u8; 3]> {
+    let digits = text.strip_prefix('#').filter(|digits| digits.len() == 6)?;
+    let channel = |at: usize| u8::from_str_radix(digits.get(at..at + 2)?, 16).ok();
+    Some([channel(0)?, channel(2)?, channel(4)?])
+}
+
 /// An outline path the log wrote.
 fn path(value: &Value) -> Option<Vec<usize>> {
     value
@@ -254,6 +290,18 @@ mod tests {
                 open: true,
             },
             Change::DeleteOutlineEntry { at: vec![1, 4, 2] },
+            Change::StyleOutlineEntry {
+                at: vec![3],
+                style: OutlineStyle {
+                    bold: true,
+                    italic: false,
+                    color: Some([0xd9, 0x3a, 0x0b]),
+                },
+            },
+            Change::StyleOutlineEntry {
+                at: vec![3, 1],
+                style: OutlineStyle::default(),
+            },
             Change::MoveOutlineEntry {
                 from: vec![0],
                 to: vec![0, 3],
@@ -275,6 +323,8 @@ mod tests {
         let value = json!({"kind": "page.rotate", "target": [0]});
         assert_eq!(Change::from_json(&value), None);
         let value = json!({"kind": "outline.delete", "target": [-1]});
+        assert_eq!(Change::from_json(&value), None);
+        let value = json!({"kind": "outline.style", "target": [0], "bold": true, "italic": false, "color": "red"});
         assert_eq!(Change::from_json(&value), None);
     }
 }

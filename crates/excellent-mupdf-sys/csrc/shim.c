@@ -710,13 +710,56 @@ void ex_drop_buffer(fz_context *ctx, fz_buffer *buf)
 	fz_drop_buffer(ctx, buf);
 }
 
+/* fz_load_outline leaves out each entry's /F and /C; a PDF's outline iterator has them. It walks the same tree in the
+ * same order, so the two are read side by side; levels deeper than this keep no style. */
+#define EX_MAX_OUTLINE_STYLE_DEPTH 64
+
+static void ex_outline_styles(fz_context *ctx, fz_outline_iterator *iter, fz_outline *node, int depth)
+{
+	for (; node; node = node->next)
+	{
+		fz_outline_item *item = fz_outline_iterator_item(ctx, iter);
+		if (!item)
+			return;
+		node->flags = item->flags & 127;
+		/* The PDF iterator gives /C as 0 to 255. */
+		node->r = (unsigned int)fz_clampi((int)item->r, 0, 255);
+		node->g = (unsigned int)fz_clampi((int)item->g, 0, 255);
+		node->b = (unsigned int)fz_clampi((int)item->b, 0, 255);
+		if (node->down && depth < EX_MAX_OUTLINE_STYLE_DEPTH &&
+			fz_outline_iterator_down(ctx, iter) == FZ_OUTLINE_ITERATOR_AT_ITEM)
+		{
+			ex_outline_styles(ctx, iter, node->down, depth + 1);
+			fz_outline_iterator_up(ctx, iter);
+		}
+		if (fz_outline_iterator_next(ctx, iter) != FZ_OUTLINE_ITERATOR_AT_ITEM)
+			return;
+	}
+}
+
 int ex_load_outline(fz_context *ctx, fz_document *doc, fz_outline **out, ex_error *err)
 {
 	fz_outline *outline = NULL;
+	fz_outline_iterator *iter = NULL;
+	fz_var(outline);
+	fz_var(iter);
 	fz_try(ctx)
+	{
 		outline = fz_load_outline(ctx, doc);
+		if (outline && pdf_specifics(ctx, doc))
+		{
+			iter = fz_new_outline_iterator(ctx, doc);
+			if (iter)
+				ex_outline_styles(ctx, iter, outline, 0);
+		}
+	}
+	fz_always(ctx)
+		fz_drop_outline_iterator(ctx, iter);
 	fz_catch(ctx)
+	{
+		fz_drop_outline(ctx, outline);
 		return ex_fail(ctx, err);
+	}
 	*out = outline;
 	return 0;
 }
@@ -737,6 +780,10 @@ int ex_outline_item_of(fz_context *ctx, fz_document *doc, fz_outline *outline, e
 	out->is_open = outline->is_open;
 	out->next = outline->next;
 	out->down = outline->down;
+	out->flags = outline->flags;
+	out->color = (outline->r || outline->g || outline->b)
+		? (int)((outline->r << 16) | (outline->g << 8) | outline->b)
+		: -1;
 	return 0;
 }
 
@@ -1362,9 +1409,10 @@ static fz_outline_item ex_outline_item_from(const ex_outline_edit *edit)
 	item.uri = (char *)edit->uri;
 	item.is_open = edit->is_open;
 	item.flags = edit->flags;
-	item.r = edit->r;
-	item.g = edit->g;
-	item.b = edit->b;
+	/* The PDF iterator writes /C as the item's colour over 255. */
+	item.r = edit->r * 255;
+	item.g = edit->g * 255;
+	item.b = edit->b * 255;
 	return item;
 }
 
@@ -1412,6 +1460,47 @@ int ex_outline_update(fz_context *ctx, fz_document *doc, const int *path, int de
 		item.title = title;
 		item.uri = uri;
 		item.is_open = edit->is_open;
+		fz_outline_iterator_update(ctx, iter, &item);
+	}
+	fz_always(ctx)
+	{
+		fz_free(ctx, title);
+		fz_free(ctx, uri);
+		fz_drop_outline_iterator(ctx, iter);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_outline_style(fz_context *ctx, fz_document *doc, const int *path, int depth, int flags, int color,
+	ex_error *err)
+{
+	fz_outline_iterator *iter = NULL;
+	char *title = NULL;
+	char *uri = NULL;
+	fz_var(iter);
+	fz_var(title);
+	fz_var(uri);
+	fz_try(ctx)
+	{
+		int at;
+		fz_outline_item *now, item;
+		iter = ex_outline_walk(ctx, doc, path, depth, &at);
+		now = fz_outline_iterator_item(ctx, iter);
+		if (at != FZ_OUTLINE_ITERATOR_AT_ITEM || !now)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no outline entry at the path");
+		/* As in ex_outline_update: the item lasts only until the update, so what is kept is copied. */
+		item = *now;
+		title = fz_strdup(ctx, now->title ? now->title : "");
+		if (now->uri)
+			uri = fz_strdup(ctx, now->uri);
+		item.title = title;
+		item.uri = uri;
+		item.flags = flags & 127;
+		item.r = color < 0 ? 0 : (float)((color >> 16) & 255);
+		item.g = color < 0 ? 0 : (float)((color >> 8) & 255);
+		item.b = color < 0 ? 0 : (float)(color & 255);
 		fz_outline_iterator_update(ctx, iter, &item);
 	}
 	fz_always(ctx)

@@ -1,6 +1,6 @@
 //! Document outlines (plan §11.14), read on the render workers so a long one never stalls the UI thread.
 
-pub use excellent_mupdf::OutlineItem;
+pub use excellent_mupdf::{OutlineItem, OutlineStyle};
 
 use crate::document::SharedMupdf;
 use crate::render::{Job, Priority, RenderPool};

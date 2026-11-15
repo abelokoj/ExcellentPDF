@@ -207,6 +207,26 @@ pub(crate) fn hex(colour: AdaptiveColor) -> String {
     format!("#{r:02x}{g:02x}{b:02x}")
 }
 
+/// `colour`, mixed toward `text` just enough to read at WCAG AA (4.5:1) on each of `papers`; `text` itself must pass.
+/// A document's own colours (outline entries, B.7) are kept as near as the theme allows.
+pub(crate) fn readable(colour: [u8; 3], papers: &[[u8; 3]], text: [u8; 3]) -> [u8; 3] {
+    let passes = |c: [u8; 3]| {
+        papers
+            .iter()
+            .all(|paper| excellent_core::darkmode::themes::contrast(c, *paper) >= 4.5)
+    };
+    (0..=10u8)
+        .map(|step| {
+            let t = f32::from(step) / 10.0;
+            std::array::from_fn(|i| {
+                let (from, to) = (f32::from(colour[i]), f32::from(text[i]));
+                (from + (to - from) * t).round() as u8
+            })
+        })
+        .find(|c| passes(*c))
+        .unwrap_or(text)
+}
+
 /// `colour` as it shows in the current appearance, as bytes.
 pub(crate) fn rgb(colour: AdaptiveColor) -> [u8; 3] {
     let Rgba { r, g, b, .. } = nsh_core::element::color(colour).to_rgb();
@@ -355,6 +375,17 @@ mod tests {
             }
         };
         0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+    }
+
+    #[test]
+    fn readable_keeps_a_colour_that_passes_and_mixes_one_that_does_not() {
+        use excellent_core::darkmode::themes::contrast;
+        let (white, black) = ([0xff; 3], [0x11; 3]);
+        let blue = [0x1f, 0x4f, 0xb6];
+        assert_eq!(readable(blue, &[white], black), blue);
+        let mixed = readable(blue, &[[0x1e; 3]], [0xee; 3]);
+        assert_ne!(mixed, blue);
+        assert!(contrast(mixed, [0x1e; 3]) >= 4.5);
     }
 
     fn ratio(a: Hsla, b: Hsla) -> f32 {

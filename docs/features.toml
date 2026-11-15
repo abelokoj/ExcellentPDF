@@ -396,3 +396,9 @@ label = "Ph3: 3/49"
 status = "in-progress"
 tests = ["refhover::tests (ported from RefHover_ut.cpp)", "hover_numeric_without_link_shows_entry", "hover_misses_unlisted_number", "dest_y_prefers_a_match_that_starts_its_line", "popover_zoom_fits_room"]
 open = "not tried by hand; no wheel zoom in the preview; no link-zoom path; text cache not keyed by page revision"
+
+["B.7"]
+label = "Ph3: 4/49"
+status = "in-progress"
+tests = ["a_styled_entry_keeps_its_style_after_reopening", "style_toggles_together_and_skips_what_stays", "changes_read_back_as_they_were_written", "readable_keeps_a_colour_that_passes_and_mixes_one_that_does_not"]
+open = "not opened in Acrobat or tried by hand; fixed set of five swatches"

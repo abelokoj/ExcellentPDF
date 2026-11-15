@@ -7,17 +7,21 @@
 //! every outline command; Ctrl+press and Shift+press mark several entries; F2 edits a title in place. While the
 //! outline has the keyboard focus, F2, Delete, Alt+Up and Alt+Down, Tab and Shift+Tab act on it, and Escape gives the
 //! focus back to the pages (Tab moves entries in, so it doesn't leave the tree).
+//!
+//! Entries are drawn bold, italic and in their colour as the document has them (B.7), the colour adjusted to read on
+//! the theme's sidebar; Ctrl+Shift+B and Ctrl+Shift+I (⌘ on a Mac) toggle bold and italic while the outline has the
+//! keyboard, and the context menu has those and a Colour submenu.
 
 mod edit;
 
 use std::path::PathBuf;
 
-use excellent_core::outline::{self, OutlineItem};
+use excellent_core::outline::{self, OutlineItem, OutlineStyle};
 use excellent_core::shared::{pool, registry};
-use excellent_features::outline::{self as model, Entry, Shift};
+use excellent_features::outline::{self as model, Entry, Restyle, Shift, Swatch};
 use nsh_base::{
     ContextMenuElement, MenuItemElement, Tree, TreeApi, TreeEntry, TreeItem, button, context_menu,
-    input, menu_item, menu_separator, theme, tree,
+    input, menu_item, menu_separator, submenu, theme, tree,
 };
 use nsh_core::element::SharedString;
 use nsh_core::prelude::*;
@@ -163,6 +167,17 @@ impl OutlineState {
         })
     }
 
+    /// How entry `id` is drawn (B.7).
+    fn style_of(self, id: &str) -> OutlineStyle {
+        self.entries.with(|entries| {
+            entries
+                .as_deref()
+                .and_then(|entries| model::find(entries, id))
+                .map(|entry| entry.style)
+                .unwrap_or_default()
+        })
+    }
+
     /// The entry the reader of page `page` is in.
     fn reading_entry(self, page: usize) -> Option<SharedString> {
         self.entries.with(|entries| {
@@ -191,6 +206,7 @@ fn entry(item: &OutlineItem) -> Entry {
         title: item.title.clone(),
         page: item.page,
         open: item.open,
+        style: item.style,
         children: item.children.iter().map(entry).collect(),
     }
 }
@@ -261,6 +277,8 @@ fn outline_keys(
         on_key("alt+down", act(OutlineAction::Move(Shift::Down)));
         on_key("tab", act(OutlineAction::Move(Shift::In)));
         on_key("shift+tab", act(OutlineAction::Move(Shift::Out)));
+        on_key("mod+shift+b", act(OutlineAction::Style(Restyle::Bold)));
+        on_key("mod+shift+i", act(OutlineAction::Style(Restyle::Italic)));
         on_key("escape", move |_: &str| state.leave(pages_focus));
     });
 }
@@ -382,6 +400,7 @@ where
     let title = {
         let (label, editing) = (row.label.clone(), id.clone());
         let plain = label.clone();
+        let style = state.style_of(&id);
         when(renaming, move || {
             title_field(state, editing.clone(), label.to_string())
         })
@@ -390,9 +409,12 @@ where
                 .flex_1()
                 .text_size(px(13.0))
                 .truncate()
-                // Titles are what the reader scans, so all keep full contrast; the reader's entry is bolder.
+                // Titles are what the reader scans, so all keep full contrast; the reader's entry is bolder, and
+                // the document's own bold is bolder still.
                 .style_when(reading.clone(), |s| s.font_weight(FontWeight::SEMIBOLD))
-                .text_color(move || theme().sidebar_foreground)
+                .style_when(move || style.bold, |s| s.font_weight(FontWeight::BOLD))
+                .style_when(move || style.italic, |s| s.italic())
+                .text_color(move || title_color(style))
         })
     };
     let pressed = {
@@ -435,6 +457,18 @@ where
     entry_menu(menu, state, id, run)
 }
 
+/// The colour of a title drawn with `style`: the theme's, or the entry's own, made to read on every background a row
+/// can have (the sidebar, a hovered or selected row, a marked one).
+fn title_color(style: OutlineStyle) -> nsh_core::element::AdaptiveColor {
+    let text = theme().sidebar_foreground;
+    let Some(colour) = style.color else {
+        return text;
+    };
+    let papers = [theme().sidebar, theme().sidebar_accent, theme().accent].map(crate::theme::rgb);
+    let [r, g, b] = crate::theme::readable(colour, &papers, crate::theme::rgb(text));
+    nsh_core::color::rgb(u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b)).into()
+}
+
 /// `menu` with the outline commands, for the context menu of the entry of id `id`: they act on it (and on the other
 /// marked entries when it is one of them).
 fn entry_menu(
@@ -450,12 +484,16 @@ fn entry_menu(
             state.chosen.set(Some(id.clone()));
         }
     };
-    let item = move |action: OutlineAction| {
+    let act = move |action: OutlineAction| {
         let choose = choose.clone();
-        menu_entry(CommandId::Outline(action), move || {
+        move || {
             choose();
             run(CommandId::Outline(action));
-        })
+        }
+    };
+    let item = {
+        let act = act.clone();
+        move |action: OutlineAction| menu_entry(CommandId::Outline(action), act(action))
     };
     let separator = || {
         menu_separator()
@@ -463,9 +501,25 @@ fn entry_menu(
             .my(px(4.0))
             .bg(move || theme().border)
     };
+    let colors =
+        Some(None)
+            .into_iter()
+            .chain(Swatch::ALL.map(Some))
+            .fold(color_menu(), |colors, swatch| {
+                let action = OutlineAction::Style(Restyle::Color(swatch));
+                colors.child(swatch_entry(
+                    CommandId::Outline(action),
+                    swatch,
+                    act(action),
+                ))
+            });
     menu.child(item(OutlineAction::Add))
         .child(item(OutlineAction::Rename))
         .child(item(OutlineAction::SetDestination))
+        .child(separator())
+        .child(item(OutlineAction::Style(Restyle::Bold)))
+        .child(item(OutlineAction::Style(Restyle::Italic)))
+        .child(colors)
         .child(separator())
         .child(item(OutlineAction::Move(Shift::Up)))
         .child(item(OutlineAction::Move(Shift::Down)))
@@ -473,6 +527,76 @@ fn entry_menu(
         .child(item(OutlineAction::Move(Shift::Out)))
         .child(separator())
         .child(item(OutlineAction::Delete))
+}
+
+/// The Colour submenu, its trigger a row like the menu's items with a chevron at its end (B.7).
+fn color_menu() -> nsh_base::SubmenuElement {
+    let row = |label: String| {
+        view()
+            .flex_row()
+            .items_center()
+            .gap_3()
+            .h(px(32.0))
+            .px_2()
+            .rounded(px(6.0))
+            .hover(|s| s.bg(move || theme().accent))
+            .focus(|s| s.bg(move || theme().accent))
+            .child(
+                text(label)
+                    .flex_1()
+                    .text_size(px(13.0))
+                    .text_color(move || theme().popover_foreground),
+            )
+    };
+    submenu()
+        .trigger(
+            row(t!("outline.color")).child(
+                text("›")
+                    .text_size(px(13.0))
+                    .text_color(move || theme().muted_foreground),
+            ),
+        )
+        .back(row(t!("outline.color_back")))
+}
+
+/// A Colour submenu item: a dot of the swatch (an outlined empty dot for none) and the command's label.
+fn swatch_entry(
+    id: CommandId,
+    swatch: Option<Swatch>,
+    select: impl Fn() + 'static,
+) -> MenuItemElement {
+    let dot = view()
+        .w(px(12.0))
+        .h(px(12.0))
+        .rounded(px(6.0))
+        .border_1()
+        .border_color(move || theme().border);
+    let dot = match swatch {
+        Some(swatch) => {
+            let [r, g, b] = swatch.rgb();
+            let fill = nsh_core::color::rgb(u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b));
+            dot.bg(move || fill)
+        }
+        None => dot,
+    };
+    menu_item()
+        .on_select(select)
+        .accessibility_label(commands::label(id))
+        .flex_row()
+        .items_center()
+        .gap_3()
+        .h(px(32.0))
+        .px_2()
+        .rounded(px(6.0))
+        .hover(|s| s.bg(move || theme().accent))
+        .focus(|s| s.bg(move || theme().accent))
+        .child(dot)
+        .child(
+            text(commands::label(id))
+                .flex_1()
+                .text_size(px(13.0))
+                .text_color(move || theme().popover_foreground),
+        )
 }
 
 /// A menu item for command `id`: its label and its shortcut, as the palette shows them.

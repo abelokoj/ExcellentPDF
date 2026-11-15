@@ -4,6 +4,8 @@
 //! new entry goes, which open states to write, and the moves and deletes that act on several entries at once, each as
 //! paths the way the outline is when the change is made.
 
+use excellent_mupdf::OutlineStyle;
+
 /// One entry of an outline, as the document has it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Entry {
@@ -13,8 +15,94 @@ pub struct Entry {
     pub page: Option<usize>,
     /// Whether it starts expanded.
     pub open: bool,
+    /// How its title is drawn (B.7).
+    pub style: OutlineStyle,
     /// The entries under it.
     pub children: Vec<Entry>,
+}
+
+/// A colour the outline menu gives entries (B.7). They are written into the document as they are; the rows draw them
+/// adjusted to the theme so they stay readable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Swatch {
+    /// Red.
+    Red,
+    /// Orange.
+    Orange,
+    /// Green.
+    Green,
+    /// Blue.
+    Blue,
+    /// Purple.
+    Purple,
+}
+
+impl Swatch {
+    /// Every swatch, in the menu's order.
+    pub const ALL: [Self; 5] = [
+        Self::Red,
+        Self::Orange,
+        Self::Green,
+        Self::Blue,
+        Self::Purple,
+    ];
+
+    /// Its colour, `[r, g, b]`.
+    pub fn rgb(self) -> [u8; 3] {
+        match self {
+            Self::Red => [0xd6, 0x45, 0x45],
+            Self::Orange => [0xd9, 0x82, 0x2b],
+            Self::Green => [0x2f, 0x9e, 0x5b],
+            Self::Blue => [0x2f, 0x6f, 0xd6],
+            Self::Purple => [0x8a, 0x4f, 0xd6],
+        }
+    }
+}
+
+/// What a style command does to entries (B.7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Restyle {
+    /// Bold on, or off when every entry is bold already.
+    Bold,
+    /// Italic on, or off when every entry is italic already.
+    Italic,
+    /// This colour, or none.
+    Color(Option<Swatch>),
+}
+
+/// The new styles of the entries of ids `targets` after `how`, as `(path, style)` for those whose style changes. Bold
+/// and italic toggle together, as in a word processor: on for all unless all have it, then off for all.
+pub fn plan_style(
+    entries: &[Entry],
+    targets: &[String],
+    how: Restyle,
+) -> Vec<(Vec<usize>, OutlineStyle)> {
+    let found: Vec<(Vec<usize>, OutlineStyle)> = targets
+        .iter()
+        .filter_map(|id| Some((path(id)?, find(entries, id)?.style)))
+        .collect();
+    let all = |has: fn(&OutlineStyle) -> bool| found.iter().all(|(_, style)| has(style));
+    let restyle: Box<dyn Fn(OutlineStyle) -> OutlineStyle> = match how {
+        Restyle::Bold => {
+            let bold = !all(|style| style.bold);
+            Box::new(move |style| OutlineStyle { bold, ..style })
+        }
+        Restyle::Italic => {
+            let italic = !all(|style| style.italic);
+            Box::new(move |style| OutlineStyle { italic, ..style })
+        }
+        Restyle::Color(swatch) => Box::new(move |style| OutlineStyle {
+            color: swatch.map(Swatch::rgb),
+            ..style
+        }),
+    };
+    found
+        .into_iter()
+        .filter_map(|(at, style)| {
+            let new = restyle(style);
+            (new != style).then_some((at, new))
+        })
+        .collect()
 }
 
 /// The id of the entry at `path` (the index of each entry from the top down): "0", "2.1", "2.1.4". Stable while the
@@ -358,8 +446,34 @@ mod tests {
             title: title.to_owned(),
             page,
             open: !children.is_empty(),
+            style: OutlineStyle::default(),
             children,
         }
+    }
+
+    #[test]
+    fn style_toggles_together_and_skips_what_stays() {
+        let mut entries = book();
+        entries[0].style.bold = true;
+        let targets = vec!["0".to_owned(), "1.0".to_owned()];
+        // One of two is bold: both turn bold, and only the other changes.
+        let plan = plan_style(&entries, &targets, Restyle::Bold);
+        assert_eq!(plan.len(), 1);
+        assert_eq!(plan[0].0, vec![1, 0]);
+        assert!(plan[0].1.bold);
+        // Both bold: both turn off.
+        entries[1].children[0].style.bold = true;
+        let plan = plan_style(&entries, &targets, Restyle::Bold);
+        assert_eq!(plan.len(), 2);
+        assert!(plan.iter().all(|(_, style)| !style.bold));
+        // A colour keeps the rest of the style; an unknown id is skipped.
+        let targets = vec!["0".to_owned(), "9".to_owned()];
+        let plan = plan_style(&entries, &targets, Restyle::Color(Some(Swatch::Blue)));
+        assert_eq!(plan.len(), 1);
+        assert_eq!(plan[0].1.color, Some(Swatch::Blue.rgb()));
+        assert!(plan[0].1.bold);
+        // No colour on an entry without one changes nothing.
+        assert!(plan_style(&entries, &["2".to_owned()], Restyle::Color(None)).is_empty());
     }
 
     /// 1 Intro (p0); 2 Body (p3) with 2.1 (p3) and 2.2 (p7); 3 Web link (nowhere); 4 End (p10).

@@ -568,10 +568,12 @@ pub struct ex_outline_item {
     pub is_open: ::core::ffi::c_int,
     pub next: *mut fz_outline,
     pub down: *mut fz_outline,
+    pub flags: ::core::ffi::c_int,
+    pub color: ::core::ffi::c_int,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_outline_item"][::core::mem::size_of::<ex_outline_item>() - 40usize];
+    ["Size of ex_outline_item"][::core::mem::size_of::<ex_outline_item>() - 48usize];
     ["Alignment of ex_outline_item"][::core::mem::align_of::<ex_outline_item>() - 8usize];
     ["Offset of field: ex_outline_item::title"]
         [::core::mem::offset_of!(ex_outline_item, title) - 0usize];
@@ -585,6 +587,10 @@ const _: () = {
         [::core::mem::offset_of!(ex_outline_item, next) - 24usize];
     ["Offset of field: ex_outline_item::down"]
         [::core::mem::offset_of!(ex_outline_item, down) - 32usize];
+    ["Offset of field: ex_outline_item::flags"]
+        [::core::mem::offset_of!(ex_outline_item, flags) - 40usize];
+    ["Offset of field: ex_outline_item::color"]
+        [::core::mem::offset_of!(ex_outline_item, color) - 44usize];
 };
 impl Default for ex_outline_item {
     fn default() -> Self {
@@ -973,6 +979,17 @@ unsafe extern "C" {
         path: *const ::core::ffi::c_int,
         depth: ::core::ffi::c_int,
         item: *const ex_outline_edit,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_outline_style(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        path: *const ::core::ffi::c_int,
+        depth: ::core::ffi::c_int,
+        flags: ::core::ffi::c_int,
+        color: ::core::ffi::c_int,
         err: *mut ex_error,
     ) -> ::core::ffi::c_int;
 }

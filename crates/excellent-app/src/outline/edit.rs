@@ -6,7 +6,7 @@
 //! still being read again after the last edit.
 
 use excellent_core::edit::{Change, Operation};
-use excellent_features::outline::{self as model, Entry, Shift};
+use excellent_features::outline::{self as model, Entry, Restyle, Shift};
 use nsh_core::JsonValue;
 use nsh_core::keymap::Modifiers;
 use nsh_core::prelude::*;
@@ -26,6 +26,8 @@ pub(crate) enum OutlineAction {
     Move(Shift),
     /// The selected entry opens at the reader's place (B.4).
     SetDestination,
+    /// The marked entries, or the selected one, drawn bold, italic or in a colour (B.7).
+    Style(Restyle),
 }
 
 /// What the place the pages report next is for.
@@ -66,6 +68,7 @@ impl OutlineState {
             }
             OutlineAction::Delete => self.delete(),
             OutlineAction::Move(shift) => self.shift(shift),
+            OutlineAction::Style(how) => self.restyle(how),
         }
     }
 
@@ -245,6 +248,21 @@ impl OutlineState {
         if !changes.is_empty() && self.edit(&entries, t!("outline.op.delete"), changes) {
             self.marked.set(Vec::new());
             self.chosen.set(None);
+        }
+    }
+
+    /// Draws the marked entries, or the selected one, as `how` says (B.7); one step of undo.
+    fn restyle(self, how: Restyle) {
+        let Some(entries) = self.read_now() else {
+            return;
+        };
+        let targets = self.targets_in(&entries);
+        let changes: Vec<Change> = model::plan_style(&entries, &targets, how)
+            .into_iter()
+            .map(|(at, style)| Change::StyleOutlineEntry { at, style })
+            .collect();
+        if !changes.is_empty() {
+            self.edit(&entries, t!("outline.op.style"), changes);
         }
     }
 

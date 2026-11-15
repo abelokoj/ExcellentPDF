@@ -189,6 +189,11 @@ typedef struct ex_outline_item {
 	int is_open;
 	fz_outline *next;
 	fz_outline *down;
+	/* The PDF's /F bits: 1 italic, 2 bold (the PDF spec's order; MuPDF's FZ_OUTLINE_FLAG_* names have them the other
+	 * way round). */
+	int flags;
+	/* Its /C as 0xRRGGBB, or -1 when it has none (black counts as none, as in SumatraPDF Enhanced). */
+	int color;
 } ex_outline_item;
 
 int ex_load_outline(fz_context *ctx, fz_document *doc, fz_outline **out, ex_error *err);
@@ -306,7 +311,8 @@ int ex_undo(fz_context *ctx, fz_document *doc, ex_error *err);
 int ex_redo(fz_context *ctx, fz_document *doc, ex_error *err);
 
 /* An outline entry as it is written. `title` and `uri` are UTF-8; NULL in an update keeps the entry's own. `flags`
- * is FZ_OUTLINE_FLAG_* and `r g b` its colour (0 to 1); an update keeps the entry's own flags and colour. */
+ * is the PDF's /F bits (as in ex_outline_item) and `r g b` its colour (0 to 1); an update keeps the entry's own flags
+ * and colour (ex_outline_style changes them). */
 typedef struct ex_outline_edit {
 	const char *title;
 	const char *uri;
@@ -327,6 +333,10 @@ int ex_outline_insert(fz_context *ctx, fz_document *doc, const int *path, int de
 int ex_outline_update(fz_context *ctx, fz_document *doc, const int *path, int depth, const ex_outline_edit *item,
 	ex_error *err);
 int ex_outline_delete(fz_context *ctx, fz_document *doc, const int *path, int depth, ex_error *err);
+/* B.7: the entry at `path` drawn with `flags` (/F bits, as in ex_outline_item) in `color` (0xRRGGBB, or -1 for none);
+ * everything else about it stays. */
+int ex_outline_style(fz_context *ctx, fz_document *doc, const int *path, int depth, int flags, int color,
+	ex_error *err);
 int ex_outline_move(fz_context *ctx, fz_document *doc, const int *from, int from_depth, const int *to, int to_depth,
 	ex_error *err);
 

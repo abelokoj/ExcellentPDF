@@ -42,7 +42,7 @@ pub use error::{MuError, Result};
 pub use geometry::{DevicePoint, DeviceRect, Matrix, PageBox, PagePoint, PageRect, Quad};
 pub use image::PageImage;
 pub use link::{Link, Target};
-pub use outline::OutlineItem;
+pub use outline::{OutlineItem, OutlineStyle};
 pub use page::Page;
 pub use pixmap::{Background, Pixmap};
 pub use text::{StextPage, TextBlock, TextChar, TextLayout, TextLine};

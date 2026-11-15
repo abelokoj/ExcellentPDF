@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 15:30; Ph3: 4/49 | B.7: Bold, italic and color
+
+- Outline entries show the document's bold, italic and colour, the colour kept readable on the theme (WCAG AA).
+- The entry menu has Bold, Italic and a Colour submenu (five swatches and none); Ctrl+Shift+B and Ctrl+Shift+I while
+  the outline has the keyboard; all in the command palette. One step of undo, saved in the PDF as `/F` and `/C`.
+- Shim: `ex_load_outline` reads `/F` and `/C` through the outline iterator; new `ex_outline_style`.
+- Fixed (R.14): `ex_display_list_images` read its item list after the device that owned it was dropped, so macOS
+  listed no pictures; the list is taken out before the drop.
+- Done when met by test: a styled entry keeps bold and colour after save and reopening, with `/F 2` in the file. Not
+  opened in Acrobat.
+
 ### 2026-11-15 12:30; Ph3: 3/49 | R.25: Citation and equation hover
 
 - Resting the pointer on a citation (`[12]`, `(Smith et al., 2020)`) or an equation reference shows the entry or the

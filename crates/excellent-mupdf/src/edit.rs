@@ -11,8 +11,8 @@ use std::path::Path;
 use excellent_mupdf_sys::{
     ex_abandon_operation, ex_annot_create, ex_annot_delete, ex_annot_update, ex_begin_operation,
     ex_end_operation, ex_is_pdf, ex_link_uri, ex_outline_delete, ex_outline_edit,
-    ex_outline_insert, ex_outline_move, ex_outline_update, ex_redo, ex_save_pdf, ex_undo,
-    ex_undo_state,
+    ex_outline_insert, ex_outline_move, ex_outline_style, ex_outline_update, ex_redo, ex_save_pdf,
+    ex_undo, ex_undo_state,
 };
 
 use crate::annot::AnnotData;
@@ -20,6 +20,7 @@ use crate::context::{check, with_context};
 use crate::document::{Document, c_path};
 use crate::error::{MuError, Result};
 use crate::geometry::PagePoint;
+use crate::outline::OutlineStyle;
 
 /// Where a PDF is in its undo history: `position` of `steps` operations are applied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -331,6 +332,31 @@ impl Edit<'_> {
                     path.as_ptr(),
                     depth,
                     &item,
+                    err,
+                )
+            })
+        })
+    }
+
+    /// Draws the outline entry at `path` with `style` (B.7); its title, destination and open state stay.
+    ///
+    /// # Errors
+    ///
+    /// No entry is at the path, or MuPDF can't write it.
+    pub fn style_outline_entry(&mut self, path: &[usize], style: OutlineStyle) -> Result<()> {
+        let (path, depth) = c_ints(path)?;
+        let (flags, color) = style.to_raw();
+        with_context(|ctx| {
+            // SAFETY: the document is live, used by this thread only, and inside an operation; `path` holds `depth`
+            // ints.
+            check(|err| unsafe {
+                ex_outline_style(
+                    ctx,
+                    self.doc.raw().as_ptr(),
+                    path.as_ptr(),
+                    depth,
+                    flags,
+                    color,
                     err,
                 )
             })

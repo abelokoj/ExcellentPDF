@@ -3,7 +3,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use excellent_mupdf::{Document, NewOutlineEntry, OutlineChange, OutlineItem, PagePoint, Save};
+use excellent_mupdf::{
+    Document, NewOutlineEntry, OutlineChange, OutlineItem, OutlineStyle, PagePoint, Save,
+};
 
 fn corpus(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -150,6 +152,46 @@ fn a_repointed_entry_opens_its_new_place_after_reopening() {
     drop(doc);
     let reopened = Document::open_pdf(&file).expect("reopen");
     assert_eq!(reopened.outline().expect("outline")[0].page, Some(1));
+}
+
+#[test]
+fn a_styled_entry_keeps_its_style_after_reopening() {
+    let (_scratch, file) = Scratch::new("style", "base14-outline-annot.pdf");
+    let mut doc = Document::open_pdf(&file).expect("open");
+    let before = doc.outline().expect("outline")[0].clone();
+    assert_eq!(before.style, OutlineStyle::default());
+    let style = OutlineStyle {
+        bold: true,
+        italic: false,
+        color: Some([0x2f, 0x6f, 0xd6]),
+    };
+    doc.operation("Style", |edit| edit.style_outline_entry(&[0], style))
+        .expect("style");
+    let entry = &doc.outline().expect("outline")[0];
+    assert_eq!(entry.style, style);
+    assert_eq!((&entry.title, entry.page), (&before.title, before.page));
+    doc.undo().expect("undo");
+    assert_eq!(
+        doc.outline().expect("outline")[0].style,
+        OutlineStyle::default()
+    );
+    doc.redo().expect("redo");
+    doc.save_pdf(&file).expect("save");
+    drop(doc);
+    // Bold is /F bit 2 in the PDF spec (MuPDF's flag names have it the other way round).
+    let bytes = fs::read(&file).expect("read");
+    assert!(bytes.windows(4).any(|w| w == b"/F 2"), "no /F 2 written");
+    let reopened = Document::open_pdf(&file).expect("reopen");
+    assert_eq!(reopened.outline().expect("outline")[0].style, style);
+    let mut doc = reopened;
+    doc.operation("Plain", |edit| {
+        edit.style_outline_entry(&[0], OutlineStyle::default())
+    })
+    .expect("plain");
+    assert_eq!(
+        doc.outline().expect("outline")[0].style,
+        OutlineStyle::default()
+    );
 }
 
 #[test]

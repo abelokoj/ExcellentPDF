@@ -7,7 +7,7 @@
 //! rule for its canvas). A command that needs a document is left out of the palette while none is open.
 
 use excellent_features::modes::Mode;
-use excellent_features::outline::Shift;
+use excellent_features::outline::{Restyle, Shift, Swatch};
 use nsh_base::CommandItem;
 use nsh_core::prelude::*;
 
@@ -646,6 +646,72 @@ pub(crate) const COMMANDS: &[Command] = &[
         id: CommandId::Outline(OutlineAction::SetDestination),
         name: "outline.set_destination",
         label: "command.outline_set_destination",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Style(Restyle::Bold)),
+        name: "outline.bold",
+        label: "command.outline_bold",
+        group: "command.group.outline",
+        // Ctrl+Shift+B while the outline has the keyboard (the panel binds it).
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Style(Restyle::Italic)),
+        name: "outline.italic",
+        label: "command.outline_italic",
+        group: "command.group.outline",
+        // Ctrl+Shift+I while the outline has the keyboard.
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Style(Restyle::Color(None))),
+        name: "outline.color_none",
+        label: "command.outline_color_none",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Style(Restyle::Color(Some(Swatch::Red)))),
+        name: "outline.color_red",
+        label: "command.outline_color_red",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Style(Restyle::Color(Some(Swatch::Orange)))),
+        name: "outline.color_orange",
+        label: "command.outline_color_orange",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Style(Restyle::Color(Some(Swatch::Green)))),
+        name: "outline.color_green",
+        label: "command.outline_color_green",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Style(Restyle::Color(Some(Swatch::Blue)))),
+        name: "outline.color_blue",
+        label: "command.outline_color_blue",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Style(Restyle::Color(Some(Swatch::Purple)))),
+        name: "outline.color_purple",
+        label: "command.outline_color_purple",
         group: "command.group.outline",
         keys: &[],
         page_keys: &[],
