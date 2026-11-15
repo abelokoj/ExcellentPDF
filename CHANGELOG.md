@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 23:30; Ph3: 10/49 | V.11: Pop out to a window
+
+- "Move tab to its own window or back" (Ctrl+Alt+O) moves the shown tab into a window of its own, at its page and
+  in its view. The window has its own tab strip and the main window's shortcuts for its tabs and pages; a file open
+  in both windows is read once and shares its edits.
+- The same command in that window, its "Dock" button, or closing it, moves its tabs back to the main window's active
+  pane; closing its last tab closes it. The session keeps its tabs with the active pane's.
+- The page canvas is now one view (`panes::pages_view`) used by the grid and the new windows (`excellent-app::windows`).
+
 ### 2026-11-15 22:45; Ph3: 9/49 | V.10: Swap, flip and maximize
 
 - "Swap panes" (Ctrl+Alt+X) trades the active pane's tabs with the next pane's; "Flip panes between side by side and

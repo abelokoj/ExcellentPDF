@@ -2989,6 +2989,8 @@ edits 2 s after the last one and whenever a pane stops showing a file, so nothin
 **P1; Phase 3; Needs:** V.3; **Code:** `excellent-app::windows`
 1. Move a tab or group into a new window opened with NSH's `open_window` (v0.5.0); keep its `WindowRef` in the
    window registry; drag the tab back to dock it. All windows share one UI thread, and NSH paces each one's frames.
+   *(Built: the shown tab moves; it docks with the same command, the window's Dock button or closing the window,
+   since NSH 0.5 has no drag between windows. Groups and drag to dock wait for that.)*
 
 **Done when:** popped-out tabs keep their View state and share the Document.
 

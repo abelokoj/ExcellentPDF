@@ -30,7 +30,7 @@ use crate::list_dialog::{list_dialog, style};
 use crate::modes::{self, Modes};
 use crate::onboarding::{self, Onboarding};
 use crate::outline::{self, OutlineAction};
-use crate::panes::{self, CELLS, FileDrag, Pane, Panes, Place, Shared};
+use crate::panes::{self, CELLS, FileDrag, Pane, PaneAction, Panes, Place, Shared};
 use crate::print::{Printing, print_strip};
 use crate::reading::Reading;
 use crate::reading_theme_bar::reading_theme_bar;
@@ -271,6 +271,8 @@ pub(crate) fn shell() -> impl IntoElement {
             CommandId::TabList => tab_list_open.set(true),
             CommandId::SetDefaultViewer => crate::open::set_as_default_viewer(),
             CommandId::Tab(action) => pane.tabs.run(action),
+            // V.11: the window's pages need the shared state, which the shell holds.
+            CommandId::Pane(PaneAction::PopOut) => crate::windows::pop_out(panes, shared),
             CommandId::Pane(action) => panes.run(action),
             CommandId::Workspace(action) => workspaces.run(action),
             CommandId::LeaveModes => {

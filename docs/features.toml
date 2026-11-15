@@ -259,6 +259,12 @@ status = "in-progress"
 tests = ["same_position_stays_level_across_different_page_sizes", "same_page_keeps_the_place_on_the_page_and_stops_at_the_last", "pairs_count_on_from_the_nearest_pair", "marks_pair_the_panes_open_at_the_time"]
 open = "not tried by hand; page pairs are not kept per file"
 
+["V.11"]
+label = "Ph3: 10/49"
+status = "in-progress"
+tests = ["popped_out_tabs_are_kept_with_the_active_pane_s"]
+open = "not tried by hand; docking is a command, a button or closing the window, not a drag; tab only, not a group"
+
 ["V.10"]
 label = "Ph3: 9/49"
 status = "in-progress"

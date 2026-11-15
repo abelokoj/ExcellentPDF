@@ -29,7 +29,7 @@ impl Place {
     }
 
     /// The canvas command that goes there, remembering where the pane was (R.8).
-    fn command(self) -> Then {
+    pub(crate) fn command(self) -> Then {
         match self.spot {
             Some(Spot { x, y, zoom }) => {
                 let mut args = serde_json::json!({ "page": self.page, "x": x, "y": y });

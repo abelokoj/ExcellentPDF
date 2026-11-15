@@ -1162,6 +1162,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &[],
     },
     Command {
+        id: CommandId::Pane(PaneAction::PopOut),
+        name: "pane.pop_out",
+        label: "command.pop_out",
+        group: "command.group.panes",
+        keys: &["mod+alt+o"],
+        page_keys: &[],
+    },
+    Command {
         id: CommandId::Pane(PaneAction::Swap),
         name: "pane.swap",
         label: "command.swap_panes",

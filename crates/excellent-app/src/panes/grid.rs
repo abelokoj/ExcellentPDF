@@ -549,18 +549,46 @@ fn document_missing(tabs: TabState) -> impl IntoElement {
     }))
 }
 
-/// A pane's pages: the platform's page canvas (plan D5), showing the pane's shown tab's file. It is a window of its
-/// own, drawn over the app, so it hides while a dialog is open. It draws the theme's page area behind the pages
-/// itself. The view around it holds the keyboard focus for it: a Tab stop, focused when a press lands on the pages
-/// and when the active pane's document opens.
+/// A grid pane's pages ([`pages_view`]), with what the grid hears of them: a file opening in the active pane takes
+/// the keyboard, the view leads synced panes (V.8), a link opens in the other pane (V.9), and full screen (R.19).
 fn page_canvas(
     panes: Panes,
     pane: Pane,
     shared: Shared,
     dialog_open: impl Fn() -> bool + Copy + 'static,
 ) -> impl IntoElement {
+    let cell = pane.cell;
+    let full_screen = shared.full_screen;
+    pages_view(pane, shared, dialog_open, move |event: &NativeEvent| {
+        match &*event.name {
+            // A file opening in a pane beside the active one leaves the keyboard where it is.
+            "pages" if untracked(|| panes.active_cell()) == cell => pane.focus.focus(),
+            // V.8: while synced, the pane the reader moves leads the others.
+            "view" => panes.on_view(cell, &event.data),
+            // V.9: Ctrl+click or middle-click on a link shows where it goes in the other pane.
+            "openElsewhere" => {
+                if let Some(place) = super::Place::from_json(&event.data) {
+                    panes.open_elsewhere(cell, place);
+                }
+            }
+            _ => {}
+        }
+        full_screen.on_canvas_event(event);
+    })
+}
+
+/// A pane's pages: the platform's page canvas (plan D5), showing the pane's shown tab's file, in the grid or in a
+/// popped-out window (V.11). It is a window of its own, drawn over the app, so it hides while `hidden` says (a dialog
+/// is open). It draws the theme's page area behind the pages itself. The view around it holds the keyboard focus for
+/// it: a Tab stop, focused when a press lands on the pages. `on_event` hears each of the canvas's events before the
+/// pane's parts do.
+pub(crate) fn pages_view(
+    pane: Pane,
+    shared: Shared,
+    hidden: impl Fn() -> bool + Copy + 'static,
+    on_event: impl Fn(&NativeEvent) + 'static,
+) -> impl IntoElement {
     let Pane {
-        cell,
         canvas,
         focus,
         pages,
@@ -572,11 +600,7 @@ fn page_canvas(
         find,
         ..
     } = pane;
-    let Shared {
-        reading,
-        full_screen,
-        ..
-    } = shared;
+    let reading = shared.reading;
     let canvas_ref = canvas;
     let label = move || {
         let name = tabs.shown_name().unwrap_or_default();
@@ -606,34 +630,21 @@ fn page_canvas(
                         modes.pen_contact();
                     }
                 }
-                // A file opening in a pane beside the active one leaves the keyboard where it is.
-                "pages" if untracked(|| panes.active_cell()) == cell => focus.focus(),
-                // V.8: while synced, the pane the reader moves leads the others.
-                "view" => panes.on_view(cell, &event.data),
-                // V.9: Ctrl+click or middle-click on a link shows where it goes in the other pane.
-                "openElsewhere" => {
-                    if let Some(place) = super::Place::from_json(&event.data) {
-                        panes.open_elsewhere(cell, place);
-                    }
-                }
                 _ => {}
             }
+            on_event(event);
             pages.on_canvas_event(event);
             tabs.on_canvas_event(event, canvas_ref);
             link_state.on_canvas_event(event);
             thumbs.on_canvas_event(event);
             reading.on_canvas_event(event);
-            full_screen.on_canvas_event(event);
             outline.on_canvas_event(event);
             bookmarks.on_canvas_event(event);
             find.on_canvas_event(event);
             copy_selection(event);
         })
         .flex_1()
-        .style_when(
-            move || dialog_open() || !tabs.has_shown(),
-            |s| s.invisible(),
-        );
+        .style_when(move || hidden() || !tabs.has_shown(), |s| s.invisible());
     view()
         .flex_1()
         .style_when(move || !tabs.has_shown(), |s| s.hidden())

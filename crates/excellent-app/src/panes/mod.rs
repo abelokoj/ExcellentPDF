@@ -39,13 +39,17 @@ use crate::session::Restored;
 use crate::settings::Live;
 use crate::tabs::{self, Closed, Step, TabState, Tabs};
 use crate::thumbnails::Thumbnails;
+use crate::windows::Windows;
 use crate::workspaces::Workspaces;
 
 pub(crate) use elsewhere::Place;
-pub(crate) use grid::pane_grid;
+pub(crate) use grid::{pages_view, pane_grid};
 pub(crate) use layout::{CELLS, Layout, Side};
 use sync::SyncScroll;
 pub(crate) use sync::{SYNC_SCROLL, SYNC_ZOOM};
+
+/// The cell a pane outside the grid reports: a popped-out window's (V.11). No grid cell has it.
+pub(crate) const POPPED: usize = CELLS;
 
 /// `settings.toml`'s key for what closing a pane does with its tabs: `"move"` (the default) or `"close"`.
 pub(crate) const CLOSE_PANE_TABS: &str = "close_pane_tabs";
@@ -74,7 +78,7 @@ impl ClosingTabs {
     }
 }
 
-/// What a pane command does (V.1 to V.10).
+/// What a pane command does (V.1 to V.11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PaneAction {
     /// The shown tab in a new pane on that side, at the same place (V.1).
@@ -97,6 +101,9 @@ pub(crate) enum PaneAction {
     Flip,
     /// The active pane fills the window, or the panes come back (V.10).
     Maximize,
+    /// The shown tab into a window of its own; in such a window, back to the main one (V.11). The shell runs it:
+    /// the window's pages need what it holds.
+    PopOut,
     /// Synchronized scrolling on or off (V.8).
     Sync,
     /// How the panes follow while synced (V.8).
@@ -193,6 +200,11 @@ pub(crate) struct Panes {
     live: Live,
     /// Synchronized scrolling (V.8).
     sync: SyncScroll,
+    /// The popped-out windows (V.11).
+    windows: Windows,
+    /// What a popped-out window's pane needs too.
+    recent: RecentState,
+    revision: Signal<u64>,
 }
 
 impl Panes {
@@ -223,6 +235,9 @@ impl Panes {
             slots,
             live,
             sync: SyncScroll::new(),
+            windows: Windows::new(),
+            recent,
+            revision,
         };
         for pane in slots {
             panes.close_when_empty(pane);
@@ -234,6 +249,7 @@ impl Panes {
     pub(crate) fn show(self, restored: Restored) {
         let Restored { layout, tabs } = restored;
         batch(|| {
+            self.windows.close_all();
             self.layout.set(layout);
             for (pane, tabs) in self.slots.into_iter().zip(tabs) {
                 pane.tabs.replace(tabs, pane.canvas);
@@ -245,6 +261,7 @@ impl Panes {
     /// Takes every pane's tabs out, the active pane's last and its shown tab at the very end (W.2: a new workspace
     /// from all of them). The panes then close, as panes with no tab do.
     pub(crate) fn take_every_tab(self) -> Vec<Closed> {
+        self.windows.dock_all(self);
         let active = self.active().cell;
         let mut order: Vec<Pane> = self
             .slots
@@ -278,9 +295,46 @@ impl Panes {
         self.layout.get()
     }
 
-    /// Every pane's tabs as they are now, by cell (tracked): what the session saves.
+    /// Every pane's tabs as they are now, by cell (tracked): what the session saves. The popped-out windows' tabs
+    /// (V.11) are kept with the active pane's, where docking puts them, its shown tab staying shown.
     pub(crate) fn current(self) -> [Tabs; CELLS] {
-        self.slots.map(|pane| pane.tabs.current())
+        let mut all = self.slots.map(|pane| pane.tabs.current());
+        let popped = self.windows.tabs();
+        if !popped.is_empty() {
+            keep_popped(&mut all[self.active.get()], popped);
+        }
+        all
+    }
+
+    /// The popped-out windows (V.11).
+    pub(crate) fn windows(self) -> Windows {
+        self.windows
+    }
+
+    /// The settings, as the panes read them.
+    pub(crate) fn live(self) -> Live {
+        self.live
+    }
+
+    /// A pane outside the grid, with no tab: a popped-out window's (V.11).
+    pub(crate) fn new_pane(self) -> Pane {
+        Pane::new(
+            POPPED,
+            Tabs::default(),
+            self.live,
+            self.recent,
+            self.revision,
+        )
+    }
+
+    /// Takes `taken` (a popped-out window's tabs, V.11) into the active pane, and gives it the keyboard.
+    pub(crate) fn dock(self, taken: Vec<Closed>) {
+        if taken.is_empty() {
+            return;
+        }
+        let pane = self.active();
+        pane.tabs.adopt(taken);
+        focus_later(pane);
     }
 
     /// Whether the window is split (tracked).
@@ -366,6 +420,8 @@ impl Panes {
             PaneAction::Swap => self.swap(),
             PaneAction::Flip => self.flip(),
             PaneAction::Maximize => self.toggle_maximized(),
+            // The shell opens the window (`crate::windows::pop_out`).
+            PaneAction::PopOut => {}
             PaneAction::Sync => self.toggle_sync(),
             PaneAction::SyncFollow(follow) => self.set_sync_follow(follow),
             PaneAction::SyncZoom => self.toggle_sync_zoom(),
@@ -637,6 +693,20 @@ pub(crate) struct Shared {
     pub(crate) workspaces: Workspaces,
 }
 
+/// Adds the popped-out windows' tabs (V.11) after `tabs`' own, at their pages and in their views, the tab shown
+/// staying shown.
+fn keep_popped(tabs: &mut Tabs, popped: Vec<Tabs>) {
+    let shown = tabs.active().map(|tab| tab.id);
+    for mut window in popped {
+        for tab in window.take_all() {
+            tabs.adopt(tab);
+        }
+    }
+    if let Some(id) = shown {
+        tabs.activate(id);
+    }
+}
+
 /// The files of a launch, one pane's worth each: all of them without `--split`, one each with it, and
 /// `--split-same`'s first twice.
 fn split_groups(launch: &Launch) -> Vec<Vec<PathBuf>> {
@@ -673,6 +743,26 @@ mod tests {
 
     fn path(name: &str) -> PathBuf {
         PathBuf::from(format!("C:/papers/{name}.pdf"))
+    }
+
+    #[test]
+    fn popped_out_tabs_are_kept_with_the_active_pane_s() {
+        let mut main = Tabs::default();
+        main.open(path("a"), 0);
+        let shown = main.open(path("b"), 3);
+        main.open(path("c"), 0);
+        main.activate(shown);
+        let mut window = Tabs::default();
+        window.open(path("d"), 7);
+        keep_popped(&mut main, vec![window, Tabs::default()]);
+        let paths: Vec<_> = main.all().iter().map(|tab| tab.path.clone()).collect();
+        assert_eq!(paths, [path("a"), path("b"), path("c"), path("d")]);
+        assert_eq!(
+            main.active().map(|tab| tab.id),
+            Some(shown),
+            "the shown tab stays shown"
+        );
+        assert_eq!(main.all()[3].page, 7, "a popped-out tab keeps its page");
     }
 
     fn launch(names: &[&str], split: Option<LaunchSplit>) -> Launch {
