@@ -12,6 +12,9 @@
 //!
 //! Books that reflow (R.28: EPUB, FB2, MOBI, HTML, Markdown) are laid out with their text at `reflow_font_size`
 //! points.
+//!
+//! Citation and equation previews (R.25) show after the pointer rests `ref_preview_delay` milliseconds on a link or
+//! citation, unless `ref_preview` is no.
 
 use excellent_core::darkmode::themes::is_dark;
 use excellent_core::darkmode::{Palette, Pictures, ReadingTheme, Rgb};
@@ -34,6 +37,12 @@ pub(crate) const READING_THEME: &str = "reading_theme";
 pub(crate) const READING_INK: &str = "reading_ink";
 pub(crate) const READING_PAPER: &str = "reading_paper";
 pub(crate) const REFLOW_FONT_SIZE: &str = "reflow_font_size";
+pub(crate) const REF_PREVIEW: &str = "ref_preview";
+pub(crate) const REF_PREVIEW_DELAY: &str = "ref_preview_delay";
+/// How long the pointer rests before a preview shows, in milliseconds: Enhanced's `CitationHoverDelay`.
+pub(crate) const DEFAULT_PREVIEW_DELAY: f64 = 300.0;
+/// The longest delay the settings offer, in milliseconds.
+pub(crate) const MAX_PREVIEW_DELAY: f64 = 2000.0;
 
 /// The reading aids' settings, followed while the app runs, and the reading theme shown for a moment while the reader
 /// moves through the reading-theme bar.
@@ -88,6 +97,19 @@ impl Reading {
         self.live
             .read(|settings| settings.number(REFLOW_FONT_SIZE))
             .map_or(JsonValue::Null, JsonValue::from)
+    }
+
+    /// The canvas's `hoverDelay` prop (R.25): the delay in milliseconds, or `false` when previews are off.
+    pub(crate) fn hover_delay_prop(self) -> JsonValue {
+        self.live.read(|settings| {
+            if settings.flag(REF_PREVIEW) == Some(false) {
+                return JsonValue::Bool(false);
+            }
+            let delay = settings
+                .number(REF_PREVIEW_DELAY)
+                .unwrap_or(DEFAULT_PREVIEW_DELAY);
+            delay.clamp(0.0, MAX_PREVIEW_DELAY).into()
+        })
     }
 
     /// How the pages take the theme's colours now (R.14).

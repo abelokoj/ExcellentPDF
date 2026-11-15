@@ -21,8 +21,9 @@ use crate::onboarding::SHOW_TIPS;
 use crate::panes::{CLOSE_PANE_TABS, ClosingTabs};
 use crate::print::{PRINT_ANNOTATIONS, PRINT_SCALING};
 use crate::reading::{
-    AUTO_SCROLL_SPEED, DocumentColors, FOCUS_SCOPE, READING_INK, READING_PAPER, REFLOW_FONT_SIZE,
-    RULER_COLOR, RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
+    AUTO_SCROLL_SPEED, DEFAULT_PREVIEW_DELAY, DocumentColors, FOCUS_SCOPE, MAX_PREVIEW_DELAY,
+    READING_INK, READING_PAPER, REF_PREVIEW, REF_PREVIEW_DELAY, REFLOW_FONT_SIZE, RULER_COLOR,
+    RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
 };
 use crate::reading_theme_bar;
 use crate::settings::{self, Live};
@@ -547,25 +548,47 @@ fn links_section(live: Live) -> View {
             );
         });
     };
-    section("settings.section.links").child(row(
-        "settings.link_protocols",
-        "settings.link_protocols_hint",
-        input()
-            .value(move || typed.get().unwrap_or_else(saved))
-            .on_change(move |text: &str| typed.set(Some(text.to_owned())))
-            .on_submit(move |_: &str| keep())
-            .on_blur(keep)
-            .label(t!("settings.link_protocols"))
-            .w(px(200.0))
-            .h(px(32.0))
-            .px_3()
-            .rounded(px(6.0))
-            .border_1()
-            .border_color(move || theme().input)
-            .focus(|s| s.border_color(move || theme().ring))
-            .text_size(px(13.0))
-            .text_color(move || theme().popover_foreground),
-    ))
+    let previews = move || live.read(|s| s.flag(REF_PREVIEW)).unwrap_or(true);
+    section("settings.section.links")
+        .child(row(
+            "settings.ref_preview",
+            "settings.ref_preview_hint",
+            on_off("settings.ref_preview", previews, move |on| {
+                live.change(|s| s.set_flag(REF_PREVIEW, (!on).then_some(false)));
+            }),
+        ))
+        .child(row(
+            "settings.ref_preview_delay",
+            "settings.ref_preview_delay_hint",
+            number_field(
+                live,
+                "settings.ref_preview_delay",
+                REF_PREVIEW_DELAY,
+                DEFAULT_PREVIEW_DELAY,
+                (0.0, MAX_PREVIEW_DELAY),
+                50.0,
+                "settings.unit.milliseconds",
+            ),
+        ))
+        .child(row(
+            "settings.link_protocols",
+            "settings.link_protocols_hint",
+            input()
+                .value(move || typed.get().unwrap_or_else(saved))
+                .on_change(move |text: &str| typed.set(Some(text.to_owned())))
+                .on_submit(move |_: &str| keep())
+                .on_blur(keep)
+                .label(t!("settings.link_protocols"))
+                .w(px(200.0))
+                .h(px(32.0))
+                .px_3()
+                .rounded(px(6.0))
+                .border_1()
+                .border_color(move || theme().input)
+                .focus(|s| s.border_color(move || theme().ring))
+                .text_size(px(13.0))
+                .text_color(move || theme().popover_foreground),
+        ))
 }
 
 /// The protocol list as the setting keeps it: lower case, comma-separated, without blanks or repeats.

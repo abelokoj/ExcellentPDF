@@ -6,6 +6,18 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 12:30; Ph3: 3/49 | R.25: Citation and equation hover
+
+- Resting the pointer on a citation (`[12]`, `(Smith et al., 2020)`) or an equation reference shows the entry or the
+  equation in a preview drawn over the pages; clicking it goes there. Papers without links work too: the entry is
+  found in the references by its text.
+- `excellent-features::read::refhover`: SumatraPDF Enhanced's reference hover ported to pure Rust (`cite`, `layout`,
+  `resolve`) with its tests.
+- `excellent-canvas`: a worker per canvas debounces, resolves and renders the preview off the UI thread.
+- Settings, Links: "Preview citations and equations" and "Preview delay".
+- Done when met by test: the ported tests pass; `[12]` in a paper without links shows reference 12. Not tried by
+  hand.
+
 ### 2026-11-15 11:45; Ph3: 2/49 | R.17: Mini-map with note ticks
 
 - A strip on the right edge of the pages shows the whole document: a tick per page, a thumb over the part on screen,

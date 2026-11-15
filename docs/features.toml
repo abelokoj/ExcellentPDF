@@ -390,3 +390,9 @@ label = "Ph3: 2/49"
 status = "in-progress"
 tests = ["an_annotation_edit_changes_its_page_and_its_marks", "the_strip_stands_for_the_whole_document_either_way_round", "the_thumb_covers_the_screen_and_stays_big_enough_to_grab", "ticks_too_close_together_are_left_out", "marks_keep_their_lanes_and_touching_ones_merge", "pressing_centres_the_screen_and_dragging_keeps_the_grip", "the_palette_follows_the_background", "reads_bookmarks_and_leaves_out_the_broken_ones"]
 open = "not tried by hand; no setting to hide it; the strip is 12 px, under the 24 px target (keyboard equivalents exist)"
+
+["R.25"]
+label = "Ph3: 3/49"
+status = "in-progress"
+tests = ["refhover::tests (ported from RefHover_ut.cpp)", "hover_numeric_without_link_shows_entry", "hover_misses_unlisted_number", "dest_y_prefers_a_match_that_starts_its_line", "popover_zoom_fits_room"]
+open = "not tried by hand; no wheel zoom in the preview; no link-zoom path; text cache not keyed by page revision"

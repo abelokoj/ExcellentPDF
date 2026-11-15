@@ -2,6 +2,7 @@
 //! the same on every platform. Each platform's component holds a [`PageCanvas`] and forwards to these.
 
 use std::path::Path;
+use std::time::Duration;
 
 use excellent_core::darkmode::{PageColors, Pictures};
 use excellent_features::read::autoscroll::Change;
@@ -11,7 +12,7 @@ use excellent_features::search::find::{Case, Direction, HitId, Marks, Options, W
 use excellent_mupdf::PagePoint;
 use nsh_core::JsonValue;
 
-use super::canvas::{PageCanvas, ZoomChange};
+use super::canvas::{DEFAULT_HOVER_DELAY, PageCanvas, ZoomChange};
 use super::host::Host;
 use super::saved::SavedView;
 use crate::view::ViewCommand;
@@ -27,7 +28,8 @@ impl<H: Host> PageCanvas<H> {
     /// `"keep"` or `"recolor"`; `null`, or without a valid `ink` and `paper`: the document's own. `reflowFontSize`:
     /// a reflowable book's text size in points (R.28); `null`: the default. `bookmarks`: the bookmarks the mini-map
     /// marks (R.17), `[{page, x, y, color}]` in page points with a `#rrggbb` colour (entries that don't parse are
-    /// left out).
+    /// left out). `hoverDelay`: how long the pointer rests on a link or citation before its preview shows (R.25), in
+    /// milliseconds; `false` turns previews off; `null` or anything else: the default.
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -43,6 +45,16 @@ impl<H: Host> PageCanvas<H> {
                 self.set_reflow_font_size(value.and_then(JsonValue::as_f64).map(|size| size as f32))
             }
             "bookmarks" => self.set_bookmarks(value.map(bookmarks).unwrap_or_default()),
+            "hoverDelay" => self.set_hover_delay(match value {
+                Some(JsonValue::Bool(false)) => None,
+                other => Some(
+                    other
+                        .and_then(JsonValue::as_f64)
+                        .map_or(DEFAULT_HOVER_DELAY, |ms| {
+                            Duration::from_millis(ms.clamp(0.0, 10_000.0) as u64)
+                        }),
+                ),
+            }),
             "path" => self.open(text.map(Path::new)),
             "background" => match text.and_then(parse_rgb) {
                 Some(rgb) => self.set_background(rgb),

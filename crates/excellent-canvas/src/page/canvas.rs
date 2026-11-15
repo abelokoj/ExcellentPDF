@@ -36,6 +36,9 @@ mod access;
 mod find;
 mod minimap;
 mod reading;
+mod refhover;
+
+pub(super) use refhover::DEFAULT_DELAY as DEFAULT_HOVER_DELAY;
 
 /// Behind the pages until the app sets its theme's `page-area` colour.
 const BACKGROUND: u32 = 0x2b2d31;
@@ -196,6 +199,8 @@ pub struct PageCanvas<H: Host> {
     finder: find::Finder,
     /// The mini-map (R.17).
     minimap: minimap::MiniMap,
+    /// Citation and equation hover (R.25).
+    refhover: refhover::RefHover<H::Image>,
 }
 
 /// A stroke on a page, in that page's points: it stays on the page through any layout, zoom or rotation.
@@ -277,6 +282,7 @@ impl<H: Host> PageCanvas<H> {
             reflow_again: false,
             finder: find::Finder::default(),
             minimap: minimap::MiniMap::default(),
+            refhover: refhover::RefHover::default(),
         }
     }
 
@@ -565,9 +571,10 @@ impl<H: Host> PageCanvas<H> {
     pub fn mouse_moved(&mut self, at: Option<(i32, i32)>) {
         self.reading_mouse(at);
         if let Some((x, y)) = at
-            && (self.minimap_drag(y) || self.over_minimap(x, y))
+            && (self.minimap_drag(y) || self.over_minimap(x, y) || self.over_popover(x, y))
         {
-            // Over the mini-map (R.17): no text or link under the pointer.
+            // Over the mini-map (R.17) or a hover preview (R.25): no text or link under the pointer.
+            self.hover_moved(at, None);
             self.over_text = false;
             if self.hovered.take().is_some() {
                 self.emit("linkHover", JsonValue::Null);
@@ -588,6 +595,7 @@ impl<H: Host> PageCanvas<H> {
         }
         self.over_text = at.is_some_and(|(x, y)| self.is_over_text(x, y));
         let link = at.and_then(|(x, y)| self.link_at(x, y)).cloned();
+        self.hover_moved(at, link.as_ref());
         if link == self.hovered {
             return;
         }
@@ -604,6 +612,9 @@ impl<H: Host> PageCanvas<H> {
     /// second, third or fourth click. Anywhere else it clears the selection. Returns whether a selection started,
     /// when the window should capture the mouse until the button comes up.
     pub fn mouse_down(&mut self, x: i32, y: i32, time: u32, limits: ClickLimits) -> bool {
+        if self.popover_down(x, y) {
+            return false;
+        }
         if self.minimap_down(x, y) {
             return true;
         }
@@ -793,6 +804,7 @@ impl<H: Host> PageCanvas<H> {
         self.pressed = None;
         self.finder.forget(true);
         self.minimap.forget();
+        self.refhover.forget();
     }
 
     /// The view is `width` × `height` pixels on a screen of `ppp` pixels per point.
@@ -1071,6 +1083,7 @@ impl<H: Host> PageCanvas<H> {
         self.find_again();
         changed |= self.take_found();
         changed |= self.take_marks();
+        changed |= self.take_hover();
         let mut read = self.links.take_done();
         read |= self.notes.take_done();
         if self.texts.take_done() {
@@ -1238,6 +1251,7 @@ impl<H: Host> PageCanvas<H> {
         let drawn = self
             .draw(&needed)
             .and_then(|()| self.draw_minimap())
+            .and_then(|()| self.draw_popover())
             .and_then(|()| self.host.end());
         if let Err(err) = drawn {
             log::warn!("the page canvas lost its device ({err}); starting over");
@@ -1472,6 +1486,7 @@ impl<H: Host> PageCanvas<H> {
     fn lose_device(&mut self) {
         self.host.lose_device();
         self.tiles.clear();
+        self.refhover.forget();
     }
 
     /// Draws `rgb` (`0xRRGGBB`) behind the pages: the theme's page area (K.17).
