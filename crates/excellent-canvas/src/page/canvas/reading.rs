@@ -156,7 +156,7 @@ fn grown(rect: Rect, x: f32, y: f32) -> Rect {
 
 impl<H: Host> PageCanvas<H> {
     /// Device pixels to a pixel at 96 dpi.
-    fn dpi_scale(&self) -> f32 {
+    pub(super) fn dpi_scale(&self) -> f32 {
         self.viewport.pixels_per_point() * 72.0 / 96.0
     }
 

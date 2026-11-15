@@ -34,6 +34,7 @@ use crate::page::saved::SavedView;
 
 mod access;
 mod find;
+mod minimap;
 mod reading;
 
 /// Behind the pages until the app sets its theme's `page-area` colour.
@@ -193,6 +194,8 @@ pub struct PageCanvas<H: Host> {
     reflow_again: bool,
     /// Find in document (F.1).
     finder: find::Finder,
+    /// The mini-map (R.17).
+    minimap: minimap::MiniMap,
 }
 
 /// A stroke on a page, in that page's points: it stays on the page through any layout, zoom or rotation.
@@ -273,6 +276,7 @@ impl<H: Host> PageCanvas<H> {
             reflowing: None,
             reflow_again: false,
             finder: find::Finder::default(),
+            minimap: minimap::MiniMap::default(),
         }
     }
 
@@ -560,6 +564,16 @@ impl<H: Host> PageCanvas<H> {
     /// for a link out of the document; `null` for no link).
     pub fn mouse_moved(&mut self, at: Option<(i32, i32)>) {
         self.reading_mouse(at);
+        if let Some((x, y)) = at
+            && (self.minimap_drag(y) || self.over_minimap(x, y))
+        {
+            // Over the mini-map (R.17): no text or link under the pointer.
+            self.over_text = false;
+            if self.hovered.take().is_some() {
+                self.emit("linkHover", JsonValue::Null);
+            }
+            return;
+        }
         if self.selecting {
             // shortcut: the selection stops at the screen's edge; dragging past it doesn't scroll yet.
             let Some(selection) = self.selection else {
@@ -590,6 +604,9 @@ impl<H: Host> PageCanvas<H> {
     /// second, third or fourth click. Anywhere else it clears the selection. Returns whether a selection started,
     /// when the window should capture the mouse until the button comes up.
     pub fn mouse_down(&mut self, x: i32, y: i32, time: u32, limits: ClickLimits) -> bool {
+        if self.minimap_down(x, y) {
+            return true;
+        }
         let clicks = self.clicks.press(time, x, y, limits);
         self.pressed = self.link_at(x, y).cloned();
         if self.pressed.is_some() {
@@ -612,6 +629,9 @@ impl<H: Host> PageCanvas<H> {
     /// the link is followed. A link inside the document jumps; any other goes to the app (`openLink`: `{uri}`),
     /// which decides whether to open it. Returns whether a selection ended, when the window lets the mouse go.
     pub fn mouse_up(&mut self, x: i32, y: i32) -> bool {
+        if self.minimap_up() {
+            return true;
+        }
         if self.selecting {
             self.selecting = false;
             if self.selection.is_some_and(|s| s.is_collapsed()) {
@@ -632,6 +652,7 @@ impl<H: Host> PageCanvas<H> {
 
     /// Something else took the mouse while a selection was being dragged: the selection stays as it is.
     pub fn capture_lost(&mut self) {
+        self.minimap_up();
         self.selecting = false;
         self.stop_pan();
     }
@@ -771,6 +792,7 @@ impl<H: Host> PageCanvas<H> {
         self.hovered = None;
         self.pressed = None;
         self.finder.forget(true);
+        self.minimap.forget();
     }
 
     /// The view is `width` × `height` pixels on a screen of `ppp` pixels per point.
@@ -1048,6 +1070,7 @@ impl<H: Host> PageCanvas<H> {
         changed |= self.take_reflowed();
         self.find_again();
         changed |= self.take_found();
+        changed |= self.take_marks();
         let mut read = self.links.take_done();
         read |= self.notes.take_done();
         if self.texts.take_done() {
@@ -1207,10 +1230,16 @@ impl<H: Host> PageCanvas<H> {
             return;
         }
         let moving = self.advance_motion();
+        self.update_marks();
         let needed = tiles::visible_tiles(&self.layout, &self.viewport);
         self.request(&needed);
         self.tiles.begin_frame();
-        if let Err(err) = self.draw(&needed).and_then(|()| self.host.end()) {
+        // The mini-map (R.17) over everything, before the frame ends.
+        let drawn = self
+            .draw(&needed)
+            .and_then(|()| self.draw_minimap())
+            .and_then(|()| self.host.end());
+        if let Err(err) = drawn {
             log::warn!("the page canvas lost its device ({err}); starting over");
             self.lose_device();
             self.invalidate();

@@ -68,6 +68,20 @@ pub struct Operation {
 }
 
 impl Change {
+    /// The page whose look it changes: an annotation's; `None` for the outline.
+    pub fn page(&self) -> Option<usize> {
+        match self {
+            Self::CreateAnnotation(annotation) | Self::UpdateAnnotation(annotation) => {
+                Some(annotation.page)
+            }
+            Self::DeleteAnnotation { page, .. } => Some(*page),
+            Self::InsertOutlineEntry { .. }
+            | Self::UpdateOutlineEntry { .. }
+            | Self::DeleteOutlineEntry { .. }
+            | Self::MoveOutlineEntry { .. } => None,
+        }
+    }
+
     /// Makes the change inside an operation.
     pub(crate) fn apply(&self, edit: &mut Edit<'_>) -> excellent_mupdf::Result<()> {
         match self {
@@ -170,6 +184,14 @@ impl Operation {
             name: name.into(),
             changes,
         }
+    }
+
+    /// The pages whose look it changes, each once, in order: the pages of its annotations (an outline is no page's).
+    pub fn pages(&self) -> Vec<usize> {
+        let mut pages: Vec<usize> = self.changes.iter().filter_map(Change::page).collect();
+        pages.sort_unstable();
+        pages.dedup();
+        pages
     }
 
     /// Makes every change, in order, inside one MuPDF operation.

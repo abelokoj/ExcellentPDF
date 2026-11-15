@@ -296,6 +296,24 @@ impl<H: Host> PageCanvas<H> {
         );
     }
 
+    /// Every hit's page, its box in page points, and whether it is the reader's: the mini-map's marks (R.17).
+    pub(super) fn hit_boxes(&self) -> Vec<(usize, PageRect, bool)> {
+        let Some(search) = &self.finder.search else {
+            return Vec::new();
+        };
+        let current = search.hits.current();
+        search
+            .hits
+            .pages()
+            .flat_map(|(page, hits)| {
+                hits.iter().enumerate().filter_map(move |(nth, found)| {
+                    let mine = current == Some(HitId { page, nth });
+                    bounds(&found.quads).map(|rect| (page, rect, mine))
+                })
+            })
+            .collect()
+    }
+
     /// The hits on the screen, ready to draw.
     pub(super) fn found_on_screen(&self) -> FoundOnScreen {
         let mut on_screen = FoundOnScreen::default();

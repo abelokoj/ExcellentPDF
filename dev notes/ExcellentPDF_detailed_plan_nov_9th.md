@@ -2620,6 +2620,11 @@ the original page.
 
 **Done when:** marks update within one frame of an annotation change.
 
+**Built (2026-11-15):** `read::minimap` (scale, lanes, palette), `annot::page_marks`, and the canvas's strip on the
+right edge (12 px, always vertical, the whole document top to bottom). Operations now know their pages, and apply,
+undo and redo bump those pages' revisions; the strip reads a page again in the frame after its revision moves.
+Bookmarks come from the library through a `bookmarks` prop. Not tried by hand.
+
 #### Ph7: 1/32 | R.18: Thumbnail drag reordering
 **P1; Phase 7; Needs:** R.5, O.1; **Code:** uses O.1's page operations
 1. Drag thumbnails (multi-select) to reorder; drop between pages; the move is one undoable `pdf_rearrange_pages`

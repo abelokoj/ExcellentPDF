@@ -25,7 +25,9 @@ impl<H: Host> PageCanvas<H> {
     /// `"paragraph"` or `"line"`. `autoScrollSpeed`: pixels a second at 96 dpi. `pageColors`: the colours the pages
     /// are drawn in (R.14), `{ink, paper, link, pictures}` with `#rrggbb` colours (`link` optional) and `pictures`
     /// `"keep"` or `"recolor"`; `null`, or without a valid `ink` and `paper`: the document's own. `reflowFontSize`:
-    /// a reflowable book's text size in points (R.28); `null`: the default.
+    /// a reflowable book's text size in points (R.28); `null`: the default. `bookmarks`: the bookmarks the mini-map
+    /// marks (R.17), `[{page, x, y, color}]` in page points with a `#rrggbb` colour (entries that don't parse are
+    /// left out).
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -40,6 +42,7 @@ impl<H: Host> PageCanvas<H> {
             "reflowFontSize" => {
                 self.set_reflow_font_size(value.and_then(JsonValue::as_f64).map(|size| size as f32))
             }
+            "bookmarks" => self.set_bookmarks(value.map(bookmarks).unwrap_or_default()),
             "path" => self.open(text.map(Path::new)),
             "background" => match text.and_then(parse_rgb) {
                 Some(rgb) => self.set_background(rgb),
@@ -221,6 +224,21 @@ fn page_colors(value: &JsonValue) -> Option<PageColors> {
     })
 }
 
+/// The `bookmarks` prop's entries: `(page, point, colour)`, each that doesn't parse left out.
+fn bookmarks(value: &JsonValue) -> Vec<(usize, PagePoint, u32)> {
+    let entry = |entry: &JsonValue| {
+        let page = usize::try_from(entry.get("page")?.as_u64()?).ok()?;
+        let x = entry.get("x")?.as_f64()? as f32;
+        let y = entry.get("y")?.as_f64()? as f32;
+        let color = parse_rgb(entry.get("color")?.as_str()?)?;
+        Some((page, PagePoint { x, y }, color))
+    };
+    value
+        .as_array()
+        .map(|entries| entries.iter().filter_map(entry).collect())
+        .unwrap_or_default()
+}
+
 /// `#rrggbb` as `0xRRGGBB`.
 fn parse_rgb(text: &str) -> Option<u32> {
     let hex = text.strip_prefix('#').filter(|hex| hex.len() == 6)?;
@@ -230,9 +248,27 @@ fn parse_rgb(text: &str) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::{
-        Case, HitId, Marks, Options, PageColors, Pictures, Style, Words, find_options, hit_id,
-        page_colors, parse_rgb, ruler_style,
+        Case, HitId, Marks, Options, PageColors, PagePoint, Pictures, Style, Words, bookmarks,
+        find_options, hit_id, page_colors, parse_rgb, ruler_style,
     };
+
+    #[test]
+    fn reads_bookmarks_and_leaves_out_the_broken_ones() {
+        let read = bookmarks(&serde_json::json!([
+            { "page": 2, "x": 10.0, "y": 20.5, "color": "#ff8000" },
+            { "page": -1, "x": 0, "y": 0, "color": "#000000" },
+            { "page": 3, "x": 0, "y": 0, "color": "red" },
+            { "page": 4, "x": 1, "y": 2, "color": "#00ff00" },
+        ]));
+        assert_eq!(
+            read,
+            [
+                (2, PagePoint { x: 10.0, y: 20.5 }, 0xff8000),
+                (4, PagePoint { x: 1.0, y: 2.0 }, 0x00ff00),
+            ]
+        );
+        assert!(bookmarks(&serde_json::json!(null)).is_empty());
+    }
 
     #[test]
     fn reads_find_options_and_hits() {

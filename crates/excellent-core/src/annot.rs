@@ -381,6 +381,45 @@ pub fn page_annotations(
     Ok(found)
 }
 
+/// Where an annotation is and how it looks, as the mini-map (R.17) marks it: read without the rest of the
+/// annotation, so marking a whole document stays quick.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Mark {
+    /// Its kind.
+    pub kind: AnnotKind,
+    /// Where it is, in page points.
+    pub rect: PageRect,
+    /// Its colour, `0xRRGGBB`, if it has one.
+    pub color: Option<u32>,
+}
+
+/// The marks of page `page`'s annotations: every kind but links, pop-ups and form fields, which aren't the reader's
+/// own marks.
+///
+/// # Errors
+///
+/// MuPDF can't load the page or read an annotation.
+pub fn page_marks(document: &Document, page: usize) -> excellent_mupdf::Result<Vec<Mark>> {
+    let loaded = document.load_page(page)?;
+    let mut marks = Vec::new();
+    for annot in loaded.annots()? {
+        let kind = annot.kind()?;
+        if matches!(kind, AnnotKind::Link | AnnotKind::Popup | AnnotKind::Widget) {
+            continue;
+        }
+        let data = annot.data()?;
+        marks.push(Mark {
+            kind,
+            rect: data.rect,
+            color: rgb(&data.color).map(|[r, g, b]| {
+                let byte = |c: f32| (c.clamp(0.0, 1.0) * 255.0).round() as u32;
+                (byte(r) << 16) | (byte(g) << 8) | byte(b)
+            }),
+        });
+    }
+    Ok(marks)
+}
+
 /// Seconds since 1970, now.
 #[must_use]
 pub fn now() -> i64 {

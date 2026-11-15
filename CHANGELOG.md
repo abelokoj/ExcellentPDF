@@ -6,6 +6,18 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 11:45; Ph3: 2/49 | R.17: Mini-map with note ticks
+
+- A strip on the right edge of the pages shows the whole document: a tick per page, a thumb over the part on screen,
+  and the reader's highlights, notes, bookmarks and search hits in lanes, each in its colour. Press or drag it to
+  scroll.
+- `excellent-core`: `annot::page_marks` and `Renderer::load_marks`; operations know their pages, and apply, undo and
+  redo bump those pages' revisions, so the strip (and later the pages) redraw only what changed.
+- Bookmarks load whenever a document is shown, not only when their panel is open, and reach the canvas as a
+  `bookmarks` prop.
+- Done when met by test: an edit, undo and redo each change the page's revision and marks, read again the next frame.
+  Not tried by hand.
+
 ### 2026-11-15 11:25; Ph1: 4/60 | K.14: Annotation model
 
 - `excellent-core::annot`: the annotation model (step 1). Each annotation has its `/NM` id, page, shape (text

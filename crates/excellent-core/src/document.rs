@@ -118,6 +118,12 @@ impl State {
     }
 
     /// Every page may have changed: every list goes and every revision goes up.
+    /// Page `page` changed: its revision goes up and its display list goes.
+    fn page_changed(&mut self, page: usize) {
+        *self.revisions.entry(page).or_insert(0) += 1;
+        self.lists.remove(&page);
+    }
+
     fn all_pages_changed(&mut self) {
         self.layouts += 1;
         self.lists.clear();
@@ -284,9 +290,7 @@ impl Document {
 
     /// Page `page` changed: its revision goes up and its display list goes.
     pub fn page_changed(&self, page: usize) {
-        let mut state = self.lock();
-        *state.revisions.entry(page).or_insert(0) += 1;
-        state.lists.remove(&page);
+        self.lock().page_changed(page);
     }
 
     /// Whether it can be edited: it is a PDF.
@@ -338,6 +342,9 @@ impl Document {
         }
         // A new log replaced the earlier run's.
         state.recovery = None;
+        for page in operation.pages() {
+            state.page_changed(page);
+        }
         state.edits += 1;
         Ok(())
     }
@@ -368,6 +375,11 @@ impl Document {
             return Ok(false);
         };
         let undo = log.history().state();
+        let pages = match direction {
+            Direction::Back => log.history().undo_pages(),
+            Direction::Forward => log.history().redo_pages(),
+        }
+        .to_vec();
         match direction {
             Direction::Back if undo.can_undo() => {
                 mupdf.undo()?;
@@ -384,6 +396,9 @@ impl Document {
                 }
             }
             Direction::Back | Direction::Forward => return Ok(false),
+        }
+        for page in pages {
+            state.page_changed(page);
         }
         state.edits += 1;
         Ok(true)
@@ -572,7 +587,7 @@ fn replay(path: &Path, log_path: &Path, read: &oplog::Read) -> Result<excellent_
 
 #[cfg(test)]
 mod tests {
-    use excellent_mupdf::PagePoint;
+    use excellent_mupdf::{PagePoint, PageRect};
 
     use super::*;
     use crate::edit::Change;
@@ -697,6 +712,39 @@ mod tests {
         );
         document.keep_display_list(0, 1, list);
         assert!(document.display_list(0).is_some());
+    }
+
+    #[test]
+    fn an_annotation_edit_changes_its_page_and_its_marks() {
+        use crate::annot::{self, Annotation, Boxed, Shape, Style};
+
+        let scratch = Scratch::new("marks", "base14-outline-annot.pdf");
+        let document = scratch.open();
+        let marks = |page| {
+            let mupdf = document.mupdf().expect("awake");
+            let mupdf = mupdf.lock().expect("lock");
+            annot::page_marks(&mupdf, page).expect("marks")
+        };
+        let before = marks(1);
+        let rect = PageRect {
+            x0: 10.0,
+            y0: 20.0,
+            x1: 30.0,
+            y1: 40.0,
+        };
+        let note = Annotation::new(1, Shape::Boxed(Boxed::Note, rect), Style::default(), "Ada");
+        let create = Operation::new("Add note", vec![Change::CreateAnnotation(note)]);
+        assert_eq!(create.pages(), [1]);
+
+        document.apply(&create).expect("apply");
+        assert_eq!((document.revision(0), document.revision(1)), (0, 1));
+        assert_eq!(marks(1).len(), before.len() + 1, "the new note is marked");
+        assert!(document.undo().expect("undo"));
+        assert_eq!(document.revision(1), 2, "undo draws it again");
+        assert_eq!(marks(1), before);
+        assert!(document.redo().expect("redo"));
+        assert_eq!(document.revision(1), 3, "and so does redo");
+        assert_eq!(document.revision(0), 0, "the other page is untouched");
     }
 
     #[test]

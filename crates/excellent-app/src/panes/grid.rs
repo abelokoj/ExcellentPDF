@@ -427,6 +427,7 @@ fn page_canvas(
         .prop("readingRuler", move || reading.ruler_prop())
         .prop("focusScope", move || reading.focus_scope_prop())
         .prop("autoScrollSpeed", move || reading.speed_prop())
+        .prop("bookmarks", move || bookmarks.marks_prop())
         .label(move || SharedString::from(label()))
         .on_native_event(move |event: &NativeEvent| {
             match &*event.name {

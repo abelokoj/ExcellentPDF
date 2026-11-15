@@ -358,6 +358,13 @@ impl<T> Hits<T> {
         self.total == 0
     }
 
+    /// Every page's hits, by page.
+    pub fn pages(&self) -> impl Iterator<Item = (usize, &[T])> {
+        self.pages
+            .iter()
+            .map(|(page, hits)| (*page, hits.as_slice()))
+    }
+
     /// Page `page`'s hits.
     pub fn on_page(&self, page: usize) -> &[T] {
         self.pages.get(&page).map_or(&[], Vec::as_slice)

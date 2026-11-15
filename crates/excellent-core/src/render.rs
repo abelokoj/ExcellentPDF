@@ -19,6 +19,7 @@ use excellent_mupdf::{
     Pixmap, Result, TextLayout,
 };
 
+use crate::annot::{self, Mark};
 use crate::darkmode::{self, PageColors, PageImages, Pictures};
 
 /// An annotation with text on a page, as a screen reader reads it (U.2).
@@ -269,6 +270,29 @@ impl RenderPool {
         self.submit(priority, move |_| {
             let document = document.lock().expect("document lock poisoned");
             document.load_page(page)?.links()
+        })
+    }
+
+    /// Reads the annotation marks (R.17) of every page in `pages` of `document`, a list per page in order. A
+    /// page that can't be read has none (logged), so one bad page doesn't hide the rest.
+    pub fn load_marks(
+        &self,
+        document: &Arc<Mutex<Document>>,
+        pages: std::ops::Range<usize>,
+        priority: Priority,
+    ) -> Job<Vec<Vec<Mark>>> {
+        let document = Arc::clone(document);
+        self.submit(priority, move |cookie| {
+            let mut marks = Vec::with_capacity(pages.len());
+            for page in pages {
+                cookie.check()?;
+                let document = document.lock().expect("document lock poisoned");
+                marks.push(annot::page_marks(&document, page).unwrap_or_else(|err| {
+                    log::warn!("cannot read the annotations of page {page}: {err}");
+                    Vec::new()
+                }));
+            }
+            Ok(marks)
         })
     }
 

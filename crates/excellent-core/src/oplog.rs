@@ -10,6 +10,7 @@
 //! A record half written when the process died is cut off when the log is read, with everything after it: a record
 //! counts once its line ends. Each line is written in one call and synced before the next edit is accepted.
 
+use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -98,6 +99,8 @@ pub(crate) struct History {
     saved: Option<u64>,
     /// The next operation's id.
     next: u64,
+    /// The pages each operation that changes pages changes, by id: what undo and redo draw again.
+    pages: BTreeMap<u64, Vec<usize>>,
 }
 
 impl History {
@@ -114,17 +117,38 @@ impl History {
         }
     }
 
+    /// The pages the next undo changes.
+    pub(crate) fn undo_pages(&self) -> &[usize] {
+        self.pages_of(self.done.last())
+    }
+
+    /// The pages the next redo changes.
+    pub(crate) fn redo_pages(&self) -> &[usize] {
+        self.pages_of(self.undone.last())
+    }
+
+    fn pages_of(&self, id: Option<&u64>) -> &[usize] {
+        id.and_then(|id| self.pages.get(id))
+            .map_or(&[], Vec::as_slice)
+    }
+
     /// Follows `record`; `false` when it can't follow (an undo with nothing done, an id out of order), and then the
     /// record is not one of this log.
     fn play(&mut self, record: &Record) -> bool {
         match *record {
             Record::Start { .. } => false,
-            Record::Operation { id, .. } => {
+            Record::Operation { id, ref operation } => {
                 if id != self.next {
                     return false;
                 }
                 self.done.push(id);
-                self.undone.clear();
+                for undone in self.undone.drain(..) {
+                    self.pages.remove(&undone);
+                }
+                let pages = operation.pages();
+                if !pages.is_empty() {
+                    self.pages.insert(id, pages);
+                }
                 self.next = id + 1;
                 true
             }

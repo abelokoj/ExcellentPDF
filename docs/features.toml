@@ -384,3 +384,9 @@ label = "Ph3: 1/49"
 status = "in-progress"
 tests = ["quotes_survive_a_re_typeset_version_95_percent", "re_typesetting_keeps_the_quote_exact", "context_chooses_between_repeats_of_the_exact_text", "a_corrected_typo_is_placed_approximately", "a_long_quote_with_edits_is_placed_by_its_ends", "text_that_is_gone_is_orphaned", "ids_are_version_4_uuids_and_differ"]
 open = "anchors are stored with each annotation (K.14 step 1); still open: the sidecar for non-PDF formats, and re-anchoring on open"
+
+["R.17"]
+label = "Ph3: 2/49"
+status = "in-progress"
+tests = ["an_annotation_edit_changes_its_page_and_its_marks", "the_strip_stands_for_the_whole_document_either_way_round", "the_thumb_covers_the_screen_and_stays_big_enough_to_grab", "ticks_too_close_together_are_left_out", "marks_keep_their_lanes_and_touching_ones_merge", "pressing_centres_the_screen_and_dragging_keeps_the_grip", "the_palette_follows_the_background", "reads_bookmarks_and_leaves_out_the_broken_ones"]
+open = "not tried by hand; no setting to hide it; the strip is 12 px, under the 24 px target (keyboard equivalents exist)"

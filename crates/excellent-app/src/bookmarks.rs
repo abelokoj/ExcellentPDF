@@ -75,7 +75,7 @@ pub(crate) struct BookmarkState {
 
 impl BookmarkState {
     pub(crate) fn new(tabs: TabState, pages: PageState) -> Self {
-        Self {
+        let state = Self {
             list: signal(Vec::new()),
             loaded: signal(None),
             query: signal(String::new()),
@@ -86,7 +86,29 @@ impl BookmarkState {
             menu_open: signal(false),
             tabs,
             pages,
-        }
+        };
+        // Read whenever another document is shown, panel or not: the mini-map marks them too (R.17).
+        effect(move || {
+            if pages.count() > 0 {
+                tabs.shown_path();
+                untracked(|| state.load());
+            }
+        });
+        state
+    }
+
+    /// The canvas's `bookmarks` prop (tracked): `[{page, x, y, color}]`, each in its colour's swatch fill, for the
+    /// mini-map (R.17).
+    pub(crate) fn marks_prop(self) -> JsonValue {
+        self.list.with(|list| {
+            list.iter()
+                .map(|bookmark| {
+                    let Place { page, x, y, .. } = bookmark.place;
+                    let color = GroupColor::parse(&bookmark.details.color).swatch().0;
+                    serde_json::json!({ "page": page, "x": x, "y": y, "color": color })
+                })
+                .collect()
+        })
     }
 
     /// Whether the editor dialog or a row's context menu is open (tracked): the pages hide meanwhile.
@@ -289,15 +311,7 @@ pub(crate) fn bookmark_panel(
     run: impl Fn(CommandId) + Copy + 'static,
     pages_focus: ElementRef,
 ) -> impl IntoElement {
-    let pages = state.pages;
     cleanup(move || state.focused.set(false));
-    // Read when the tab shows and again when another document is shown.
-    effect(move || {
-        if pages.count() > 0 {
-            state.tabs.shown_path();
-            untracked(|| state.load());
-        }
-    });
     let holder = element_ref();
     holder.on_focus_in(move || state.focused.set(true));
     holder.on_focus_out(move || state.focused.set(false));
