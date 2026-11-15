@@ -25,7 +25,6 @@ fn main() -> impl std::process::Termination {
     excellent_app::open_library();
     excellent_app::offer_first_run_guide();
     let components = platform::Components::default();
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
     excellent_app::components(&components);
     platform::run_app(
         platform::AppSource::Rust(excellent_app::root()),

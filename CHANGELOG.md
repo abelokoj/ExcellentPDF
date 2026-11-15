@@ -6,6 +6,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 10:41; Ph2: 1/3 | K.9: Page canvas on macOS (AppKit view)
+
+- `excellent-canvas-mac` is the shared canvas's AppKit host: a flipped, layer-backed `NSView` drawing each frame with
+  Core Graphics in `drawRect:` (DD10), tiles as `CGImage`s, darkest-wins highlights through `kCGBlendModeDarken`,
+  workers waking it on the main dispatch queue.
+- Input: trackpad and wheel scrolling (Command zooms, Shift scrolls sideways), pinch zoom, the mouse (links,
+  selection, middle-click scrolling, back and forward buttons) and the pen's tablet events (pressure; the eraser end
+  from proximity). A page point is a screen point at 100 %, as in Preview.
+- The app registers it on macOS (`#[native_components(macos)]`).
+
 ### 2026-11-15 10:06; Ph2: 2/3 | K.10: Page canvas on Linux (GTK widget)
 
 - `excellent-canvas-gtk` is the shared canvas's GTK 4 host: frames are GSK render nodes drawn in the widget's

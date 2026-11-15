@@ -108,6 +108,12 @@ pub fn components(components: &nsh_platform_linux::Components) {
     excellent_canvas_gtk::register(components);
 }
 
+/// The app's native components on macOS: the page canvas (K.9).
+#[native_components(macos)]
+pub fn components(components: &nsh_platform_macos::Components) {
+    excellent_canvas_mac::register(components);
+}
+
 /// [`App`] as the runners and tests start it, with the app's translations (U.7) and the user's theme in place before
 /// the window shows (K.17).
 pub fn root() -> Root {

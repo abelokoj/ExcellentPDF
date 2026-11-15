@@ -193,3 +193,21 @@ lived in `excellent-canvas-win`, tied to Win32 and Direct2D. It now lives in `ex
 - A host that can draw only inside its toolkit's draw callback (GTK) says so through `Host::frame_ready`.
 - If the maintainer prefers each platform to keep its own canvas logic, this is reverted by moving `page` back; no
   public behaviour changed.
+
+## DD10. The macOS canvas draws with Core Graphics, not a `CAMetalLayer` (2026-11-15; agent's call, flagged)
+
+**Decision (agent):** K.9 item 1 says an `NSView` backed by a `CAMetalLayer`, with tiles as Metal textures. The first
+macOS canvas instead draws in the view's `drawRect:` with Core Graphics: tiles are `CGImage`s, highlights blend with
+`kCGBlendModeDarken`, the reading aids fill even-odd paths, and ink strokes with round caps. The view is layer-backed,
+so AppKit composites it on the GPU.
+
+**Why:** every drawing call the shared canvas makes (`page::Host`) maps to one Core Graphics call, so the macOS host is
+one file with no shaders, pipelines or texture management, and it can be checked only through CI on this machine.
+The item's own third line ("draw overlays with Metal or Core Graphics") already allows Core Graphics for overlays.
+
+**What it means:**
+
+- Scrolling redraws the visible tiles each frame on the CPU-side Core Graphics path; K.24's budgets on a Mac decide
+  whether that holds 60 fps (120 on ProMotion screens).
+- If it doesn't, a `CAMetalLayer` host replaces `host.rs` alone: the view, input and component stay.
+- If the maintainer wants Metal from the start, this is the file to replace.

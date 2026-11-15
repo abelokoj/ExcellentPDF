@@ -28,6 +28,35 @@ nsh-platform-macos = { version = "=0.5.0", default-features = false }
 nsh-platform-linux = { version = "=0.5.0", default-features = false }
 nsh-engine = { version = "=0.5.0", default-features = false }
 nsh-testing = { version = "=0.5.0", default-features = false }
+# The macOS page canvas (K.9): the AppKit, Core Graphics and dispatch crates NSH's macOS backend already uses, at
+# its versions, with the parts the canvas calls.
+objc2 = "0.6.5"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+  "std",
+  "objc2-core-foundation",
+  "objc2-core-graphics",
+  "NSAccessibility",
+  "NSAccessibilityConstants",
+  "NSAccessibilityProtocols",
+  "NSCursor",
+  "NSEvent",
+  "NSGraphicsContext",
+  "NSResponder",
+  "NSTrackingArea",
+  "NSView",
+  "NSWindow",
+] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSGeometry", "NSString"] }
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFCGTypes", "CFData"] }
+objc2-core-graphics = { version = "0.3.2", default-features = false, features = [
+  "std",
+  "CGColorSpace",
+  "CGContext",
+  "CGDataProvider",
+  "CGImage",
+  "CGPath",
+] }
+dispatch2 = "0.3.1"
 env_logger = "0.11"
 log = "0.4"
 # Theme and settings files (K.17, K.16). serde_json is NSH's already.

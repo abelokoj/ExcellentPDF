@@ -745,6 +745,7 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "excellent-canvas-gtk",
+ "excellent-canvas-mac",
  "excellent-canvas-win",
  "excellent-core",
  "excellent-features",
@@ -799,6 +800,19 @@ version = "0.1.0"
 [[package]]
 name = "excellent-canvas-mac"
 version = "0.1.0"
+dependencies = [
+ "dispatch2",
+ "excellent-canvas",
+ "excellent-mupdf",
+ "log",
+ "nsh-core",
+ "nsh-platform-macos",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation",
+]
 
 [[package]]
 name = "excellent-canvas-win"
