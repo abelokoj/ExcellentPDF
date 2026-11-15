@@ -16,7 +16,9 @@ use crate::commands::{COMMANDS, CommandId};
 use crate::keymap::{self, Scope};
 use crate::links::PROTOCOLS_KEY;
 use crate::list_dialog::{card, list_dialog};
+use crate::onboarding::SHOW_TIPS;
 use crate::panes::{CLOSE_PANE_TABS, ClosingTabs};
+use crate::print::{PRINT_ANNOTATIONS, PRINT_SCALING};
 use crate::reading::{
     AUTO_SCROLL_SPEED, DocumentColors, FOCUS_SCOPE, READING_INK, READING_PAPER, REFLOW_FONT_SIZE,
     RULER_COLOR, RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
@@ -27,6 +29,7 @@ use crate::tabs::{Cycle, TAB_CYCLE_ORDER};
 use crate::theme::{self as themes, ThemeChoice};
 use crate::workspaces::{Elsewhere, OPEN_ELSEWHERE};
 use excellent_core::darkmode::{Palette, Rgb};
+use excellent_core::print::Scaling;
 
 /// The ruler colours offered: light tints that keep black text readable (content colours, not the theme's).
 const RULER_COLORS: [(&str, &str); 5] = [
@@ -88,10 +91,12 @@ pub(crate) fn settings_window(
         view()
             .px_5()
             .pb_4()
-            .child(appearance_section(theme_choice, hand_over))
+            .child(appearance_section(live, theme_choice, hand_over))
             .child(reading_section(live, hand_over))
             .child(tabs_section(live))
             .child(links_section(live))
+            .child(print_section(live))
+            .child(help_section(live, hand_over))
             .child(shortcuts_section(live)),
     );
     list_dialog(
@@ -102,6 +107,7 @@ pub(crate) fn settings_window(
 }
 
 fn appearance_section(
+    live: Live,
     theme_choice: Signal<ThemeChoice>,
     hand_over: impl Fn(CommandId) + Copy + 'static,
 ) -> View {
@@ -124,6 +130,46 @@ fn appearance_section(
             picker_button(
                 move || themes::appearance_name(theme_choice.get()),
                 move || hand_over(CommandId::ChooseAppearance),
+            ),
+        ))
+        .child(row(
+            "settings.language",
+            "settings.language_hint",
+            language_choice(live),
+        ))
+        .child(row(
+            "settings.follow_system_contrast",
+            "settings.follow_system_contrast_hint",
+            on_off(
+                "settings.follow_system_contrast",
+                move || live.read(|s| s.flag(themes::FOLLOW_SYSTEM_CONTRAST).unwrap_or(true)),
+                move |on| {
+                    live.change(|s| {
+                        s.set_flag(themes::FOLLOW_SYSTEM_CONTRAST, (!on).then_some(false));
+                    });
+                },
+            ),
+        ))
+}
+
+/// U.9: the tips on or off, and the guide again.
+fn help_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -> View {
+    section("settings.section.help")
+        .child(row(
+            "settings.show_tips",
+            "settings.show_tips_hint",
+            on_off(
+                "settings.show_tips",
+                move || live.read(|s| s.flag(SHOW_TIPS).unwrap_or(true)),
+                move |on| live.change(|s| s.set_flag(SHOW_TIPS, (!on).then_some(false))),
+            ),
+        ))
+        .child(row(
+            "settings.guide",
+            "settings.guide_hint",
+            picker_button(
+                move || t!("settings.guide_show"),
+                move || hand_over(CommandId::ReplayGuide),
             ),
         ))
 }
@@ -419,6 +465,46 @@ fn tabs_section(live: Live) -> View {
         ))
 }
 
+/// Printing (O.22): how pages are sized on the paper, and whether annotations print. The system print dialog has
+/// the rest.
+fn print_section(live: Live) -> View {
+    let scaling = move || live.read(|s| Scaling::parse(s.text(PRINT_SCALING)));
+    let choose = move |choice: Scaling| {
+        live.change(|s| {
+            s.set_text(
+                PRINT_SCALING,
+                (choice != Scaling::default()).then_some(choice.name()),
+            );
+        });
+    };
+    let segments = Scaling::ALL.into_iter().fold(segmented(), |group, choice| {
+        let label = match choice {
+            Scaling::Shrink => "settings.print_scaling.shrink",
+            Scaling::Fit => "settings.print_scaling.fit",
+            Scaling::Actual => "settings.print_scaling.actual",
+        };
+        group.child(segment(
+            label,
+            move || scaling() == choice,
+            move || choose(choice),
+        ))
+    });
+    let annotations = move || live.read(|s| s.flag(PRINT_ANNOTATIONS).unwrap_or(true));
+    section("settings.section.print")
+        .child(row(
+            "settings.print_scaling",
+            "settings.print_scaling_hint",
+            segments,
+        ))
+        .child(row(
+            "settings.print_annotations",
+            "settings.print_annotations_hint",
+            on_off("settings.print_annotations", annotations, move |on| {
+                live.change(|s| s.set_flag(PRINT_ANNOTATIONS, (!on).then_some(false)));
+            }),
+        ))
+}
+
 fn links_section(live: Live) -> View {
     let saved = move || {
         live.read(|s| s.text(PROTOCOLS_KEY).map(str::to_owned))
@@ -637,6 +723,26 @@ fn picker_button(
         )
 }
 
+/// The language segments: the system's, then each language the app has, named in its own language (U.7).
+fn language_choice(live: Live) -> View {
+    use crate::l10n::{LANGUAGE_KEY, LANGUAGES};
+    let chosen = move || live.read(|s| s.text(LANGUAGE_KEY).map(str::to_owned));
+    let system = segment(
+        "settings.language.system",
+        move || chosen().is_none(),
+        move || live.change(|s| s.set_text(LANGUAGE_KEY, None)),
+    );
+    LANGUAGES
+        .iter()
+        .fold(segmented().child(system), |group, &(tag, name)| {
+            group.child(named_segment(
+                name,
+                move || chosen().as_deref() == Some(tag),
+                move || live.change(|s| s.set_text(LANGUAGE_KEY, Some(tag))),
+            ))
+        })
+}
+
 /// A yes-or-no setting's switch.
 fn on_off(
     label: &'static str,
@@ -667,9 +773,26 @@ fn segment(
     chosen: impl Fn() -> bool + Copy + 'static,
     choose: impl Fn() + 'static,
 ) -> impl IntoElement {
+    segment_of(move || t!(label), chosen, choose)
+}
+
+/// A segment whose label is already in the reader's words (a language's own name, U.7).
+fn named_segment(
+    name: &'static str,
+    chosen: impl Fn() -> bool + Copy + 'static,
+    choose: impl Fn() + 'static,
+) -> impl IntoElement {
+    segment_of(move || name.to_owned(), chosen, choose)
+}
+
+fn segment_of(
+    label: impl Fn() -> String + Copy + 'static,
+    chosen: impl Fn() -> bool + Copy + 'static,
+    choose: impl Fn() + 'static,
+) -> impl IntoElement {
     toggle()
         .pressed(chosen)
-        .accessibility_label(t!(label))
+        .accessibility_label(label())
         .on_change(move |_: &bool| choose())
         .h(px(28.0))
         .px_3()
@@ -678,17 +801,13 @@ fn segment(
         .justify_center()
         .pressed_style(|s| s.bg(move || theme().background).shadow_sm())
         .focus_visible(|s| s.border_1().border_color(move || theme().ring))
-        .child(
-            text(move || t!(label))
-                .text_size(px(13.0))
-                .text_color(move || {
-                    if chosen() {
-                        theme().popover_foreground
-                    } else {
-                        theme().muted_foreground
-                    }
-                }),
-        )
+        .child(text(label).text_size(px(13.0)).text_color(move || {
+            if chosen() {
+                theme().popover_foreground
+            } else {
+                theme().muted_foreground
+            }
+        }))
 }
 
 /// A custom reading-theme colour (`key`): a swatch of it and its `#rrggbb`. What is typed is kept on Return or when

@@ -15,9 +15,11 @@ mod l10n;
 mod library;
 mod links;
 mod list_dialog;
+mod onboarding;
 mod open;
 mod outline;
 mod panes;
+mod print;
 mod reading;
 mod reading_theme_bar;
 mod recent;
@@ -69,6 +71,12 @@ pub fn open_library() {
     library::open();
 }
 
+/// Lets the first-run guide and the tips show in this run (U.9). The desktop binary calls it; tests don't, so no
+/// guide lies over what they drive (`tests/onboarding` turns it on for its own).
+pub fn offer_first_run_guide() {
+    onboarding::offer();
+}
+
 /// Keeps the operation logs of the documents edited (K.14) in the app's folder, so a crash's edits are offered back
 /// at the next start. The desktop binary calls it before [`root`]; tests don't, so their logs stay in the temporary
 /// folder.
@@ -97,6 +105,7 @@ pub fn components(components: &nsh_platform_windows::Components) {
 /// the window shows (K.17).
 pub fn root() -> Root {
     let choice = theme::saved();
+    theme::follow_system(&settings::shared());
     Root::of::<App>()
         .translations(l10n::translations())
         .tokens(theme::tokens(choice))

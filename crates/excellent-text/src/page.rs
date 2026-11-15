@@ -145,6 +145,18 @@ impl PageText {
         out
     }
 
+    /// The characters whose middle lies in `rect` (a link's area, say), from the first to the last of them; `None`
+    /// when none does.
+    pub fn within(&self, rect: PageRect) -> Option<Range<usize>> {
+        let inside = |c: &TextChar| {
+            let p = centre(&c.quad);
+            (rect.x0..=rect.x1).contains(&p.x) && (rect.y0..=rect.y1).contains(&p.y)
+        };
+        let first = self.layout.chars.iter().position(inside)?;
+        let last = self.layout.chars.iter().rposition(inside)?;
+        Some(first..last + 1)
+    }
+
     fn line_chars(&self, line: &TextLine) -> &[TextChar] {
         &self.layout.chars[line.chars.clone()]
     }

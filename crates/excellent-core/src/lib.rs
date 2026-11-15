@@ -8,6 +8,7 @@ pub mod edit;
 pub mod formats;
 mod oplog;
 pub mod outline;
+pub mod print;
 pub mod registry;
 pub mod render;
 mod save;

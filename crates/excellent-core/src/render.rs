@@ -15,10 +15,22 @@ use std::task::{Context, Poll};
 use std::thread::{self, JoinHandle};
 
 use excellent_mupdf::{
-    Background, Cookie, DeviceRect, DisplayList, Document, Link, Matrix, Pixmap, Result, TextLayout,
+    AnnotKind, Background, Cookie, DeviceRect, DisplayList, Document, Link, Matrix, PageRect,
+    Pixmap, Result, TextLayout,
 };
 
 use crate::darkmode::{self, PageColors, PageImages, Pictures};
+
+/// An annotation with text on a page, as a screen reader reads it (U.2).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Note {
+    /// What kind of annotation it is.
+    pub kind: AnnotKind,
+    /// Where it is, in page points.
+    pub rect: PageRect,
+    /// Its text (`/Contents`).
+    pub contents: String,
+}
 
 /// What smart dark mode needs to recolour a page's tiles (R.14).
 #[derive(Debug, Clone)]
@@ -257,6 +269,37 @@ impl RenderPool {
         self.submit(priority, move |_| {
             let document = document.lock().expect("document lock poisoned");
             document.load_page(page)?.links()
+        })
+    }
+
+    /// Reads the notes of page `page` of `document`: its annotations that carry text, for screen readers (U.2).
+    /// Links (R.7 reads them) and pop-ups (the window of another annotation) are left out.
+    pub fn load_notes(
+        &self,
+        document: &Arc<Mutex<Document>>,
+        page: usize,
+        priority: Priority,
+    ) -> Job<Vec<Note>> {
+        let document = Arc::clone(document);
+        self.submit(priority, move |_| {
+            let document = document.lock().expect("document lock poisoned");
+            let page = document.load_page(page)?;
+            let mut notes = Vec::new();
+            for annot in page.annots()? {
+                let kind = annot.kind()?;
+                if matches!(kind, AnnotKind::Link | AnnotKind::Popup) {
+                    continue;
+                }
+                let contents = annot.contents()?;
+                if !contents.trim().is_empty() {
+                    notes.push(Note {
+                        kind,
+                        rect: annot.rect()?,
+                        contents,
+                    });
+                }
+            }
+            Ok(notes)
         })
     }
 

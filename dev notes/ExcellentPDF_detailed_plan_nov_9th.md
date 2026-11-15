@@ -4295,6 +4295,11 @@ signature in the UI.
    `NSPrintOperation` drawing rendered pages. Linux: `GtkPrintOperation`.
 3. Print runs on a worker with progress and cancel.
 
+*Built (2026-11-15, Windows; `docs/features/O.22-print.md`):* Ctrl+P opens the system dialog (`PrintDlgExW`: range,
+copies, and duplex and colour in the printer's preferences); pages print as images in bands at the printer's
+resolution, on a thread of their own, with a progress strip and Cancel. Scaling and "print annotations" are settings
+rather than dialog controls (DD6); "print as image" is how every page prints. macOS and Linux stay Phase 2.
+
 **Done when:** printing works on all three desktops before the first public build (Appendix C.4).
 
 #### Ph3: 47/49 | O.23: Screenshots and region snapshots
@@ -4497,6 +4502,10 @@ it get no tools that act without the user's confirmation.
 
 **Done when:** the core tasks of each mode can be done without a mouse.
 
+*Built (2026-11-15; `docs/features/U.1-keyboard-access.md`):* every command in the palette, visible focus rings,
+dialogs that keep and give back the focus, a headless test that reads a document from the keyboard alone. Read
+mode only: the other modes come with K.18.
+
 #### Ph1: 57/60 | U.2: Canvas accessibility on Windows
 **P0; Phase 1; Needs:** K.8, K.13; **Code:** `crates/excellent-canvas-win::uia`
 1. Answer `WM_GETOBJECT` with a UI Automation provider (`UiaReturnRawElementProvider`): fragments for pages, links,
@@ -4505,6 +4514,11 @@ it get no tools that act without the user's confirmation.
    and select document text; tagged PDFs use their structure and alt text.
 
 **Done when:** NVDA reads a page in order, follows links and reads annotation notes.
+
+*Built (2026-11-15; `docs/features/U.2-canvas-accessibility.md`):* a UI Automation provider on the canvas window
+(`excellent-canvas-win::uia`): a Document with the Text pattern over K.13 text (`excellent-text::walk`), pages,
+links (Invoke) and annotation notes as children. Pages far from the screen read as empty until their text is
+read; tagged-PDF structure and form fields come later. Not tried with NVDA or Narrator.
 **Links:** UI Automation text pattern
 <https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-implementingtextandtextrange>; NSH accessibility
 `C:\dev\nsh-src\website\docs\accessibility.md`
@@ -4523,6 +4537,10 @@ it get no tools that act without the user's confirmation.
    use color alone to carry meaning.
 
 **Done when:** every screen passes the contrast check at 200 % scaling.
+
+*Built (2026-11-15; `docs/features/U.4-high-contrast-scaling-motion.md`):* Windows' high contrast turns on each
+theme's high-contrast side (setting `follow_system_contrast`, default on); text scaling and reduced motion are
+NSH's. Not looked at by hand at 200 %.
 
 #### Ph4: 44/44 | U.5: Read aloud
 **P0 (parity); Phase 4; Needs:** K.13, K.19; **Code:** `excellent-features/read-aloud`
@@ -4552,6 +4570,10 @@ it get no tools that act without the user's confirmation.
 3. Vertical CJK text in ebooks: check MuPDF's HTML engine for `writing-mode: vertical-rl`; record a gap if missing.
 
 **Done when:** the pseudo-locale test passes; the UI works in Arabic.
+
+*Built (2026-11-15; `docs/features/U.7-localization.md`):* every string in `app/locales/en.json` and `ar.json`,
+a language setting, right-to-left mirroring, and the pseudo-locale test. The Arabic is not reviewed by a native
+speaker; vertical CJK text waits for the ebook work.
 **Links:** NSH i18n `C:\dev\nsh-src\crates\nsh-i18n`; rust-i18n
 <https://github.com/longbridge/rust-i18n>; Fluent (fallback) <https://projectfluent.org>
 
@@ -4571,6 +4593,11 @@ NSTextInputClient <https://developer.apple.com/documentation/appkit/nstextinputc
 1. A short skippable guide (open, modes, palette); contextual tips shown once; "replay guide" in Help.
 
 **Done when:** the guide never blocks opening a file passed on the command line.
+
+*Built (2026-11-15; `docs/features/U.9-first-run-guide.md`):* a three-step guide (open, reading options, palette)
+at the first start without files, two tips shown once, "Show the getting-started guide" in the palette and in
+Settings, Getting started (no Help menu yet). K.18 is not built, so the second step teaches the reading options
+instead of the modes (DD7).
 
 ### 27.19 Tags by phase
 

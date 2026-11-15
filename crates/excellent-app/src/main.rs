@@ -23,6 +23,7 @@ fn main() -> impl std::process::Termination {
     excellent_app::load_settings();
     excellent_app::keep_edit_logs();
     excellent_app::open_library();
+    excellent_app::offer_first_run_guide();
     let components = platform::Components::default();
     #[cfg(target_os = "windows")]
     excellent_app::components(&components);

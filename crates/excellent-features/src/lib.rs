@@ -4,6 +4,7 @@
 
 pub mod bookmarks;
 pub mod home;
+pub mod onboarding;
 pub mod outline;
 pub mod read;
 pub mod search;

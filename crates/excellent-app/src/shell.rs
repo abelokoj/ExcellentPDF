@@ -27,8 +27,10 @@ use crate::full_screen::FullScreen;
 use crate::goto::{self, PageState};
 use crate::links;
 use crate::list_dialog::{list_dialog, style};
+use crate::onboarding::{self, Onboarding};
 use crate::outline;
 use crate::panes::{self, CELLS, FileDrag, Pane, Panes, Shared};
+use crate::print::{Printing, print_strip};
 use crate::reading::Reading;
 use crate::reading_theme_bar::reading_theme_bar;
 use crate::recent::RecentState;
@@ -41,6 +43,13 @@ use crate::workspaces::{self, Workspaces};
 
 /// The title bar's height; Windows draws its caption buttons this tall.
 const TITLE_BAR_HEIGHT: Points = px(40.0);
+
+/// Below this window width the docks become drawers over the document (U.4): with the sidebar's 260 points and the
+/// inspector's 300 both open, the page would get less than 340. A 1280-point screen at 150 % scaling is 853.
+const COMPACT_BELOW: Points = px(900.0);
+
+/// How often the system's high contrast is looked at (U.4).
+const SYSTEM_CONTRAST_POLL: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// The panels the shell starts with, keyed by their dock-layout ids.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -160,6 +169,7 @@ pub(crate) fn shell() -> impl IntoElement {
     let reading_theme_open = signal(false);
     let tab_list_open = signal(false);
     let live = settings::Live::new();
+    let printing = Printing::new();
     let recent = RecentState::new();
     let (shown, restored) = workspaces::opening();
     let panes = Panes::new(live, recent, restored);
@@ -180,12 +190,34 @@ pub(crate) fn shell() -> impl IntoElement {
     } = shared;
     // The pickers keep their choice in the settings file; the root starts with it (`crate::root`).
     let theme_choice = signal(themes::saved());
+    // U.9: the guide opens now when this start is its moment; tips come at theirs.
+    let onboarding = Onboarding::new(live);
+    effect(move || {
+        let tabs = panes.active().tabs;
+        if tabs.count() >= 2 {
+            onboarding.moment(excellent_features::onboarding::Tip::TabList);
+        } else if tabs.has_shown() {
+            onboarding.moment(excellent_features::onboarding::Tip::Palette);
+        }
+    });
     // An edit of the settings file changes the theme too.
     effect(move || {
         let saved = live.read(themes::ThemeChoice::from_settings);
+        let followed = live.read(themes::follow_system);
         if saved != untracked(|| theme_choice.get()) {
             theme_choice.set(saved);
             themes::apply(saved);
+        } else if followed {
+            themes::apply(saved);
+        }
+    });
+    // The reader's language (U.7), from the settings file as it changes.
+    effect(move || live.read(crate::l10n::apply));
+    // The system's high contrast, turned on or off while the app runs (U.4).
+    // shortcut: a look every two seconds; listen for WM_SETTINGCHANGE if NSH's host ever passes it on.
+    set_interval(SYSTEM_CONTRAST_POLL, move || {
+        if themes::follow_system(&settings::shared()) {
+            themes::apply(untracked(|| theme_choice.get()));
         }
     });
     // The page canvases are windows over the app's, so they hide while a dialog is open.
@@ -196,6 +228,7 @@ pub(crate) fn shell() -> impl IntoElement {
             || goto_open.get()
             || settings_open.get()
             || tab_list_open.get()
+            || onboarding.is_open()
             || workspaces.dialog().is_some()
             || panes.slots().into_iter().any(Pane::covers_pages)
     };
@@ -213,6 +246,7 @@ pub(crate) fn shell() -> impl IntoElement {
         match id {
             CommandId::OpenPalette => palette_open.set(true),
             CommandId::OpenSettings => settings_open.set(true),
+            CommandId::ReplayGuide => onboarding.replay(),
             CommandId::ChooseTheme => theme_open.set(true),
             CommandId::ChooseAppearance => appearance_open.set(true),
             CommandId::ToggleSidebar => layout.update(|layout| toggle(&mut layout.left)),
@@ -243,6 +277,11 @@ pub(crate) fn shell() -> impl IntoElement {
                 .slots()
                 .into_iter()
                 .for_each(|pane| pane.editing.save_now()),
+            CommandId::Print => {
+                if let Some(path) = pane.tabs.shown_path() {
+                    printing.start(path, pane.pages.count(), pane.pages.current(), live);
+                }
+            }
         }
     };
     // Later launches' files (R.11), until the window closes.
@@ -250,6 +289,8 @@ pub(crate) fn shell() -> impl IntoElement {
         loop {
             let launch = crate::open::next().await;
             current_window().focus();
+            // The files are what the reader wants now (U.9).
+            onboarding.make_way();
             workspaces.open(&launch);
         }
     });
@@ -279,6 +320,8 @@ pub(crate) fn shell() -> impl IntoElement {
 
     view()
         .flex_1()
+        // A right-to-left language the reader chose mirrors the window; with none chosen, the system's decides (U.7).
+        .direction(move || live.read(crate::l10n::direction))
         // Documents dropped on the window outside the panes open in the active pane (R.11), or where another
         // workspace has them (W.6); other files are left alone. Every drop target follows the drag, so the panes' edges take drops while it lasts (V.2).
         .on_file_drag_enter(move || file_drag.enter())
@@ -299,6 +342,10 @@ pub(crate) fn shell() -> impl IntoElement {
                 .flex_1()
                 .child(docks(layout, dialog_open, panes, shared, run)),
         )
+        // O.22: a print job's progress, below the pages (they are a window over the app's).
+        .child(print_strip(printing))
+        // U.9: a tip, once, below the pages.
+        .child(onboarding::tip_strip(onboarding))
         .child(when(palette_open, move || {
             palette(palette_open, panes.active().pages, run)
         }))
@@ -320,6 +367,7 @@ pub(crate) fn shell() -> impl IntoElement {
             let pane = panes.active();
             goto::goto_dialog(goto_open, pane.pages, move |index| pane.go_to(index))
         }))
+        .child(onboarding::guide_dialog(onboarding, run))
 }
 
 /// Elements of the active pane, made again when another pane becomes active (V.5).
@@ -499,6 +547,8 @@ fn docks(
         })
         .collect();
     dock_area()
+        // None leaves NSH's own rule (below 600 points of the area's width) for narrower panes.
+        .compact(move || (nsh_core::element::window().width < COMPACT_BELOW).then_some(true))
         .layout(move || layout.get())
         .on_layout_change(move |next: &DockAreaLayout| layout.set(next.clone()))
         .panels(panels)

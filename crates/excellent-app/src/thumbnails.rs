@@ -263,6 +263,7 @@ fn row(
             .items_center()
             .hover(|s| s.bg(move || theme().sidebar_accent))
             .active(|s| s.opacity(0.8))
+            .focus_visible(|s| s.border_2().border_color(move || theme().ring))
             .child(frame_box)
             .child(caption),
     )

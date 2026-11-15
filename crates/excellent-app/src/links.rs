@@ -256,12 +256,16 @@ pub(crate) fn link_dialog(state: LinkState) -> impl IntoElement {
 
 /// A dialog button's emphasis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Tone {
+pub(crate) enum Tone {
     Primary,
     Quiet,
 }
 
-fn dialog_button(label: String, tone: Tone, press: impl Fn() + 'static) -> impl IntoElement {
+pub(crate) fn dialog_button(
+    label: String,
+    tone: Tone,
+    press: impl Fn() + 'static,
+) -> impl IntoElement {
     let primary = tone == Tone::Primary;
     button()
         .accessibility_label(label.clone())
@@ -280,6 +284,7 @@ fn dialog_button(label: String, tone: Tone, press: impl Fn() + 'static) -> impl 
         })
         .hover(|s| s.opacity(0.9))
         .active(|s| s.opacity(0.7))
+        .focus_visible(|s| s.border_2().border_color(move || theme().ring))
         .child(
             text(label)
                 .text_size(px(13.0))

@@ -104,6 +104,9 @@ void ex_drop_pixmap(fz_context *ctx, fz_pixmap *pix);
  * may be NULL; setting its `abort` from another thread stops the work early, and the result is then incomplete, not an
  * error: the caller checks `abort` afterwards. */
 int ex_new_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_display_list **out, ex_error *err);
+/* The same without the page's annotations, form fields kept: what printing with "print annotations" off draws. */
+int ex_new_contents_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_display_list **out,
+	ex_error *err);
 void ex_drop_display_list(fz_context *ctx, fz_display_list *list);
 int ex_display_list_bounds(fz_context *ctx, fz_display_list *list, fz_rect *out, ex_error *err);
 int ex_render_display_list(fz_context *ctx, fz_display_list *list, fz_matrix ctm, fz_irect area, int alpha,

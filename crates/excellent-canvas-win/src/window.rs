@@ -21,10 +21,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, GWLP_USERDATA, GetClientRect, GetMessageTime,
     GetSystemMetrics, GetWindowLongPtrW, HTCLIENT, IDC_ARROW, IDC_HAND, IDC_IBEAM, IDC_SIZEALL,
     LoadCursorW, RegisterClassExW, SM_CXDOUBLECLK, SM_CYDOUBLECLK, SetCursor, SetWindowLongPtrW,
-    WINDOW_EX_STYLE, WM_CAPTURECHANGED, WM_DPICHANGED_AFTERPARENT, WM_ERASEBKGND, WM_LBUTTONDOWN,
-    WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY,
-    WM_PAINT, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN, WM_POINTERUP, WM_POINTERUPDATE,
-    WM_SETCURSOR, WM_SIZE, WM_XBUTTONUP, WNDCLASSEXW, WS_CLIPCHILDREN, WS_POPUP,
+    WINDOW_EX_STYLE, WM_CAPTURECHANGED, WM_DPICHANGED_AFTERPARENT, WM_ERASEBKGND, WM_GETOBJECT,
+    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL,
+    WM_NCDESTROY, WM_PAINT, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN, WM_POINTERUP,
+    WM_POINTERUPDATE, WM_SETCURSOR, WM_SIZE, WM_XBUTTONUP, WNDCLASSEXW, WS_CLIPCHILDREN, WS_POPUP,
 };
 use windows::core::BOOL;
 use windows::core::{Result, w};
@@ -97,6 +97,7 @@ pub(crate) fn create() -> Result<(HWND, Rc<RefCell<Canvas>>)> {
             );
         }
         let canvas = Rc::new(RefCell::new(Canvas::new(hwnd, GetDpiForWindow(hwnd))));
+        crate::uia::register(hwnd, &canvas);
         SetWindowLongPtrW(
             hwnd,
             GWLP_USERDATA,
@@ -115,12 +116,26 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
             return DefWindowProcW(hwnd, msg, wparam, lparam);
         }
         if msg == WM_NCDESTROY {
+            crate::uia::forget(hwnd);
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
             drop(Rc::from_raw(raw));
             return DefWindowProcW(hwnd, msg, wparam, lparam);
         }
         &*raw
     };
+    // Screen readers (U.2): their providers borrow the canvas on each call, so these come before it is borrowed here.
+    match msg {
+        WM_GETOBJECT => {
+            if let Some(answer) = crate::uia::get_object(hwnd, wparam, lparam) {
+                return answer;
+            }
+        }
+        crate::uia::WM_UIA_EVENT => {
+            crate::uia::raise(hwnd, wparam);
+            return LRESULT(0);
+        }
+        _ => {}
+    }
     // Busy: a message sent while the canvas runs (it sends none it handles); let Windows have it.
     let Ok(mut canvas) = canvas.try_borrow_mut() else {
         log::debug!("page canvas busy: message {msg:#x} goes to the default handling");

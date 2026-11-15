@@ -114,3 +114,32 @@ so the options are ours and the hits' quads come from K.13's `PageText::highligh
 
 - No new MuPDF call or shim; matching is pure Rust and unit-tested.
 - If the maintainer prefers MuPDF's search, only `find_on_page` changes; whole words and accents then go.
+
+## DD6. Print scaling and "print annotations" are settings, not dialog controls (2026-11-15; agent's call, flagged)
+
+**Decision (agent):** O.22 asks for a print dialog with range, copies, scaling, duplex, colour, "print annotations"
+and "print as image". Windows' own dialog (`PrintDlgExW`) has range, copies, duplex and colour; adding scaling and
+annotations to it needs a custom property page (a Win32 dialog template), as SumatraPDF has. O.22 keeps the system
+dialog as it is and puts **Page size on paper** (shrink, fit, actual) and **Print annotations** in the settings
+window's Printing group. Every page prints as an image at the printer's resolution, so "print as image" is not a
+choice.
+
+**What it means:**
+
+- One dialog the reader knows from every Windows app; the two extra choices are kept between prints.
+- If the maintainer wants them in the dialog, a property page can be added in `excellent-platform::print` alone; the
+  settings stay as the defaults it opens with.
+
+## DD7. U.9 before K.18: the guide teaches the reading options, not the modes (2026-11-15; agent's call, flagged)
+
+**Decision (agent):** U.9 needs K.18 (modes and toolbars), which isn't built. Rather than stop the last Phase 1 entry,
+U.9 ships its guide with the steps that exist: open a document, the reading options (in Settings), and the palette.
+The plan's "replay guide in Help" is the palette command **Show the getting-started guide** and a button in
+Settings, Getting started, because there is no Help menu or toolbar yet.
+
+**What it means:**
+
+- When K.18 lands, the second step names the modes and their toolbars, and the guide gets a toolbar or menu entry.
+  `excellent-features::onboarding::Step` changes in one place; the settings keys stay.
+- If the maintainer prefers U.9 to wait for K.18, the guide can stay off (the desktop binary's
+  `offer_first_run_guide` call) without removing anything.

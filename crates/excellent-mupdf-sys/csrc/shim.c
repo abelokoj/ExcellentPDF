@@ -363,9 +363,10 @@ void ex_drop_pixmap(fz_context *ctx, fz_pixmap *pix)
 	fz_drop_pixmap(ctx, pix);
 }
 
-int ex_new_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_display_list **out, ex_error *err)
+static int new_display_list(fz_context *ctx, fz_page *page, int annots, fz_cookie *cookie, fz_display_list **out,
+	ex_error *err)
 {
-	/* fz_new_display_list_from_page with a cookie. */
+	/* fz_new_display_list_from_page (or _from_page_contents plus the form fields) with a cookie. */
 	fz_display_list *list = NULL;
 	fz_device *dev = NULL;
 
@@ -375,7 +376,13 @@ int ex_new_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_di
 	{
 		list = fz_new_display_list(ctx, fz_bound_page(ctx, page));
 		dev = fz_new_list_device(ctx, list);
-		fz_run_page(ctx, page, dev, fz_identity, cookie);
+		if (annots)
+			fz_run_page(ctx, page, dev, fz_identity, cookie);
+		else
+		{
+			fz_run_page_contents(ctx, page, dev, fz_identity, cookie);
+			fz_run_page_widgets(ctx, page, dev, fz_identity, cookie);
+		}
 		fz_close_device(ctx, dev);
 	}
 	fz_always(ctx)
@@ -387,6 +394,17 @@ int ex_new_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_di
 	}
 	*out = list;
 	return 0;
+}
+
+int ex_new_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_display_list **out, ex_error *err)
+{
+	return new_display_list(ctx, page, 1, cookie, out, err);
+}
+
+int ex_new_contents_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_display_list **out,
+	ex_error *err)
+{
+	return new_display_list(ctx, page, 0, cookie, out, err);
 }
 
 void ex_drop_display_list(fz_context *ctx, fz_display_list *list)

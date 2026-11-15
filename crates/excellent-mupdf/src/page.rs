@@ -4,9 +4,18 @@ use core::marker::PhantomData;
 use core::ptr::{self, NonNull};
 
 use excellent_mupdf_sys::{
-    ex_drop_page, ex_new_display_list, ex_new_stext_page, ex_page_bounds, ex_render_page, fz_page,
-    fz_rect,
+    ex_drop_page, ex_error, ex_new_contents_display_list, ex_new_display_list, ex_new_stext_page,
+    ex_page_bounds, ex_render_page, fz_context, fz_cookie, fz_display_list, fz_page, fz_rect,
 };
+
+/// The shape of the shim's display-list makers.
+type ListMaker = unsafe extern "C" fn(
+    *mut fz_context,
+    *mut fz_page,
+    *mut fz_cookie,
+    *mut *mut fz_display_list,
+    *mut ex_error,
+) -> core::ffi::c_int;
 
 use crate::annot::{self, Annot};
 use crate::context::{check, drop_with_context, with_context};
@@ -84,12 +93,25 @@ impl Page<'_> {
     ///
     /// MuPDF fails to run the page, or `cookie` was aborted.
     pub fn display_list(&self, cookie: Option<&Cookie>) -> Result<DisplayList> {
+        self.record(ex_new_display_list, cookie)
+    }
+
+    /// Records the page without its annotations into a display list; form fields are kept (they are the page's
+    /// content to a reader). What printing draws with "print annotations" off. `cookie` cancels it.
+    ///
+    /// # Errors
+    ///
+    /// MuPDF fails to run the page, or `cookie` was aborted.
+    pub fn contents_display_list(&self, cookie: Option<&Cookie>) -> Result<DisplayList> {
+        self.record(ex_new_contents_display_list, cookie)
+    }
+
+    /// Records the page with `new`, one of the shim's display-list makers.
+    fn record(&self, new: ListMaker, cookie: Option<&Cookie>) -> Result<DisplayList> {
         let mut raw = ptr::null_mut();
         with_context(|ctx| {
             // SAFETY: the page is live and on its own thread; the cookie, if any, outlives the call.
-            check(|err| unsafe {
-                ex_new_display_list(ctx, self.raw.as_ptr(), cookie::raw(cookie), &mut raw, err)
-            })
+            check(|err| unsafe { new(ctx, self.raw.as_ptr(), cookie::raw(cookie), &mut raw, err) })
         })?;
         let list =
             DisplayList::new(NonNull::new(raw).expect("ex_new_display_list succeeded with a list"));

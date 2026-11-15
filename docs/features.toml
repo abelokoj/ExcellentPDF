@@ -312,3 +312,45 @@ label = "Ph1: 54/60"
 status = "in-progress"
 tests = ["continue_reading_offers_the_file_shown_last_that_is_still_there", "the_search_keeps_files_with_every_word_in_their_name_or_folder", "a_cover_is_named_by_its_file_and_changes_when_the_file_does"]
 open = "daily review (S.5); cold-start paint not measured (K.24); cover folder not trimmed; not tried by hand"
+
+["O.22"]
+label = "Ph1: 55/60"
+status = "in-progress"
+tests = ["a_page_is_fit_shrunk_or_kept_at_its_size_and_centred", "a_landscape_page_turns_onto_portrait_paper", "bands_cover_the_area_once_each_within_the_size", "page_ranges_from_the_dialog_become_pages_from_zero", "a_job_draws_each_page_in_bands_and_stops_when_cancelled", "only_the_dialog_and_the_job_are_busy"]
+open = "macOS and Linux (Phase 2); scaling and annotations are settings, not in the dialog (DD6); view rotation not applied; not tried on a printer"
+
+["K.25"]
+label = "Ph1: 11/60"
+status = "in-progress"
+tests = []
+open = "the per-user x64 MSI builds (unsigned, no dialogs); signing, ARM64, the portable zip, updates, crash reports and the release workflow"
+
+["U.1"]
+label = "Ph1: 56/60"
+status = "shipped"
+tests = ["a_document_is_read_from_the_keyboard_alone", "the_palette_lists_every_command_and_runs_one", "shortcuts_toggle_the_docks", "the_window_works_at_double_scaling"]
+open = "Read mode only (the other modes come with K.18); not tried by hand with a screen reader"
+
+["U.2"]
+label = "Ph1: 57/60"
+status = "in-progress"
+tests = ["units_run_from_one_start_to_the_next_across_pages", "moving_counts_the_starts_it_passes_and_stops_at_the_ends", "positions_from_an_older_layout_are_clamped", "automation_ids_name_their_page_and_part"]
+open = "not tried with NVDA or Narrator; far pages read as empty; FindText and text attributes; tagged-PDF structure; form fields"
+
+["U.4"]
+label = "Ph1: 58/60"
+status = "shipped"
+tests = ["every_theme_passes_contrast", "the_window_works_at_double_scaling"]
+open = "not looked at by hand at 200 %; colour-blind-safe annotation palettes come with the annotation tags"
+
+["U.7"]
+label = "Ph1: 59/60"
+status = "shipped"
+tests = ["every_locale_file_is_built_in_and_has_every_english_key", "the_pseudo_locale_accents_letters_and_keeps_arguments", "arabic_mirrors_the_window_and_english_does_not", "the_window_works_in_arabic"]
+open = "Arabic not reviewed by a native speaker; vertical CJK text in ebooks"
+
+["U.9"]
+label = "Ph1: 60/60"
+status = "shipped"
+tests = ["the_guide_never_opens_over_files_from_the_command_line", "the_guide_steps_forward_and_back_within_its_steps", "each_tip_shows_once_and_the_seen_list_survives_the_settings_file", "the_guide_opens_at_first_start_steps_and_comes_back_from_the_palette"]
+open = "the modes step waits for K.18 (DD7); no Help menu yet; not tried by hand"

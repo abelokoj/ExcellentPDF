@@ -9,8 +9,10 @@
 
 mod page;
 mod selection;
+mod walk;
 mod words;
 
 pub use excellent_mupdf::TextLayout;
 pub use page::PageText;
 pub use selection::{Granularity, Selection, TextPos};
+pub use walk::{DocumentText, TextUnit};

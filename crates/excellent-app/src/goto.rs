@@ -137,6 +137,7 @@ pub(crate) fn page_button(state: PageState, open: impl Fn() + Copy + 'static) ->
                     .justify_center()
                     .hover(|s| s.bg(move || theme().sidebar_accent))
                     .active(|s| s.opacity(0.7))
+                    .focus_visible(|s| s.border_2().border_color(move || theme().ring))
                     .child(
                         text(move || state.status())
                             .text_size(px(12.0))

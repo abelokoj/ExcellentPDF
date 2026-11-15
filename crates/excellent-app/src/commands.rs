@@ -66,6 +66,10 @@ pub(crate) enum CommandId {
     Redo,
     /// Saves the edited documents now (K.15); they are saved on their own too.
     Save,
+    /// Prints the shown document (O.22).
+    Print,
+    /// Shows the first-run guide again (U.9).
+    ReplayGuide,
 }
 
 impl CommandId {
@@ -82,6 +86,7 @@ impl CommandId {
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
+                    | Self::Print
             ) && !matches!(self, Self::Tab(action) if action != TabAction::ReopenClosed)
                 && !matches!(
                     self,
@@ -137,6 +142,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.file",
         // Enhanced's CmdSave.
         keys: &["mod+s"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Print,
+        name: "file.print",
+        label: "command.print",
+        group: "command.group.file",
+        // Enhanced's CmdPrint.
+        keys: &["mod+p"],
         page_keys: &[],
     },
     Command {
@@ -284,6 +298,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.general",
         // The common desktop key for an app's settings (Enhanced opens its file from a menu).
         keys: &["mod+,"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ReplayGuide,
+        name: "help.guide",
+        label: "command.replay_guide",
+        group: "command.group.general",
+        keys: &[],
         page_keys: &[],
     },
     Command {

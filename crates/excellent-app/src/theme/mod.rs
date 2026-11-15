@@ -10,6 +10,7 @@ mod palette;
 mod picker;
 
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use nsh_base::{Theme, theme};
 use nsh_core::color::Rgba;
@@ -170,9 +171,29 @@ pub(crate) fn apply(choice: ThemeChoice) {
     set_color_scheme(choice.appearance);
 }
 
-/// The tokens `choice` draws with (for the root, before the window shows).
+/// The tokens `choice` draws with (for the root, before the window shows): its high-contrast side while the
+/// system's high contrast is followed and on.
 pub(crate) fn tokens(choice: ThemeChoice) -> Tokens {
-    theme_of(choice.family, choice.contrast).into_tokens()
+    let contrast = if SYSTEM_HIGH.load(Ordering::Relaxed) {
+        Contrast::High
+    } else {
+        choice.contrast
+    };
+    theme_of(choice.family, contrast).into_tokens()
+}
+
+/// The setting (on by default) that puts every theme on its high-contrast side while the system's is on (U.4).
+pub(crate) const FOLLOW_SYSTEM_CONTRAST: &str = "follow_system_contrast";
+
+/// Whether the system's high contrast is in force now ([`follow_system`] keeps it).
+static SYSTEM_HIGH: AtomicBool = AtomicBool::new(false);
+
+/// Reads the system's high contrast, as `settings` allow; `true` when that changed what [`tokens`] gives, so the
+/// theme should be applied again.
+pub(crate) fn follow_system(settings: &Settings) -> bool {
+    let on = settings.flag(FOLLOW_SYSTEM_CONTRAST).unwrap_or(true)
+        && excellent_platform::display::high_contrast();
+    SYSTEM_HIGH.swap(on, Ordering::Relaxed) != on
 }
 
 /// The page area's colour now, `#rrggbb`, for the page canvas, which draws it itself (reading it subscribes).

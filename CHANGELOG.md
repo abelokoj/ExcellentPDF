@@ -6,6 +6,96 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 05:18; Ph1: 58/60 | U.4: High contrast, scaling and reduced motion (fixes)
+
+#### Fixed
+
+- **Narrow windows**: below 900 points of width (a 1280-pixel screen at 150 % and up) the sidebar and inspector open
+  as drawers over the page instead of squeezing it; with both docks open the page used to get under 100 points.
+- **Screen readers** (U.2): a text position on a page the document no longer has now counts as the document's end, not
+  its start, so a range reaching past the last page still reads that page's text.
+- Tests: key caps such as ⌘K no longer count as untranslated text, and the keyboard test closes the go-to box with
+  Escape, since the headless window lays out no pages.
+
+### 2026-11-15 03:59; Ph1: 60/60 | U.9: First-run guide and tips
+
+#### Added
+
+- **Getting started**: the first time the app starts without files, three short steps show how to open a document,
+  where the reading options are, and the command palette, with the reader's own keys. **Skip** or Escape closes it
+  for good; **Open a document** goes straight to the file dialog. A start with files never shows it, and files from a
+  later launch close it.
+- **Tips**, once each, in a strip below the pages: the palette the first time a document shows, the tab list the first
+  time two tabs are open. **Turn off tips** there, or **Settings, Getting started, Show tips**.
+- **Show the getting-started guide** in the palette and in Settings.
+
+#### Not done
+
+- K.18 (modes) isn't built, so the second step teaches the reading options, not the modes (DD7). No Help menu yet.
+  Not tried by hand.
+
+### 2026-11-15 03:59; Ph1: 59/60 | U.7: Localization
+
+#### Added
+
+- Every string of the window comes from `app/locales/` (English and Arabic). **Settings, Appearance, Language**: the
+  system's or a language named in its own script; Arabic mirrors the window. A pseudo-locale test fails on any text
+  that skips the translations.
+
+#### Not done
+
+- The Arabic is not reviewed by a native speaker; vertical CJK text in ebooks.
+
+### 2026-11-15 03:59; Ph1: 58/60 | U.4: High contrast, scaling and reduced motion
+
+#### Added
+
+- With Windows' high contrast on, every theme switches to its high-contrast side, and back when it goes off, without
+  a restart (**Settings, Appearance, Follow the system's high contrast**, on by default). Text size and display
+  scaling scale the window; with animation effects off, nothing moves.
+
+#### Not done
+
+- Not looked at by hand at 200 %.
+
+### 2026-11-15 03:59; Ph1: 57/60 | U.2: Canvas accessibility on Windows
+
+#### Added
+
+- Screen readers see the pages: a Document named after the file, with the text in reading order (line, word and
+  character reading, selection), each page, its links (which they can follow) and its annotation notes.
+
+#### Not done
+
+- Not tried with NVDA or Narrator. Pages far from the screen read as empty until scrolled near; text search,
+  font attributes, tagged-PDF structure and form fields come later.
+
+### 2026-11-15 03:59; Ph1: 56/60 | U.1: Keyboard access and focus
+
+#### Added
+
+- Every command is reachable from the keyboard, focus rings show where the keyboard is, and dialogs keep and give
+  back the focus. A headless test reads a document with the keyboard alone.
+
+#### Not done
+
+- Read mode only; the other modes come with K.18. Not tried with a screen reader.
+
+### 2026-11-15 03:13; Ph1: 55/60 | O.22: Print
+
+#### Added
+
+- **Print** (Ctrl+P): the Windows print dialog chooses the printer, the pages (all, the current one or ranges),
+  copies, and duplex and colour. Pages print at the printer's resolution on a thread of their own; a strip at the
+  window's foot shows the page being printed, with **Cancel printing**.
+- **Settings, Printing:** **Page size on paper** (shrink to fit, fit to paper, actual size) and **Print annotations**.
+  A landscape page turns to fit portrait paper.
+
+#### Not done
+
+- macOS and Linux printing (Phase 2). Scaling and annotations are settings, not in the dialog (DD6). Not tried on a
+  printer yet.
+
 ### 2026-11-15 02:54; Ph1: 54/60 | F.17: Home page
 
 #### Added

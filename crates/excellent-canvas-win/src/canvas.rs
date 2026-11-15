@@ -14,7 +14,7 @@ use excellent_canvas::viewport::{self, Side, Viewport, ZoomMode};
 use excellent_core::darkmode::{PageColors, PageImages};
 use excellent_core::document::{self, Document};
 use excellent_core::formats;
-use excellent_core::render::{Job, Priority, Recolor};
+use excellent_core::render::{Job, Note, Priority, Recolor};
 use excellent_core::shared::{pool, registry};
 use excellent_core::transform::Transform;
 use excellent_core::view::history::Place;
@@ -39,6 +39,7 @@ use crate::placement::Placement;
 use crate::pointer::Sample;
 use crate::saved::SavedView;
 
+mod access;
 mod find;
 mod reading;
 
@@ -160,6 +161,8 @@ pub(crate) struct Canvas {
     reported_view: Option<SavedView>,
     /// The links of the pages near the screen (R.7).
     links: Near<Vec<Link>>,
+    /// The notes of the pages near the screen, for screen readers (U.2).
+    notes: Near<Vec<Note>>,
     /// The text of the pages near the screen and of the selected pages (K.13).
     texts: Near<TextLayout, PageText>,
     /// The selected text.
@@ -278,6 +281,7 @@ impl Canvas {
             reported_page: None,
             reported_view: None,
             links: Near::new("links"),
+            notes: Near::new("notes"),
             texts: Near::new("text"),
             selection: None,
             selecting: false,
@@ -629,6 +633,7 @@ impl Canvas {
             if self.selection.is_some_and(|s| s.is_collapsed()) {
                 self.selection = None;
             }
+            crate::uia::selection_changed(self.hwnd);
             return true;
         }
         let Some(pressed) = self.pressed.take() else {
@@ -637,10 +642,7 @@ impl Canvas {
         if self.link_at(x, y) != Some(&pressed) {
             return false;
         }
-        match pressed.target {
-            Some(target) => self.jump(target),
-            None => self.emit("openLink", serde_json::json!({ "uri": pressed.uri })),
-        }
+        self.follow(&pressed);
         false
     }
 
@@ -686,6 +688,7 @@ impl Canvas {
             granularity: Granularity::Char,
         });
         self.invalidate();
+        crate::uia::selection_changed(self.hwnd);
     }
 
     /// Tells the app where the reader is, for a new outline entry or bookmark (B.1, B.4, B.6), as `readerPlace`:
@@ -774,6 +777,8 @@ impl Canvas {
         self.tiles.clear();
         self.ink.clear();
         self.links.clear();
+        self.notes.clear();
+        crate::uia::content_changed(self.hwnd);
         self.texts.clear();
         self.selection = None;
         self.selecting = false;
@@ -1078,13 +1083,18 @@ impl Canvas {
         changed |= self.take_reflowed();
         self.find_again();
         changed |= self.take_found();
-        self.links.take_done();
+        let mut read = self.links.take_done();
+        read |= self.notes.take_done();
         if self.texts.take_done() {
+            read = true;
             changed |= self.selection.is_some();
             changed |= self.text_arrived();
             if self.copy_pending {
                 self.copy();
             }
+        }
+        if read {
+            crate::uia::content_changed(self.hwnd);
         }
         for (&page, list) in &mut self.lists {
             let List::Building(job, revision) = list else {
@@ -1281,6 +1291,14 @@ impl Canvas {
         let waker = &self.waker;
         self.links.request(first..=last, |page| {
             let job = pool().load_links(&mupdf, page, Priority::Nearby);
+            let waker = Arc::clone(waker);
+            job.when_done(move || waker.wake());
+            job
+        });
+        // shortcut: read whether or not a screen reader listens; asking UIA (`UiaClientsAreListening`) would save
+        // the reads when none does.
+        self.notes.request(first..=last, |page| {
+            let job = pool().load_notes(&mupdf, page, Priority::Nearby);
             let waker = Arc::clone(waker);
             job.when_done(move || waker.wake());
             job

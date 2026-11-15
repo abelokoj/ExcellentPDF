@@ -283,6 +283,7 @@ fn no_outline(state: OutlineState, run: impl Fn(CommandId) + Copy + 'static) -> 
                 .bg(move || theme().primary)
                 .hover(|s| s.opacity(0.9))
                 .active(|s| s.opacity(0.7))
+                .focus_visible(|s| s.border_2().border_color(move || theme().ring))
                 .child(
                     text(t!("outline.add_first"))
                         .text_size(px(13.0))
@@ -408,6 +409,7 @@ where
         .rounded(px(6.0))
         .style_when(marked.clone(), |s| s.bg(move || theme().accent))
         .on_press(pressed)
+        .focus_visible(|s| s.border_2().border_color(move || theme().ring))
         .child(
             // The mark's bar: marked rows read as a group without relying on the tint alone.
             view()
@@ -563,5 +565,7 @@ fn chevron(folder: bool, open: impl Fn() -> bool + 'static) -> impl IntoElement 
         })
     })
     .transition_transform()
+    // The turn jumps when the reader asked the system for less motion (U.4).
+    .duration(move || if reduce_motion() { 0.0_f32 } else { 150.0 })
     .child(mark)
 }
