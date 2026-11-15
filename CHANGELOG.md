@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 22:45; Ph3: 9/49 | V.10: Swap, flip and maximize
+
+- "Swap panes" (Ctrl+Alt+X) trades the active pane's tabs with the next pane's; "Flip panes between side by side and
+  stacked" (Ctrl+Alt+F) turns the grid over its diagonal, sizes and tabs going along; "Maximize pane or restore
+  panes" (Ctrl+Alt+Enter, a double-click on the pane header, or its new □ button) fills the window with the active
+  pane and brings the others back. Each one undoes itself when done again.
+- A maximized pane keeps its header; closing a pane, splitting or a pane emptying brings the hidden panes back. The
+  session keeps a maximized pane.
+
 ### 2026-11-15 21:30; Ph3: 8/49 | V.9: Open a link in the other pane
 
 - Ctrl+click (Command-click on a Mac) or middle-click on a link in the pages shows where it goes in the other pane;

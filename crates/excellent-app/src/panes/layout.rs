@@ -3,6 +3,8 @@
 //!
 //! A pane keeps its cell for as long as it is open, so splitting and closing never move the others (their canvases
 //! stay as they are). Two panes side by side are the top row's cells; stacked, the left column's; four, the grid.
+//! Flipping (V.10) turns the grid over its diagonal; a maximized pane hides the others until the panes are put back.
+//! Each of these is its own undo: doing it again puts the layout back as it was.
 
 use serde_json::{Value, json};
 
@@ -42,6 +44,8 @@ pub(crate) struct Layout {
     rows: Option<[f32; 2]>,
     /// Each row's columns' widths, the same way.
     columns: [Option<[f32; 2]>; 2],
+    /// The pane that fills the window while the others wait (V.10).
+    maximized: Option<usize>,
 }
 
 impl Default for Layout {
@@ -52,14 +56,15 @@ impl Default for Layout {
             active: 0,
             rows: None,
             columns: [None, None],
+            maximized: None,
         }
     }
 }
 
 impl Layout {
-    /// The cells that hold a pane, in reading order.
+    /// The cells that hold a shown pane, in reading order.
     pub(crate) fn panes(&self) -> impl Iterator<Item = usize> + '_ {
-        (0..CELLS).filter(|&cell| self.open[cell])
+        (0..CELLS).filter(|&cell| self.is_open(cell))
     }
 
     /// How many panes there are.
@@ -72,9 +77,45 @@ impl Layout {
         self.count() > 1
     }
 
-    /// Whether `cell` holds a pane.
+    /// Whether `cell` holds a pane that shows: while one is maximized, only that one does.
     pub(crate) fn is_open(&self, cell: usize) -> bool {
         self.open.get(cell).copied().unwrap_or(false)
+            && self.maximized.is_none_or(|maximized| maximized == cell)
+    }
+
+    /// Whether a pane is maximized (V.10).
+    pub(crate) fn is_maximized(&self) -> bool {
+        self.maximized.is_some()
+    }
+
+    /// Maximizes the active pane, or puts the panes back when one is (V.10); `false`, changing nothing, with one
+    /// pane.
+    pub(crate) fn toggle_maximized(&mut self) -> bool {
+        if self.maximized.take().is_some() {
+            return true;
+        }
+        if !self.is_split() {
+            return false;
+        }
+        self.maximized = Some(self.active);
+        true
+    }
+
+    /// Turns the grid over its diagonal (V.10): panes side by side become stacked and back, the top right and bottom
+    /// left cells trading places with the rows' heights and the top row's widths. Gives the two cells, whose panes
+    /// trade tabs. Flipping again puts it back.
+    pub(crate) fn flip(&mut self) -> (usize, usize) {
+        const TRADED: (usize, usize) = (1, 2);
+        let across = |cell: usize| match cell {
+            1 => 2,
+            2 => 1,
+            other => other,
+        };
+        self.open.swap(TRADED.0, TRADED.1);
+        self.active = across(self.active);
+        self.maximized = self.maximized.map(across);
+        std::mem::swap(&mut self.rows, &mut self.columns[0]);
+        TRADED
     }
 
     /// Whether the row `row` (0 the top) holds a pane.
@@ -155,12 +196,15 @@ impl Layout {
         }
         self.open[split.cell] = true;
         self.active = split.cell;
+        self.maximized = None;
         self.equalize();
     }
 
     /// Closes the pane in `cell`, and gives the neighbour that takes its tabs: the pane beside it, else the one above
     /// or below, else the first. `None` for the last pane, which stays.
     pub(crate) fn close(&mut self, cell: usize) -> Option<usize> {
+        // The panes come back first: the neighbour may be one the maximized pane hid.
+        self.maximized = None;
         if !self.is_open(cell) || self.count() == 1 {
             return None;
         }
@@ -212,6 +256,7 @@ impl Layout {
             "active": self.active,
             "rows": self.rows,
             "columns": self.columns,
+            "maximized": self.maximized,
         })
         .to_string()
     }
@@ -245,6 +290,13 @@ impl Layout {
             active,
             rows: value.get("rows").and_then(pair),
             columns: [0, 1].map(|row| columns.and_then(|columns| pair(columns.get(row)?))),
+            maximized: value
+                .get("maximized")
+                .and_then(Value::as_u64)
+                .and_then(|cell| usize::try_from(cell).ok())
+                .filter(|&cell| {
+                    cell < CELLS && open[cell] && open.iter().filter(|&&o| o).count() > 1
+                }),
         })
     }
 }
@@ -359,6 +411,48 @@ mod tests {
         );
         let lost = Layout::from_json(r#"{"open":[false,true,false,false],"active":3}"#);
         assert_eq!(lost.active(), 1, "the active pane must be open");
+    }
+
+    #[test]
+    fn swap_flip_and_maximize_each_undo_themselves() {
+        let mut layout = Layout::default();
+        split(&mut layout, Side::Right);
+        layout.resize_columns(0, &[300.0, 700.0]);
+        let before = layout.clone();
+
+        // Flip: side by side becomes stacked, and back.
+        assert_eq!(layout.flip(), (1, 2));
+        assert_eq!(layout.panes().collect::<Vec<_>>(), [0, 2]);
+        assert_eq!(layout.active(), 2, "the active pane goes with its cell");
+        assert_eq!(layout.row_size(0), Some(300.0), "the widths become heights");
+        layout.flip();
+        assert_eq!(layout, before);
+
+        // Maximize: only the active pane shows; nothing else changes, and putting back restores it all.
+        assert!(layout.toggle_maximized());
+        assert_eq!(layout.panes().collect::<Vec<_>>(), [1]);
+        assert!(!layout.is_split() && !layout.is_open(0) && layout.is_maximized());
+        assert_eq!(
+            layout.plan_split(Side::Left).map(|s| s.cell),
+            Some(2),
+            "hidden panes keep their cells"
+        );
+        assert_eq!(
+            Layout::from_json(&layout.to_json()),
+            layout,
+            "the session keeps it"
+        );
+        assert!(layout.toggle_maximized());
+        assert_eq!(layout, before);
+        assert!(
+            !Layout::default().toggle_maximized(),
+            "one pane has nothing to hide"
+        );
+
+        // Closing while maximized brings the panes back first.
+        layout.toggle_maximized();
+        assert_eq!(layout.close(1), Some(0));
+        assert!(!layout.is_maximized());
     }
 
     #[test]

@@ -74,7 +74,7 @@ impl ClosingTabs {
     }
 }
 
-/// What a pane command does (V.1 to V.6).
+/// What a pane command does (V.1 to V.10).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PaneAction {
     /// The shown tab in a new pane on that side, at the same place (V.1).
@@ -91,6 +91,12 @@ pub(crate) enum PaneAction {
     Close,
     /// Every pane of a row or column the same size (V.4).
     Equalize,
+    /// The active pane's tabs trade places with the next pane's (V.10).
+    Swap,
+    /// Side by side becomes stacked, and back (V.10).
+    Flip,
+    /// The active pane fills the window, or the panes come back (V.10).
+    Maximize,
     /// Synchronized scrolling on or off (V.8).
     Sync,
     /// How the panes follow while synced (V.8).
@@ -357,6 +363,9 @@ impl Panes {
             }
             PaneAction::Close => self.close_active(),
             PaneAction::Equalize => self.layout.update(Layout::equalize),
+            PaneAction::Swap => self.swap(),
+            PaneAction::Flip => self.flip(),
+            PaneAction::Maximize => self.toggle_maximized(),
             PaneAction::Sync => self.toggle_sync(),
             PaneAction::SyncFollow(follow) => self.set_sync_follow(follow),
             PaneAction::SyncZoom => self.toggle_sync_zoom(),
@@ -450,11 +459,68 @@ impl Panes {
         true
     }
 
+    /// Whether a pane is maximized (tracked, V.10).
+    pub(crate) fn is_maximized(self) -> bool {
+        self.layout.with(Layout::is_maximized)
+    }
+
+    /// The active pane's tabs trade places with the next pane's, each keeping its order, groups and views; the
+    /// active pane stays where it is, so swapping again puts them back (V.10).
+    fn swap(self) {
+        if !untracked(|| self.is_split()) {
+            return;
+        }
+        let (from, to) = self
+            .layout
+            .with_untracked(|layout| (layout.active(), layout.step(Step::Next)));
+        self.trade(from, to);
+    }
+
+    /// Side by side becomes stacked and back: the grid turns over its diagonal and the two panes that trade cells
+    /// take their tabs along (V.10).
+    fn flip(self) {
+        if !untracked(|| self.is_split()) {
+            return;
+        }
+        batch(|| {
+            let mut traded = None;
+            self.layout.update(|layout| traded = Some(layout.flip()));
+            if let Some((a, b)) = traded {
+                self.trade(a, b);
+            }
+        });
+        focus_later(self.active());
+    }
+
+    /// The active pane fills the window, or the panes come back (V.10).
+    fn toggle_maximized(self) {
+        let changes = self
+            .layout
+            .with_untracked(|layout| layout.is_maximized() || layout.is_split());
+        if changes {
+            self.layout.update(|layout| {
+                layout.toggle_maximized();
+            });
+            focus_later(self.active());
+        }
+    }
+
+    /// The panes in cells `a` and `b` trade their tabs, whole.
+    fn trade(self, a: usize, b: usize) {
+        let (first, second) = (self.slots[a], self.slots[b]);
+        let (tabs_a, tabs_b) = untracked(|| (first.tabs.current(), second.tabs.current()));
+        batch(|| {
+            first.tabs.replace(tabs_b, first.canvas);
+            second.tabs.replace(tabs_a, second.canvas);
+        });
+    }
+
     /// Closes the active pane, its tabs going to the pane beside it or closing as the setting says (V.6). The last
     /// pane stays. Edits are saved as the pane's tabs go (K.15), so closing loses nothing.
     fn close_active(self) {
         let pane = self.active();
-        if !untracked(|| self.is_split()) {
+        // A maximized pane hides others, so it is never the last (`Layout::close` brings them back).
+        if !untracked(|| self.is_split() || self.is_maximized()) {
             return;
         }
         let closing = self
@@ -483,9 +549,9 @@ impl Panes {
         effect(move || {
             let empty = !pane.tabs.has_tabs();
             let closes = empty
-                && self
-                    .layout
-                    .with(|layout| layout.is_open(pane.cell) && layout.is_split());
+                && self.layout.with(|layout| {
+                    layout.is_open(pane.cell) && (layout.is_split() || layout.is_maximized())
+                });
             if !closes {
                 return;
             }

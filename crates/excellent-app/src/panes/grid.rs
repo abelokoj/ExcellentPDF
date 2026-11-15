@@ -150,6 +150,8 @@ fn pane_view(
     let cell = pane.cell;
     let active = move || panes.active_cell() == cell;
     let split = move || panes.is_split();
+    // A maximized pane keeps its header, with the button that puts the panes back (V.10).
+    let header = move || split() || panes.is_maximized();
     pane.focus.on_focus_in(move || panes.focus(cell));
     view()
         .flex_1()
@@ -171,12 +173,13 @@ fn pane_view(
                 pane.tabs.open_paths(documents);
             }
         })
-        .child(when(split, move || pane_header(panes, pane, active)))
+        .child(when(header, move || pane_header(panes, pane, active)))
         .child(document_panel(panes, pane, shared, dialog_open, run))
 }
 
-/// A split pane's header: its shown file's name, the synchronized scrolling menu (V.8), and a button that closes the
-/// pane. A press on it makes the pane active.
+/// A split pane's header: its shown file's name, the synchronized scrolling menu (V.8), the button that maximizes
+/// the pane or puts the panes back (V.10), and a button that closes the pane. A press on it makes the pane active; a
+/// double-click maximizes it or puts the panes back.
 fn pane_header(
     panes: Panes,
     pane: Pane,
@@ -201,7 +204,12 @@ fn pane_header(
         .bg(move || theme().sidebar)
         .border_b_1()
         .border_b_color(move || theme().border)
-        .on_press(move || panes.focus_pane(pane.cell))
+        .on_press(move |event: &PressEvent| {
+            panes.focus_pane(pane.cell);
+            if event.clicks == 2 {
+                panes.run(super::PaneAction::Maximize);
+            }
+        })
         .child(
             text(name)
                 .flex_1()
@@ -211,6 +219,20 @@ fn pane_header(
                 .text_color(tone),
         )
         .child(sync_menu(panes))
+        .child(header_button(
+            move || {
+                if panes.is_maximized() {
+                    t!("pane.restore")
+                } else {
+                    t!("pane.maximize")
+                }
+            },
+            move || if panes.is_maximized() { "❐" } else { "□" },
+            move || {
+                panes.focus(pane.cell);
+                panes.run(super::PaneAction::Maximize);
+            },
+        ))
         .child(
             button()
                 .accessibility_label(t!("pane.close"))
@@ -231,6 +253,30 @@ fn pane_header(
                         .text_size(px(14.0))
                         .text_color(move || theme().muted_foreground),
                 ),
+        )
+}
+
+/// A small button of the pane header: `glyph` drawn, `label` read out.
+fn header_button(
+    label: impl Fn() -> String + 'static,
+    glyph: impl Fn() -> &'static str + 'static,
+    on_press: impl Fn() + 'static,
+) -> impl IntoElement {
+    button()
+        .accessibility_label(move || Some(SharedString::from(label())))
+        .on_press(on_press)
+        .w(px(22.0))
+        .h(px(22.0))
+        .rounded(px(5.0))
+        .items_center()
+        .justify_center()
+        .hover(|s| s.bg(move || theme().sidebar_accent))
+        .active(|s| s.opacity(0.7))
+        .focus_visible(|s| s.border_2().border_color(move || theme().ring))
+        .child(
+            text(glyph)
+                .text_size(px(13.0))
+                .text_color(move || theme().muted_foreground),
         )
 }
 

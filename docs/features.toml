@@ -259,6 +259,12 @@ status = "in-progress"
 tests = ["same_position_stays_level_across_different_page_sizes", "same_page_keeps_the_place_on_the_page_and_stops_at_the_last", "pairs_count_on_from_the_nearest_pair", "marks_pair_the_panes_open_at_the_time"]
 open = "not tried by hand; page pairs are not kept per file"
 
+["V.10"]
+label = "Ph3: 9/49"
+status = "in-progress"
+tests = ["swap_flip_and_maximize_each_undo_themselves"]
+open = "not tried by hand; a double-click on a header button may also count as a header double-click"
+
 ["V.9"]
 label = "Ph3: 8/49"
 status = "in-progress"
