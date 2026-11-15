@@ -9,16 +9,17 @@
 
 use std::time::{Duration, Instant};
 
+use excellent_features::split::Follow;
 use nsh_base::{
-    ResizeHandleContext, ResizeHandleState, button, h_resizable, resizable_panel, theme,
-    v_resizable,
+    MenuItemElement, ResizeHandleContext, ResizeHandleState, button, h_resizable, menu, menu_item,
+    menu_separator, resizable_panel, theme, v_resizable,
 };
 use nsh_core::JsonValue;
 use nsh_core::geometry::Points;
 use nsh_core::prelude::*;
 
-use super::{Pane, Panes, Shared, Side};
-use crate::commands::CommandId;
+use super::{Pane, PaneAction, Panes, Shared, Side};
+use crate::commands::{self, CommandId};
 use crate::shell::{empty_message, primary_button};
 use crate::tabs::TabState;
 use crate::theme as themes;
@@ -174,8 +175,8 @@ fn pane_view(
         .child(document_panel(panes, pane, shared, dialog_open, run))
 }
 
-/// A split pane's header: its shown file's name, and a button that closes the pane. A press on it makes the pane
-/// active.
+/// A split pane's header: its shown file's name, the synchronized scrolling menu (V.8), and a button that closes the
+/// pane. A press on it makes the pane active.
 fn pane_header(
     panes: Panes,
     pane: Pane,
@@ -209,6 +210,7 @@ fn pane_header(
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(tone),
         )
+        .child(sync_menu(panes))
         .child(
             button()
                 .accessibility_label(t!("pane.close"))
@@ -230,6 +232,126 @@ fn pane_header(
                         .text_color(move || theme().muted_foreground),
                 ),
         )
+}
+
+/// The synchronized scrolling menu (V.8): "Sync" in the header, in the primary colour while it is on; its items turn
+/// it on and off, choose how panes follow, sync the zoom and pair pages. The pages hide while it is open, as for
+/// every menu over them.
+fn sync_menu(panes: Panes) -> impl IntoElement {
+    let on = move || panes.sync_on();
+    let item = move |action: PaneAction, checked: Option<Box<dyn Fn() -> bool>>| {
+        sync_entry(CommandId::Pane(action), checked, move || {
+            panes.run(action);
+        })
+    };
+    let follows = |follow: Follow| -> Option<Box<dyn Fn() -> bool>> {
+        Some(Box::new(move || panes.sync_follow() == follow))
+    };
+    let separator = || {
+        menu_separator()
+            .h(px(1.0))
+            .my(px(4.0))
+            .bg(move || theme().border)
+    };
+    menu()
+        .align(Align::End)
+        .offset(px(4.0))
+        .on_open(move || panes.set_sync_menu_open(true))
+        .on_close(move || panes.set_sync_menu_open(false))
+        .popup_class("w-64 p-1 rounded-lg border border-border bg-popover shadow-lg")
+        .trigger(
+            view()
+                .label(t!("pane.sync_menu"))
+                .h(px(22.0))
+                .px_2()
+                .rounded(px(5.0))
+                .items_center()
+                .justify_center()
+                .style_when(on, |s| s.bg(move || theme().sidebar_accent))
+                .hover(|s| s.bg(move || theme().sidebar_accent))
+                .active(|s| s.opacity(0.7))
+                .focus_visible(|s| s.border_2().border_color(move || theme().ring))
+                .child(
+                    text(move || t!("pane.sync"))
+                        .text_size(px(12.0))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(move || {
+                            if on() {
+                                theme().primary
+                            } else {
+                                theme().muted_foreground
+                            }
+                        }),
+                ),
+        )
+        .child(item(PaneAction::Sync, Some(Box::new(on))))
+        .child(separator())
+        .child(item(
+            PaneAction::SyncFollow(Follow::SamePage),
+            follows(Follow::SamePage),
+        ))
+        .child(item(
+            PaneAction::SyncFollow(Follow::SamePosition),
+            follows(Follow::SamePosition),
+        ))
+        .child(item(
+            PaneAction::SyncFollow(Follow::Pairs),
+            follows(Follow::Pairs),
+        ))
+        .child(item(
+            PaneAction::SyncZoom,
+            Some(Box::new(move || panes.sync_zoom())),
+        ))
+        .child(separator())
+        .child(item(PaneAction::PairPages, None))
+        .child(item(PaneAction::ClearPagePairs, None).disabled(move || !panes.has_page_pairs()))
+}
+
+/// A sync menu item: a check mark when `checked` says so (screen readers hear it checked), its label and shortcut.
+fn sync_entry(
+    id: CommandId,
+    checked: Option<Box<dyn Fn() -> bool>>,
+    select: impl Fn() + 'static,
+) -> MenuItemElement {
+    let checked: Option<std::rc::Rc<dyn Fn() -> bool>> = checked.map(std::rc::Rc::from);
+    let mark = checked.clone();
+    let item = menu_item()
+        .on_select(select)
+        .accessibility_label(commands::label_with_shortcut(id))
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .h(px(32.0))
+        .px_2()
+        .rounded(px(6.0))
+        .hover(|s| s.bg(move || theme().accent))
+        .focus(|s| s.bg(move || theme().accent))
+        .disabled_style(|s| s.opacity(0.5))
+        .child(
+            text(move || match &mark {
+                Some(checked) if checked() => "✓",
+                _ => "",
+            })
+            .w(px(14.0))
+            .text_size(px(13.0))
+            .text_color(move || theme().primary),
+        )
+        .child(
+            text(commands::label(id))
+                .flex_1()
+                .text_size(px(13.0))
+                .text_color(move || theme().popover_foreground),
+        )
+        .child(
+            text(commands::shortcut_label(id))
+                .text_size(px(12.0))
+                .tabular_nums()
+                .text_color(move || theme().muted_foreground),
+        );
+    match checked {
+        Some(checked) => item.checked(move || Some(checked())),
+        None => item,
+    }
 }
 
 /// The bands along the grid's edges while files are dragged over the window: a drop on one opens them in a new pane
@@ -440,6 +562,8 @@ fn page_canvas(
                 }
                 // A file opening in a pane beside the active one leaves the keyboard where it is.
                 "pages" if untracked(|| panes.active_cell()) == cell => focus.focus(),
+                // V.8: while synced, the pane the reader moves leads the others.
+                "view" => panes.on_view(cell, &event.data),
                 _ => {}
             }
             pages.on_canvas_event(event);

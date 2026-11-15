@@ -253,6 +253,12 @@ status = "in-progress"
 tests = ["a_split_comes_back_with_each_pane_s_tabs", "each_pane_keeps_its_own_tabs_and_the_layout"]
 open = "quit and restart tried by hand; workspaces (W.1)"
 
+["V.8"]
+label = "Ph3: 7/49"
+status = "in-progress"
+tests = ["same_position_stays_level_across_different_page_sizes", "same_page_keeps_the_place_on_the_page_and_stops_at_the_last", "pairs_count_on_from_the_nearest_pair", "marks_pair_the_panes_open_at_the_time"]
+open = "not tried by hand; page pairs are not kept per file"
+
 ["V.13"]
 label = "Ph1: 44/60"
 status = "in-progress"

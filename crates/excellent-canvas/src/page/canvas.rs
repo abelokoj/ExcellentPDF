@@ -159,6 +159,9 @@ pub struct PageCanvas<H: Host> {
     reported_page: Option<usize>,
     /// The view last reported, for the app to save with the tab (R.9).
     reported_view: Option<SavedView>,
+    /// The view moved to follow another pane (V.8) since it was last reported: the report says so, so the app
+    /// doesn't send it back.
+    following: bool,
     /// The links of the pages near the screen (R.7).
     links: Near<Vec<Link>>,
     /// The notes of the pages near the screen, for screen readers (U.2).
@@ -262,6 +265,7 @@ impl<H: Host> PageCanvas<H> {
             trail: Vec::new(),
             reported_page: None,
             reported_view: None,
+            following: false,
             links: Near::new("links"),
             notes: Near::new("notes"),
             texts: Near::new("text"),
@@ -431,8 +435,31 @@ impl<H: Host> PageCanvas<H> {
         };
         if self.reported_view != Some(view) {
             self.reported_view = Some(view);
-            self.emit("view", view.to_json());
+            let mut json = view.to_json();
+            json["follow"] = self.following.into();
+            self.emit("view", json);
         }
+        self.following = false;
+    }
+
+    /// Shows `anchor` to follow another pane (V.8), at `zoom` when there is one: no jump, so nothing goes on the
+    /// history, and the next view report says it followed.
+    pub fn follow_pane(&mut self, anchor: viewport::Anchor, zoom: Option<(ZoomMode, f32)>) {
+        if anchor.page >= self.layout.len() {
+            return;
+        }
+        if self.reflow.is_some() {
+            self.viewport.scroll_to_page(anchor.page, &self.layout);
+        } else {
+            match zoom {
+                Some((ZoomMode::Custom, zoom)) => self.viewport.set_zoom(zoom, &self.layout),
+                Some((mode, _)) => self.viewport.fit(mode, &self.layout),
+                None => {}
+            }
+            self.viewport.relayout(Some(anchor), &self.layout);
+        }
+        self.following = true;
+        self.invalidate();
     }
 
     /// Shows a saved view (R.9): its layout and rotation, then its zoom and place. A book keeps the zoom it is laid

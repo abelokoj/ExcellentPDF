@@ -7,15 +7,19 @@
 //! pane gives its tabs to the one beside it or closes them (V.6), and a pane left with no tab closes. The layout and
 //! every pane's tabs are saved with the session (V.7, [`crate::session`]).
 //!
+//! While synchronized scrolling is on (V.8, [`sync`]), the pane the reader moves leads and the others follow.
+//!
 //! Two panes showing one file share its document (the registry of `excellent_core::shared`), so it is read once and
 //! an edit made in one is the other's too.
 
 mod grid;
 mod layout;
+mod sync;
 
 use std::path::PathBuf;
 use std::time::Duration;
 
+use excellent_features::split::Follow;
 use nsh_core::geometry::Points;
 use nsh_core::prelude::*;
 
@@ -38,6 +42,8 @@ use crate::workspaces::Workspaces;
 
 pub(crate) use grid::pane_grid;
 pub(crate) use layout::{CELLS, Layout, Side};
+use sync::SyncScroll;
+pub(crate) use sync::{SYNC_SCROLL, SYNC_ZOOM};
 
 /// `settings.toml`'s key for what closing a pane does with its tabs: `"move"` (the default) or `"close"`.
 pub(crate) const CLOSE_PANE_TABS: &str = "close_pane_tabs";
@@ -83,6 +89,16 @@ pub(crate) enum PaneAction {
     Close,
     /// Every pane of a row or column the same size (V.4).
     Equalize,
+    /// Synchronized scrolling on or off (V.8).
+    Sync,
+    /// How the panes follow while synced (V.8).
+    SyncFollow(Follow),
+    /// The zoom follows too, or stops following (V.8).
+    SyncZoom,
+    /// Pairs the pages the panes show now, for matched page pairs (V.8).
+    PairPages,
+    /// Forgets the page pairs (V.8).
+    ClearPagePairs,
 }
 
 /// One pane: its tabs, its canvas and what follows them.
@@ -167,6 +183,8 @@ pub(crate) struct Panes {
     active: Memo<usize>,
     slots: [Pane; CELLS],
     live: Live,
+    /// Synchronized scrolling (V.8).
+    sync: SyncScroll,
 }
 
 impl Panes {
@@ -196,6 +214,7 @@ impl Panes {
             active: computed(move || layout.with(Layout::active)),
             slots,
             live,
+            sync: SyncScroll::new(),
         };
         for pane in slots {
             panes.close_when_empty(pane);
@@ -336,6 +355,11 @@ impl Panes {
             }
             PaneAction::Close => self.close_active(),
             PaneAction::Equalize => self.layout.update(Layout::equalize),
+            PaneAction::Sync => self.toggle_sync(),
+            PaneAction::SyncFollow(follow) => self.set_sync_follow(follow),
+            PaneAction::SyncZoom => self.toggle_sync_zoom(),
+            PaneAction::PairPages => self.pair_pages(),
+            PaneAction::ClearPagePairs => self.clear_page_pairs(),
         }
     }
 

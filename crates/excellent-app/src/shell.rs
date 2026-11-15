@@ -236,6 +236,7 @@ pub(crate) fn shell() -> impl IntoElement {
             || modes.is_customizing()
             || workspaces.dialog().is_some()
             || panes.slots().into_iter().any(Pane::covers_pages)
+            || panes.sync_menu_open()
     };
     // Which panes' pages have the keyboard focus. Nothing has it at first, and then the pages take it
     // (`crate::panes`); moving between panes reports one leaving and the other coming in, in either order.

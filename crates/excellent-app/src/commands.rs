@@ -11,6 +11,8 @@ use excellent_features::outline::{Restyle, Shift, Swatch};
 use nsh_base::CommandItem;
 use nsh_core::prelude::*;
 
+use excellent_features::split::Follow;
+
 use crate::bookmarks::BookmarkAction;
 use crate::find::FindAction;
 use crate::keymap::{self, Keymap, Scope};
@@ -1092,6 +1094,62 @@ pub(crate) const COMMANDS: &[Command] = &[
         label: "command.close_pane",
         group: "command.group.panes",
         keys: &["mod+alt+w"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Sync),
+        name: "pane.sync",
+        label: "command.sync_scroll",
+        group: "command.group.panes",
+        keys: &["mod+alt+s"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::SyncFollow(Follow::SamePage)),
+        name: "pane.sync_page",
+        label: "command.sync_same_page",
+        group: "command.group.panes",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::SyncFollow(Follow::SamePosition)),
+        name: "pane.sync_position",
+        label: "command.sync_same_position",
+        group: "command.group.panes",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::SyncFollow(Follow::Pairs)),
+        name: "pane.sync_pairs",
+        label: "command.sync_pairs",
+        group: "command.group.panes",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::SyncZoom),
+        name: "pane.sync_zoom",
+        label: "command.sync_zoom",
+        group: "command.group.panes",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::PairPages),
+        name: "pane.pair_pages",
+        label: "command.pair_pages",
+        group: "command.group.panes",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::ClearPagePairs),
+        name: "pane.clear_page_pairs",
+        label: "command.clear_page_pairs",
+        group: "command.group.panes",
+        keys: &[],
         page_keys: &[],
     },
     Command {

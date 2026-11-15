@@ -18,7 +18,7 @@ use crate::links::PROTOCOLS_KEY;
 use crate::list_dialog::{card, list_dialog};
 use crate::modes::PEN_TO_WRITE;
 use crate::onboarding::SHOW_TIPS;
-use crate::panes::{CLOSE_PANE_TABS, ClosingTabs};
+use crate::panes::{CLOSE_PANE_TABS, ClosingTabs, SYNC_SCROLL, SYNC_ZOOM};
 use crate::print::{PRINT_ANNOTATIONS, PRINT_SCALING};
 use crate::reading::{
     AUTO_SCROLL_SPEED, DEFAULT_PREVIEW_DELAY, DocumentColors, FOCUS_SCOPE, MAX_PREVIEW_DELAY,
@@ -32,6 +32,7 @@ use crate::theme::{self as themes, ThemeChoice};
 use crate::workspaces::{Elsewhere, OPEN_ELSEWHERE};
 use excellent_core::darkmode::{Palette, Rgb};
 use excellent_core::print::Scaling;
+use excellent_features::split::Follow;
 
 /// The ruler colours offered: light tints that keep black text readable (content colours, not the theme's).
 const RULER_COLORS: [(&str, &str); 5] = [
@@ -430,6 +431,15 @@ fn tabs_section(live: Live) -> View {
             );
         });
     };
+    let follow = move || live.read(|s| Follow::parse(s.text(SYNC_SCROLL)));
+    let choose_follow = move |choice: Follow| {
+        live.change(|s| {
+            s.set_text(
+                SYNC_SCROLL,
+                (choice != Follow::default()).then_some(choice.name()),
+            );
+        });
+    };
     let elsewhere = move || live.read(|s| Elsewhere::parse(s.text(OPEN_ELSEWHERE)));
     let choose_elsewhere = move |choice: Elsewhere| {
         live.change(|s| {
@@ -470,6 +480,36 @@ fn tabs_section(live: Live) -> View {
                     move || closing() == ClosingTabs::Close,
                     move || choose_closing(ClosingTabs::Close),
                 )),
+        ))
+        // V.8: how synced panes follow, and whether the zoom does.
+        .child(row(
+            "settings.sync_scroll",
+            "settings.sync_scroll_hint",
+            segmented()
+                .child(segment(
+                    "settings.sync_scroll.page",
+                    move || follow() == Follow::SamePage,
+                    move || choose_follow(Follow::SamePage),
+                ))
+                .child(segment(
+                    "settings.sync_scroll.position",
+                    move || follow() == Follow::SamePosition,
+                    move || choose_follow(Follow::SamePosition),
+                ))
+                .child(segment(
+                    "settings.sync_scroll.pairs",
+                    move || follow() == Follow::Pairs,
+                    move || choose_follow(Follow::Pairs),
+                )),
+        ))
+        .child(row(
+            "settings.sync_zoom",
+            "settings.sync_zoom_hint",
+            on_off(
+                "settings.sync_zoom",
+                move || live.read(|s| s.flag(SYNC_ZOOM).unwrap_or(false)),
+                move |on| live.change(|s| s.set_flag(SYNC_ZOOM, on.then_some(true))),
+            ),
         ))
         // W.6: a file another workspace has open.
         .child(row(

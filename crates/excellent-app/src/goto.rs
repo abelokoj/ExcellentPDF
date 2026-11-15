@@ -77,6 +77,12 @@ impl PageState {
             .with(|sizes| sizes.get(index).copied().unwrap_or_default())
     }
 
+    /// Every page's height as laid out, in points, untracked (V.8: how far through the document a place is).
+    pub(crate) fn heights(self) -> Vec<f32> {
+        self.sizes
+            .with_untracked(|sizes| sizes.iter().map(|(_, height)| *height).collect())
+    }
+
     /// Whether a document with pages is shown.
     fn has_pages(self) -> bool {
         self.pages.with(|pages| pages.count() > 0)

@@ -16,7 +16,7 @@ use super::canvas::{DEFAULT_HOVER_DELAY, PageCanvas, ZoomChange};
 use super::host::Host;
 use super::saved::SavedView;
 use crate::view::ViewCommand;
-use crate::viewport::Side;
+use crate::viewport::{Anchor, Side, ZoomMode};
 
 impl<H: Host> PageCanvas<H> {
     /// `path`: the document shown (a string; absent or not a string: none). The
@@ -66,7 +66,7 @@ impl<H: Host> PageCanvas<H> {
 
     /// `zoomIn`, `zoomOut`, `actualSize`, `screenDown`, `screenUp`, `stepLeft`, `stepRight` (R.3), `historyBack`, `historyForward`, `firstPage`,
     /// `lastPage`, `goToPage` (`{"index": n}`, from 0), `setView` (a `view` event's data; with only a `page`: that
-    /// page), `goToPoint` (`{page, x, y, zoom}`, page points; `zoom` may be `null`), `copy`, `selectAll` (the
+    /// page), `follow` (V.8: `{page, across, down, fit, zoom}`, `fit` and `zoom` optional; no history), `goToPoint` (`{page, x, y, zoom}`, page points; `zoom` may be `null`), `copy`, `selectAll` (the
     /// reader's page), `readerPlace` (B.1, B.4, B.6: answered by the event of that name), and the view
     /// commands [`ViewCommand::parse`] knows (layouts, rotation, page box, fit modes). The reading aids (R.19-R.21):
     /// `toggleRuler`, `toggleFocus`, `lineDown`, `lineUp`, `toggleAutoScroll`, `autoScrollPause` (without
@@ -127,6 +127,10 @@ impl<H: Host> PageCanvas<H> {
                 Some((page, point, zoom)) => canvas.go_to_point(page, point, zoom),
                 None => log::warn!("page canvas: goToPoint without a page and point: {args}"),
             },
+            "follow" => match follow_args(args) {
+                Some((anchor, zoom)) => canvas.follow_pane(anchor, zoom),
+                None => log::warn!("page canvas: follow without a page and place: {args}"),
+            },
             "setView" => match SavedView::from_json(args) {
                 Some(view) => canvas.set_view(view),
                 None => match args.get("page").and_then(JsonValue::as_u64) {
@@ -152,6 +156,28 @@ fn go_to_point_args(args: &JsonValue) -> Option<(usize, PagePoint, Option<f32>)>
     };
     let zoom = number("zoom").map(|zoom| zoom as f32);
     Some((page, point, zoom))
+}
+
+/// The place of a `follow` command (V.8), `{page, across, down}`, and its zoom when it has `fit` (`"custom"`,
+/// `"width"`, `"page"` or `"height"`) and `zoom`.
+fn follow_args(args: &JsonValue) -> Option<(Anchor, Option<(ZoomMode, f32)>)> {
+    let number = |key: &str| args.get(key)?.as_f64().filter(|n| n.is_finite());
+    let anchor = Anchor {
+        page: usize::try_from(args.get("page")?.as_u64()?).ok()?,
+        across: number("across")? as f32,
+        down: number("down")? as f32,
+    };
+    let mode = match args.get("fit").and_then(JsonValue::as_str) {
+        Some("custom") => Some(ZoomMode::Custom),
+        Some("width") => Some(ZoomMode::FitWidth),
+        Some("page") => Some(ZoomMode::FitPage),
+        Some("height") => Some(ZoomMode::FitHeight),
+        _ => None,
+    };
+    let zoom = number("zoom")
+        .filter(|zoom| *zoom > 0.0)
+        .map(|zoom| zoom as f32);
+    Some((anchor, mode.zip(zoom)))
 }
 
 /// How a `find` command matches: each flag missing or not `true` is off.

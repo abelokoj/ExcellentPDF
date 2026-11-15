@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 20:00; Ph3: 7/49 | V.8: Synchronized scrolling
+
+- Ctrl+Alt+S, or the Sync menu in a split pane's header, makes the other panes follow the one you move: by page, by
+  position through the document, or from pages you paired; the zoom can follow too.
+- How panes follow and the zoom sync are in Settings, Tabs. The page canvas gained a `follow` command that moves it
+  without touching its back and forward history.
+- Done when met by test: same-position following stays level across documents of different page sizes. Not tried by
+  hand.
+
 ### 2026-11-15 18:30; Ph3: 6/49 | B.10: Sort, promote and demote between outline and bookmarks
 
 - "Sort outline entries by page" puts an entry's children, or its level, in page order as one step of undo; entries
