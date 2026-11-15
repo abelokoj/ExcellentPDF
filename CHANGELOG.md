@@ -6,6 +6,31 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 02:26; Ph1: 45/60 to 52/60 | W.1 to W.7, W.14: Workspaces
+
+#### Added
+
+- **Workspaces**: named sets of tabs, each with its own panes and layout. The switcher at the left of the title bar
+  shows the workspace's colour, icon and name; pressing it lists every workspace with its tab count (W.1).
+- **New workspace** (Ctrl+Alt+N), **from all tabs**, or **Move tab to a new workspace**; a new workspace opens
+  its edit dialog to be named (W.2).
+- **Edit workspace**: name, icon, colour, Move up / Move down, and Delete, which moves its tabs to the workspace
+  before it or closes them (W.3).
+- **Move / Copy tab to workspace**, keeping the tab's page and view (W.4).
+- **Go to workspace 1 to 9** (Ctrl+Alt+1 to 9), **Next / Previous workspace** (Ctrl+Alt+PageDown / PageUp) (W.5).
+- Setting **A file open in another workspace**: switch there (default) or open here too (W.6).
+- The window reopens on its last workspace (W.7). Workspaces not shown are library rows only: no document and no
+  file handle (W.14).
+
+#### Changed
+
+- The session is saved per workspace, and at once on a switch.
+
+#### Not done
+
+- Warm cache and hibernation, tab thumbnails, the left rail, the tab context menu, drag to reorder or onto the
+  switcher, and the §11.16 budgets (not measured).
+
 ### 2026-11-15 02:20; Ph1: 37/60 to 44/60 | V.1 to V.7, V.13: Split view
 
 #### Added

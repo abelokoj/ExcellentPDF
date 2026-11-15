@@ -3006,11 +3006,16 @@ The design is in §11.16 ("How it stays efficient", steps 1–8, and its storage
 1. Button at the left of the tab bar (icon and name); popover listing workspaces with color, tab count and dirty dot;
    also in the left rail and the palette.
 
+*Built (2026-11-15):* the button and the palette; the list is a dialog (a popover falls behind the page canvas).
+No dirty dot: K.15 saves edits within 2 s. The left rail entry comes with the rail.
+
 **Done when:** switching by mouse, keyboard and palette all work.
 
 #### Ph1: 46/60 | W.2: Create a workspace
 **P0; Phase 1; Needs:** W.1; **Code:** as W.1
 1. Empty, from all tabs, or from selected tabs ("Move to new workspace").
+
+*Built (2026-11-15):* "from selected tabs" is the shown tab until R.12 has multi-select.
 
 **Done when:** each way creates the expected tabs.
 
@@ -3018,11 +3023,17 @@ The design is in §11.16 ("How it stays efficient", steps 1–8, and its storage
 **P0; Phase 1; Needs:** W.1; **Code:** as W.1
 1. Rename, recolor, change icon, reorder by drag; delete asks to close its tabs or move them.
 
+*Built (2026-11-15):* reorder with Move up / Move down (dialog and commands); drag comes later. Deleting needs no
+dirty prompt: K.15 has saved every edit.
+
 **Done when:** deleting never closes a dirty Document without a prompt.
 
 #### Ph1: 48/60 | W.4: Move or copy tabs between workspaces
 **P0; Phase 1; Needs:** W.1; **Code:** as W.1
 1. Tab context menu, or drag a tab onto the switcher; closed-tab lists are per workspace.
+
+*Built (2026-11-15):* "Move tab to workspace" and "Copy tab to workspace" (palette and the switcher's list); the
+context menu and the drag wait for popups over the canvas and R.12's tab drag.
 
 **Done when:** a moved tab keeps its View state.
 
@@ -3042,6 +3053,8 @@ The design is in §11.16 ("How it stays efficient", steps 1–8, and its storage
 #### Ph1: 51/60 | W.7: Restore per window
 **P0; Phase 1; Needs:** R.9; **Code:** as W.1
 1. Each window reopens on its last workspace.
+
+*Built (2026-11-15):* one window, so one remembered workspace (`meta`); W.8 keys it per window.
 
 **Done when:** two windows restore two workspaces.
 
@@ -3090,6 +3103,9 @@ The design is in §11.16 ("How it stays efficient", steps 1–8, and its storage
 3. Warm cache for the last one or two workspaces; hibernate least recently used; never hibernate unsaved work
    (steps 3, 5).
 4. No file handles held by inactive tabs (step 6); debounced writes to the three tables (step 8).
+
+*Built (2026-11-15):* steps 1, 2 (without thumbnails), 6 and 8. The warm cache and hibernation (steps 3, 5) are
+not built yet: a switch closes documents no pane shows.
 
 **Done when:** the budgets of §11.16 pass, and switching 1,000 times leaks no memory.
 

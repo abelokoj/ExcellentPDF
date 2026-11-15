@@ -25,6 +25,7 @@ use crate::reading_theme_bar;
 use crate::settings::{self, Live};
 use crate::tabs::{Cycle, TAB_CYCLE_ORDER};
 use crate::theme::{self as themes, ThemeChoice};
+use crate::workspaces::{Elsewhere, OPEN_ELSEWHERE};
 use excellent_core::darkmode::{Palette, Rgb};
 
 /// The ruler colours offered: light tints that keep black text readable (content colours, not the theme's).
@@ -359,6 +360,15 @@ fn tabs_section(live: Live) -> View {
             );
         });
     };
+    let elsewhere = move || live.read(|s| Elsewhere::parse(s.text(OPEN_ELSEWHERE)));
+    let choose_elsewhere = move |choice: Elsewhere| {
+        live.change(|s| {
+            s.set_text(
+                OPEN_ELSEWHERE,
+                (choice == Elsewhere::Here).then_some("here"),
+            );
+        });
+    };
     section("settings.section.tabs")
         .child(row(
             "settings.tab_cycle",
@@ -389,6 +399,22 @@ fn tabs_section(live: Live) -> View {
                     "settings.close_pane_tabs.close",
                     move || closing() == ClosingTabs::Close,
                     move || choose_closing(ClosingTabs::Close),
+                )),
+        ))
+        // W.6: a file another workspace has open.
+        .child(row(
+            "settings.open_elsewhere",
+            "settings.open_elsewhere_hint",
+            segmented()
+                .child(segment(
+                    "settings.open_elsewhere.switch",
+                    move || elsewhere() == Elsewhere::Switch,
+                    move || choose_elsewhere(Elsewhere::Switch),
+                ))
+                .child(segment(
+                    "settings.open_elsewhere.here",
+                    move || elsewhere() == Elsewhere::Here,
+                    move || choose_elsewhere(Elsewhere::Here),
                 )),
         ))
 }

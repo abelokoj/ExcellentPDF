@@ -1,5 +1,6 @@
 //! Session restore (plan R.9): the window's tabs, each at its page, saved to the library (K.20) a second after they
-//! last changed and when the app quits, and put back when it starts. Restoring is lazy (W.14): the shown tab's
+//! last changed and when the app quits, and put back when it starts. They are saved as the shown workspace's (W.1),
+//! and a switch saves them at once. Restoring is lazy (W.14): the shown tab's
 //! document opens, the others stay rows until they are shown. A tab whose file has gone is marked missing, which the
 //! strip greys and the document panel answers with "Locate…".
 //!
@@ -31,11 +32,11 @@ pub(crate) struct Restored {
     pub(crate) tabs: [Tabs; CELLS],
 }
 
-/// The last session, if the library is open and has one. Each tab's file is looked for (one `stat` per tab) so the
-/// missing ones show at once.
-pub(crate) fn restored() -> Option<Restored> {
+/// The panes and tabs workspace `id` was left with, if the library is open. Each tab's file is looked for (one `stat`
+/// per tab) so the missing ones show at once.
+pub(crate) fn load(id: WorkspaceId) -> Option<Restored> {
     let store = crate::library::store()?;
-    match store.read(|conn| workspace::load_panes(conn, WorkspaceId::DEFAULT)) {
+    match store.read(|conn| workspace::load_panes(conn, id)) {
         Ok(saved) => Some(from_saved_panes(saved, Path::is_file)),
         Err(err) => {
             log::warn!("session: can't read the tabs: {err}");
@@ -44,42 +45,110 @@ pub(crate) fn restored() -> Option<Restored> {
     }
 }
 
-/// Saves the panes and their tabs a second after each change and as the app quits. Without a library it does
-/// nothing.
-pub(crate) fn keep(panes: Panes) {
+/// Keeps the shown workspace's panes and tabs in the library: a second after each change, at once when asked (before
+/// a switch, W.1), and as the app quits. Without a library it does nothing.
+#[derive(Clone, Copy)]
+pub(crate) struct Keeper {
+    store: Option<&'static Store>,
+    panes: Panes,
+    workspace: Signal<WorkspaceId>,
+    /// The save waiting for its second.
+    pending: Stored<Option<Spawned<()>>>,
+}
+
+impl Keeper {
+    /// Starts keeping `panes`, which show `workspace`.
+    pub(crate) fn new(panes: Panes, workspace: Signal<WorkspaceId>) -> Self {
+        let keeper = Self {
+            store: crate::library::store(),
+            panes,
+            workspace,
+            pending: stored(None),
+        };
+        let Some(store) = keeper.store else {
+            return keeper;
+        };
+        let first = stored(true);
+        effect(move || {
+            // The workspace is read with its panes: a switch changes both at once (`batch`).
+            let shown = workspace.get();
+            let saved = to_saved_panes(&panes.layout(), &panes.current());
+            // The first run is the session as it was restored: nothing to save.
+            if first.replace(false) {
+                return;
+            }
+            keeper.cancel();
+            keeper
+                .pending
+                .replace(Some(set_timeout(SAVE_DELAY, move || {
+                    save(store, shown, saved)
+                })));
+        });
+        on_app_quit(move || {
+            keeper.save_now();
+            if let Err(err) = store.flush() {
+                log::warn!("session: the tabs weren't saved: {err}");
+            }
+            async {}
+        });
+        keeper
+    }
+
+    /// Saves the panes as they are now, instead of in a second.
+    pub(crate) fn save_now(self) {
+        let Some(store) = self.store else {
+            return;
+        };
+        self.cancel();
+        let (shown, saved) = untracked(|| {
+            (
+                self.workspace.get(),
+                to_saved_panes(&self.panes.layout(), &self.panes.current()),
+            )
+        });
+        save(store, shown, saved);
+    }
+
+    fn cancel(self) {
+        if let Some(task) = self.pending.replace(None) {
+            task.cancel();
+        }
+    }
+}
+
+/// Adds `tab` to workspace `id` (not the one shown), shown in its active pane (W.4). It waits for the library: the
+/// workspace's tab count is read right after.
+pub(crate) fn add_to(id: WorkspaceId, tab: &Closed) {
     let Some(store) = crate::library::store() else {
         return;
     };
-    let pending = stored(None::<Spawned<()>>);
-    let first = stored(true);
-    effect(move || {
-        let saved = to_saved_panes(&panes.layout(), &panes.current());
-        // The first run is the session as it was restored: nothing to save.
-        if first.replace(false) {
-            return;
-        }
-        if let Some(task) = pending.replace(None) {
-            task.cancel();
-        }
-        pending.replace(Some(set_timeout(SAVE_DELAY, move || save(store, saved))));
-    });
-    on_app_quit(move || {
-        if let Some(task) = pending.replace(None) {
-            task.cancel();
-        }
-        let saved = untracked(|| to_saved_panes(&panes.layout(), &panes.current()));
-        save(store, saved);
-        if let Err(err) = store.flush() {
-            log::warn!("session: the tabs weren't saved: {err}");
-        }
-        async {}
-    });
+    let saved = saved_tab(&tab.path, tab.page, tab.view.as_deref(), tab.pinned, None);
+    let result = store
+        .write(move |tx| {
+            let mut panes = workspace::load_panes(tx, id)?;
+            let cell = panes
+                .layout
+                .as_deref()
+                .map_or_else(Layout::default, Layout::from_json)
+                .active();
+            if panes.panes.len() <= cell {
+                panes.panes.resize_with(cell + 1, Default::default);
+            }
+            let pane = &mut panes.panes[cell];
+            pane.open.push(saved);
+            pane.active = Some(pane.open.len() - 1);
+            workspace::save_panes(tx, id, &panes)
+        })
+        .wait();
+    if let Err(err) = result {
+        log::warn!("session: can't add the tab to the workspace: {err}");
+    }
 }
 
-/// Hands the panes to the library's writer.
-fn save(store: &'static Store, saved: workspace::Panes) {
+/// Hands `workspace`'s panes to the library's writer.
+fn save(store: &'static Store, id: WorkspaceId, saved: workspace::Panes) {
     let _ = store.write(move |tx| {
-        let result = workspace::save_panes(tx, WorkspaceId::DEFAULT, &saved);
+        let result = workspace::save_panes(tx, id, &saved);
         if let Err(err) = &result {
             log::warn!("session: can't save the tabs: {err}");
         }

@@ -28,8 +28,9 @@ use crate::open::{Launch, Split as LaunchSplit};
 use crate::outline::OutlineState;
 use crate::reading::Reading;
 use crate::recent::RecentState;
+use crate::session::Restored;
 use crate::settings::Live;
-use crate::tabs::{self, Step, TabState, Tabs};
+use crate::tabs::{self, Closed, Step, TabState, Tabs};
 use crate::thumbnails::Thumbnails;
 
 pub(crate) use grid::pane_grid;
@@ -163,11 +164,11 @@ pub(crate) struct Panes {
 
 impl Panes {
     /// The last session's panes, with the files the app was started with.
-    pub(crate) fn new(live: Live, recent: RecentState) -> Self {
-        let crate::session::Restored {
+    pub(crate) fn new(live: Live, recent: RecentState, restored: Restored) -> Self {
+        let Restored {
             mut layout,
             mut tabs,
-        } = crate::session::restored().unwrap_or_default();
+        } = restored;
         if let Some(launch) = crate::open::startup() {
             route(&mut layout, &mut tabs, launch);
         }
@@ -193,6 +194,34 @@ impl Panes {
             panes.close_when_empty(pane);
         }
         panes
+    }
+
+    /// Shows another workspace's panes and tabs in place of these (W.1), each pane's shown tab where it was left.
+    pub(crate) fn show(self, restored: Restored) {
+        let Restored { layout, tabs } = restored;
+        batch(|| {
+            self.layout.set(layout);
+            for (pane, tabs) in self.slots.into_iter().zip(tabs) {
+                pane.tabs.replace(tabs, pane.canvas);
+            }
+        });
+        focus_later(self.active());
+    }
+
+    /// Takes every pane's tabs out, the active pane's last and its shown tab at the very end (W.2: a new workspace
+    /// from all of them). The panes then close, as panes with no tab do.
+    pub(crate) fn take_every_tab(self) -> Vec<Closed> {
+        let active = self.active().cell;
+        let mut order: Vec<Pane> = self
+            .slots
+            .into_iter()
+            .filter(|pane| pane.cell != active)
+            .collect();
+        order.push(self.slots[active]);
+        order
+            .into_iter()
+            .flat_map(|pane| pane.tabs.take_all())
+            .collect()
     }
 
     /// Every pane, open or not, by cell.

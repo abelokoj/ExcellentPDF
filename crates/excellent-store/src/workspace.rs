@@ -15,7 +15,7 @@ pub const CLOSED_KEPT: usize = 50;
 
 /// A workspace, by its row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct WorkspaceId(i64);
+pub struct WorkspaceId(pub(crate) i64);
 
 impl WorkspaceId {
     /// The first workspace, which every database has from its first version.

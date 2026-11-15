@@ -26,6 +26,7 @@ mod shell;
 mod tabs;
 mod theme;
 mod thumbnails;
+mod workspaces;
 
 pub use open::{Started, start};
 

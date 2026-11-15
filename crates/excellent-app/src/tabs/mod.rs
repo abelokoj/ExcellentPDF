@@ -117,6 +117,11 @@ impl TabState {
         self.tabs.with(|tabs| !tabs.all().is_empty())
     }
 
+    /// Whether a tab of the file at `path` is open (untracked).
+    pub(crate) fn has_file(self, path: &std::path::Path) -> bool {
+        self.tabs.with_untracked(|tabs| tabs.find(path).is_some())
+    }
+
     /// How many tabs are open.
     pub(crate) fn count(self) -> usize {
         self.tabs.with(|tabs| tabs.all().len())
@@ -191,11 +196,6 @@ impl TabState {
     fn has_any(self) -> bool {
         self.tabs
             .with(|tabs| !tabs.all().is_empty() || tabs.closed().next().is_some())
-    }
-
-    /// Shows the open dialog and opens the files picked, each in a new tab.
-    pub(crate) fn open_dialog(self) {
-        pick_documents(move |paths| self.open_paths(paths));
     }
 
     /// Asks where the missing file of the tab `id` went, and shows it from there.
@@ -406,24 +406,40 @@ impl TabState {
     /// Takes the canvas's `pages` event (the shown tab's file is open, so its view comes back) and `view` events.
     pub(crate) fn on_canvas_event(self, event: &NativeEvent, canvas: ElementRef) {
         match &*event.name {
-            "pages" => {
-                self.shown_view.with(Option::take);
-                match self.restore.with(Option::take) {
-                    Some(Restore {
-                        view: Some(view), ..
-                    }) => canvas.command("setView", view),
-                    Some(Restore { page, view: None }) if page > 0 => {
-                        canvas.command("goToPage", serde_json::json!({ "index": page }));
-                    }
-                    _ => {}
-                }
-            }
+            "pages" => self.come_back(canvas),
             // Until the shown tab's view has come back, the views reported are the last file's.
             "view" if self.restore.with(|restore| restore.is_none()) => {
                 let view = event.data.to_string();
                 self.shown_view.with(|shown| *shown = Some(view));
             }
             _ => {}
+        }
+    }
+
+    /// Takes the shown tab back to where it was left, now that its file is open.
+    fn come_back(self, canvas: ElementRef) {
+        self.shown_view.with(Option::take);
+        match self.restore.with(Option::take) {
+            Some(Restore {
+                view: Some(view), ..
+            }) => canvas.command("setView", view),
+            Some(Restore { page, view: None }) if page > 0 => {
+                canvas.command("goToPage", serde_json::json!({ "index": page }));
+            }
+            _ => {}
+        }
+    }
+
+    /// Puts `tabs` in place of every tab (another workspace's, W.1) and shows their shown tab where it was left.
+    /// `canvas` is the pane's: when it already has the file open it reports no new pages, so the tab is taken back
+    /// here.
+    pub(crate) fn replace(self, tabs: Tabs, canvas: ElementRef) {
+        let before = untracked(|| self.shown_path());
+        self.leave_shown();
+        self.tabs.set(tabs);
+        self.arrive();
+        if before.is_some() && untracked(|| self.shown_path()) == before {
+            self.come_back(canvas);
         }
     }
 

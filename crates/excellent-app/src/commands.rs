@@ -15,6 +15,7 @@ use crate::keymap::{self, Keymap, Scope};
 use crate::outline::OutlineAction;
 use crate::panes::{PaneAction, Side};
 use crate::tabs::{Action as TabAction, Step};
+use crate::workspaces::{Start, Transfer, WorkspaceAction};
 
 /// What a command does; [`crate::shell`] carries it out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +47,8 @@ pub(crate) enum CommandId {
     Tab(TabAction),
     /// Something done to the split view's panes (V.1 to V.6).
     Pane(PaneAction),
+    /// Something done to the workspaces (W.1 to W.5).
+    Workspace(WorkspaceAction),
     /// Escape: out of full screen, focus mode, the reading ruler and auto-scroll (R.19).
     LeaveModes,
     /// A page-canvas command, by its name in the canvas's protocol (`zoomIn`, `layoutBook`, `rotateClockwise`).
@@ -79,6 +82,10 @@ impl CommandId {
                 && !matches!(
                     self,
                     Self::Pane(PaneAction::Split(_) | PaneAction::MoveTab(_))
+                        | Self::Workspace(
+                            WorkspaceAction::New(Start::AllTabs | Start::ShownTab)
+                                | WorkspaceAction::SendTab(_)
+                        )
                 )
     }
 }
@@ -916,6 +923,167 @@ pub(crate) const COMMANDS: &[Command] = &[
         keys: &["mod+alt+0"],
         page_keys: &[],
     },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Switcher),
+        name: "workspace.switch",
+        label: "command.switch_workspace",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::New(Start::Empty)),
+        name: "workspace.new",
+        label: "command.new_workspace",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+n"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::New(Start::AllTabs)),
+        name: "workspace.new_from_tabs",
+        label: "command.new_workspace_from_tabs",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::New(Start::ShownTab)),
+        name: "workspace.new_from_tab",
+        label: "command.new_workspace_from_tab",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::SendTab(Transfer::Move)),
+        name: "workspace.move_tab",
+        label: "command.move_tab_to_workspace",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::SendTab(Transfer::Copy)),
+        name: "workspace.copy_tab",
+        label: "command.copy_tab_to_workspace",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Edit),
+        name: "workspace.edit",
+        label: "command.edit_workspace",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Shift(Step::Previous)),
+        name: "workspace.move_earlier",
+        label: "command.move_workspace_earlier",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Shift(Step::Next)),
+        name: "workspace.move_later",
+        label: "command.move_workspace_later",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Go(0)),
+        name: "workspace.1",
+        label: "command.workspace_1",
+        group: "command.group.workspaces",
+        // The plan's keys (W.5).
+        keys: &["mod+alt+1"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Go(1)),
+        name: "workspace.2",
+        label: "command.workspace_2",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+2"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Go(2)),
+        name: "workspace.3",
+        label: "command.workspace_3",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+3"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Go(3)),
+        name: "workspace.4",
+        label: "command.workspace_4",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+4"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Go(4)),
+        name: "workspace.5",
+        label: "command.workspace_5",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+5"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Go(5)),
+        name: "workspace.6",
+        label: "command.workspace_6",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+6"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Go(6)),
+        name: "workspace.7",
+        label: "command.workspace_7",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+7"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Go(7)),
+        name: "workspace.8",
+        label: "command.workspace_8",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+8"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Go(8)),
+        name: "workspace.9",
+        label: "command.workspace_9",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+9"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Cycle(Step::Next)),
+        name: "workspace.next",
+        label: "command.next_workspace",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+pagedown"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Cycle(Step::Previous)),
+        name: "workspace.previous",
+        label: "command.previous_workspace",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+pageup"],
+        page_keys: &[],
+    },
 ];
 
 impl Command {
@@ -1018,6 +1186,10 @@ mod tests {
         assert!(CommandId::OpenFile.is_available(false));
         assert!(!CommandId::Pane(PaneAction::Split(Side::Right)).is_available(false));
         assert!(CommandId::Pane(PaneAction::OpenInSplit).is_available(false));
+        assert!(CommandId::Workspace(WorkspaceAction::New(Start::Empty)).is_available(false));
+        assert!(
+            !CommandId::Workspace(WorkspaceAction::SendTab(Transfer::Move)).is_available(false)
+        );
         assert!(!CommandId::Undo.is_available(false));
         assert!(!CommandId::Outline(OutlineAction::Add).is_available(false));
     }

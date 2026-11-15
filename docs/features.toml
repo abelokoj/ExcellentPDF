@@ -252,3 +252,51 @@ label = "Ph1: 44/60"
 status = "in-progress"
 tests = ["the_command_line_gives_absolute_files_and_a_page", "a_launch_crosses_the_channel_unchanged", "split_puts_each_file_in_a_pane_of_its_own", "split_same_shows_the_file_in_two_panes"]
 open = "tried by hand"
+
+["W.1"]
+label = "Ph1: 45/60"
+status = "in-progress"
+tests = ["workspaces_are_made_listed_in_order_restyled_and_deleted", "the_palette_lists_every_command_and_runs_one"]
+open = "tried by hand; left rail; dirty dot (autosave); tab strip tint"
+
+["W.2"]
+label = "Ph1: 46/60"
+status = "in-progress"
+tests = ["workspaces_are_made_listed_in_order_restyled_and_deleted", "a_closing_pane_gives_up_every_tab_the_shown_one_last"]
+open = "tried by hand; multi-select of tabs (with R.12)"
+
+["W.3"]
+label = "Ph1: 47/60"
+status = "in-progress"
+tests = ["a_deleted_workspace_gives_way_to_the_one_before_it", "a_workspace_moves_one_place_and_stops_at_the_ends", "workspaces_are_made_listed_in_order_restyled_and_deleted"]
+open = "tried by hand; reorder by drag"
+
+["W.4"]
+label = "Ph1: 48/60"
+status = "in-progress"
+tests = ["a_tab_moved_to_another_pane_keeps_its_page_and_view"]
+open = "tried by hand; tab context menu and drag onto the switcher"
+
+["W.5"]
+label = "Ph1: 49/60"
+status = "in-progress"
+tests = ["workspaces_cycle_round_the_ends", "only_window_commands_are_offered_without_a_document"]
+open = "tried by hand"
+
+["W.6"]
+label = "Ph1: 50/60"
+status = "in-progress"
+tests = ["a_file_open_in_another_workspace_is_found_there", "opening_elsewhere_reads_its_setting"]
+open = "tried by hand; matching by file identity (K.5)"
+
+["W.7"]
+label = "Ph1: 51/60"
+status = "in-progress"
+tests = ["the_shown_workspace_is_remembered_until_it_goes"]
+open = "tried by hand; per window with W.8"
+
+["W.14"]
+label = "Ph1: 52/60"
+status = "in-progress"
+tests = ["a_session_comes_back_with_every_tab_at_its_page"]
+open = "warm cache and hibernation; tab thumbnails; budgets and the leak test (K.24)"

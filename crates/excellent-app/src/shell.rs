@@ -37,6 +37,7 @@ use crate::settings_window::settings_window;
 use crate::tabs;
 use crate::theme as themes;
 use crate::thumbnails;
+use crate::workspaces::{self, Workspaces};
 
 /// The title bar's height; Windows draws its caption buttons this tall.
 const TITLE_BAR_HEIGHT: Points = px(40.0);
@@ -147,8 +148,9 @@ pub(crate) fn shell() -> impl IntoElement {
     let tab_list_open = signal(false);
     let live = settings::Live::new();
     let recent = RecentState::new();
-    let panes = Panes::new(live, recent);
-    crate::session::keep(panes);
+    let (shown, restored) = workspaces::opening();
+    let panes = Panes::new(live, recent, restored);
+    let workspaces = Workspaces::new(panes, shown, live);
     let shared = Shared {
         reading: Reading::new(live),
         full_screen: FullScreen::new(layout),
@@ -179,6 +181,7 @@ pub(crate) fn shell() -> impl IntoElement {
             || goto_open.get()
             || settings_open.get()
             || tab_list_open.get()
+            || workspaces.dialog().is_some()
             || panes.slots().into_iter().any(Pane::covers_pages)
     };
     // Which panes' pages have the keyboard focus. Nothing has it at first, and then the pages take it
@@ -204,11 +207,12 @@ pub(crate) fn shell() -> impl IntoElement {
             CommandId::ToggleRulerInvert => reading.toggle_invert(),
             CommandId::ToggleDocumentColors => reading.toggle_document_colors(),
             CommandId::ChooseReadingTheme => reading_theme_open.set(true),
-            CommandId::OpenFile => pane.tabs.open_dialog(),
+            CommandId::OpenFile => tabs::pick_documents(move |paths| workspaces.open_paths(paths)),
             CommandId::TabList => tab_list_open.set(true),
             CommandId::SetDefaultViewer => crate::open::set_as_default_viewer(),
             CommandId::Tab(action) => pane.tabs.run(action),
             CommandId::Pane(action) => panes.run(action),
+            CommandId::Workspace(action) => workspaces.run(action),
             CommandId::LeaveModes => {
                 to_canvas("leaveModes");
                 full_screen.leave();
@@ -230,7 +234,7 @@ pub(crate) fn shell() -> impl IntoElement {
         loop {
             let launch = crate::open::next().await;
             current_window().focus();
-            panes.launch(&launch);
+            workspaces.open(&launch);
         }
     });
     // Bound again when the settings change: the user's keys may have.
@@ -259,18 +263,21 @@ pub(crate) fn shell() -> impl IntoElement {
 
     view()
         .flex_1()
-        // Documents dropped on the window outside the panes open in the active pane (R.11); other files are left
-        // alone. Every drop target follows the drag, so the panes' edges take drops while it lasts (V.2).
+        // Documents dropped on the window outside the panes open in the active pane (R.11), or where another
+        // workspace has them (W.6); other files are left alone. Every drop target follows the drag, so the panes' edges take drops while it lasts (V.2).
         .on_file_drag_enter(move || file_drag.enter())
         .on_file_drag_leave(move || file_drag.leave())
         .on_file_drop(move |event: &FileDropEvent| {
             file_drag.drop_done();
-            panes
-                .active()
-                .tabs
-                .open_paths(crate::open::dropped_documents(&event.uris));
+            workspaces.open_paths(crate::open::dropped_documents(&event.uris));
         })
-        .child(window_bar(run, panes, shared, reading_theme_open))
+        .child(window_bar(
+            run,
+            panes,
+            workspaces,
+            shared,
+            reading_theme_open,
+        ))
         .child(
             view()
                 .flex_1()
@@ -283,6 +290,7 @@ pub(crate) fn shell() -> impl IntoElement {
             tabs::tab_list(tab_list_open, panes.active().tabs, recent)
         }))
         .child(pane_dialogs)
+        .child(workspaces::workspace_dialogs(workspaces, run))
         .child(when(settings_open, move || {
             settings_window(settings_open, live, theme_choice, run)
         }))
@@ -312,6 +320,7 @@ fn of_active<E: IntoElement>(panes: Panes, make: impl Fn(Pane) -> E + 'static) -
 fn window_bar(
     run: impl Fn(CommandId) + Copy + 'static,
     panes: Panes,
+    workspaces: Workspaces,
     shared: Shared,
     reading_theme_open: Signal<bool>,
 ) -> impl IntoElement {
@@ -347,6 +356,7 @@ fn window_bar(
             run,
             dock_glyph(DockPlacement::Left),
         ))
+        .child(workspaces::switcher_button(workspaces, run))
         // The reading-theme bar needs the room while it is open.
         .child(when(
             move || !reading_theme_open.get(),
