@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 18:30; Ph3: 6/49 | B.10: Sort, promote and demote between outline and bookmarks
+
+- "Sort outline entries by page" puts an entry's children, or its level, in page order as one step of undo; entries
+  that open no page go last.
+- "Add outline entry as bookmark" and "Add bookmark to outline" copy a place between the outline and the reader's
+  bookmarks, keeping its title, page, point and zoom; the original stays.
+- Done when met by test: a place written into the outline reads back with the same title and destination. Not tried by
+  hand.
+
 ### 2026-11-15 17:00; Ph3: 5/49 | B.9: Check destinations
 
 - Outline entries that open nowhere say why in their row: no destination, a missing named destination, or a page past

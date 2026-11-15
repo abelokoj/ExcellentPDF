@@ -753,6 +753,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &[],
     },
     Command {
+        id: CommandId::Outline(OutlineAction::Sort),
+        name: "outline.sort",
+        label: "command.outline_sort",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::ToBookmark),
+        name: "outline.to_bookmark",
+        label: "command.outline_to_bookmark",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
         id: CommandId::Outline(OutlineAction::Check),
         name: "outline.check",
         label: "command.outline_check",
@@ -792,6 +808,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         label: "command.bookmark_edit",
         group: "command.group.bookmarks",
         // F2 while the bookmarks have the keyboard (the panel binds it).
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Bookmark(BookmarkAction::ToOutline),
+        name: "bookmark.to_outline",
+        label: "command.bookmark_to_outline",
+        group: "command.group.bookmarks",
         keys: &[],
         page_keys: &[],
     },

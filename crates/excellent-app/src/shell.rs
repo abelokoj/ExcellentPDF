@@ -21,7 +21,7 @@ use nsh_core::geometry::Points;
 use nsh_core::JsonValue;
 use nsh_core::prelude::*;
 
-use crate::bookmarks;
+use crate::bookmarks::{self, BookmarkAction};
 use crate::commands::{self, CommandId};
 use crate::full_screen::FullScreen;
 use crate::goto::{self, PageState};
@@ -29,7 +29,7 @@ use crate::links;
 use crate::list_dialog::{list_dialog, style};
 use crate::modes::{self, Modes};
 use crate::onboarding::{self, Onboarding};
-use crate::outline;
+use crate::outline::{self, OutlineAction};
 use crate::panes::{self, CELLS, FileDrag, Pane, Panes, Shared};
 use crate::print::{Printing, print_strip};
 use crate::reading::Reading;
@@ -277,6 +277,17 @@ pub(crate) fn shell() -> impl IntoElement {
                 full_screen.leave();
             }
             CommandId::Canvas(name) => to_canvas(name),
+            // B.10: the outline and the bookmarks hand each other an entry.
+            CommandId::Outline(OutlineAction::ToBookmark) => {
+                if let Some((title, page, spot)) = pane.outline.selected_place() {
+                    pane.bookmarks.add_from_outline(title, page, spot);
+                }
+            }
+            CommandId::Bookmark(BookmarkAction::ToOutline) => {
+                if let Some((title, page, spot)) = pane.bookmarks.selected_place() {
+                    pane.outline.add_from_bookmark(&title, page, spot);
+                }
+            }
             CommandId::Outline(action) => pane.outline.run(action, pane.canvas),
             CommandId::Bookmark(action) => pane.bookmarks.run(action, pane.canvas),
             CommandId::Find(action) => pane.find.run(action),

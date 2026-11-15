@@ -11,7 +11,7 @@ use std::time::SystemTime;
 
 use excellent_core::shared::registry;
 use excellent_features::bookmarks as model;
-use excellent_features::outline::title_from_selection;
+use excellent_features::outline::{Spot, title_from_selection};
 use excellent_store::bookmarks::{self as library, Bookmark, Details, Place};
 use nsh_base::{alert_dialog, button, context_menu, input, theme, toggle};
 use nsh_core::JsonValue;
@@ -32,6 +32,9 @@ pub(crate) enum BookmarkAction {
     Edit,
     /// Deletes the selected bookmark, once the reader confirms.
     Delete,
+    /// An outline entry with the selected bookmark's title and place; the bookmark stays (B.10). The shell runs it,
+    /// as it needs the outline.
+    ToOutline,
 }
 
 /// What the editor dialog saves to.
@@ -141,6 +144,37 @@ impl BookmarkState {
                     self.confirm_delete(bookmark);
                 }
             }
+            BookmarkAction::ToOutline => {}
+        }
+    }
+
+    /// The selected bookmark's title, page and spot, for an outline entry made from it (B.10).
+    pub(crate) fn selected_place(self) -> Option<(String, usize, Spot)> {
+        let bookmark = self.selected_bookmark()?;
+        let Place { page, x, y, zoom } = bookmark.place;
+        Some((bookmark.details.title, page, Spot { x, y, zoom }))
+    }
+
+    /// A new bookmark titled `title` at `spot` on page `page`, from an outline entry (B.10), shown selected.
+    pub(crate) fn add_from_outline(self, title: String, page: usize, spot: Spot) {
+        let Some(path) = untracked(|| self.tabs.shown_path()) else {
+            return;
+        };
+        let place = Place {
+            page,
+            x: spot.x,
+            y: spot.y,
+            zoom: spot.zoom,
+        };
+        let details = Details {
+            title,
+            color: GroupColor::ALL[0].id().to_owned(),
+            ..Details::default()
+        };
+        let saved = change(move |tx| library::add(tx, &path, place, None, &details, now()));
+        if let Some(id) = saved {
+            self.load();
+            self.selected.set(Some(id));
         }
     }
 
@@ -487,6 +521,7 @@ fn bookmark_row(
         .on_close(move || state.menu_open.set(false))
         .popup_class("w-56 p-1 rounded-lg border border-border bg-popover shadow-lg")
         .child(item(BookmarkAction::Edit))
+        .child(item(BookmarkAction::ToOutline))
         .child(item(BookmarkAction::Delete))
 }
 

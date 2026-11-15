@@ -408,3 +408,9 @@ label = "Ph3: 5/49"
 status = "in-progress"
 tests = ["every_broken_entry_in_a_test_file_is_found", "every_broken_entry_is_found", "a_heading_is_found_by_its_title", "headings_are_found_on_the_workers"]
 open = "not tried by hand; the nearest heading is the one with the entry's title until B.8; deleted-page destinations resolve to page 1 in MuPDF and aren't flagged"
+
+["B.10"]
+label = "Ph3: 6/49"
+status = "in-progress"
+tests = ["a_place_survives_the_trip_into_the_outline_and_back", "a_level_sorts_by_page_with_equals_kept_and_nowhere_last", "a_link_gives_its_spot"]
+open = "not tried by hand; a named destination's own point is not read"

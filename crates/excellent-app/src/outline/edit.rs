@@ -34,6 +34,11 @@ pub(crate) enum OutlineAction {
     Check,
     /// Points each entry that opens nowhere at the heading with its title, or removes it when there is none (B.9).
     Fix,
+    /// Puts the selected entry's children, or its level, in page order (B.10).
+    Sort,
+    /// A personal bookmark with the selected entry's title and destination; the entry stays (B.10). The shell runs it,
+    /// as it needs the bookmarks.
+    ToBookmark,
 }
 
 /// What the place the pages report next is for.
@@ -80,7 +85,70 @@ impl OutlineState {
             OutlineAction::Move(shift) => self.shift(shift),
             OutlineAction::Style(how) => self.restyle(how),
             OutlineAction::Fix => self.fix(),
-            OutlineAction::Check => {}
+            OutlineAction::Sort => self.sort(),
+            OutlineAction::Check | OutlineAction::ToBookmark => {}
+        }
+    }
+
+    /// Puts the selected entry's children, or the entries on its level, in page order (B.10); one step of undo.
+    fn sort(self) {
+        let Some(entries) = self.read_now() else {
+            return;
+        };
+        let Some(level) = self
+            .selected_in(&entries)
+            .and_then(|id| model::sort_level(&entries, &id))
+        else {
+            return;
+        };
+        let changes: Vec<Change> = model::plan_sort(&entries, &level)
+            .into_iter()
+            .map(|(from, to)| Change::MoveOutlineEntry { from, to })
+            .collect();
+        if !changes.is_empty() && self.edit(&entries, t!("outline.op.sort"), changes) {
+            self.marked.set(Vec::new());
+        }
+    }
+
+    /// The selected entry's title, page and spot, for a bookmark made from it (B.10); `None` when it opens no page.
+    pub(crate) fn selected_place(self) -> Option<(String, usize, model::Spot)> {
+        let entries = self.read_now()?;
+        let id = self.selected_in(&entries)?;
+        let entry = model::find(&entries, &id)?;
+        let page = entry.page?;
+        Some((entry.title.clone(), page, model::spot(entry.uri.as_deref())))
+    }
+
+    /// A new entry titled `title` opening at `spot` on page `page`, from a personal bookmark (B.10): after the entry
+    /// that page is in, selected.
+    pub(crate) fn add_from_bookmark(self, title: &str, page: usize, spot: model::Spot) {
+        if !self.editing.can_edit() {
+            crate::editing::show_message(t!("outline.read_only"), t!("outline.read_only_detail"));
+            return;
+        }
+        let Some(entries) = self.read_now() else {
+            return;
+        };
+        let Some(document) = self.editing.document() else {
+            return;
+        };
+        let uri = match document.link_uri(page, spot.x, spot.y, spot.zoom) {
+            Ok(uri) => uri,
+            Err(err) => {
+                log::warn!("outline: no link to page {page}: {err}");
+                return;
+            }
+        };
+        let after = model::reading(&entries, None, page);
+        let at = model::insert_at(&entries, after.as_deref());
+        let change = Change::InsertOutlineEntry {
+            at: at.clone(),
+            title: title.to_owned(),
+            uri,
+        };
+        if self.edit(&entries, t!("outline.op.add"), vec![change]) {
+            self.marked.set(Vec::new());
+            self.chosen.set(Some(model::id(&at)));
         }
     }
 

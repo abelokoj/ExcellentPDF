@@ -145,6 +145,90 @@ pub fn search_from(entries: &[Entry], id: &str, page_count: usize) -> usize {
     last
 }
 
+/// Where in its page a destination opens, as far as its link says (B.10): the view's top-left point in page points
+/// and its zoom (1 is 100 %).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Spot {
+    /// The view's left edge.
+    pub x: f32,
+    /// The view's top edge.
+    pub y: f32,
+    /// The zoom, or `None` for the reader's own.
+    pub zoom: Option<f32>,
+}
+
+/// The spot a `#page=N&zoom=Z,X,Y` or `#page=N&view=FitH,Y` link opens (MuPDF's link format); the page's top-left at
+/// the reader's zoom for anything else, such as a named destination.
+pub fn spot(uri: Option<&str>) -> Spot {
+    let number = |text: Option<&str>| text?.trim().parse::<f32>().ok().filter(|n| n.is_finite());
+    let mut spot = Spot::default();
+    let fragment = uri
+        .and_then(|uri| uri.split_once('#'))
+        .map_or("", |(_, fragment)| fragment);
+    for part in fragment.split('&') {
+        if let Some(zoom) = part.strip_prefix("zoom=") {
+            let mut numbers = zoom.split(',');
+            spot.zoom = number(numbers.next())
+                .filter(|zoom| *zoom > 0.0)
+                .map(|zoom| zoom / 100.0);
+            spot.x = number(numbers.next()).unwrap_or(0.0);
+            spot.y = number(numbers.next()).unwrap_or(0.0);
+        } else if let Some(view) = part.strip_prefix("view=") {
+            let mut values = view.split(',');
+            match values.next() {
+                Some("FitH" | "FitBH") => spot.y = number(values.next()).unwrap_or(0.0),
+                Some("FitV" | "FitBV") => spot.x = number(values.next()).unwrap_or(0.0),
+                _ => {}
+            }
+        }
+    }
+    spot
+}
+
+/// The path of the entries Sort acts on for the entry of id `id` (B.10): its own children when it has any, else the
+/// level it is on (the empty path is the top level).
+pub fn sort_level(entries: &[Entry], id: &str) -> Option<Vec<usize>> {
+    let mut path = path(id)?;
+    if find(entries, id)?.children.is_empty() {
+        path.pop();
+    }
+    Some(path)
+}
+
+/// The moves that put the entries under `parent` (the top level when empty) in the order of the pages they open,
+/// those that open none last and equals as they were (B.10). Each is `(from, to)`, `to` being a path in the outline
+/// once the entry has left, as [`plan_shift`] gives them.
+pub fn plan_sort(entries: &[Entry], parent: &[usize]) -> Vec<(Vec<usize>, Vec<usize>)> {
+    let mut level = entries;
+    for &index in parent {
+        match level.get(index) {
+            Some(entry) => level = &entry.children,
+            None => return Vec::new(),
+        }
+    }
+    let mut order: Vec<usize> = (0..level.len()).collect();
+    order.sort_by_key(|&index| level[index].page.map_or((1, 0), |page| (0, page)));
+    let at = |index: usize| {
+        let mut path = parent.to_vec();
+        path.push(index);
+        path
+    };
+    let mut now: Vec<usize> = (0..level.len()).collect();
+    let mut moves = Vec::new();
+    for (place, want) in order.into_iter().enumerate() {
+        let Some(from) = now.iter().position(|&index| index == want) else {
+            continue;
+        };
+        if from != place {
+            // The ones before `place` are in order already, so `from` is past it and leaving doesn't shift `place`.
+            moves.push((at(from), at(place)));
+            now.remove(from);
+            now.insert(place, want);
+        }
+    }
+    moves
+}
+
 /// How many entries `entries` holds, at every level.
 pub fn count(entries: &[Entry]) -> usize {
     entries.iter().map(|entry| 1 + count(&entry.children)).sum()
@@ -610,6 +694,56 @@ mod tests {
             style: OutlineStyle::default(),
             children,
         }
+    }
+
+    #[test]
+    fn a_level_sorts_by_page_with_equals_kept_and_nowhere_last() {
+        // Top level: Intro p0, Body p3, Web link nowhere, End p10. Reverse it, then sort it back.
+        let mut entries = book();
+        entries.reverse();
+        let moves = plan_sort(&entries, &[]);
+        let mut sorted = entries.clone();
+        for (from, to) in &moves {
+            let entry = sorted.remove(from[0]);
+            sorted.insert(to[0], entry);
+        }
+        let titles: Vec<&str> = sorted.iter().map(|entry| entry.title.as_str()).collect();
+        assert_eq!(titles, ["Intro", "Body", "End", "Web link"]);
+        // Sorted already: no moves; an entry's children are its level, a leaf's is its parent's.
+        assert!(plan_sort(&book(), &[1]).is_empty());
+        assert_eq!(sort_level(&book(), "1"), Some(vec![1]));
+        assert_eq!(sort_level(&book(), "1.0"), Some(vec![1]));
+        assert_eq!(sort_level(&book(), "0"), Some(vec![]));
+        assert!(plan_sort(&book(), &[9]).is_empty());
+    }
+
+    #[test]
+    fn a_link_gives_its_spot() {
+        let at = |uri: &str| spot(Some(uri));
+        assert_eq!(
+            at("#page=3&zoom=150,72,92.5"),
+            Spot {
+                x: 72.0,
+                y: 92.5,
+                zoom: Some(1.5)
+            }
+        );
+        assert_eq!(
+            at("#page=3&zoom=nan,10,nan"),
+            Spot {
+                x: 10.0,
+                ..Spot::default()
+            }
+        );
+        assert_eq!(
+            at("#page=2&view=FitH,300"),
+            Spot {
+                y: 300.0,
+                ..Spot::default()
+            }
+        );
+        assert_eq!(at("#nameddest=intro"), Spot::default());
+        assert_eq!(spot(None), Spot::default());
     }
 
     #[test]
