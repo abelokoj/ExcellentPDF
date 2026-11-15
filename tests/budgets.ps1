@@ -69,8 +69,15 @@ $coldStartMs = ($times | Sort-Object)[[int][math]::Floor($Runs / 2)]
 $opens = @()
 $log = Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-budget-$PID.log"
 $env:RUST_LOG = 'info,excellent_canvas_win=debug'
+# Each launch gets a profile of its own, so every run is a first open and none restores the last run's session.
+# (On the CI runner a launch after a killed one sometimes drew nothing; locally every launch draws. Unexplained.)
+$saved = @{ APPDATA = $env:APPDATA; LOCALAPPDATA = $env:LOCALAPPDATA }
+$profiles = Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-budget-profiles-$PID"
 try {
     for ($i = 0; $i -lt $Runs; $i++) {
+        $env:APPDATA = Join-Path $profiles "$i/Roaming"
+        $env:LOCALAPPDATA = Join-Path $profiles "$i/Local"
+        New-Item -ItemType Directory -Force $env:APPDATA, $env:LOCALAPPDATA | Out-Null
         $p = Start-Process -FilePath $Exe -ArgumentList "`"$Document`"" -PassThru -RedirectStandardError $log
         $deadline = (Get-Date).AddSeconds(15)
         $ms = $null
@@ -94,6 +101,9 @@ try {
     }
 } finally {
     Remove-Item Env:RUST_LOG
+    $env:APPDATA = $saved.APPDATA
+    $env:LOCALAPPDATA = $saved.LOCALAPPDATA
+    Remove-Item -Recurse -Force $profiles -ErrorAction SilentlyContinue
 }
 $openMs = ($opens | Sort-Object)[[int][math]::Floor($Runs / 2)]
 

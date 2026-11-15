@@ -130,7 +130,7 @@ impl Printing {
     }
 
     /// The dialog, then the job, each on a thread of its own; how it ended.
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
     async fn run(
         self,
         path: PathBuf,
@@ -178,8 +178,8 @@ impl Printing {
         Some(sent.unwrap_or_else(|err| Status::Failed(err.to_string())))
     }
 
-    /// Printing comes to macOS and Linux in Phase 2 (plan O.22).
-    #[cfg(not(windows))]
+    /// Printing comes to tablets with their phase (plan O.22).
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     async fn run(
         self,
         _path: PathBuf,
@@ -200,7 +200,7 @@ struct Options {
 }
 
 /// The job itself, on its own thread.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 mod job {
     use std::io;
     use std::path::Path;

@@ -1,10 +1,4 @@
-//! Printing (plan O.22), the operating system's side: the system print dialog and the printer it returns, drawn on
-//! in bands of RGB pixels. What to draw is the app's (`excellent_core::print`).
-//!
-//! Windows only for now; macOS (`NSPrintOperation`) and Linux (`GtkPrintOperation`) come in Phase 2 (plan O.22).
-//!
-//! The dialog is modal to the app's window but runs on the calling thread: call [`ask`] and print from a thread of
-//! your own, as NSH runs its file dialogs, so the window's message loop never runs inside an app callback.
+//! The Windows printer: `PrintDlgEx` and a GDI printer device context.
 
 use std::io;
 
@@ -22,6 +16,8 @@ use windows::Win32::UI::Controls::Dialogs::{
 use windows::Win32::UI::Input::KeyboardAndMouse::GetActiveWindow;
 use windows::core::PCWSTR;
 
+use super::{Area, Choice, Range};
+
 /// How many page ranges the dialog takes ("1-3, 7, 9-12" is three).
 const MAX_RANGES: usize = 32;
 
@@ -34,27 +30,6 @@ pub fn owner() -> Owner {
     // SAFETY: no arguments; it reads this thread's window state.
     let window = unsafe { GetActiveWindow() };
     Owner(window.0 as usize)
-}
-
-/// The pages the reader chose.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Range {
-    /// Every page.
-    All,
-    /// The page shown.
-    Current,
-    /// Pages from 1, both ends kept, as typed ("1-3, 7").
-    Pages(Vec<(u32, u32)>),
-}
-
-/// What the dialog answered with Print: the printer, set up as chosen (copies, collation, duplex and colour are in
-/// its settings), and the pages.
-#[derive(Debug)]
-pub struct Choice {
-    /// The printer to draw on.
-    pub printer: Printer,
-    /// The pages chosen.
-    pub range: Range,
 }
 
 /// Shows the system print dialog for a document of `pages` pages over `owner`. `None` when the reader cancels.
@@ -121,19 +96,6 @@ fn show(owner: Owner, pages: u32) -> io::Result<Option<Choice>> {
         Range::All
     };
     Ok(Some(Choice { printer, range }))
-}
-
-/// The printable area of the paper: its size in device pixels and the printer's resolution.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Area {
-    /// Width, in pixels.
-    pub width: u32,
-    /// Height, in pixels.
-    pub height: u32,
-    /// Horizontal dots per inch.
-    pub dpi_x: f32,
-    /// Vertical dots per inch.
-    pub dpi_y: f32,
 }
 
 /// A printer chosen in the dialog: start a document, draw its pages a band at a time, then finish. Dropped before

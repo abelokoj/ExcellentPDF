@@ -51,7 +51,13 @@ All modes, while a document is shown.
   the strip. The dialog and the job each run on a blocking thread (`blocking`), as NSH runs its file dialogs, so the
   window's message loop never runs inside an app callback. The registry's document prints, so edits not saved yet
   print too.
-- Not built: macOS and Linux (Phase 2, as the plan says; the command says so there); scaling and annotations in the
+- Platform, macOS and Linux (Phase 2): the system dialog runs on the main thread while the job's thread waits for it
+  (`NSPrintPanel` over the shared `NSPrintInfo`; GTK 4.14's `GtkPrintDialog`, the print portal where there is one).
+  The bands go to a spool (`print::spool`): a PDF of image pages at the paper's size, written as the bands come, one
+  Flate-packed image per band. Finishing sends it to the chosen printer with the chosen settings
+  (`PMPrinterPrintWithFile`; `gtk_print_dialog_print_file`), the page range reset to all, since the spool holds just
+  the chosen pages. Resolution: the printer's (at most 600 dpi), else 300.
+- Not built: scaling and annotations in the
   dialog itself (they are settings, DD6); "print as image" as a choice (every page prints as an image already, the
   way SumatraPDF prints); the view's own rotation (R.4) is not applied, so a page prints as the file has it; no
   toolbar button yet (there is no toolbar).
@@ -64,5 +70,8 @@ All modes, while a document is shown.
 - [x] `page_ranges_from_the_dialog_become_pages_from_zero`
 - [x] `a_job_draws_each_page_in_bands_and_stops_when_cancelled`
 - [x] `only_the_dialog_and_the_job_are_busy`
-- [ ] printing works on all three desktops before the first public build (Appendix C.4): Windows **not tried on a
-  printer yet**; macOS and Linux in Phase 2
+- [x] `every_object_starts_where_the_table_says`: the spool's cross-reference table is right.
+- [x] `a_band_keeps_its_pixels_and_lands_below_the_margin`: a band keeps its pixels and its place on the paper.
+- [x] `the_area_is_the_printable_part_in_pixels`
+- [ ] printing works on all three desktops before the first public build (Appendix C.4): **not tried on a printer
+  yet** on Windows, macOS or Linux

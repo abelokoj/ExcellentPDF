@@ -322,8 +322,8 @@ open = "daily review (S.5); cold-start paint not measured (K.24); cover folder n
 ["O.22"]
 label = "Ph1: 55/60"
 status = "in-progress"
-tests = ["a_page_is_fit_shrunk_or_kept_at_its_size_and_centred", "a_landscape_page_turns_onto_portrait_paper", "bands_cover_the_area_once_each_within_the_size", "page_ranges_from_the_dialog_become_pages_from_zero", "a_job_draws_each_page_in_bands_and_stops_when_cancelled", "only_the_dialog_and_the_job_are_busy"]
-open = "macOS and Linux (Phase 2); scaling and annotations are settings, not in the dialog (DD6); view rotation not applied; not tried on a printer"
+tests = ["a_page_is_fit_shrunk_or_kept_at_its_size_and_centred", "a_landscape_page_turns_onto_portrait_paper", "bands_cover_the_area_once_each_within_the_size", "page_ranges_from_the_dialog_become_pages_from_zero", "a_job_draws_each_page_in_bands_and_stops_when_cancelled", "only_the_dialog_and_the_job_are_busy", "every_object_starts_where_the_table_says", "a_band_keeps_its_pixels_and_lands_below_the_margin", "the_area_is_the_printable_part_in_pixels"]
+open = "not tried on a printer on any desktop; Linux names the job after the spool file; no Current page on Linux or macOS; scaling and annotations are settings, not in the dialog (DD6); view rotation not applied; not tried on a printer"
 
 ["K.25"]
 label = "Ph1: 11/60"
@@ -360,3 +360,21 @@ label = "Ph1: 60/60"
 status = "shipped"
 tests = ["the_guide_never_opens_over_files_from_the_command_line", "the_guide_steps_forward_and_back_within_its_steps", "each_tip_shows_once_and_the_seen_list_survives_the_settings_file", "the_guide_opens_at_first_start_steps_and_comes_back_from_the_palette"]
 open = "no Help menu yet; not tried by hand"
+
+["K.9"]
+label = "Ph2: 1/3"
+status = "in-progress"
+tests = ["macOS CI build (.github/workflows/macos.yml)"]
+open = "not tried on a Mac; pen tilt and coalesced tablet points; Metal host if K.24 asks (DD10)"
+
+["K.10"]
+label = "Ph2: 2/3"
+status = "in-progress"
+tests = ["Linux CI build (.github/workflows/linux.yml)"]
+open = "not tried on Wayland or X11; pen tilt and GestureStylus backlog; touch gestures"
+
+["U.3"]
+label = "Ph2: 3/3"
+status = "in-progress"
+tests = ["lines_end_in_breaks_and_unread_pages_add_nothing", "positions_and_offsets_round_trip", "lines_count_from_the_document_start", "no_pages_is_empty"]
+open = "not tried with VoiceOver or Orca; pages, links and notes as elements; sentences; UTF-16 offsets outside the BMP on macOS"

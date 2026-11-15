@@ -6,6 +6,29 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 10:40; Ph1: 55/60 | O.22: Printing on macOS and Linux
+
+- macOS: Print shows `NSPrintPanel` over the app's shared print info; Linux: GTK's print dialog (the portal under
+  Flatpak). Both run on the main thread while the job's thread waits.
+- The job's bands go to a PDF spool (one image per band, Flate-packed, written as they come), which PrintCore or
+  GTK sends to the printer chosen, with its settings; the spool is deleted afterwards. Same app code on all three
+  desktops.
+- Fixes for the macOS canvas build (CI): `NSTrackingArea` is allocated off the main-thread path; the frame's
+  `CGContext` is converted to the host's type. The Linux canvas lost an unused getter.
+- Budgets: each launch of the open-a-PDF run gets its own profile, so none restores the last run's session (on the
+  CI runner a later launch sometimes drew nothing; it never does locally).
+
+### 2026-11-15 10:23; Ph2: 3/3 | U.3: Canvas accessibility on macOS and Linux
+
+- `excellent_text::FlatText` lays the document's text out as one string (a line break after each line, unread pages
+  adding nothing) and maps offsets to page positions and back; the shared canvas answers units, the selection, the
+  pages shown and screen areas in those offsets.
+- Linux: the GTK canvas widget implements `GtkAccessibleText`, so Orca reads the pages by character, word and line
+  and follows the selection; changes are announced on idle.
+- macOS: the canvas view is an accessibility text area (value, selection, visible range, lines, strings and frames
+  for ranges), posting value and selection changes to VoiceOver.
+- AccessKit was weighed and not used: each toolkit already owns its platform tree.
+
 ### 2026-11-15 10:41; Ph2: 1/3 | K.9: Page canvas on macOS (AppKit view)
 
 - `excellent-canvas-mac` is the shared canvas's AppKit host: a flipped, layer-backed `NSView` drawing each frame with
