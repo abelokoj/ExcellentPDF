@@ -2,6 +2,7 @@
 //!
 //! See plan §5.4. Built up task by task (plan §22).
 
+pub mod anchor;
 pub mod darkmode;
 pub mod document;
 pub mod edit;

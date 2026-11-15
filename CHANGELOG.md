@@ -6,6 +6,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 10:50; Ph3: 1/49 | K.28: Annotation anchors
+
+- `excellent-core::anchor`: W3C text-quote anchors (prefix, exact text, suffix, start) and `locate`, which places a
+  quote in a changed document exactly, approximately (at most a quarter of its characters wrong, widened to whole
+  words) or not at all ("orphaned", for the reader to place). Line breaks, hyphenation, ligatures and curly quotes are
+  normalized away first, so a re-typeset version usually matches exactly.
+- `new_id()` gives version 4 UUIDs for `/NM`.
+- Done when met on the test set: at least 95 % of quotes land on the right words in a re-typeset, corrected version.
+  Storing anchors in annotations waits for the annotation model (K.14 step 1).
+
 ### 2026-11-15 10:40; Ph1: 55/60 | O.22: Printing on macOS and Linux
 
 - macOS: Print shows `NSPrintPanel` over the app's shared print info; Linux: GTK's print dialog (the portal under

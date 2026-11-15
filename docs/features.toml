@@ -378,3 +378,9 @@ label = "Ph2: 3/3"
 status = "in-progress"
 tests = ["lines_end_in_breaks_and_unread_pages_add_nothing", "positions_and_offsets_round_trip", "lines_count_from_the_document_start", "no_pages_is_empty"]
 open = "not tried with VoiceOver or Orca; pages, links and notes as elements; sentences; UTF-16 offsets outside the BMP on macOS"
+
+["K.28"]
+label = "Ph3: 1/49"
+status = "in-progress"
+tests = ["quotes_survive_a_re_typeset_version_95_percent", "re_typesetting_keeps_the_quote_exact", "context_chooses_between_repeats_of_the_exact_text", "a_corrected_typo_is_placed_approximately", "a_long_quote_with_edits_is_placed_by_its_ends", "text_that_is_gone_is_orphaned", "ids_are_version_4_uuids_and_differ"]
+open = "anchors in /NM, the private key and the sidecar, and re-anchoring on open, wait for the annotation model (K.14 step 1)"
