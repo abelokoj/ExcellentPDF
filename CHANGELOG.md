@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 17:00; Ph3: 5/49 | B.9: Check destinations
+
+- Outline entries that open nowhere say why in their row: no destination, a missing named destination, or a page past
+  the last.
+- "Check outline destinations" counts them; "Fix broken outline entries" points each at the heading with its title
+  (found on the workers) or removes it, as one step of undo.
+- Done when met by test: a corpus PDF given an entry past its last page and one with a missing named destination has
+  both found. Not tried by hand.
+
 ### 2026-11-15 15:30; Ph3: 4/49 | B.7: Bold, italic and color
 
 - Outline entries show the document's bold, italic and colour, the colour kept readable on the theme (WCAG AA).

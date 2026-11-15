@@ -753,6 +753,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &[],
     },
     Command {
+        id: CommandId::Outline(OutlineAction::Check),
+        name: "outline.check",
+        label: "command.outline_check",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Fix),
+        name: "outline.fix",
+        label: "command.outline_fix",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
         id: CommandId::Outline(OutlineAction::Delete),
         name: "outline.delete",
         label: "command.outline_delete",

@@ -11,6 +11,9 @@
 //! Entries are drawn bold, italic and in their colour as the document has them (B.7), the colour adjusted to read on
 //! the theme's sidebar; Ctrl+Shift+B and Ctrl+Shift+I (⌘ on a Mac) toggle bold and italic while the outline has the
 //! keyboard, and the context menu has those and a Colour submenu.
+//!
+//! Entries that open nowhere (B.9) say why in place of their page label; Check destinations counts them and Fix
+//! broken entries points each at the heading with its title, or removes it.
 
 mod edit;
 
@@ -18,7 +21,7 @@ use std::path::PathBuf;
 
 use excellent_core::outline::{self, OutlineItem, OutlineStyle};
 use excellent_core::shared::{pool, registry};
-use excellent_features::outline::{self as model, Entry, Restyle, Shift, Swatch};
+use excellent_features::outline::{self as model, Broken, Entry, Restyle, Shift, Swatch};
 use nsh_base::{
     ContextMenuElement, MenuItemElement, Tree, TreeApi, TreeEntry, TreeItem, button, context_menu,
     input, menu_item, menu_separator, submenu, theme, tree,
@@ -66,6 +69,8 @@ pub(crate) struct OutlineState {
     loaded: Stored<Option<PathBuf>>,
     /// The read under way: dropping it cancels it.
     reading: Stored<Option<Spawned<()>>>,
+    /// The search for broken entries' headings under way (B.9): dropping it cancels it.
+    fixing: Stored<Option<Spawned<()>>>,
     tree: ComponentRef<Tree>,
     tabs: TabState,
     pages: PageState,
@@ -88,6 +93,7 @@ impl OutlineState {
             menu_open: signal(false),
             loaded: stored(None),
             reading: stored(None),
+            fixing: stored(None),
             tree: component_ref::<Tree>(),
             tabs,
             pages,
@@ -167,6 +173,15 @@ impl OutlineState {
         })
     }
 
+    /// Why entry `id` opens nowhere, if it does (B.9).
+    fn broken_of(self, id: &str) -> Option<Broken> {
+        let count = self.pages.count();
+        self.entries.with(|entries| {
+            let entry = model::find(entries.as_deref()?, id)?;
+            model::broken(entry.uri.as_deref(), entry.page, count)
+        })
+    }
+
     /// How entry `id` is drawn (B.7).
     fn style_of(self, id: &str) -> OutlineStyle {
         self.entries.with(|entries| {
@@ -205,6 +220,7 @@ fn entry(item: &OutlineItem) -> Entry {
     Entry {
         title: item.title.clone(),
         page: item.page,
+        uri: item.uri.clone(),
         open: item.open,
         style: item.style,
         children: item.children.iter().map(entry).collect(),
@@ -443,12 +459,7 @@ where
         )
         .child(chevron(folder, open))
         .child(title)
-        .child(
-            text(move || page.map(|page| pages.label(page)).unwrap_or_default())
-                .text_size(px(12.0))
-                .tabular_nums()
-                .text_color(move || theme().muted_foreground),
-        );
+        .child(where_to(state, id.clone(), page));
     let menu = context_menu()
         .trigger(content)
         .on_open(move || state.menu_open.set(true))
@@ -457,16 +468,67 @@ where
     entry_menu(menu, state, id, run)
 }
 
+/// What a row says at its end: the label of the page the entry opens, or why it opens nowhere (B.9), in the
+/// destructive colour after a mark so it doesn't rely on colour alone.
+fn where_to(state: OutlineState, id: String, page: Option<usize>) -> impl IntoElement {
+    let pages = state.pages;
+    let broken = move || state.broken_of(&id);
+    let why = move |broken: Broken| match broken {
+        Broken::NoTarget => t!("outline.broken.no_target"),
+        Broken::Unresolved => t!("outline.broken.unresolved"),
+        Broken::MissingPage(page) => t!("outline.broken.missing_page", page = page + 1),
+    };
+    let warn = move || readable_on_rows(theme().destructive);
+    when(
+        {
+            let broken = broken.clone();
+            move || broken().is_some()
+        },
+        move || {
+            let broken = broken.clone();
+            view()
+                .flex_row()
+                .items_center()
+                .gap_1()
+                .child(
+                    text("!")
+                        .text_size(px(11.0))
+                        .font_weight(FontWeight::BOLD)
+                        .text_color(warn),
+                )
+                .child(
+                    text(move || broken().map(why).unwrap_or_default())
+                        .text_size(px(12.0))
+                        .text_color(warn),
+                )
+        },
+    )
+    .otherwise(move || {
+        text(move || page.map(|page| pages.label(page)).unwrap_or_default())
+            .text_size(px(12.0))
+            .tabular_nums()
+            .text_color(move || theme().muted_foreground)
+    })
+}
+
+/// `colour` made to read on every background a row can have (the sidebar, a hovered or selected row, a marked one).
+fn readable_on_rows(colour: nsh_core::element::AdaptiveColor) -> nsh_core::element::AdaptiveColor {
+    let text = theme().sidebar_foreground;
+    let papers = [theme().sidebar, theme().sidebar_accent, theme().accent].map(crate::theme::rgb);
+    let [r, g, b] =
+        crate::theme::readable(crate::theme::rgb(colour), &papers, crate::theme::rgb(text));
+    nsh_core::color::rgb(u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b)).into()
+}
+
 /// The colour of a title drawn with `style`: the theme's, or the entry's own, made to read on every background a row
 /// can have (the sidebar, a hovered or selected row, a marked one).
 fn title_color(style: OutlineStyle) -> nsh_core::element::AdaptiveColor {
-    let text = theme().sidebar_foreground;
-    let Some(colour) = style.color else {
-        return text;
-    };
-    let papers = [theme().sidebar, theme().sidebar_accent, theme().accent].map(crate::theme::rgb);
-    let [r, g, b] = crate::theme::readable(colour, &papers, crate::theme::rgb(text));
-    nsh_core::color::rgb(u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b)).into()
+    match style.color {
+        Some([r, g, b]) => readable_on_rows(
+            nsh_core::color::rgb(u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b)).into(),
+        ),
+        None => theme().sidebar_foreground,
+    }
 }
 
 /// `menu` with the outline commands, for the context menu of the entry of id `id`: they act on it (and on the other
@@ -525,6 +587,9 @@ fn entry_menu(
         .child(item(OutlineAction::Move(Shift::Down)))
         .child(item(OutlineAction::Move(Shift::In)))
         .child(item(OutlineAction::Move(Shift::Out)))
+        .child(separator())
+        .child(item(OutlineAction::Check))
+        .child(item(OutlineAction::Fix))
         .child(separator())
         .child(item(OutlineAction::Delete))
 }

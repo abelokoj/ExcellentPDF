@@ -6,6 +6,8 @@
 //! still being read again after the last edit.
 
 use excellent_core::edit::{Change, Operation};
+use excellent_core::outline::{Wanted, find_headings};
+use excellent_core::shared::pool;
 use excellent_features::outline::{self as model, Entry, Restyle, Shift};
 use nsh_core::JsonValue;
 use nsh_core::keymap::Modifiers;
@@ -28,6 +30,10 @@ pub(crate) enum OutlineAction {
     SetDestination,
     /// The marked entries, or the selected one, drawn bold, italic or in a colour (B.7).
     Style(Restyle),
+    /// Says which entries open nowhere (B.9).
+    Check,
+    /// Points each entry that opens nowhere at the heading with its title, or removes it when there is none (B.9).
+    Fix,
 }
 
 /// What the place the pages report next is for.
@@ -50,6 +56,10 @@ impl OutlineState {
     /// Does `action` to the shown document's outline; `canvas` is asked where the reader is for the actions that
     /// need it.
     pub(crate) fn run(self, action: OutlineAction, canvas: ElementRef) {
+        if action == OutlineAction::Check {
+            self.check();
+            return;
+        }
         if !self.editing.can_edit() {
             crate::editing::show_message(t!("outline.read_only"), t!("outline.read_only_detail"));
             return;
@@ -69,7 +79,125 @@ impl OutlineState {
             OutlineAction::Delete => self.delete(),
             OutlineAction::Move(shift) => self.shift(shift),
             OutlineAction::Style(how) => self.restyle(how),
+            OutlineAction::Fix => self.fix(),
+            OutlineAction::Check => {}
         }
+    }
+
+    /// Says which entries open nowhere (B.9); the rows mark them all the time, this counts them. Reading needs no
+    /// editing, so it runs on any document.
+    pub(crate) fn check(self) {
+        let entries = untracked(|| self.entries.get()).unwrap_or_default();
+        let broken = model::check(&entries, untracked(|| self.pages.count()));
+        if broken.is_empty() {
+            crate::editing::show_message(
+                t!("outline.check.ok_title"),
+                t!("outline.check.ok", count = model::count(&entries)),
+            );
+        } else {
+            crate::editing::show_message(
+                t!("outline.check.found_title", count = broken.len()),
+                t!("outline.check.found"),
+            );
+        }
+    }
+
+    /// Looks on the workers for the heading of each entry that opens nowhere, then points the entries whose heading
+    /// is found at it and removes the rest, as one step of undo (B.9).
+    fn fix(self) {
+        let Some(entries) = self.read_now() else {
+            return;
+        };
+        let count = untracked(|| self.pages.count());
+        let broken = model::check(&entries, count);
+        if broken.is_empty() {
+            self.check();
+            return;
+        }
+        let Some(mupdf) = self.editing.document().and_then(|document| {
+            document
+                .mupdf()
+                .inspect_err(|err| log::warn!("outline: {err}"))
+                .ok()
+        }) else {
+            return;
+        };
+        let wanted: Vec<Wanted> = broken
+            .iter()
+            .filter_map(|(id, _)| {
+                Some(Wanted {
+                    title: model::find(&entries, id)?.title.clone(),
+                    from: model::search_from(&entries, id, count),
+                })
+            })
+            .collect();
+        let job = find_headings(pool(), mupdf, wanted, model::heading_top);
+        let ids: Vec<String> = broken.into_iter().map(|(id, _)| id).collect();
+        let task = spawn(async move {
+            match job.await {
+                Ok(found) => self.fixed(&entries, &ids, &found),
+                Err(err) if !err.is_aborted() => log::warn!("outline: looking for headings: {err}"),
+                Err(_) => {}
+            }
+        });
+        self.fixing.with(|fixing| *fixing = Some(task));
+    }
+
+    /// The headings of the entries of ids `ids` were looked for in the outline `before`: `found` holds each one's page
+    /// and top. Makes the changes if the outline is still as it was.
+    fn fixed(self, before: &[Entry], ids: &[String], found: &[Option<(usize, f32)>]) {
+        let Some(entries) = self.read_now() else {
+            return;
+        };
+        if entries != before {
+            log::info!("outline: changed while its headings were looked for; nothing fixed");
+            return;
+        }
+        let Some(document) = self.editing.document() else {
+            return;
+        };
+        let mut changes = Vec::new();
+        let mut gone = Vec::new();
+        for (id, place) in ids.iter().zip(found) {
+            let uri = place.and_then(|(page, top)| {
+                document
+                    .link_uri(page, 0.0, top, None)
+                    .inspect_err(|err| log::warn!("outline: no link to page {page}: {err}"))
+                    .ok()
+            });
+            match (uri, model::path(id)) {
+                (Some(uri), Some(at)) => changes.push(Change::UpdateOutlineEntry {
+                    at,
+                    title: None,
+                    uri: Some(uri),
+                    open: self.open_state(&entries, id),
+                }),
+                (None, _) => gone.push(id.clone()),
+                (Some(_), None) => {}
+            }
+        }
+        let repointed = changes.len();
+        // Repoints change no paths, so the removals' paths are planned on the outline as it is.
+        changes.extend(
+            model::plan_delete(&entries, &gone)
+                .into_iter()
+                .map(|at| Change::DeleteOutlineEntry { at }),
+        );
+        if changes.is_empty() || !self.edit(&entries, t!("outline.op.fix"), changes) {
+            return;
+        }
+        self.marked.set(Vec::new());
+        if !gone.is_empty() {
+            self.chosen.set(None);
+        }
+        crate::editing::show_message(
+            t!("outline.fix.done_title"),
+            t!(
+                "outline.fix.done",
+                repointed = repointed,
+                removed = gone.len()
+            ),
+        );
     }
 
     /// The pages reported where the reader is (`readerPlace`): the action waiting for it goes on.

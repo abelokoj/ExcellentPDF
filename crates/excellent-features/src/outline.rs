@@ -4,7 +4,7 @@
 //! new entry goes, which open states to write, and the moves and deletes that act on several entries at once, each as
 //! paths the way the outline is when the change is made.
 
-use excellent_mupdf::OutlineStyle;
+use excellent_mupdf::{OutlineStyle, TextLayout};
 
 /// One entry of an outline, as the document has it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -13,6 +13,8 @@ pub struct Entry {
     pub title: String,
     /// The page it opens, counting from zero; `None` when it points nowhere in this document.
     pub page: Option<usize>,
+    /// Its destination as the document has it: `#page=3...`, `#nameddest=...`, a web address; `None` when it has none.
+    pub uri: Option<String>,
     /// Whether it starts expanded.
     pub open: bool,
     /// How its title is drawn (B.7).
@@ -57,6 +59,164 @@ impl Swatch {
             Self::Purple => [0x8a, 0x4f, 0xd6],
         }
     }
+}
+
+/// Why an outline entry opens nowhere (B.9).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Broken {
+    /// It has no destination.
+    NoTarget,
+    /// It names a place in this document the file doesn't have (a missing named destination).
+    Unresolved,
+    /// It opens this page (counting from zero), past the document's last.
+    MissingPage(usize),
+}
+
+/// Why an entry with destination `uri` that MuPDF resolved to `page` opens nowhere in a document of `page_count`
+/// pages; `None` when it works or leads out of the document (a web page, another file). A `page_count` of 0 (not known
+/// yet) checks no pages.
+pub fn broken(uri: Option<&str>, page: Option<usize>, page_count: usize) -> Option<Broken> {
+    let uri = uri
+        .map(str::trim)
+        .filter(|uri| !uri.is_empty() && *uri != "#");
+    match (uri, page) {
+        (_, Some(page)) if page_count > 0 && page >= page_count => Some(Broken::MissingPage(page)),
+        (_, Some(_)) => None,
+        (None, None) => Some(Broken::NoTarget),
+        // MuPDF resolves no page past the last, so such a link comes as one it couldn't resolve.
+        (Some(uri), None) if uri.starts_with('#') => Some(
+            linked_page(uri)
+                .filter(|page| page_count > 0 && *page >= page_count)
+                .map_or(Broken::Unresolved, Broken::MissingPage),
+        ),
+        (Some(_), None) => None,
+    }
+}
+
+/// The page (counting from zero) a `#page=N...` link names.
+fn linked_page(uri: &str) -> Option<usize> {
+    let digits = uri.strip_prefix("#page=")?;
+    let end = digits
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(digits.len());
+    digits[..end].parse::<usize>().ok()?.checked_sub(1)
+}
+
+/// Every entry of `entries` that opens nowhere, with why, in document order (B.9).
+pub fn check(entries: &[Entry], page_count: usize) -> Vec<(String, Broken)> {
+    fn walk(
+        entries: &[Entry],
+        page_count: usize,
+        path: &mut Vec<usize>,
+        out: &mut Vec<(String, Broken)>,
+    ) {
+        for (index, entry) in entries.iter().enumerate() {
+            path.push(index);
+            if let Some(why) = broken(entry.uri.as_deref(), entry.page, page_count) {
+                out.push((id(path), why));
+            }
+            walk(&entry.children, page_count, path, out);
+            path.pop();
+        }
+    }
+    let mut out = Vec::new();
+    walk(entries, page_count, &mut Vec::new(), &mut out);
+    out
+}
+
+/// The page to look for the heading of the broken entry `id` from (B.9): the page of the nearest working entry before
+/// it in document order, else the first.
+pub fn search_from(entries: &[Entry], id: &str, page_count: usize) -> usize {
+    let mut last = 0;
+    let mut found = false;
+    visit(entries, &mut Vec::new(), &mut |path, entry| {
+        if found {
+            return;
+        }
+        if self::id(path) == id {
+            found = true;
+        } else if let Some(page) = entry
+            .page
+            .filter(|page| page_count == 0 || *page < page_count)
+        {
+            last = page;
+        }
+    });
+    last
+}
+
+/// How many entries `entries` holds, at every level.
+pub fn count(entries: &[Entry]) -> usize {
+    entries.iter().map(|entry| 1 + count(&entry.children)).sum()
+}
+
+/// Calls `f` with each entry and its path, in document order.
+fn visit(entries: &[Entry], path: &mut Vec<usize>, f: &mut impl FnMut(&[usize], &Entry)) {
+    for (index, entry) in entries.iter().enumerate() {
+        path.push(index);
+        f(path, entry);
+        visit(&entry.children, path, f);
+        path.pop();
+    }
+}
+
+/// `text` for comparing titles with headings: lowercase letters and digits, every run of anything else one space.
+fn folded(text: &str) -> String {
+    text.split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Where on a page with text `layout` the heading titled `title` starts (its top, in page points): a line, or a
+/// block's lines together, reading as the title. When several do, the one in the largest type wins (B.9).
+pub fn heading_top(layout: &TextLayout, title: &str) -> Option<f32> {
+    let title = folded(title);
+    if title.is_empty() {
+        return None;
+    }
+    let text = |chars: std::ops::Range<usize>| -> String {
+        layout
+            .chars
+            .get(chars)
+            .unwrap_or_default()
+            .iter()
+            .map(|c| c.c)
+            .collect()
+    };
+    let size = |chars: std::ops::Range<usize>| {
+        layout
+            .chars
+            .get(chars)
+            .unwrap_or_default()
+            .iter()
+            .map(|c| c.size)
+            .fold(0.0, f32::max)
+    };
+    let lines = layout.lines.iter().map(|line| {
+        (
+            text(line.chars.clone()),
+            size(line.chars.clone()),
+            line.bbox.y0,
+        )
+    });
+    let blocks = layout.blocks.iter().filter_map(|block| {
+        let lines = layout.lines.get(block.lines.clone())?;
+        let first = lines.first()?.chars.start;
+        let last = lines.last()?.chars.end;
+        let joined = lines
+            .iter()
+            .map(|line| text(line.chars.clone()))
+            .collect::<Vec<_>>()
+            .join(" ");
+        Some((joined, size(first..last), block.bbox.y0))
+    });
+    lines
+        .chain(blocks)
+        .filter(|(text, _, _)| folded(text) == title)
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(_, _, top)| top)
 }
 
 /// What a style command does to entries (B.7).
@@ -445,10 +605,79 @@ mod tests {
         Entry {
             title: title.to_owned(),
             page,
+            uri: page.map(|page| format!("#page={}", page + 1)),
             open: !children.is_empty(),
             style: OutlineStyle::default(),
             children,
         }
+    }
+
+    #[test]
+    fn every_broken_entry_is_found() {
+        let mut entries = book();
+        // 1 Intro: no destination; 2.2: page 8 of 5; 3 Web link: fine; 4 End: a named destination the file lacks.
+        entries[0].uri = None;
+        entries[0].page = None;
+        entries[1].children[1].page = Some(7);
+        // 5 Appendix: a page link MuPDF couldn't resolve, past the last page.
+        entries.push(entry("Appendix", None, vec![]));
+        entries[4].uri = Some("#page=12&zoom=100,0,0".into());
+        entries[2].uri = Some("https://example.org".into());
+        entries[3].uri = Some("#nameddest=end".into());
+        entries[3].page = None;
+        assert_eq!(
+            check(&entries, 5),
+            [
+                ("0".to_owned(), Broken::NoTarget),
+                ("1.1".to_owned(), Broken::MissingPage(7)),
+                ("3".to_owned(), Broken::Unresolved),
+                ("4".to_owned(), Broken::MissingPage(11)),
+            ]
+        );
+        // Pages not known yet: only what is broken whatever the length.
+        assert_eq!(check(&entries, 0).len(), 3);
+        // 2.2's heading is looked for from 2.1's page.
+        assert_eq!(search_from(&entries, "1.1", 5), 3);
+        assert_eq!(search_from(&entries, "0", 5), 0);
+    }
+
+    #[test]
+    fn a_heading_is_found_by_its_title() {
+        use excellent_mupdf::{PageRect, Quad, TextBlock, TextChar, TextLine};
+        let mut layout = TextLayout::default();
+        let mut add = |text: &str, size: f32, top: f32| {
+            let start = layout.chars.len();
+            layout.chars.extend(text.chars().map(|c| TextChar {
+                c,
+                quad: Quad::default(),
+                size,
+            }));
+            let bbox = PageRect {
+                x0: 0.0,
+                y0: top,
+                x1: 100.0,
+                y1: top + size,
+            };
+            let line = layout.lines.len();
+            layout.lines.push(TextLine {
+                bbox,
+                dir: excellent_mupdf::PagePoint { x: 1.0, y: 0.0 },
+                vertical: false,
+                joined: false,
+                block: layout.blocks.len(),
+                chars: start..layout.chars.len(),
+            });
+            layout.blocks.push(TextBlock {
+                bbox,
+                lines: line..line + 1,
+            });
+        };
+        add("see 2.1 Methods below", 10.0, 50.0);
+        add("2.1 Methods", 10.0, 300.0);
+        add("2.1  METHODS", 14.0, 120.0);
+        assert_eq!(heading_top(&layout, "2.1 Methods"), Some(120.0));
+        assert_eq!(heading_top(&layout, "Results"), None);
+        assert_eq!(heading_top(&layout, "  "), None);
     }
 
     #[test]
