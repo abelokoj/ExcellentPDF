@@ -571,7 +571,13 @@ fn a_page_lists_its_pictures_and_samples_them_in_rgb() {
         .display_list(None)
         .expect("list");
     let images = list.images(None).expect("listed");
-    assert_eq!(images.len(), 1, "one picture");
+    assert_eq!(
+        images.len(),
+        1,
+        "one picture; the list's bounds {:?}, the PNG {} bytes",
+        list.bounds(),
+        png.len()
+    );
     let image = &images[0];
     let page = list.bounds().expect("bounds");
     assert!(image.width() > 64 && image.height() > 64, "its own pixels");

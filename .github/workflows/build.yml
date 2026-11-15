@@ -89,7 +89,7 @@ jobs:
 
       - name: Test
         if: inputs.test
-        run: cargo test --workspace --locked --target ${{ inputs.target }}
+        run: cargo test --workspace --locked --no-fail-fast --target ${{ inputs.target }}
 
       # A test build, not a release: N is 0 in the name (dev_decisions.md, DD3). The installers (a .app bundle, a
       # package for Linux) come with their platforms' packaging work; until then the binary is archived.

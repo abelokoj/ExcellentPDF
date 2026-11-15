@@ -84,6 +84,9 @@ fn live_picker(
         apply(current.get_untracked());
         open.set(false);
     };
+    // Escape goes back even when the focus is elsewhere: a dialog that just closed may return it after the list took
+    // it (on macOS the settings window's close, which hands over to this picker, sometimes does).
+    on_key("escape", move |_| revert());
     let preview = move |id: &Option<SharedString>| {
         if !placed.get_untracked() {
             return;

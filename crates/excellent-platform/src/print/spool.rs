@@ -202,6 +202,7 @@ impl<W: Write> Spool<W> {
     }
 
     /// The number of sheets ended so far.
+    #[cfg(test)]
     pub(super) fn pages(&self) -> usize {
         self.pages.len()
     }
