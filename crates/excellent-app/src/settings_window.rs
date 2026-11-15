@@ -16,6 +16,7 @@ use crate::commands::{COMMANDS, CommandId};
 use crate::keymap::{self, Scope};
 use crate::links::PROTOCOLS_KEY;
 use crate::list_dialog::{card, list_dialog};
+use crate::panes::{CLOSE_PANE_TABS, ClosingTabs};
 use crate::reading::{
     AUTO_SCROLL_SPEED, DocumentColors, FOCUS_SCOPE, READING_INK, READING_PAPER, REFLOW_FONT_SIZE,
     RULER_COLOR, RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
@@ -349,21 +350,47 @@ fn tabs_section(live: Live) -> View {
             s.set_text(TAB_CYCLE_ORDER, (cycle == Cycle::Strip).then_some("strip"));
         });
     };
-    section("settings.section.tabs").child(row(
-        "settings.tab_cycle",
-        "settings.tab_cycle_hint",
-        segmented()
-            .child(segment(
-                "settings.tab_cycle.recent",
-                move || order() == Cycle::Recent,
-                move || choose(Cycle::Recent),
-            ))
-            .child(segment(
-                "settings.tab_cycle.strip",
-                move || order() == Cycle::Strip,
-                move || choose(Cycle::Strip),
-            )),
-    ))
+    let closing = move || live.read(|s| ClosingTabs::parse(s.text(CLOSE_PANE_TABS)));
+    let choose_closing = move |choice: ClosingTabs| {
+        live.change(|s| {
+            s.set_text(
+                CLOSE_PANE_TABS,
+                (choice == ClosingTabs::Close).then_some("close"),
+            );
+        });
+    };
+    section("settings.section.tabs")
+        .child(row(
+            "settings.tab_cycle",
+            "settings.tab_cycle_hint",
+            segmented()
+                .child(segment(
+                    "settings.tab_cycle.recent",
+                    move || order() == Cycle::Recent,
+                    move || choose(Cycle::Recent),
+                ))
+                .child(segment(
+                    "settings.tab_cycle.strip",
+                    move || order() == Cycle::Strip,
+                    move || choose(Cycle::Strip),
+                )),
+        ))
+        // V.6: what closing a pane does with its tabs.
+        .child(row(
+            "settings.close_pane_tabs",
+            "settings.close_pane_tabs_hint",
+            segmented()
+                .child(segment(
+                    "settings.close_pane_tabs.move",
+                    move || closing() == ClosingTabs::Move,
+                    move || choose_closing(ClosingTabs::Move),
+                ))
+                .child(segment(
+                    "settings.close_pane_tabs.close",
+                    move || closing() == ClosingTabs::Close,
+                    move || choose_closing(ClosingTabs::Close),
+                )),
+        ))
 }
 
 fn links_section(live: Live) -> View {

@@ -6,6 +6,37 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 02:20; Ph1: 37/60 to 44/60 | V.1 to V.7, V.13: Split view
+
+#### Added
+
+- **Split view** (V.1 to V.7): up to four panes in a two-by-two grid, each with its own tabs, page canvas, page,
+  thumbnails, outline, bookmarks and edits. **Split right** (`Ctrl+\`) and **Split down** (`Ctrl+Alt+\`) show the
+  shown tab again at the same place; two panes of one file share its document, so it is read once.
+- **Open files in a split** (Ctrl+Shift+O), and drop targets along the page area's four edges while a file is
+  dragged over the window (V.2).
+- **Move tab to the next / previous pane** (Ctrl+Alt+Right / Left), keeping its page and view (V.3).
+- Divider drag to resize, double-click or Ctrl+Alt+0 to make panes the same size (V.4).
+- The active pane has an accent border; **Go to pane 1 to 4** (Alt+1 to Alt+4), **Next / Previous pane** (F6 /
+  Shift+F6). The tab strip, page button, sidebar panels and every command are the active pane's (V.5).
+- **Close pane** (Ctrl+Alt+W, or the pane header's close button); the setting **Closing a pane** moves its tabs to
+  the pane beside it (default) or closes them (V.6).
+- The session keeps the layout and every pane's tabs (V.7; library migration `0005_panes.sql`).
+- `--split a.pdf b.pdf` and `--split-same a.pdf`, at startup and through the running app (V.13).
+
+#### Changed
+
+- The shell's document area moved to `excellent-app::panes`; the old single-document wiring is gone.
+
+#### Proposed (waiting for the maintainer)
+
+- DD4: panes use Alt+1 to 4 because Ctrl+1 to 9 are the tabs' (R.12).
+
+#### Not done
+
+- Mouse drag of tabs between panes; "Open in split" in recent files and the library; V.1's 50 ms first frame is
+  not measured.
+
 ### 2026-11-14 23:09; Ph1: 11/60 | K.25: Release engineering (first test installer)
 
 #### Added

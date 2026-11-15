@@ -35,11 +35,12 @@ pub(crate) struct Editing {
 }
 
 impl Editing {
-    /// Edits for `tabs`' shown document, saved as the module says, until the current component goes.
-    pub(crate) fn new(tabs: TabState) -> Self {
+    /// Edits for `tabs`' shown document, saved as the module says, until the current component goes. `revision` is
+    /// the window's: every pane's views follow every pane's edits, since two panes may show one document (V.1).
+    pub(crate) fn new(tabs: TabState, revision: Signal<u64>) -> Self {
         let editing = Self {
             tabs,
-            revision: signal(0),
+            revision,
             unsaved: stored(Vec::new()),
             pending: stored(None),
             asked: stored(Vec::new()),

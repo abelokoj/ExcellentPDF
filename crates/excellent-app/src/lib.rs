@@ -15,6 +15,7 @@ mod links;
 mod list_dialog;
 mod open;
 mod outline;
+mod panes;
 mod reading;
 mod reading_theme_bar;
 mod recent;

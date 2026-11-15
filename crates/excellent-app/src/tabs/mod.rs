@@ -57,13 +57,9 @@ impl std::fmt::Debug for TabState {
 }
 
 impl TabState {
-    /// The window's tabs: the last session's, and the file the app was started with (shown, in a tab of its own
-    /// unless one of the session's has it).
-    pub(crate) fn new(pages: PageState, live: Live) -> Self {
-        let mut tabs = crate::session::restored().unwrap_or_default();
-        if let Some(launch) = crate::open::startup() {
-            tabs.launch(&launch.files, launch.page);
-        }
+    /// A pane's tabs (V.1), starting as `tabs`: the last session's, with the files the app was started with
+    /// ([`crate::panes`] routes them). `pages` is the pane's canvas's.
+    pub(crate) fn new(tabs: Tabs, pages: PageState, live: Live) -> Self {
         // The shown tab's view comes back once its file is open.
         let restore = tabs.active().map(Restore::of);
         Self {
@@ -82,6 +78,14 @@ impl TabState {
             tabs.active()
                 .filter(|tab| !tab.missing)
                 .map(|tab| tab.path.clone())
+        })
+    }
+
+    /// The shown tab's file name, while its file is there.
+    pub(crate) fn shown_name(self) -> Option<String> {
+        self.shown_path().and_then(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
         })
     }
 
@@ -111,6 +115,11 @@ impl TabState {
     /// Whether any tab is open.
     pub(crate) fn has_tabs(self) -> bool {
         self.tabs.with(|tabs| !tabs.all().is_empty())
+    }
+
+    /// How many tabs are open.
+    pub(crate) fn count(self) -> usize {
+        self.tabs.with(|tabs| tabs.all().len())
     }
 
     /// The tabs as they are now, the shown one at the page and in the view it shows: what the session saves (R.9).
@@ -186,21 +195,7 @@ impl TabState {
 
     /// Shows the open dialog and opens the files picked, each in a new tab.
     pub(crate) fn open_dialog(self) {
-        let dialog = OpenDialog::files()
-            .multiple(true)
-            .title(t!("open.title"))
-            .filter(FileFilter::new(
-                t!("open.filter"),
-                EXTENSIONS.iter().copied(),
-            ));
-        let answer = pick_paths(dialog);
-        spawn(async move {
-            match answer.await {
-                Ok(Some(paths)) => self.open_paths(paths),
-                Ok(None) => {}
-                Err(err) => log::warn!("open: the dialog failed: {err}"),
-            }
-        });
+        pick_documents(move |paths| self.open_paths(paths));
     }
 
     /// Asks where the missing file of the tab `id` went, and shows it from there.
@@ -287,6 +282,60 @@ impl TabState {
     /// Closes the tab `id`.
     pub(crate) fn close(self, id: TabId) {
         self.change(|tabs| tabs.close(id));
+    }
+
+    /// Takes the shown tab out, at its page and in its view, to move it to another pane (V.3).
+    pub(crate) fn take_shown(self) -> Option<Closed> {
+        let mut taken = None;
+        self.change(|tabs| {
+            if let Some(id) = tabs.active().map(|tab| tab.id) {
+                taken = tabs.take(id);
+            }
+        });
+        taken
+    }
+
+    /// Takes every tab out, the shown one last: a closing pane's (V.6).
+    pub(crate) fn take_all(self) -> Vec<Closed> {
+        let mut taken = Vec::new();
+        self.change(|tabs| taken = tabs.take_all());
+        taken
+    }
+
+    /// Adds tabs taken from another pane at the end of the strip, each at its page and in its view, and shows the
+    /// last.
+    pub(crate) fn adopt(self, taken: Vec<Closed>) {
+        if taken.is_empty() {
+            return;
+        }
+        self.change(|tabs| {
+            for tab in taken {
+                tabs.adopt(tab);
+            }
+        });
+    }
+
+    /// Keeps `closed` to reopen, as if closed here (a closing pane's tabs, V.6).
+    pub(crate) fn remember_closed(self, closed: Vec<Closed>) {
+        self.tabs.update(|tabs| {
+            for tab in closed {
+                tabs.remember_closed(tab);
+            }
+        });
+    }
+
+    /// The shown tab as it is now, at its page and in its view, to show it in a new pane too (V.1). None while its
+    /// file has gone.
+    pub(crate) fn shown_copy(self) -> Option<Closed> {
+        let tabs = untracked(|| self.current());
+        let tab = tabs.active().filter(|tab| !tab.missing)?;
+        Some(Closed {
+            path: tab.path.clone(),
+            page: tab.page,
+            view: tab.view.clone(),
+            pinned: false,
+            index: 0,
+        })
     }
 
     /// Runs one of the tab commands on the shown tab.
@@ -390,8 +439,12 @@ impl TabState {
 
     /// Notes the page and the view the shown tab is at, before it stops being shown (or closes, for reopening).
     fn leave_shown(self) {
-        let page = untracked(|| self.pages.current());
         let view = self.shown_view.with(Option::take);
+        // Until the canvas has gone to the page its tab was at, the page it reports is the last file's.
+        if self.restore.with(|restore| restore.is_some()) {
+            return;
+        }
+        let page = untracked(|| self.pages.current());
         self.tabs.update(|tabs| {
             if let Some(id) = tabs.active().map(|tab| tab.id) {
                 tabs.set_page(id, page);
@@ -420,6 +473,25 @@ impl TabState {
             JsonValue::from(path.to_string_lossy().into_owned())
         })
     }
+}
+
+/// Shows the open dialog, and hands the files picked to `then`.
+pub(crate) fn pick_documents(then: impl FnOnce(Vec<PathBuf>) + 'static) {
+    let dialog = OpenDialog::files()
+        .multiple(true)
+        .title(t!("open.title"))
+        .filter(FileFilter::new(
+            t!("open.filter"),
+            EXTENSIONS.iter().copied(),
+        ));
+    let answer = pick_paths(dialog);
+    spawn(async move {
+        match answer.await {
+            Ok(Some(paths)) => then(paths),
+            Ok(None) => {}
+            Err(err) => log::warn!("open: the dialog failed: {err}"),
+        }
+    });
 }
 
 /// Where a tab shown again goes once its file is open: its view, or its page when it has no view there.

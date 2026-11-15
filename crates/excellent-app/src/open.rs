@@ -17,17 +17,44 @@ use excellent_core::formats;
 use excellent_platform::instance::{self, Claim};
 use serde_json::{Value, json};
 
-/// What a launch asks for: files to show, and the page to show them at.
+/// What a launch asks for: files to show, the page to show them at, and whether in panes side by side.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Launch {
     /// The files, absolute, in the command line's order; the last is shown.
     pub(crate) files: Vec<PathBuf>,
     /// `--page N`: the page to show them at, from 0.
     pub(crate) page: Option<usize>,
+    /// `--split` or `--split-same` (V.13): the files in panes of their own.
+    pub(crate) split: Option<Split>,
 }
 
-/// Reads a command line (without the program's name) given in `cwd`: files, and `--page N` (from 1). Other flags are
-/// logged and skipped.
+/// How a launch splits the window (V.13).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Split {
+    /// `--split a.pdf b.pdf`: each file in a pane of its own, side by side.
+    Files,
+    /// `--split-same a.pdf`: the file in two panes side by side.
+    Same,
+}
+
+impl Split {
+    /// Its name in a single-instance message.
+    fn name(self) -> &'static str {
+        match self {
+            Self::Files => "files",
+            Self::Same => "same",
+        }
+    }
+
+    fn of(name: &str) -> Option<Self> {
+        [Self::Files, Self::Same]
+            .into_iter()
+            .find(|split| split.name() == name)
+    }
+}
+
+/// Reads a command line (without the program's name) given in `cwd`: files, `--page N` (from 1), `--split` and
+/// `--split-same`. Other flags are logged and skipped.
 pub(crate) fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path) -> Launch {
     let mut launch = Launch::default();
     let mut args = args.into_iter();
@@ -47,7 +74,9 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>, cwd: &Path) -> Lau
                         _ => log::warn!("command line: --page takes a page number from 1"),
                     }
                 }
-                // shortcut: --zoom, --search, --split and --forward-search wait for their features (see R.11's doc).
+                "split" => launch.split = Some(Split::Files),
+                "split-same" => launch.split = Some(Split::Same),
+                // shortcut: --zoom, --search and --forward-search wait for their features (see R.11's doc).
                 _ => log::warn!("command line: unknown flag --{name}"),
             }
         } else {
@@ -64,7 +93,7 @@ fn to_message(launch: &Launch) -> Vec<u8> {
         .iter()
         .map(|path| path.to_string_lossy().into_owned())
         .collect();
-    json!({ "files": files, "page": launch.page })
+    json!({ "files": files, "page": launch.page, "split": launch.split.map(Split::name) })
         .to_string()
         .into_bytes()
 }
@@ -87,7 +116,11 @@ fn from_message(message: &[u8]) -> Option<Launch> {
         None | Some(Value::Null) => None,
         Some(page) => Some(usize::try_from(page.as_u64()?).ok()?),
     };
-    Some(Launch { files, page })
+    let split = match value.get("split") {
+        None | Some(Value::Null) => None,
+        Some(split) => Some(Split::of(split.as_str()?)?),
+    };
+    Some(Launch { files, page, split })
 }
 
 /// The documents among files dropped on the window (`file:` URLs): directories and other files are left out. A file
@@ -250,6 +283,15 @@ mod tests {
         // Page 0 or no number: no page.
         assert_eq!(parse(args(&["--page", "0"]), &cwd).page, None);
         assert_eq!(parse(args(&["--page", "x"]), &cwd).page, None);
+        assert_eq!(launch.split, None);
+        assert_eq!(
+            parse(args(&["--split", "a.pdf", "b.pdf"]), &cwd).split,
+            Some(Split::Files)
+        );
+        assert_eq!(
+            parse(args(&["a.pdf", "--split-same"]), &cwd).split,
+            Some(Split::Same)
+        );
     }
 
     #[test]
@@ -257,6 +299,7 @@ mod tests {
         let launch = Launch {
             files: vec![std::env::temp_dir().join("a b.pdf")],
             page: Some(4),
+            split: Some(Split::Same),
         };
         assert_eq!(from_message(&to_message(&launch)), Some(launch));
         let empty = Launch::default();
@@ -265,6 +308,7 @@ mod tests {
         assert_eq!(from_message(b"hello"), None);
         assert_eq!(from_message(br#"{"files":["relative.pdf"]}"#), None);
         assert_eq!(from_message(br#"{"files":[],"page":-1}"#), None);
+        assert_eq!(from_message(br#"{"files":[],"split":"diagonal"}"#), None);
     }
 
     #[test]

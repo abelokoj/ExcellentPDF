@@ -3,7 +3,8 @@
 //! is a command from [`crate::commands`], reachable from a button, its shortcut and the palette (plan §2.1, rule 3).
 //!
 //! The tab strip (R.12) takes the title bar's left; the workspace switcher and the icon rail of §10.1 come with
-//! their features (W.1, R.13). Every tab shows on the one page canvas: switching gives it the other file.
+//! their features (W.1, R.13). The document area is the split view's grid of panes ([`crate::panes`]): the tab
+//! strip, the page button, the sidebar's panels and every command are the active pane's (V.5).
 //!
 //! The pages take the keyboard focus when a document opens and when the reader presses on them; keys scoped to the
 //! pages ([`crate::keymap::Scope::Page`]) work while they have it. In full screen (R.19) the title bar and the docks
@@ -20,22 +21,22 @@ use nsh_core::geometry::Points;
 use nsh_core::JsonValue;
 use nsh_core::prelude::*;
 
-use crate::bookmarks::{self, BookmarkState};
+use crate::bookmarks;
 use crate::commands::{self, CommandId};
-use crate::editing::Editing;
 use crate::full_screen::FullScreen;
 use crate::goto::{self, PageState};
-use crate::links::{self, LinkState};
+use crate::links;
 use crate::list_dialog::{list_dialog, style};
-use crate::outline::{self, OutlineState};
+use crate::outline;
+use crate::panes::{self, CELLS, FileDrag, Pane, Panes, Shared};
 use crate::reading::Reading;
 use crate::reading_theme_bar::reading_theme_bar;
 use crate::recent::RecentState;
 use crate::settings;
 use crate::settings_window::settings_window;
-use crate::tabs::{self, TabState};
+use crate::tabs;
 use crate::theme as themes;
-use crate::thumbnails::{self, Thumbnails};
+use crate::thumbnails;
 
 /// The title bar's height; Windows draws its caption buttons this tall.
 const TITLE_BAR_HEIGHT: Points = px(40.0);
@@ -127,25 +128,6 @@ fn default_layout() -> DockAreaLayout {
         .with_dock(DockPlacement::Right, inspector)
 }
 
-/// What the document panel works with: the canvas and the state its events feed.
-#[derive(Clone, Copy)]
-struct Document {
-    canvas: ElementRef,
-    /// The view around the canvas that holds the keyboard focus for it: the canvas is a window of its own.
-    focus: ElementRef,
-    pages: PageState,
-    link_state: LinkState,
-    thumbs: Thumbnails,
-    reading: Reading,
-    full_screen: FullScreen,
-    tabs: TabState,
-    recent: RecentState,
-    /// The outline (B.1): the pages report the places its new entries open.
-    outline: OutlineState,
-    /// The personal bookmarks (B.6): the pages report the places new ones open.
-    bookmarks: BookmarkState,
-}
-
 /// Opens a closed dock and closes an open one.
 fn toggle(dock: &mut Option<DockRegion>) {
     if let Some(dock) = dock {
@@ -164,34 +146,21 @@ pub(crate) fn shell() -> impl IntoElement {
     let reading_theme_open = signal(false);
     let tab_list_open = signal(false);
     let live = settings::Live::new();
-    let pages = PageState::new();
-    let tabs = TabState::new(pages, live);
-    crate::session::keep(tabs);
     let recent = RecentState::new();
-    crate::recent::keep(recent, tabs);
-    let editing = Editing::new(tabs);
-    let outline_state = OutlineState::new(tabs, pages, editing);
-    let bookmark_state = BookmarkState::new(tabs, pages);
-    let document = Document {
-        canvas: element_ref(),
-        focus: element_ref(),
-        pages,
-        link_state: LinkState::new(tabs),
-        thumbs: Thumbnails::new(tabs),
+    let panes = Panes::new(live, recent);
+    crate::session::keep(panes);
+    let shared = Shared {
         reading: Reading::new(live),
         full_screen: FullScreen::new(layout),
-        tabs,
         recent,
-        outline: outline_state,
-        bookmarks: bookmark_state,
+        file_drag: FileDrag::new(),
     };
-    let Document {
-        canvas,
-        link_state,
+    let Shared {
         full_screen,
         reading,
+        file_drag,
         ..
-    } = document;
+    } = shared;
     // The pickers keep their choice in the settings file; the root starts with it (`crate::root`).
     let theme_choice = signal(themes::saved());
     // An edit of the settings file changes the theme too.
@@ -202,7 +171,7 @@ pub(crate) fn shell() -> impl IntoElement {
             themes::apply(saved);
         }
     });
-    // The page canvas is a window over the app's, so it hides while a dialog is open.
+    // The page canvases are windows over the app's, so they hide while a dialog is open.
     let dialog_open = move || {
         palette_open.get()
             || theme_open.get()
@@ -210,89 +179,110 @@ pub(crate) fn shell() -> impl IntoElement {
             || goto_open.get()
             || settings_open.get()
             || tab_list_open.get()
-            || tabs.editing().is_some()
-            || link_state.is_asking()
-            || outline_state.is_menu_open()
-            || bookmark_state.covers_pages()
+            || panes.slots().into_iter().any(Pane::covers_pages)
     };
-    // Nothing has the focus at first, and then the pages take it (`page_canvas`).
-    let on_page = signal(true);
-    document.focus.on_focus_in(move || on_page.set(true));
-    document.focus.on_focus_out(move || on_page.set(false));
-    let to_canvas = move |name: &str| canvas.command(name, JsonValue::Null);
-    let run = move |id: CommandId| match id {
-        CommandId::OpenPalette => palette_open.set(true),
-        CommandId::OpenSettings => settings_open.set(true),
-        CommandId::ChooseTheme => theme_open.set(true),
-        CommandId::ChooseAppearance => appearance_open.set(true),
-        CommandId::ToggleSidebar => layout.update(|layout| toggle(&mut layout.left)),
-        CommandId::ToggleInspector => layout.update(|layout| toggle(&mut layout.right)),
-        CommandId::GoToPage => goto_open.set(true),
-        CommandId::ToggleFullScreen => full_screen.toggle(),
-        CommandId::ToggleRulerInvert => reading.toggle_invert(),
-        CommandId::ToggleDocumentColors => reading.toggle_document_colors(),
-        CommandId::ChooseReadingTheme => reading_theme_open.set(true),
-        CommandId::OpenFile => tabs.open_dialog(),
-        CommandId::TabList => tab_list_open.set(true),
-        CommandId::SetDefaultViewer => crate::open::set_as_default_viewer(),
-        CommandId::Tab(action) => tabs.run(action),
-        CommandId::LeaveModes => {
-            to_canvas("leaveModes");
-            full_screen.leave();
+    // Which panes' pages have the keyboard focus. Nothing has it at first, and then the pages take it
+    // (`crate::panes`); moving between panes reports one leaving and the other coming in, in either order.
+    let on_pages: [Signal<bool>; CELLS] = std::array::from_fn(|cell| signal(cell == 0));
+    for (pane, on) in panes.slots().into_iter().zip(on_pages) {
+        pane.focus.on_focus_in(move || on.set(true));
+        pane.focus.on_focus_out(move || on.set(false));
+    }
+    let on_page = move || on_pages.iter().any(|on| on.get());
+    let run = move |id: CommandId| {
+        let pane = panes.active();
+        let to_canvas = move |name: &str| pane.canvas.command(name, JsonValue::Null);
+        match id {
+            CommandId::OpenPalette => palette_open.set(true),
+            CommandId::OpenSettings => settings_open.set(true),
+            CommandId::ChooseTheme => theme_open.set(true),
+            CommandId::ChooseAppearance => appearance_open.set(true),
+            CommandId::ToggleSidebar => layout.update(|layout| toggle(&mut layout.left)),
+            CommandId::ToggleInspector => layout.update(|layout| toggle(&mut layout.right)),
+            CommandId::GoToPage => goto_open.set(true),
+            CommandId::ToggleFullScreen => full_screen.toggle(),
+            CommandId::ToggleRulerInvert => reading.toggle_invert(),
+            CommandId::ToggleDocumentColors => reading.toggle_document_colors(),
+            CommandId::ChooseReadingTheme => reading_theme_open.set(true),
+            CommandId::OpenFile => pane.tabs.open_dialog(),
+            CommandId::TabList => tab_list_open.set(true),
+            CommandId::SetDefaultViewer => crate::open::set_as_default_viewer(),
+            CommandId::Tab(action) => pane.tabs.run(action),
+            CommandId::Pane(action) => panes.run(action),
+            CommandId::LeaveModes => {
+                to_canvas("leaveModes");
+                full_screen.leave();
+            }
+            CommandId::Canvas(name) => to_canvas(name),
+            CommandId::Outline(action) => pane.outline.run(action, pane.canvas),
+            CommandId::Bookmark(action) => pane.bookmarks.run(action, pane.canvas),
+            CommandId::Undo => pane.editing.undo(),
+            CommandId::Redo => pane.editing.redo(),
+            // Every pane's edits.
+            CommandId::Save => panes
+                .slots()
+                .into_iter()
+                .for_each(|pane| pane.editing.save_now()),
         }
-        CommandId::Canvas(name) => to_canvas(name),
-        CommandId::Outline(action) => outline_state.run(action, canvas),
-        CommandId::Bookmark(action) => bookmark_state.run(action, canvas),
-        CommandId::Undo => editing.undo(),
-        CommandId::Redo => editing.redo(),
-        CommandId::Save => editing.save_now(),
     };
     // Later launches' files (R.11), until the window closes.
     spawn(async move {
         loop {
             let launch = crate::open::next().await;
             current_window().focus();
-            if tabs.launch(&launch)
-                && let Some(page) = launch.page
-            {
-                canvas.command("goToPage", serde_json::json!({ "index": page }));
-            }
+            panes.launch(&launch);
         }
     });
     // Bound again when the settings change: the user's keys may have.
     effect(move || {
         live.read(|_| ());
         commands::bind_keys(run, move || {
-            on_page.get() && !dialog_open() && !reading_theme_open.get()
+            on_page() && !dialog_open() && !reading_theme_open.get()
         });
+    });
+    // Each pane's own dialogs: the group being edited, the bookmark being written, the link being asked about.
+    let pane_dialogs = panes.slots().into_iter().fold(view(), |dialogs, pane| {
+        dialogs
+            .child(when(
+                move || pane.tabs.editing().is_some(),
+                move || tabs::group_dialog(pane.tabs),
+            ))
+            .child(when(
+                move || pane.bookmarks.is_editing(),
+                move || bookmarks::bookmark_dialog(pane.bookmarks),
+            ))
+            .child(when(
+                move || pane.link_state.is_asking(),
+                move || links::link_dialog(pane.link_state),
+            ))
     });
 
     view()
         .flex_1()
-        // Documents dropped anywhere on the window open in new tabs (R.11); other files are left alone.
+        // Documents dropped on the window outside the panes open in the active pane (R.11); other files are left
+        // alone. Every drop target follows the drag, so the panes' edges take drops while it lasts (V.2).
+        .on_file_drag_enter(move || file_drag.enter())
+        .on_file_drag_leave(move || file_drag.leave())
         .on_file_drop(move |event: &FileDropEvent| {
-            tabs.open_paths(crate::open::dropped_documents(&event.uris));
+            file_drag.drop_done();
+            panes
+                .active()
+                .tabs
+                .open_paths(crate::open::dropped_documents(&event.uris));
         })
-        .child(window_bar(run, document, reading_theme_open))
+        .child(window_bar(run, panes, shared, reading_theme_open))
         .child(
             view()
                 .flex_1()
-                .child(docks(layout, dialog_open, document, outline_state, run)),
+                .child(docks(layout, dialog_open, panes, shared, run)),
         )
         .child(when(palette_open, move || {
-            palette(palette_open, pages, run)
+            palette(palette_open, panes.active().pages, run)
         }))
         .child(when(tab_list_open, move || {
-            tabs::tab_list(tab_list_open, tabs, recent)
+            tabs::tab_list(tab_list_open, panes.active().tabs, recent)
         }))
-        .child(when(
-            move || tabs.editing().is_some(),
-            move || tabs::group_dialog(tabs),
-        ))
-        .child(when(
-            move || bookmark_state.is_editing(),
-            move || bookmarks::bookmark_dialog(bookmark_state),
-        ))
+        .child(pane_dialogs)
         .child(when(settings_open, move || {
             settings_window(settings_open, live, theme_choice, run)
         }))
@@ -303,14 +293,17 @@ pub(crate) fn shell() -> impl IntoElement {
             themes::appearance_picker(appearance_open, theme_choice)
         }))
         .child(when(goto_open, move || {
-            goto::goto_dialog(goto_open, pages, move |index| {
-                canvas.command("goToPage", serde_json::json!({ "index": index }));
-            })
+            let pane = panes.active();
+            goto::goto_dialog(goto_open, pane.pages, move |index| pane.go_to(index))
         }))
-        .child(when(
-            move || link_state.is_asking(),
-            move || links::link_dialog(link_state),
-        ))
+}
+
+/// Elements of the active pane, made again when another pane becomes active (V.5).
+fn of_active<E: IntoElement>(panes: Panes, make: impl Fn(Pane) -> E + 'static) -> AnyElement {
+    dynamic(move || {
+        let cell = panes.active_cell();
+        untracked(|| make(panes.slots()[cell]).into_element())
+    })
 }
 
 /// The title bar: the system's is hidden, so this one drags the window, and Windows draws its caption buttons over
@@ -318,17 +311,15 @@ pub(crate) fn shell() -> impl IntoElement {
 /// pages down while it shows: the canvas is a window of its own, so nothing of the app's can lie over it.
 fn window_bar(
     run: impl Fn(CommandId) + Copy + 'static,
-    document: Document,
+    panes: Panes,
+    shared: Shared,
     reading_theme_open: Signal<bool>,
 ) -> impl IntoElement {
-    let Document {
-        pages,
-        link_state,
+    let Shared {
         full_screen,
         reading,
-        tabs,
         ..
-    } = document;
+    } = shared;
     let mut bar = TitleBarOptions::default();
     bar.style = TitleBarStyle::Hidden;
     bar.height = Some(TITLE_BAR_HEIGHT);
@@ -359,7 +350,7 @@ fn window_bar(
         // The reading-theme bar needs the room while it is open.
         .child(when(
             move || !reading_theme_open.get(),
-            move || tabs::tab_strip(tabs, run),
+            move || of_active(panes, move |pane| tabs::tab_strip(pane.tabs, run)),
         ))
         .child(
             view()
@@ -376,8 +367,12 @@ fn window_bar(
         )
         // shortcut: the link hint (R.7) and the reader's page sit in the title bar until the status bar of plan R.6
         // exists.
-        .child(links::link_hint(link_state, pages))
-        .child(goto::page_button(pages, move || run(CommandId::GoToPage)))
+        .child(of_active(panes, |pane| {
+            links::link_hint(pane.link_state, pane.pages)
+        }))
+        .child(of_active(panes, move |pane| {
+            goto::page_button(pane.pages, move || run(CommandId::GoToPage))
+        }))
         .child(bar_button(
             "command.toggle_inspector",
             CommandId::ToggleInspector,
@@ -464,21 +459,11 @@ fn palette_button(run: impl Fn(CommandId) + Copy + 'static) -> impl IntoElement 
 fn docks(
     layout: Signal<DockAreaLayout>,
     dialog_open: impl Fn() -> bool + Copy + 'static,
-    document: Document,
-    outline_state: OutlineState,
+    panes: Panes,
+    shared: Shared,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
-    let Document {
-        canvas,
-        pages,
-        thumbs,
-        full_screen,
-        tabs,
-        ..
-    } = document;
-    let go = move |index: usize| {
-        canvas.command("goToPage", serde_json::json!({ "index": index }));
-    };
+    let full_screen = shared.full_screen;
     let panels: Vec<DockPanelOptions> = Panel::ALL
         .into_iter()
         .map(|panel| {
@@ -497,24 +482,13 @@ fn docks(
         })
         .render_panel(move |panel: &DockPanel| {
             let panel = Panel::of(panel.id.as_str());
-            let shown = move || tabs.has_shown();
             match panel {
-                Some(Panel::Document) => document_panel(dialog_open, document, run).into_element(),
-                Some(Panel::Pages) => {
-                    when(shown, move || thumbnails::thumbnail_list(thumbs, pages, go))
-                        .otherwise(move || empty_state(panel))
-                        .into_element()
+                Some(Panel::Document) => {
+                    panes::pane_grid(panes, shared, dialog_open, run).into_element()
                 }
-                Some(Panel::Outline) => when(shown, move || {
-                    outline::outline_panel(outline_state, go, run, document.focus)
-                })
-                .otherwise(move || empty_state(panel))
-                .into_element(),
-                Some(Panel::Bookmarks) => when(shown, move || {
-                    bookmarks::bookmark_panel(document.bookmarks, canvas, run, document.focus)
-                })
-                .otherwise(move || empty_state(panel))
-                .into_element(),
+                Some(side @ (Panel::Pages | Panel::Outline | Panel::Bookmarks)) => {
+                    of_active(panes, move |pane| side_panel(side, pane, run))
+                }
                 _ => empty_state(panel).into_element(),
             }
         })
@@ -539,77 +513,6 @@ fn docks(
         .size_full()
 }
 
-/// The document panel: the page canvas once a tab has been shown (and from then on, so switching tabs only gives it
-/// another file), and while no tab is open the way to open one.
-fn document_panel(
-    dialog_open: impl Fn() -> bool + Copy + 'static,
-    document: Document,
-    run: impl Fn(CommandId) + Copy + 'static,
-) -> impl IntoElement {
-    let tabs = document.tabs;
-    // No canvas (and no swap chain) until there is something to show: cold start without a file stays light.
-    let mounted = signal(false);
-    effect(move || {
-        if tabs.has_shown() && !untracked(|| mounted.get()) {
-            mounted.set(true);
-        }
-    });
-    view()
-        .flex_1()
-        .child(when(mounted, move || page_canvas(dialog_open, document)))
-        .child(when(
-            move || tabs.shown_missing().is_some(),
-            move || document_missing(tabs),
-        ))
-        .child(when(
-            move || !tabs.has_tabs(),
-            move || document_empty(run, document.tabs, document.recent),
-        ))
-}
-
-/// The document panel with no tab open: what to do, and a button that does it.
-fn document_empty(
-    run: impl Fn(CommandId) + Copy + 'static,
-    tabs: TabState,
-    recent: RecentState,
-) -> impl IntoElement {
-    empty_message(
-        move || Panel::Document.heading(),
-        move || Panel::Document.hint(),
-    )
-    .child(primary_button("document.open", move || {
-        run(CommandId::OpenFile);
-    }))
-    .child(crate::recent::recent_panel(recent, tabs))
-}
-
-/// The document panel while the shown tab's file has gone (R.9): where it was, and "Locate…".
-fn document_missing(tabs: TabState) -> impl IntoElement {
-    let missing = move || tabs.shown_missing();
-    let name = move || {
-        missing()
-            .and_then(|(_, path)| {
-                path.file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-            })
-            .unwrap_or_default()
-    };
-    let place = move || {
-        missing()
-            .and_then(|(_, path)| path.parent().map(|dir| dir.display().to_string()))
-            .unwrap_or_default()
-    };
-    empty_message(
-        move || t!("document.missing.title", name = name()),
-        move || t!("document.missing.hint", place = place()),
-    )
-    .child(primary_button("document.locate", move || {
-        if let Some((id, _)) = untracked(missing) {
-            tabs.locate(id);
-        }
-    }))
-}
-
 /// The one button of a panel's message, in the primary colour, labelled by the translation `key`.
 pub(crate) fn primary_button(key: &'static str, on_press: impl Fn() + 'static) -> impl IntoElement {
     button()
@@ -632,87 +535,32 @@ pub(crate) fn primary_button(key: &'static str, on_press: impl Fn() + 'static) -
         )
 }
 
-/// The document's pages: the platform's page canvas (plan D5), showing the shown tab's file. It is a window of its
-/// own, drawn over the app, so it hides while a dialog is open. It draws the theme's page area behind the pages
-/// itself. The view around it holds the keyboard focus for it: a Tab stop, and focused when the document opens and
-/// when the reader presses on it.
-fn page_canvas(
-    dialog_open: impl Fn() -> bool + Copy + 'static,
-    document: Document,
+/// A sidebar panel (R.5, §11.14, B.6) for the active pane: its content while the pane shows a document, else what
+/// it will show.
+fn side_panel(
+    panel: Panel,
+    pane: Pane,
+    run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
-    let Document {
-        canvas,
-        focus,
-        pages,
-        link_state,
-        thumbs,
-        reading,
-        full_screen,
-        tabs,
-        recent: _,
-        outline,
-        bookmarks,
-    } = document;
-    let canvas_ref = canvas;
-    let label = move || {
-        let name = tabs
-            .shown_path()
-            .and_then(|path| {
-                path.file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-            })
-            .unwrap_or_default();
-        t!("document.canvas", name = name)
-    };
-    let canvas = native(crate::PAGE_CANVAS)
-        .element_ref(&canvas)
-        // Before `path`, so a book opens laid out at the reader's size, not laid out twice.
-        .prop("reflowFontSize", move || reading.reflow_font_size_prop())
-        .prop("path", move || tabs.path_prop())
-        .prop("label", move || JsonValue::from(label()))
-        .prop("background", move || {
-            JsonValue::from(themes::page_area_hex())
-        })
-        .prop("pageColors", move || reading.page_colors_prop())
-        .prop("readingRuler", move || reading.ruler_prop())
-        .prop("focusScope", move || reading.focus_scope_prop())
-        .prop("autoScrollSpeed", move || reading.speed_prop())
-        .label(move || SharedString::from(label()))
-        .on_native_event(move |event: &NativeEvent| {
-            if matches!(&*event.name, "pages" | "press") {
-                focus.focus();
-            }
-            pages.on_canvas_event(event);
-            tabs.on_canvas_event(event, canvas_ref);
-            link_state.on_canvas_event(event);
-            thumbs.on_canvas_event(event);
-            reading.on_canvas_event(event);
-            full_screen.on_canvas_event(event);
-            outline.on_canvas_event(event);
-            bookmarks.on_canvas_event(event);
-            copy_selection(event);
-        })
-        .flex_1()
-        .style_when(
-            move || dialog_open() || !tabs.has_shown(),
-            |s| s.invisible(),
-        );
-    view()
-        .flex_1()
-        .style_when(move || !tabs.has_shown(), |s| s.hidden())
-        .focusable(true)
-        .element_ref(&focus)
-        .label(move || SharedString::from(label()))
-        .child(canvas)
+    let shown = move || pane.tabs.has_shown();
+    let go = move |index: usize| pane.go_to(index);
+    when(shown, move || match panel {
+        Panel::Pages => thumbnails::thumbnail_list(pane.thumbs, pane.pages, go).into_element(),
+        Panel::Outline => outline::outline_panel(pane.outline, go, run, pane.focus).into_element(),
+        Panel::Bookmarks => {
+            bookmarks::bookmark_panel(pane.bookmarks, pane.canvas, run, pane.focus).into_element()
+        }
+        Panel::Document | Panel::Inspector => empty_state(Some(panel)).into_element(),
+    })
+    .otherwise(move || empty_state(Some(panel)))
 }
 
-/// The canvas copied the selected text (K.13): it goes on the clipboard.
-fn copy_selection(event: &NativeEvent) {
-    if &*event.name == "copy"
-        && let Some(text) = event.data.get("text").and_then(JsonValue::as_str)
-    {
-        set_clipboard(text);
-    }
+/// The document panel's message with no tab open: what to do, and the shortcuts that do it.
+pub(crate) fn document_message() -> View {
+    empty_message(
+        move || Panel::Document.heading(),
+        move || Panel::Document.hint(),
+    )
 }
 
 /// What a panel shows until its feature fills it: a heading and the next step.

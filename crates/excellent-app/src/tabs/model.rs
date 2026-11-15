@@ -219,17 +219,57 @@ impl Tabs {
 
     /// Closes the tab `id`, keeping it to reopen. Closing the tab shown shows the one shown before it.
     pub(crate) fn close(&mut self, id: TabId) {
-        let Some(index) = self.index(id) else {
-            return;
-        };
+        if let Some(closed) = self.take(id) {
+            self.remember_closed(closed);
+        }
+    }
+
+    /// Takes every tab out, the one shown last: a closing pane's, for its neighbour (V.6). Their groups go.
+    pub(crate) fn take_all(&mut self) -> Vec<Closed> {
+        let shown = self.active_index();
+        let mut taken: Vec<Closed> = self
+            .tabs
+            .drain(..)
+            .enumerate()
+            .map(|(index, tab)| Closed {
+                path: tab.path,
+                page: tab.page,
+                view: tab.view,
+                pinned: tab.pinned,
+                index,
+            })
+            .collect();
+        if let Some(shown) = shown {
+            let tab = taken.remove(shown);
+            taken.push(tab);
+        }
+        self.active = None;
+        self.recent.clear();
+        self.groups.clear();
+        taken
+    }
+
+    /// Adds a tab taken from another pane (V.3) at the end of the strip, at its page and in its view, and shows it.
+    pub(crate) fn adopt(&mut self, tab: Closed) -> TabId {
+        let id = self.insert(self.tabs.len(), tab.path, tab.page, tab.pinned);
+        if let Some(view) = tab.view {
+            self.set_view(id, view);
+        }
+        id
+    }
+
+    /// Takes the tab `id` out, as it is (to close it, or to move it to another pane: V.3). Taking the tab shown
+    /// shows the one shown before it.
+    pub(crate) fn take(&mut self, id: TabId) -> Option<Closed> {
+        let index = self.index(id)?;
         let tab = self.tabs.remove(index);
-        self.remember_closed(Closed {
+        let taken = Closed {
             path: tab.path,
             page: tab.page,
             view: tab.view,
             pinned: tab.pinned,
             index,
-        });
+        };
         self.recent.retain(|&other| other != id);
         self.prune_groups();
         if self.active == Some(id) {
@@ -245,6 +285,7 @@ impl Tabs {
                 self.activate(next);
             }
         }
+        Some(taken)
     }
 
     /// Closes every tab but `id` and the pinned ones.
@@ -486,6 +527,33 @@ fn same_file(a: &Path, b: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_tab_moved_to_another_pane_keeps_its_page_and_view() {
+        let (mut from, ids) = tabs(&["a", "b", "c"]);
+        from.set_page(ids[1], 9);
+        from.set_view(ids[1], r#"{"page":9,"zoom":2}"#.to_owned());
+        from.activate(ids[1]);
+        let taken = from.take(ids[1]).expect("the tab");
+        assert_eq!(titles(&from), ["a.pdf", "c.pdf"]);
+        assert!(from.closed().next().is_none(), "moved, not closed");
+        assert_eq!(from.active().map(Tab::title).as_deref(), Some("c.pdf"));
+        let (mut to, _) = tabs(&["x"]);
+        let id = to.adopt(taken);
+        let tab = to.active().expect("shown");
+        assert_eq!(tab.id, id);
+        assert_eq!((tab.title(), tab.page), ("b.pdf".to_owned(), 9));
+        assert_eq!(tab.view.as_deref(), Some(r#"{"page":9,"zoom":2}"#));
+    }
+
+    #[test]
+    fn a_closing_pane_gives_up_every_tab_the_shown_one_last() {
+        let (mut from, ids) = tabs(&["a", "b", "c"]);
+        from.activate(ids[0]);
+        let taken: Vec<String> = from.take_all().iter().map(Closed::title).collect();
+        assert_eq!(taken, ["b.pdf", "c.pdf", "a.pdf"]);
+        assert!(from.all().is_empty() && from.active().is_none());
+    }
 
     fn tabs(names: &[&str]) -> (Tabs, Vec<TabId>) {
         let mut tabs = Tabs::default();

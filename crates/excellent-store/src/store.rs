@@ -146,7 +146,7 @@ impl<T> Pending<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::workspace::{self, SavedTab, Tabs, WorkspaceId};
+    use crate::workspace::{self, Panes, SavedTab, Tabs, WorkspaceId};
     use std::process::{Command, Stdio};
 
     /// A database file of the test's own, with no WAL or index left from an earlier run.
@@ -216,8 +216,8 @@ mod tests {
     /// Enough rows (about 2.6 MB, past the 2 MB page cache) that SQLite spills the unfinished transaction into the WAL before the crash.
     const ROWS: usize = 6_000;
 
-    fn generation(n: usize) -> Tabs {
-        Tabs {
+    fn generation(n: usize) -> Panes {
+        let tabs = Tabs {
             open: (0..ROWS)
                 .map(|row| SavedTab {
                     path: PathBuf::from(format!("C:/papers/{row}.pdf")),
@@ -228,6 +228,10 @@ mod tests {
                 .collect(),
             active: Some(n),
             ..Tabs::default()
+        };
+        Panes {
+            layout: Some(format!("{{\"generation\":{n}}}")),
+            panes: vec![tabs],
         }
     }
 
@@ -241,13 +245,13 @@ mod tests {
         let store = Store::open(Path::new(&path)).expect("open");
         for n in 0..5 {
             store
-                .write(move |tx| workspace::save_tabs(tx, WorkspaceId::DEFAULT, &generation(n)))
+                .write(move |tx| workspace::save_panes(tx, WorkspaceId::DEFAULT, &generation(n)))
                 .wait()
                 .expect("write");
         }
         let _ = store
             .write(|tx| -> Result<()> {
-                workspace::save_tabs(tx, WorkspaceId::DEFAULT, &generation(5))?;
+                workspace::save_panes(tx, WorkspaceId::DEFAULT, &generation(5))?;
                 std::process::abort()
             })
             .wait();
@@ -272,7 +276,7 @@ mod tests {
                     conn.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
                 assert_eq!(check, "ok");
                 assert_eq!(
-                    workspace::load_tabs(conn, WorkspaceId::DEFAULT)?,
+                    workspace::load_panes(conn, WorkspaceId::DEFAULT)?,
                     generation(4)
                 );
                 Ok(())

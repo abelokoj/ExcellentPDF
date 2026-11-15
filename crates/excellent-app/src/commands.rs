@@ -13,6 +13,7 @@ use nsh_core::prelude::*;
 use crate::bookmarks::BookmarkAction;
 use crate::keymap::{self, Keymap, Scope};
 use crate::outline::OutlineAction;
+use crate::panes::{PaneAction, Side};
 use crate::tabs::{Action as TabAction, Step};
 
 /// What a command does; [`crate::shell`] carries it out.
@@ -43,6 +44,8 @@ pub(crate) enum CommandId {
     SetDefaultViewer,
     /// Something done to the shown tab (R.12).
     Tab(TabAction),
+    /// Something done to the split view's panes (V.1 to V.6).
+    Pane(PaneAction),
     /// Escape: out of full screen, focus mode, the reading ruler and auto-scroll (R.19).
     LeaveModes,
     /// A page-canvas command, by its name in the canvas's protocol (`zoomIn`, `layoutBook`, `rotateClockwise`).
@@ -73,6 +76,10 @@ impl CommandId {
                     | Self::Redo
                     | Self::Save
             ) && !matches!(self, Self::Tab(action) if action != TabAction::ReopenClosed)
+                && !matches!(
+                    self,
+                    Self::Pane(PaneAction::Split(_) | PaneAction::MoveTab(_))
+                )
     }
 }
 
@@ -802,6 +809,113 @@ pub(crate) const COMMANDS: &[Command] = &[
         keys: &[],
         page_keys: &["escape"],
     },
+    Command {
+        id: CommandId::Pane(PaneAction::Split(Side::Right)),
+        name: "pane.split_right",
+        label: "command.split_right",
+        group: "command.group.panes",
+        // VS Code's split key.
+        keys: &["mod+\\"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Split(Side::Down)),
+        name: "pane.split_down",
+        label: "command.split_down",
+        group: "command.group.panes",
+        keys: &["mod+alt+\\"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::OpenInSplit),
+        name: "pane.open_in_split",
+        label: "command.open_in_split",
+        group: "command.group.panes",
+        keys: &["mod+shift+o"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::MoveTab(Step::Next)),
+        name: "pane.move_tab_next",
+        label: "command.move_tab_next_pane",
+        group: "command.group.panes",
+        keys: &["mod+alt+right"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::MoveTab(Step::Previous)),
+        name: "pane.move_tab_previous",
+        label: "command.move_tab_previous_pane",
+        group: "command.group.panes",
+        keys: &["mod+alt+left"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Focus(0)),
+        name: "pane.focus_1",
+        label: "command.focus_pane_1",
+        group: "command.group.panes",
+        // The plan's Ctrl+1 to 4 are the tabs' (R.12); Alt+1 to 4 waits for the maintainer's word (dev_decisions).
+        keys: &["alt+1"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Focus(1)),
+        name: "pane.focus_2",
+        label: "command.focus_pane_2",
+        group: "command.group.panes",
+        keys: &["alt+2"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Focus(2)),
+        name: "pane.focus_3",
+        label: "command.focus_pane_3",
+        group: "command.group.panes",
+        keys: &["alt+3"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Focus(3)),
+        name: "pane.focus_4",
+        label: "command.focus_pane_4",
+        group: "command.group.panes",
+        keys: &["alt+4"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Cycle(Step::Next)),
+        name: "pane.next",
+        label: "command.next_pane",
+        group: "command.group.panes",
+        // The common key for the next pane.
+        keys: &["f6"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Cycle(Step::Previous)),
+        name: "pane.previous",
+        label: "command.previous_pane",
+        group: "command.group.panes",
+        keys: &["shift+f6"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Close),
+        name: "pane.close",
+        label: "command.close_pane",
+        group: "command.group.panes",
+        keys: &["mod+alt+w"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Equalize),
+        name: "pane.equalize",
+        label: "command.equalize_panes",
+        group: "command.group.panes",
+        keys: &["mod+alt+0"],
+        page_keys: &[],
+    },
 ];
 
 impl Command {
@@ -902,6 +1016,8 @@ mod tests {
         assert!(!CommandId::Tab(TabAction::Close).is_available(false));
         assert!(CommandId::Tab(TabAction::ReopenClosed).is_available(false));
         assert!(CommandId::OpenFile.is_available(false));
+        assert!(!CommandId::Pane(PaneAction::Split(Side::Right)).is_available(false));
+        assert!(CommandId::Pane(PaneAction::OpenInSplit).is_available(false));
         assert!(!CommandId::Undo.is_available(false));
         assert!(!CommandId::Outline(OutlineAction::Add).is_available(false));
     }

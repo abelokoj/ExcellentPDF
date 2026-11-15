@@ -2906,11 +2906,18 @@ The design is in §11.15 ("How it works", steps 1–8). It depends on K.5 (Docum
 **P0; Phase 1; Needs:** V.1, R.11; **Code:** as V.1
 1. "Open in split" in the file dialog, recent files and library; drop targets on the four edges of the page area.
 
+*Built (2026-11-15):* the open dialog (Ctrl+Shift+O) and the edge drop targets; recent files and the library follow
+with F.1.
+
 **Done when:** dropping a file on the right edge opens it in a new right pane.
 
 #### Ph1: 39/60 | V.3: Tab groups per pane
 **P0; Phase 1; Needs:** V.1, R.12; **Code:** as V.1
 1. NSH `DockArea` groups (or `ResizablePanelGroup` plus `Tabs`); drag tabs between groups; "Move to other group".
+
+*Built (2026-11-15):* a `ResizablePanelGroup` grid with each pane's own tabs (the title bar's strip is the active
+pane's); "Move tab to the next / previous pane" (Ctrl+Alt+Right / Left). Mouse drag between panes comes with R.12's
+tab drag.
 
 **Done when:** moving a tab keeps its View state.
 
@@ -2924,12 +2931,18 @@ The design is in §11.15 ("How it works", steps 1–8). It depends on K.5 (Docum
 **P0; Phase 1; Needs:** V.1; **Code:** as V.1
 1. Focus ring in the mode accent; Ctrl+1…Ctrl+4 focus panes; every command acts on the active pane.
 
+*Proposed change (dev_decisions DD4, waiting for the maintainer):* Ctrl+1…Ctrl+9 already go to tabs (R.12, as
+Enhanced and the browsers), so panes take Alt+1…Alt+4, plus F6 / Shift+F6 for the next and previous pane.
+
 **Done when:** keyboard-only users can reach every pane.
 
 #### Ph1: 42/60 | V.6: Closing panes
 **P0; Phase 1; Needs:** V.3; **Code:** as V.1
 1. Closing a pane moves its tabs to the neighbour or closes them (setting); closing the last View of a dirty
    Document prompts.
+
+*Built (2026-11-15):* the setting is `close_pane_tabs` (`"move"`, the default, or `"close"`). No prompt: K.15 saves
+edits 2 s after the last one and whenever a pane stops showing a file, so nothing unsaved is left to ask about.
 
 **Done when:** closing panes in any order never loses unsaved work (test).
 

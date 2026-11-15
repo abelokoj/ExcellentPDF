@@ -90,3 +90,15 @@ for now only Windows is built.
   `ExcellentPDF-v27-03-09.3-v0.4.2-windows-x64`.
 - Git tags, release titles and installer file names use it. The `release` workflow (plan §17) builds it when it is
   written.
+
+## DD4. Pane keys: Alt+1 to Alt+4 and F6 (2026-11-15; proposed, waiting for the maintainer)
+
+**Proposal (agent, not yet approved):** V.5's "Ctrl+1…Ctrl+4 focus panes" clashes with R.12, where Ctrl+1 to Ctrl+9
+go to tabs as in SumatraPDF Enhanced and the browsers. Panes take **Alt+1 to Alt+4** instead, with **F6** and
+**Shift+F6** for the next and previous pane (the common Windows key for moving between a window's panes).
+
+**What it means:**
+
+- Built this way in the V group; the plan's V.5 entry carries a note pointing here.
+- Every key can be changed in `settings.toml` (K.16), so a reader who prefers Ctrl+1 to 4 for panes can swap them.
+- If the maintainer prefers the plan's keys, the tabs' Ctrl+1 to 4 move instead; one line each in the command table.
