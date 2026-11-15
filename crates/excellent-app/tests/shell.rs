@@ -74,6 +74,9 @@ fn open_theme_picker(app: &mut Headless) {
     app.press_key("enter").expect("Return chooses");
     app.wait_for("role:dialog[Theme]")
         .expect("the theme picker opens");
+    // The picker places its highlight and takes the keyboard a frame after it shows: keys before that race it (slow
+    // CI runners lose).
+    app.settle();
 }
 
 #[test]
@@ -133,6 +136,7 @@ fn the_settings_window_opens_from_its_key_and_hands_over_to_the_theme_picker() {
         .expect("the theme row's button");
     app.wait_for("role:dialog[Theme]")
         .expect("the theme picker opens in its place");
+    app.settle();
     assert!(
         !app.screen().shows("Light or dark"),
         "the settings window closed"
