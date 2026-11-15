@@ -488,35 +488,42 @@ int ex_display_list_images(fz_context *ctx, fz_display_list *list, fz_cookie *co
 	int *count, ex_error *err)
 {
 	ex_image_device *dev = NULL;
+	ex_page_image *items = NULL;
+	int n = 0;
 	int i;
 
 	fz_var(dev);
+	fz_var(items);
+	fz_var(n);
 	fz_try(ctx)
 	{
 		dev = fz_new_derived_device(ctx, ex_image_device);
 		dev->super.fill_image = ex_list_image;
-		/* Culled to the page, not to the infinite rect: what lands on the page is what's listed, and MuPDF's culling
-		 * of the infinite rect's edge values listed nothing on macOS. */
+		/* Culled to the page: what lands on the page is what's listed. */
 		fz_run_display_list(ctx, list, &dev->super, fz_identity, fz_bound_display_list(ctx, list), cookie);
 		fz_close_device(ctx, &dev->super);
 	}
 	fz_always(ctx)
 	{
-		/* The items outlive the device: the base device frees only itself. */
+		/* The items outlive the device, so take them before it is freed (macOS zeroes freed blocks: reading them
+		 * after the drop listed nothing there). */
+		if (dev)
+		{
+			items = dev->items;
+			n = dev->count;
+		}
 		fz_drop_device(ctx, &dev->super);
+		dev = NULL;
 	}
 	fz_catch(ctx)
 	{
-		if (dev)
-		{
-			for (i = 0; i < dev->count; i++)
-				fz_drop_image(ctx, dev->items[i].image);
-			fz_free(ctx, dev->items);
-		}
+		for (i = 0; i < n; i++)
+			fz_drop_image(ctx, items[i].image);
+		fz_free(ctx, items);
 		return ex_fail(ctx, err);
 	}
-	*out = dev->items;
-	*count = dev->count;
+	*out = items;
+	*count = n;
 	return 0;
 }
 
