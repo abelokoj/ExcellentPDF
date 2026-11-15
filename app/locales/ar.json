@@ -311,6 +311,8 @@
   "tabs.group.closed": "أُغلقت مؤخرًا (%{count})",
   "tabs.close_copies": "إبقاء واحدة من %{count} علامات تبويب لـ %{name}",
   "tabs.group.recent": "الملفات الأخيرة (%{count})",
+  "tabs.group.workspace": "في %{name} (%{count})",
+  "tabs.group.workspace_window": "في %{name}، نافذة أخرى (%{count})",
   "command.set_default_viewer": "التعيين كعارض PDF الافتراضي",
   "associations.description": "مستند ExcellentPDF",
   "recent.title": "الأخيرة",

@@ -6,6 +6,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 01:30; Ph3: 12/49 | W.9: Search tabs across workspaces
+
+- The tab list (Ctrl+Shift+A, the palette, the strip's list button) has a section for each other workspace with
+  tabs, in the workspaces' order: "In Tax (12)", or "In Tax, another window (12)" when another window shows it.
+  Typing finds a tab by its file's name, its folder or its workspace's name.
+- Return on one switches to its workspace and shows the tab, making its pane the active one; when another window
+  shows that workspace, that window comes to the front with the tab shown. A tab closed since it was saved opens
+  again.
+- The store reads every other workspace's open tabs in one query (`workspaces::tabs_elsewhere`).
+
 ### 2026-11-16 00:40; Ph3: 11/49 | W.8: One workspace per window
 
 - "Open workspace in new window" (Ctrl+Alt+Shift+N, the palette, the workspace list's actions) lists the other

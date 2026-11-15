@@ -320,6 +320,61 @@ impl Workspaces {
         self.panes.launch(launch);
     }
 
+    /// The open tabs of every workspace but the shown one (W.9), by workspace in the list's order, as last saved.
+    /// shortcut: another window's own workspace is read as saved, up to a second behind; read its panes when that
+    /// shows.
+    pub(crate) fn tabs_elsewhere(self) -> Vec<(Workspace, Vec<PathBuf>)> {
+        let shown = self.shown.get_untracked();
+        let tabs = store()
+            .and_then(|store| {
+                store
+                    .read(|conn| workspaces::tabs_elsewhere(conn, shown))
+                    .inspect_err(|err| log::warn!("workspaces: can't read their tabs: {err}"))
+                    .ok()
+            })
+            .unwrap_or_default();
+        self.list.with_untracked(|list| {
+            list.iter()
+                .filter_map(|workspace| {
+                    let paths: Vec<PathBuf> = tabs
+                        .iter()
+                        .filter(|(id, _)| *id == workspace.id)
+                        .map(|(_, path)| path.clone())
+                        .collect();
+                    (!paths.is_empty()).then(|| (workspace.clone(), paths))
+                })
+                .collect()
+        })
+    }
+
+    /// Shows workspace `id`'s tab of `path` (W.9): in the window that shows it, which comes to the front, or here
+    /// after a switch. The pane that has the tab becomes the active one.
+    pub(crate) fn show_tab(self, id: WorkspaceId, path: PathBuf) {
+        let there = match windows::holder(id, self.window) {
+            Some(no) => {
+                windows::focus(no);
+                windows::workspaces(no)
+            }
+            None => {
+                self.switch(id);
+                (self.shown.get_untracked() == id).then_some(self)
+            }
+        };
+        let Some(there) = there else {
+            return;
+        };
+        let panes = there.panes;
+        let slots = panes.slots();
+        match slots.iter().position(|pane| pane.tabs.has_file(&path)) {
+            Some(cell) => {
+                panes.focus(cell);
+                slots[cell].tabs.open_at(path, 0);
+            }
+            // Closed since it was saved: it opens again.
+            None => panes.active().tabs.open_at(path, 0),
+        }
+    }
+
     /// Opens files picked in the open dialog.
     pub(crate) fn open_paths(self, files: Vec<PathBuf>) {
         if !files.is_empty() {

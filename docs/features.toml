@@ -191,7 +191,7 @@ open = "single instance and file associations only (for R.11); dialogs, print, c
 label = "Ph1: 23/60"
 status = "in-progress"
 tests = ["closing_shows_the_tab_shown_before_and_reopening_puts_it_back", "close_others_and_to_the_right_spare_pinned_tabs", "tabs_move_within_their_group", "ctrl_tab_follows_recent_use_or_the_strip", "duplicates_are_found_and_closed", "a_closed_tab_is_reopened_by_its_path_and_the_list_is_bounded", "only_window_commands_are_offered_without_a_document"]
-open = "50 tabs tried by hand; mouse drag to reorder; tab context menu (airspace: popups fall behind the canvas); workspaces (W.1, W.4, W.9)"
+open = "50 tabs tried by hand; mouse drag to reorder; tab context menu (airspace: popups fall behind the canvas); the other workspaces' tabs listed with W.9"
 
 ["K.20"]
 label = "Ph1: 10/60"
@@ -330,6 +330,12 @@ label = "Ph3: 11/49"
 status = "in-progress"
 tests = ["a_workspace_shows_in_one_window_at_a_time", "the_other_windows_workspaces_are_remembered_until_they_go"]
 open = "not tried by hand; quitting with workspace windows open not checked to keep them for the next start"
+
+["W.9"]
+label = "Ph3: 12/49"
+status = "in-progress"
+tests = ["the_other_workspaces_tabs_are_listed_in_order", "other_workspaces_tabs_are_listed_by_workspace"]
+open = "not tried by hand; 5,000 tabs filtering within 16 ms not measured (NSH's command list does the filtering); another window's own workspace is listed as saved, up to a second behind"
 
 ["W.14"]
 label = "Ph1: 52/60"

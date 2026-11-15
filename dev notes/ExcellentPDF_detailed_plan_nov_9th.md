@@ -3089,6 +3089,9 @@ other windows' workspaces are kept in `meta` for the next start, which also comp
 
 **Done when:** 5,000 tabs filter as you type within 16 ms.
 
+*Built (2026-11-16):* Ctrl+Shift+A is R.12's tab list, with a section per other workspace; Enter in one goes through
+W.8's rule, so a workspace another window shows brings that window forward.
+
 #### Ph5: 11/45 | W.10: Workspaces and library collections
 **P1; Phase 5; Needs:** F.6; **Code:** as W.1
 1. "Open collection as workspace" and "Save workspace as collection".

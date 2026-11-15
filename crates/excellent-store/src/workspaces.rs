@@ -1,7 +1,7 @@
 //! The set of workspaces (plan §11.16; W.1 to W.8): their names, icons, colours and order, and the one each window
 //! shows. What a workspace holds (its panes and tabs) is [`crate::workspace`]'s.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
@@ -207,10 +207,31 @@ pub fn holding(conn: &Connection, path: &Path, except: WorkspaceId) -> Result<Op
         .map(WorkspaceId))
 }
 
+/// The open tabs of every workspace but `except` (W.9): each tab's workspace and file, in the list's order of
+/// workspaces, then each one's panes and strips.
+///
+/// # Errors
+///
+/// SQLite failed.
+pub fn tabs_elsewhere(
+    conn: &Connection,
+    except: WorkspaceId,
+) -> Result<Vec<(WorkspaceId, PathBuf)>> {
+    let mut query = conn.prepare(
+        "SELECT w.id, f.path FROM workspace w JOIN workspace_tab t ON t.workspace = w.id JOIN file f ON f.id = t.file
+         WHERE w.id <> ?1 ORDER BY w.position, w.id, t.pane, t.position",
+    )?;
+    let rows = query.query_map(params![except.0], |row| {
+        Ok((
+            WorkspaceId(row.get(0)?),
+            PathBuf::from(row.get::<_, String>(1)?),
+        ))
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use super::*;
     use crate::migrations;
     use crate::workspace::{self, Panes, SavedTab, Tabs};
@@ -338,5 +359,29 @@ mod tests {
         assert_eq!(find("c:/docs/A.pdf", WorkspaceId::DEFAULT), Some(other));
         assert_eq!(find("C:/Docs/a.pdf", other), None);
         assert_eq!(find("C:/Docs/b.pdf", WorkspaceId::DEFAULT), None);
+    }
+
+    #[test]
+    fn the_other_workspaces_tabs_are_listed_in_order() {
+        let mut conn = database();
+        let thesis = change(&mut conn, |tx| create(tx, &look("Thesis")));
+        let tax = change(&mut conn, |tx| create(tx, &look("Tax")));
+        change(&mut conn, |tx| {
+            workspace::save_panes(tx, tax, &one_tab("C:/Tax/2025.pdf"))?;
+            workspace::save_panes(tx, thesis, &one_tab("C:/Thesis/draft.pdf"))?;
+            workspace::save_panes(tx, WorkspaceId::DEFAULT, &one_tab("C:/Home/a.pdf"))
+        });
+        let listed = tabs_elsewhere(&conn, WorkspaceId::DEFAULT).expect("list");
+        assert_eq!(
+            listed,
+            [
+                (thesis, PathBuf::from("C:/Thesis/draft.pdf")),
+                (tax, PathBuf::from("C:/Tax/2025.pdf")),
+            ],
+            "the shown one left out, the others in the list's order"
+        );
+        let listed = tabs_elsewhere(&conn, thesis).expect("list");
+        assert_eq!(listed.len(), 2);
+        assert!(listed.iter().all(|(id, _)| *id != thesis));
     }
 }

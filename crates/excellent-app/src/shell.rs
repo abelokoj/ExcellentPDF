@@ -492,7 +492,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             palette(palette_open, panes.active().pages, run)
         }))
         .child(when(tab_list_open, move || {
-            tabs::tab_list(tab_list_open, panes.active().tabs, recent)
+            tabs::tab_list(tab_list_open, panes.active().tabs, recent, workspaces)
         }))
         .child(pane_dialogs)
         .child(workspaces::workspace_dialogs(workspaces, run))

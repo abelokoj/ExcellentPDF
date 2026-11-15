@@ -311,6 +311,8 @@
   "tabs.group.closed": "Recently closed (%{count})",
   "tabs.close_copies": "Keep one of %{count} tabs of %{name}",
   "tabs.group.recent": "Recent files (%{count})",
+  "tabs.group.workspace": "In %{name} (%{count})",
+  "tabs.group.workspace_window": "In %{name}, another window (%{count})",
   "command.set_default_viewer": "Set as default PDF viewer",
   "associations.description": "ExcellentPDF document",
   "recent.title": "Recent",

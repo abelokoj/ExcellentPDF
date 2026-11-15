@@ -1,12 +1,17 @@
 //! The tab list (R.12 steps 3 and 4; reference `dev notes/images/ui-reference-vivaldi-tab-list.png`): every tab in
 //! one searchable list, in counted sections: the open tabs, the files open in more than one tab (with "close the
-//! copies"), the tabs closed lately, and the recent files not open (R.10). Typing searches the names and the folders; Return shows, reopens or closes;
-//! Delete closes the highlighted open tab. A dialog, as the palette is: the page canvas is a window over the app's,
-//! so a dropdown under the title bar would be drawn behind it.
+//! copies"), the tabs closed lately, each other workspace's tabs (W.9), and the recent files not open (R.10). Typing
+//! searches the names, the folders and the workspaces' names; Return shows, reopens or closes; Delete closes the
+//! highlighted open tab. A dialog, as the palette is: the page canvas is a window over the app's, so a dropdown under
+//! the title bar would be drawn behind it.
 //!
 //! shortcut: the "inactive" section of the plan is every open tab but the shown one (only the shown tab has a
-//! document open), so it is not listed apart; workspaces (W.1) will add their badge and their own tabs.
+//! document open), so it is not listed apart.
 
+use std::path::{Path, PathBuf};
+
+use excellent_store::workspace::WorkspaceId;
+use excellent_store::workspaces::Workspace;
 use nsh_base::{CommandItem, command};
 use nsh_core::prelude::*;
 
@@ -14,27 +19,45 @@ use super::model::Tabs;
 use super::{TabId, TabState};
 use crate::list_dialog::{list_dialog, style};
 use crate::recent::RecentState;
+use crate::workspaces::{self, Workspaces};
 
 /// What a row does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Row {
     Show(TabId),
     CloseCopies(TabId),
-    Reopen(std::path::PathBuf),
+    Reopen(PathBuf),
     /// A recent file, at its page.
-    OpenRecent(std::path::PathBuf, usize),
+    OpenRecent(PathBuf, usize),
+    /// Another workspace's tab (W.9).
+    Elsewhere(WorkspaceId, PathBuf),
 }
+
+/// One of the list's rows: its item, keyed by its id, and what it does.
+type ListRow = (SharedString, CommandItem, Row);
 
 /// The tab list, while `open`.
 pub(crate) fn tab_list(
     open: Signal<bool>,
     state: TabState,
     recent: RecentState,
+    workspaces: Workspaces,
 ) -> impl IntoElement {
     let close = move || open.set(false);
     recent.load();
+    // Read once as the list opens: the other workspaces don't change while it is up.
+    let section = move |workspace: &Workspace, name: &str, count: usize| -> SharedString {
+        let key = if workspaces.in_other_window(workspace.id) {
+            "tabs.group.workspace_window"
+        } else {
+            "tabs.group.workspace"
+        };
+        t!(key, name = name, count = count).into()
+    };
+    let elsewhere = stored(elsewhere_rows(&workspaces.tabs_elsewhere(), section));
     let rows = move || {
         let mut rows = state.tabs.with(rows);
+        rows.extend(elsewhere.with(|rows| rows.clone()));
         rows.extend(state.tabs.with(|tabs| recent_rows(tabs, &recent.files())));
         rows
     };
@@ -82,6 +105,10 @@ pub(crate) fn tab_list(
                             close();
                             state.open_at(path, page);
                         }
+                        Row::Elsewhere(id, path) => {
+                            close();
+                            workspaces.show_tab(id, path);
+                        }
                     }
                 })
                 .on_cancel(close),
@@ -89,8 +116,8 @@ pub(crate) fn tab_list(
     )
 }
 
-/// The list's rows: its item, keyed by its id, and what it does.
-fn rows(tabs: &Tabs) -> Vec<(SharedString, CommandItem, Row)> {
+/// The list's rows of the shown workspace's tabs.
+fn rows(tabs: &Tabs) -> Vec<ListRow> {
     let shown = tabs.active().map(|tab| tab.id);
     let open_group: SharedString = t!("tabs.group.open", count = tabs.all().len()).into();
     let mut rows: Vec<_> = tabs
@@ -131,11 +158,40 @@ fn rows(tabs: &Tabs) -> Vec<(SharedString, CommandItem, Row)> {
     rows
 }
 
+/// A section per other workspace with tabs (W.9), headed by `section` (given the workspace, its name and its tab
+/// count). A row is found by its file's name, its folder or its workspace's name.
+fn elsewhere_rows(
+    elsewhere: &[(Workspace, Vec<PathBuf>)],
+    section: impl Fn(&Workspace, &str, usize) -> SharedString,
+) -> Vec<ListRow> {
+    let mut rows = Vec::new();
+    for (workspace, paths) in elsewhere {
+        let name = workspaces::display_name(workspace);
+        let group = section(workspace, &name, paths.len());
+        for path in paths {
+            let id: SharedString = format!("elsewhere:{}", rows.len()).into();
+            let mut item = CommandItem::new(id.clone(), file_name(path));
+            item.keywords = vec![
+                path.to_string_lossy().into_owned().into(),
+                name.clone().into(),
+            ];
+            item.group = Some(group.clone());
+            rows.push((id, item, Row::Elsewhere(workspace.id, path.clone())));
+        }
+    }
+    rows
+}
+
+/// A file's name, or its whole path when it has none.
+fn file_name(path: &Path) -> String {
+    path.file_name().map_or_else(
+        || path.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    )
+}
+
 /// The recent files no tab has open (R.10), pinned first.
-fn recent_rows(
-    tabs: &Tabs,
-    files: &[excellent_store::recent::RecentFile],
-) -> Vec<(SharedString, CommandItem, Row)> {
+fn recent_rows(tabs: &Tabs, files: &[excellent_store::recent::RecentFile]) -> Vec<ListRow> {
     let files: Vec<_> = files
         .iter()
         .filter(|file| tabs.find(&file.path).is_none())
@@ -146,14 +202,58 @@ fn recent_rows(
         .enumerate()
         .map(|(index, file)| {
             let id: SharedString = format!("recent:{index}").into();
-            let name = file.path.file_name().map_or_else(
-                || file.path.display().to_string(),
-                |name| name.to_string_lossy().into_owned(),
-            );
-            let mut item = CommandItem::new(id.clone(), name);
+            let mut item = CommandItem::new(id.clone(), file_name(&file.path));
             item.keywords = vec![file.path.to_string_lossy().into_owned().into()];
             item.group = Some(group.clone());
             (id, item, Row::OpenRecent(file.path.clone(), file.page))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn workspace(id: WorkspaceId, name: &str) -> Workspace {
+        Workspace {
+            id,
+            name: name.to_owned(),
+            icon: None,
+            color: None,
+            tabs: 0,
+        }
+    }
+
+    #[test]
+    fn other_workspaces_tabs_are_listed_by_workspace() {
+        let tax = WorkspaceId::DEFAULT;
+        let elsewhere = vec![(
+            workspace(tax, "Tax"),
+            vec![
+                PathBuf::from("C:/Tax/2025.pdf"),
+                PathBuf::from("C:/Tax/2024.pdf"),
+            ],
+        )];
+        let section = |_: &Workspace, name: &str, count: usize| {
+            SharedString::from(format!("{name} ({count})"))
+        };
+        let rows = elsewhere_rows(&elsewhere, section);
+        assert_eq!(rows.len(), 2);
+        let (_, item, row) = &rows[0];
+        assert_eq!(item.label.as_ref(), "2025.pdf");
+        assert!(
+            item.keywords
+                .iter()
+                .any(|keyword| keyword.as_ref() == "Tax"),
+            "found by its workspace's name"
+        );
+        assert_eq!(*row, Row::Elsewhere(tax, PathBuf::from("C:/Tax/2025.pdf")));
+        assert_ne!(rows[0].0, rows[1].0, "each row its own id");
+        assert_eq!(
+            rows[0].1.group.as_deref(),
+            Some("Tax (2)"),
+            "one counted section per workspace"
+        );
+        assert_eq!(rows[0].1.group, rows[1].1.group);
+    }
 }
