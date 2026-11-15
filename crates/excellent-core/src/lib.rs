@@ -4,10 +4,13 @@
 
 pub mod darkmode;
 pub mod document;
+pub mod edit;
 pub mod formats;
+mod oplog;
 pub mod outline;
 pub mod registry;
 pub mod render;
+mod save;
 pub mod shared;
 pub mod thumbnail;
 pub mod transform;

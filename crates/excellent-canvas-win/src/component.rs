@@ -100,7 +100,8 @@ impl NativeComponent for PageCanvas {
 
     /// `zoomIn`, `zoomOut`, `actualSize`, `screenDown`, `screenUp`, `stepLeft`, `stepRight` (R.3), `historyBack`, `historyForward`, `firstPage`,
     /// `lastPage`, `goToPage` (`{"index": n}`, from 0), `setView` (a `view` event's data; with only a `page`: that
-    /// page), `copy`, `selectAll` (the reader's page), and the view
+    /// page), `copy`, `selectAll` (the reader's page), `outlineTarget` (B.1, B.4: answered by the event of that name),
+    /// and the view
     /// commands [`ViewCommand::parse`] knows (layouts, rotation, page box, fit modes). The reading aids (R.19-R.21):
     /// `toggleRuler`, `toggleFocus`, `lineDown`, `lineUp`, `toggleAutoScroll`, `autoScrollPause` (without
     /// auto-scroll: a screen down), `autoScrollFaster`, `autoScrollSlower`, `leaveModes`.
@@ -108,8 +109,9 @@ impl NativeComponent for PageCanvas {
     /// Events: `pages` (`{count, labels}`, labels `null` when the pages go by number) when a document opens or
     /// closes, `page` (`{index}`) when the reader's page changes, `copy` (`{text}`) with the selected text,
     /// `autoScrollSpeed` (`{speed}`) when the reader changes it, `edge` (`{at}`) when the mouse reaches or
-    /// leaves the canvas's top edge, `press` when the reader presses on the pages, and `view` (the place, zoom,
-    /// layout and rotation; see [`crate::saved`]) when the view settles somewhere new.
+    /// leaves the canvas's top edge, `press` when the reader presses on the pages, `view` (the place, zoom,
+    /// layout and rotation; see [`crate::saved`]) when the view settles somewhere new, and `outlineTarget`
+    /// (`{page, x, y, zoom, title}`, see [`Canvas::outline_target`]) when the app asked for it.
     fn command(&mut self, name: &str, args: &JsonValue) {
         let mut canvas = self.canvas.borrow_mut();
         match name {
@@ -126,6 +128,7 @@ impl NativeComponent for PageCanvas {
             "lastPage" => canvas.last_page(),
             "copy" => canvas.copy(),
             "selectAll" => canvas.select_page(),
+            "outlineTarget" => canvas.outline_target(),
             "toggleRuler" => canvas.toggle_ruler(),
             "toggleFocus" => canvas.toggle_focus(),
             "lineDown" => canvas.line_step(Step::Next),

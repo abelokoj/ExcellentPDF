@@ -2065,6 +2065,14 @@ scrolling, select all of the document, step 5's corpus scores. Tests: `excellent
 **Done when:** model-based tests pass for 10,000 random sequences; undo after reopening works where MuPDF's
 `pdf_save_journal` / `pdf_load_journal` allow it.
 
+**Built (2026-11-14), the operation log, for outline edits:** steps 2 to 4 (`excellent-core::{edit, oplog}`,
+`excellent-mupdf::edit`). An `Operation` holds any number of changes and is one undo step; it runs inside
+`pdf_begin_operation` / `pdf_end_operation`, and a failed one is taken back. The log is one JSON line per operation,
+undo, redo and save, synced before the edit counts, and starts with the file's fingerprint; it lives in the app
+folder's `oplog/`. Deviation from step 2: no `author` in records yet (one local user; it comes with sync, Y.1).
+Undo is Ctrl+Z and redo Ctrl+Shift+Z (Ctrl+Y is Enhanced's zoom). Open: the annotation model (step 1) and its
+10,000-sequence model tests, undo after reopening. Doc: `docs/features/K.14-operation-log.md`.
+
 #### Ph1: 5/60 | K.15: Saving, autosave, recovery and external changes
 **P0; Phase 1 (read-only) and Phase 3 (edits); Needs:** K.14; **Code:** `excellent-core::save`
 1. Incremental save with `pdf_save_document` and `do_incremental = 1` when `pdf_can_be_saved_incrementally` allows
@@ -2080,6 +2088,15 @@ scrolling, select all of the document, step 5's corpus scores. Tests: `excellent
 **Done when:** killing the process at every write point (fault injection) never loses a committed operation; saved
 files pass `qpdf --check`.
 **Links:** qpdf <https://qpdf.readthedocs.io/>
+
+**Built (2026-11-14), steps 1 to 4:** incremental save when MuPDF allows it, else the whole file, after which the
+document is reopened from it and its undo history starts again. The file is written hidden beside the original, read
+back, synced and renamed over it; documents are opened with shared delete so the rename works while they are open.
+Autosave 2 s after the last edit, on tab switch, and synchronously at quit; Ctrl+S saves now. Recovery: saves are
+incremental, so the file as the log began is the start of the saved file, and replaying the whole log over those
+bytes (the base prefix) rebuilds the unsaved state; the reader is asked once per run to restore or discard it. Open:
+step 5 (outside changes, "keep both"), step 6 (sign-out and shutdown), fault injection, `qpdf --check`. Doc:
+`docs/features/K.15-saving-and-recovery.md`.
 
 #### Ph1: 6/60 | K.16: Settings, command table and shortcuts
 **P0; Phase 1; Needs:** K.5; **Code:** `excellent-app::{settings, commands}`
@@ -2750,9 +2767,16 @@ the render workers when the tab first shows (`excellent-core::outline::load`). I
 the iterator paths of step 1 (`excellent-features::outline`). A press or the arrows go to the entry's page (through go
 to page, so Back returns); the reader's entry (the nearest page at or before theirs, the last in document order; a
 chosen entry stays while it opens that page) is selected and kept in view; entries start expanded as the file says.
-Open: steps 2–4 (adding entries) need K.13, K.14 and K.15; hover preview; the 10,000-entry smoothness check. Tests:
-`ids_are_paths_and_find_their_entries`, `the_reader_is_in_the_nearest_entry_before_the_page`,
+Tests: `ids_are_paths_and_find_their_entries`, `the_reader_is_in_the_nearest_entry_before_the_page`,
 `a_chosen_entry_stays_while_it_opens_the_page`, `an_outline_is_read_on_the_workers`.
+
+**Built (2026-11-14), steps 2 to 4:** **Add outline entry here** (Ctrl+B, Enhanced's CmdAddBookmark) inserts after
+the selected entry. The canvas answers `outlineTarget` with the top of the selection, or the top-left of the view,
+and the zoom only when it is a custom one; the title is the selected text, else "Page n" selected in place to type
+over. A document without an outline offers "Add an entry for this page". Every edit reads the outline from the
+document on the UI thread first, so paths are never stale (a shortcut for very large outlines). Open: checking an
+added entry in Acrobat and pdf.js, hover preview, the 10,000-entry check. Tests: `paths_titles_and_where_a_new_entry_goes`,
+`the_first_entry_makes_an_outline`.
 
 #### Ph1: 32/60 | B.2: Rename and delete
 **P0; Phase 1; Needs:** B.1; **Code:** as B.1
@@ -2761,6 +2785,11 @@ Open: steps 2–4 (adding entries) need K.13, K.14 and K.15; hover preview; the 
 
 **Done when:** undo restores the exact previous outline.
 
+**Built (2026-11-14):** F2 edits the title in place (Return or leaving keeps it, Escape drops it); Delete takes the
+entry with its children, the last first so paths stay right. Both in the row's context menu and the palette. Open:
+promoting the children first. Tests: `deletes_go_from_the_last_and_skip_entries_already_going`,
+`outline_edits_are_undone_and_redone_one_operation_at_a_time`.
+
 #### Ph1: 33/60 | B.3: Move entries
 **P0; Phase 1; Needs:** B.1; **Code:** as B.1
 1. Move = read the subtree, delete, walk to the target, insert again (§11.14, step 2), as one journal operation.
@@ -2768,11 +2797,20 @@ Open: steps 2–4 (adding entries) need K.13, K.14 and K.15; hover preview; the 
 
 **Done when:** moving a subtree of 500 entries deep in a 10,000-entry outline keeps every child.
 
+**Built (2026-11-14), the keys:** Alt+↑ / Alt+↓, Tab / Shift+Tab while the outline has the keyboard (so Tab no
+longer leaves the tree; Escape gives the keyboard to the pages), also in the context menu and palette. `plan_shift`
+plans the move on a copy of the tree. Not possible yet: drag and drop, since NSH v0.5.0's `Tree` has none and NSH
+has no element drag. Open: the 500-entry check. Tests: `entries_move_one_place_as_a_group`,
+`entries_go_in_and_out_with_the_entries_under_them`.
+
 #### Ph1: 34/60 | B.4: Set destination to the current view
 **P0; Phase 1; Needs:** B.1; **Code:** as B.1
 1. Rewrite the entry's URI from the current View; show page and zoom in the inspector.
 
 **Done when:** the repointed entry opens at the new place after save and reopen.
+
+**Built (2026-11-14):** **Point outline entry here** (context menu, palette) takes the place as B.1 does. Open: the
+inspector's page and zoom. Test: `a_repointed_entry_opens_its_new_place_after_reopening`.
 
 #### Ph1: 35/60 | B.5: Multi-select, undo and open state
 **P0; Phase 1; Needs:** B.2, B.3; **Code:** as B.1
@@ -2780,6 +2818,11 @@ Open: steps 2–4 (adding entries) need K.13, K.14 and K.15; hover preview; the 
 2. Save open and closed state (`is_open`) on change.
 
 **Done when:** a multi-entry move undoes in one step.
+
+**Built (2026-11-14):** Ctrl+press marks, Shift+press marks a run; delete and moves act on the marked entries as one
+operation. Open state is written only inside an edit, for entries whose shown state differs from the file's, so
+expanding alone never makes the file unsaved (a change to step 2). Open: restyle; an end-to-end check of the one-step
+undo. Tests: `entries_move_one_place_as_a_group`, `only_open_state_the_reader_changed_is_written`.
 
 #### Ph1: 36/60 | B.6: Personal bookmarks
 **P0; Phase 1; Needs:** K.20, K.28; **Code:** `excellent-features/bookmarks`

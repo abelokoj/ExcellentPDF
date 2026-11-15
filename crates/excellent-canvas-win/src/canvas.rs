@@ -672,6 +672,53 @@ impl Canvas {
         self.invalidate();
     }
 
+    /// Tells the app where an outline entry made now would open (B.1, B.4), as `outlineTarget`:
+    /// `{page, x, y, zoom, title}`, the place in page points. With selected text it is the top of the selection's
+    /// first line and `title` is the text; otherwise the top left of what shows of the first page in view, and
+    /// `title` is `null`. `zoom` is the reader's (1 is 100 %), `null` while a fit mode sets it.
+    pub(crate) fn outline_target(&self) {
+        let selected = self
+            .selection
+            .filter(|selection| !selection.is_collapsed())
+            .and_then(|selection| {
+                let (page, top) = selection.pages().find_map(|page| {
+                    let text = self.texts.get(page)?;
+                    let range = selection.range_on(page, text)?;
+                    Some((page, text.highlight(range).first()?.ul))
+                })?;
+                Some((page, top, Some(selection.text(|page| self.texts.get(page)))))
+            });
+        let Some((page, point, title)) = selected.or_else(|| {
+            let (page, point) = self.view_top_left()?;
+            Some((page, point, None))
+        }) else {
+            return;
+        };
+        let zoom =
+            matches!(self.viewport.zoom_mode(), ZoomMode::Custom).then(|| self.viewport.zoom());
+        self.emit(
+            "outlineTarget",
+            serde_json::json!({ "page": page, "x": point.x, "y": point.y, "zoom": zoom, "title": title }),
+        );
+    }
+
+    /// The first page in view and the top left of what shows of it, in page points.
+    fn view_top_left(&self) -> Option<(usize, PagePoint)> {
+        let page = self.viewport.anchor(&self.layout)?.page;
+        let (x, y) = self.viewport.to_layout_point(0.0, 0.0);
+        let placement = Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page)?;
+        let point = placement.to_page(x, y);
+        // The view's corner can be in the gap beside or above the page: the nearest point on it.
+        let bounds = self.bounds.get(page)?;
+        Some((
+            page,
+            PagePoint {
+                x: point.x.max(bounds.x0).min(bounds.x1),
+                y: point.y.max(bounds.y0).min(bounds.y1),
+            },
+        ))
+    }
+
     /// Jumps to the first page.
     pub(crate) fn first_page(&mut self) {
         self.go_to_page(0);

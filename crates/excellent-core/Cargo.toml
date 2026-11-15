@@ -10,6 +10,8 @@ description = "Document model, layout, coordinate transforms, selection, render 
 [dependencies]
 excellent-canvas.workspace = true
 excellent-mupdf.workspace = true
+log.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

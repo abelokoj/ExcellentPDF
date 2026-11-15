@@ -812,7 +812,9 @@ version = "0.1.0"
 dependencies = [
  "excellent-canvas",
  "excellent-mupdf",
+ "log",
  "proptest",
+ "serde_json",
 ]
 
 [[package]]

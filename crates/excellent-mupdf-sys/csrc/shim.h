@@ -229,6 +229,62 @@ int ex_write_page(fz_context *ctx, fz_document_writer *wri, fz_page *page, ex_er
 int ex_close_document_writer(fz_context *ctx, fz_document_writer *wri, ex_error *err);
 void ex_drop_document_writer(fz_context *ctx, fz_document_writer *wri);
 
+/* Opens the PDF at `path` (UTF-8) for reading and editing. On Windows the file is opened so that it may be renamed or
+ * replaced while it is open (FILE_SHARE_DELETE): a save writes a new file beside it and moves it over this one
+ * (K.15), and the open document goes on reading the bytes it opened. */
+int ex_open_pdf(fz_context *ctx, const char *path, fz_document **out, ex_error *err);
+/* 1 when the document is a PDF, which alone can be edited and saved. */
+int ex_is_pdf(fz_context *ctx, fz_document *doc);
+
+/* Edits (K.14). Every change to a PDF runs inside an operation, which is one step of undo; ex_begin_operation turns
+ * the journal on the first time. End an operation that worked; abandon one that failed, which takes back what it
+ * changed. Fails with FZ_ERROR_ARGUMENT when the document is not a PDF. */
+int ex_begin_operation(fz_context *ctx, fz_document *doc, const char *name, ex_error *err);
+int ex_end_operation(fz_context *ctx, fz_document *doc, ex_error *err);
+void ex_abandon_operation(fz_context *ctx, fz_document *doc);
+/* Where the document is in its undo history: `*position` of `*steps` operations are applied (0 when nothing was ever
+ * edited). */
+int ex_undo_state(fz_context *ctx, fz_document *doc, int *position, int *steps, ex_error *err);
+int ex_undo(fz_context *ctx, fz_document *doc, ex_error *err);
+int ex_redo(fz_context *ctx, fz_document *doc, ex_error *err);
+
+/* An outline entry as it is written. `title` and `uri` are UTF-8; NULL in an update keeps the entry's own. `flags`
+ * is FZ_OUTLINE_FLAG_* and `r g b` its colour (0 to 1); an update keeps the entry's own flags and colour. */
+typedef struct ex_outline_edit {
+	const char *title;
+	const char *uri;
+	int is_open;
+	int flags;
+	float r;
+	float g;
+	float b;
+} ex_outline_edit;
+
+/* Outline edits (B.1-B.5), inside an operation. An entry is named by its path: its index on each level from the top,
+ * `depth` long. ex_outline_insert puts a new entry before the one at `path`, which may also be one past the last entry
+ * of its level; the first insert into a document without an outline makes one. Deleting an entry deletes the entries
+ * under it. ex_outline_move takes the entry at `from` with everything under it, and puts it at `to` as the path is
+ * after the entry left (flags and colours go with it). */
+int ex_outline_insert(fz_context *ctx, fz_document *doc, const int *path, int depth, const ex_outline_edit *item,
+	ex_error *err);
+int ex_outline_update(fz_context *ctx, fz_document *doc, const int *path, int depth, const ex_outline_edit *item,
+	ex_error *err);
+int ex_outline_delete(fz_context *ctx, fz_document *doc, const int *path, int depth, ex_error *err);
+int ex_outline_move(fz_context *ctx, fz_document *doc, const int *from, int from_depth, const int *to, int to_depth,
+	ex_error *err);
+
+/* The link to point (x, y) of page `page` (zero-based), in the page's coordinates, at `zoom` (1 = 100 %; 0 keeps the
+ * reader's), as MuPDF names it: "#page=4&zoom=150,72,92" (a PDF outline stores it as an XYZ destination). Copied into
+ * `buf`, NUL-terminated, cut at `size`. */
+int ex_link_uri(fz_context *ctx, fz_document *doc, int page, float x, float y, float zoom, char *buf, int size,
+	ex_error *err);
+
+/* Saves (K.15). Writes the PDF with its edits to `path`, which must not be the file it was opened from: the opened
+ * file's bytes, then the edits as one incremental update when the file allows that, else the whole document
+ * rewritten. The document keeps its edits and its undo history, so later saves write every edit since it was opened
+ * again. `*incremental` is 1 when the opened bytes start the new file unchanged, else 0. */
+int ex_save_pdf(fz_context *ctx, fz_document *doc, const char *path, int *incremental, ex_error *err);
+
 /* Buffers: `*data` points into the buffer and is valid until it is dropped. */
 void ex_buffer_data(fz_context *ctx, fz_buffer *buf, const unsigned char **data, size_t *len);
 void ex_drop_buffer(fz_context *ctx, fz_buffer *buf);

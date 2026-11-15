@@ -2,21 +2,43 @@
 //! view holds it.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
 
 use crate::document::{self, Document, FileId};
 
 /// The open documents, by file identity.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Registry {
     open: Mutex<HashMap<FileId, Weak<Document>>>,
+    /// Where the documents' operation logs are kept (K.14).
+    log_dir: PathBuf,
+}
+
+/// Where operation logs are kept when the app names no folder: the system's temporary folder (the tests, the
+/// command line).
+pub(crate) fn default_log_dir() -> PathBuf {
+    std::env::temp_dir().join("excellentpdf-oplog")
+}
+
+impl Default for Registry {
+    fn default() -> Self {
+        Self::with_log_dir(default_log_dir())
+    }
 }
 
 impl Registry {
-    /// An empty registry.
+    /// An empty registry, keeping operation logs in the system's temporary folder.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// An empty registry, keeping operation logs in `log_dir` (made when the first edit is logged).
+    pub fn with_log_dir(log_dir: PathBuf) -> Self {
+        Self {
+            open: Mutex::new(HashMap::new()),
+            log_dir,
+        }
     }
 
     /// The document for the file at `path`: the one already open, or the file parsed now.
@@ -30,9 +52,18 @@ impl Registry {
         if let Some(document) = open.get(&id).and_then(Weak::upgrade) {
             return Ok(document);
         }
+        // A document saved since it opened is a new version of its file, which its key doesn't show.
+        let saved = open
+            .values()
+            .filter_map(Weak::upgrade)
+            .find(|document| document.id() == id);
+        if let Some(document) = saved {
+            open.insert(id, Arc::downgrade(&document));
+            return Ok(document);
+        }
         // shortcut: parses while holding the lock, so a second file waits for the first; give each file its own slot
         // if opening several large files at once shows the wait.
-        let document = Arc::new(Document::open_as(id.clone(), path)?);
+        let document = Arc::new(Document::open_as(id.clone(), path, &self.log_dir)?);
         open.retain(|_, held| held.strong_count() > 0);
         open.insert(id, Arc::downgrade(&document));
         Ok(document)

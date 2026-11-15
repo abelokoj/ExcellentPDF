@@ -4,6 +4,7 @@
 //! [`root`], which adds the app's translations.
 
 mod commands;
+mod editing;
 mod full_screen;
 mod goto;
 mod keymap;
@@ -61,6 +62,20 @@ pub fn load_settings() {
 /// don't, so they neither restore nor save a session.
 pub fn open_library() {
     library::open();
+}
+
+/// Keeps the operation logs of the documents edited (K.14) in the app's folder, so a crash's edits are offered back
+/// at the next start. The desktop binary calls it before [`root`]; tests don't, so their logs stay in the temporary
+/// folder.
+pub fn keep_edit_logs() {
+    match settings::folder() {
+        Some(folder) => {
+            if !excellent_core::shared::keep_logs_in(folder.join("oplog")) {
+                log::warn!("edit logs: a document opened first; they stay in the temporary folder");
+            }
+        }
+        None => log::warn!("edit logs: no app folder; they stay in the temporary folder"),
+    }
 }
 
 /// The page canvas's component name (plan D5); every platform registers its own under it.

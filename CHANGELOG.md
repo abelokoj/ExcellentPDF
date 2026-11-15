@@ -6,6 +6,27 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-14 21:56; Ph1: 4/60, 5/60, 31/60 to 35/60 | K.14, K.15, B.1 to B.5: Editing the outline, with undo and autosave
+
+#### Added
+
+- The outline can be edited: **Add outline entry here** (Ctrl+B) at the selection or the top of the view, titled with
+  the selected text; rename in place (F2); delete; move up and down (Alt+Up, Alt+Down), indent and outdent (Tab,
+  Shift+Tab); point an entry at the place being read. All are in each row's context menu and the palette's Outline
+  group. A document without an outline offers to add its first entry (B.1 to B.4).
+- Ctrl+press and Shift+press mark several entries; delete and moves act on all of them as one step. Expanded and
+  collapsed entries are written to the file with the next edit (B.5).
+- Every edit is one step of undo: Undo (Ctrl+Z) and Redo (Ctrl+Shift+Z). Each is written to an operation log on disk
+  before it counts (K.14).
+- Edited files save on their own 2 s after the last edit, when another tab is shown, and as the app quits; Ctrl+S
+  saves now. A save writes beside the file, reads it back, then replaces it, so a failure leaves the file as it was.
+  After a crash, the file offers its unsaved changes back: Restore or Discard (K.15).
+
+#### Changed
+
+- Escape in the outline gives the keyboard back to the pages, since Tab there now indents.
+- Drag and drop of outline entries (B.3) waits for NSH: v0.5.0's tree has none.
+
 ### 2026-11-14 19:09; Ph1: 20/60 | R.9: Each tab keeps its view
 
 #### Added

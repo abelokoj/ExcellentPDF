@@ -6,7 +6,7 @@ use std::path::Path;
 
 use excellent_mupdf_sys::{
     ex_count_pages, ex_drop_document, ex_has_page_labels, ex_is_reflowable, ex_load_page,
-    ex_open_document, ex_open_document_from_bytes, ex_page_box, ex_page_label,
+    ex_open_document, ex_open_document_from_bytes, ex_open_pdf, ex_page_box, ex_page_label,
     ex_reads_right_to_left, ex_reflow, fz_document, fz_rect,
 };
 
@@ -49,12 +49,7 @@ impl Document {
     /// The path isn't valid UTF-8 or contains a NUL, or MuPDF can't open the file (missing, unreadable, damaged, or
     /// a format it doesn't read).
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let path = path
-            .as_ref()
-            .to_str()
-            .ok_or_else(|| MuError::argument("the path is not valid UTF-8"))?;
-        let path = CString::new(path)
-            .map_err(|_| MuError::argument("the path contains a NUL character"))?;
+        let path = c_path(path.as_ref())?;
         let mut raw = ptr::null_mut();
         with_context(|ctx| {
             // SAFETY: `ctx` is this thread's context; `path` is NUL-terminated UTF-8, as the shim expects.
@@ -63,6 +58,29 @@ impl Document {
         Ok(Self {
             raw: NonNull::new(raw).expect("ex_open_document succeeded with a document"),
         })
+    }
+
+    /// Opens the PDF at `path` to read and edit (K.15). The file may be replaced while it is open, as a save does,
+    /// and the document goes on reading the bytes it opened.
+    ///
+    /// # Errors
+    ///
+    /// The path isn't valid UTF-8 or contains a NUL, or MuPDF can't open the file as a PDF.
+    pub fn open_pdf(path: impl AsRef<Path>) -> Result<Self> {
+        let path = c_path(path.as_ref())?;
+        let mut raw = ptr::null_mut();
+        with_context(|ctx| {
+            // SAFETY: `ctx` is this thread's context; `path` is NUL-terminated UTF-8, as the shim expects.
+            check(|err| unsafe { ex_open_pdf(ctx, path.as_ptr(), &mut raw, err) })
+        })?;
+        Ok(Self {
+            raw: NonNull::new(raw).expect("ex_open_pdf succeeded with a document"),
+        })
+    }
+
+    /// The MuPDF document, for this crate's other modules.
+    pub(crate) fn raw(&self) -> NonNull<fz_document> {
+        self.raw
     }
 
     /// Opens a document held in memory; the bytes are copied. `magic` names the format: a file name such as
@@ -274,6 +292,14 @@ impl Document {
     pub fn outline(&self) -> Result<Vec<OutlineItem>> {
         outline::load(self.raw)
     }
+}
+
+/// `path` as the shim takes it: NUL-terminated UTF-8.
+pub(crate) fn c_path(path: &Path) -> Result<CString> {
+    let path = path
+        .to_str()
+        .ok_or_else(|| MuError::argument("the path is not valid UTF-8"))?;
+    CString::new(path).map_err(|_| MuError::argument("the path contains a NUL character"))
 }
 
 impl Drop for Document {

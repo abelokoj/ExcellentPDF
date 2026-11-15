@@ -860,3 +860,476 @@ void ex_drop_document_writer(fz_context *ctx, fz_document_writer *wri)
 {
 	fz_drop_document_writer(ctx, wri);
 }
+
+/* ---- PDFs opened for editing (K.15) ---- */
+
+#ifdef _WIN32
+#include <windows.h>
+
+typedef struct
+{
+	HANDLE file;
+	unsigned char buffer[64 * 1024];
+} ex_shared_file;
+
+static int ex_shared_next(fz_context *ctx, fz_stream *stm, size_t n)
+{
+	ex_shared_file *state = stm->state;
+	DWORD got = 0;
+	(void)n; /* a hint only */
+	if (!ReadFile(state->file, state->buffer, (DWORD)sizeof state->buffer, &got, NULL))
+		fz_throw(ctx, FZ_ERROR_SYSTEM, "read error: %lu", (unsigned long)GetLastError());
+	stm->rp = state->buffer;
+	stm->wp = state->buffer + got;
+	stm->pos += (int64_t)got;
+	if (got == 0)
+		return EOF;
+	return *stm->rp++;
+}
+
+static void ex_shared_seek(fz_context *ctx, fz_stream *stm, int64_t offset, int whence)
+{
+	ex_shared_file *state = stm->state;
+	LARGE_INTEGER to, at;
+	DWORD method = whence == SEEK_END ? FILE_END : whence == SEEK_CUR ? FILE_CURRENT : FILE_BEGIN;
+	/* The buffered bytes not read yet are ahead of the stream's position. */
+	if (whence == SEEK_CUR)
+		offset -= (int64_t)(stm->wp - stm->rp);
+	to.QuadPart = offset;
+	if (!SetFilePointerEx(state->file, to, &at, method))
+		fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot seek: %lu", (unsigned long)GetLastError());
+	stm->pos = at.QuadPart;
+	stm->rp = state->buffer;
+	stm->wp = state->buffer;
+}
+
+static void ex_shared_drop(fz_context *ctx, void *state_)
+{
+	ex_shared_file *state = state_;
+	CloseHandle(state->file);
+	fz_free(ctx, state);
+}
+
+/* A read stream on `path` that lets others rename, replace or delete the file while it is open. */
+static fz_stream *ex_open_shared_file(fz_context *ctx, const char *path)
+{
+	ex_shared_file *state;
+	fz_stream *stm;
+	wchar_t *wide;
+	HANDLE file;
+	int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, NULL, 0);
+	if (len <= 0)
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "the path is not valid UTF-8");
+	wide = fz_malloc(ctx, (size_t)len * sizeof *wide);
+	MultiByteToWideChar(CP_UTF8, 0, path, -1, wide, len);
+	file = CreateFileW(wide, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	fz_free(ctx, wide);
+	if (file == INVALID_HANDLE_VALUE)
+		fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot open file %s: error %lu", path, (unsigned long)GetLastError());
+	fz_try(ctx)
+		state = fz_malloc_struct(ctx, ex_shared_file);
+	fz_catch(ctx)
+	{
+		CloseHandle(file);
+		fz_rethrow(ctx);
+	}
+	state->file = file;
+	/* fz_new_stream drops the state if it fails. */
+	stm = fz_new_stream(ctx, state, ex_shared_next, ex_shared_drop);
+	stm->seek = ex_shared_seek;
+	return stm;
+}
+#endif
+
+int ex_open_pdf(fz_context *ctx, const char *path, fz_document **out, ex_error *err)
+{
+	fz_document *doc = NULL;
+	fz_stream *stm = NULL;
+	fz_var(stm);
+	fz_try(ctx)
+	{
+#ifdef _WIN32
+		stm = ex_open_shared_file(ctx, path);
+#else
+		/* Elsewhere a file may be replaced while it is open. */
+		stm = fz_open_file(ctx, path);
+#endif
+		doc = fz_open_document_with_stream(ctx, "application/pdf", stm);
+	}
+	fz_always(ctx)
+		fz_drop_stream(ctx, stm);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	*out = doc;
+	return 0;
+}
+
+int ex_is_pdf(fz_context *ctx, fz_document *doc)
+{
+	return pdf_specifics(ctx, doc) != NULL;
+}
+
+/* ---- Edits and undo (K.14) ---- */
+
+static pdf_document *ex_pdf(fz_context *ctx, fz_document *doc)
+{
+	pdf_document *pdf = pdf_specifics(ctx, doc);
+	if (!pdf)
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "only a PDF can be edited");
+	return pdf;
+}
+
+int ex_begin_operation(fz_context *ctx, fz_document *doc, const char *name, ex_error *err)
+{
+	fz_try(ctx)
+	{
+		pdf_document *pdf = ex_pdf(ctx, doc);
+		pdf_enable_journal(ctx, pdf);
+		pdf_begin_operation(ctx, pdf, name);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_end_operation(fz_context *ctx, fz_document *doc, ex_error *err)
+{
+	fz_try(ctx)
+		pdf_end_operation(ctx, ex_pdf(ctx, doc));
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+void ex_abandon_operation(fz_context *ctx, fz_document *doc)
+{
+	pdf_document *pdf = pdf_specifics(ctx, doc);
+	if (!pdf)
+		return;
+	fz_try(ctx)
+		pdf_abandon_operation(ctx, pdf);
+	fz_catch(ctx)
+		fz_report_error(ctx);
+}
+
+int ex_undo_state(fz_context *ctx, fz_document *doc, int *position, int *steps, ex_error *err)
+{
+	*position = 0;
+	*steps = 0;
+	fz_try(ctx)
+	{
+		pdf_document *pdf = pdf_specifics(ctx, doc);
+		if (pdf)
+			*position = pdf_undoredo_state(ctx, pdf, steps);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_undo(fz_context *ctx, fz_document *doc, ex_error *err)
+{
+	fz_try(ctx)
+		pdf_undo(ctx, ex_pdf(ctx, doc));
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_redo(fz_context *ctx, fz_document *doc, ex_error *err)
+{
+	fz_try(ctx)
+		pdf_redo(ctx, ex_pdf(ctx, doc));
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+/* ---- Outline edits (B.1-B.5) ---- */
+
+/* Walks a new iterator to `path`; throws when the path is not in the outline. Returns the iterator, which the caller
+ * drops, and sets `*at` to FZ_OUTLINE_ITERATOR_AT_ITEM or _AT_EMPTY (one past the end of a level). */
+static fz_outline_iterator *ex_outline_walk(fz_context *ctx, fz_document *doc, const int *path, int depth, int *at)
+{
+	fz_outline_iterator *iter = fz_new_outline_iterator(ctx, doc);
+	fz_try(ctx)
+	{
+		int level, step;
+		/* A new iterator stands on the first entry, or on the empty place of an outline without one. */
+		*at = fz_outline_iterator_item(ctx, iter) ? FZ_OUTLINE_ITERATOR_AT_ITEM : FZ_OUTLINE_ITERATOR_AT_EMPTY;
+		if (depth < 1)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "an outline path names at least one level");
+		for (level = 0; level < depth; level++)
+		{
+			if (level > 0)
+			{
+				if (*at != FZ_OUTLINE_ITERATOR_AT_ITEM)
+					fz_throw(ctx, FZ_ERROR_ARGUMENT, "no outline entry at level %d of the path", level);
+				*at = fz_outline_iterator_down(ctx, iter);
+				if (*at < 0)
+					fz_throw(ctx, FZ_ERROR_ARGUMENT, "cannot go under the outline entry");
+			}
+			for (step = 0; step < path[level]; step++)
+			{
+				if (*at != FZ_OUTLINE_ITERATOR_AT_ITEM)
+					fz_throw(ctx, FZ_ERROR_ARGUMENT, "the outline path is past the end of level %d", level);
+				*at = fz_outline_iterator_next(ctx, iter);
+				if (*at < 0)
+					fz_throw(ctx, FZ_ERROR_ARGUMENT, "the outline path is past the end of level %d", level);
+			}
+		}
+	}
+	fz_catch(ctx)
+	{
+		fz_drop_outline_iterator(ctx, iter);
+		fz_rethrow(ctx);
+	}
+	return iter;
+}
+
+static fz_outline_item ex_outline_item_from(const ex_outline_edit *edit)
+{
+	fz_outline_item item;
+	item.title = (char *)edit->title;
+	item.uri = (char *)edit->uri;
+	item.is_open = edit->is_open;
+	item.flags = edit->flags;
+	item.r = edit->r;
+	item.g = edit->g;
+	item.b = edit->b;
+	return item;
+}
+
+int ex_outline_insert(fz_context *ctx, fz_document *doc, const int *path, int depth, const ex_outline_edit *edit,
+	ex_error *err)
+{
+	fz_outline_iterator *iter = NULL;
+	fz_var(iter);
+	fz_try(ctx)
+	{
+		int at;
+		fz_outline_item item = ex_outline_item_from(edit);
+		iter = ex_outline_walk(ctx, doc, path, depth, &at);
+		fz_outline_iterator_insert(ctx, iter, &item);
+	}
+	fz_always(ctx)
+		fz_drop_outline_iterator(ctx, iter);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_outline_update(fz_context *ctx, fz_document *doc, const int *path, int depth, const ex_outline_edit *edit,
+	ex_error *err)
+{
+	fz_outline_iterator *iter = NULL;
+	char *title = NULL;
+	char *uri = NULL;
+	fz_var(iter);
+	fz_var(title);
+	fz_var(uri);
+	fz_try(ctx)
+	{
+		int at;
+		fz_outline_item *now, item;
+		iter = ex_outline_walk(ctx, doc, path, depth, &at);
+		now = fz_outline_iterator_item(ctx, iter);
+		if (at != FZ_OUTLINE_ITERATOR_AT_ITEM || !now)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no outline entry at the path");
+		/* The item is valid only until the next iterator call, which the update is: copy what is kept. */
+		item = *now;
+		title = fz_strdup(ctx, edit->title ? edit->title : now->title ? now->title : "");
+		if (edit->uri || now->uri)
+			uri = fz_strdup(ctx, edit->uri ? edit->uri : now->uri);
+		item.title = title;
+		item.uri = uri;
+		item.is_open = edit->is_open;
+		fz_outline_iterator_update(ctx, iter, &item);
+	}
+	fz_always(ctx)
+	{
+		fz_free(ctx, title);
+		fz_free(ctx, uri);
+		fz_drop_outline_iterator(ctx, iter);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_outline_delete(fz_context *ctx, fz_document *doc, const int *path, int depth, ex_error *err)
+{
+	fz_outline_iterator *iter = NULL;
+	fz_var(iter);
+	fz_try(ctx)
+	{
+		int at;
+		iter = ex_outline_walk(ctx, doc, path, depth, &at);
+		if (at != FZ_OUTLINE_ITERATOR_AT_ITEM)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no outline entry at the path");
+		fz_outline_iterator_delete(ctx, iter);
+	}
+	fz_always(ctx)
+		fz_drop_outline_iterator(ctx, iter);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+/* An entry and everything under it, copied out of the outline. */
+typedef struct ex_onode
+{
+	fz_outline_item item;
+	struct ex_onode *down;
+	struct ex_onode *next;
+} ex_onode;
+
+static void ex_onode_drop(fz_context *ctx, ex_onode *node)
+{
+	while (node)
+	{
+		ex_onode *next = node->next;
+		ex_onode_drop(ctx, node->down);
+		fz_free(ctx, node->item.title);
+		fz_free(ctx, node->item.uri);
+		fz_free(ctx, node);
+		node = next;
+	}
+}
+
+/* Copies the entry the iterator stands on and the entries under it; leaves the iterator where it was. A hostile
+ * file's nesting is cut at 64 levels, as reading does. */
+static ex_onode *ex_onode_read(fz_context *ctx, fz_outline_iterator *iter, int depth)
+{
+	fz_outline_item *now = fz_outline_iterator_item(ctx, iter);
+	ex_onode *node;
+	if (!now)
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "no outline entry at the path");
+	node = fz_malloc_struct(ctx, ex_onode);
+	fz_try(ctx)
+	{
+		node->item = *now;
+		node->item.title = NULL;
+		node->item.uri = NULL;
+		node->item.title = fz_strdup(ctx, now->title ? now->title : "");
+		if (now->uri)
+			node->item.uri = fz_strdup(ctx, now->uri);
+		if (depth < 64)
+		{
+			int at = fz_outline_iterator_down(ctx, iter);
+			if (at >= 0)
+			{
+				ex_onode **tail = &node->down;
+				while (at == FZ_OUTLINE_ITERATOR_AT_ITEM)
+				{
+					*tail = ex_onode_read(ctx, iter, depth + 1);
+					tail = &(*tail)->next;
+					at = fz_outline_iterator_next(ctx, iter);
+				}
+				fz_outline_iterator_up(ctx, iter);
+			}
+		}
+	}
+	fz_catch(ctx)
+	{
+		ex_onode_drop(ctx, node);
+		fz_rethrow(ctx);
+	}
+	return node;
+}
+
+/* Inserts `node` and everything under it before the iterator's place; leaves the iterator where it was. */
+static void ex_onode_write(fz_context *ctx, fz_outline_iterator *iter, const ex_onode *node)
+{
+	const ex_onode *child;
+	fz_outline_iterator_insert(ctx, iter, (fz_outline_item *)&node->item);
+	if (!node->down)
+		return;
+	if (fz_outline_iterator_prev(ctx, iter) != FZ_OUTLINE_ITERATOR_AT_ITEM)
+		fz_throw(ctx, FZ_ERROR_GENERIC, "cannot find the outline entry just inserted");
+	if (fz_outline_iterator_down(ctx, iter) < 0)
+		fz_throw(ctx, FZ_ERROR_GENERIC, "cannot go under the outline entry just inserted");
+	for (child = node->down; child; child = child->next)
+		ex_onode_write(ctx, iter, child);
+	fz_outline_iterator_up(ctx, iter);
+	/* A new entry is closed until it has children; now it may be open as it was. */
+	fz_outline_iterator_update(ctx, iter, (fz_outline_item *)&node->item);
+	fz_outline_iterator_next(ctx, iter);
+}
+
+int ex_outline_move(fz_context *ctx, fz_document *doc, const int *from, int from_depth, const int *to, int to_depth,
+	ex_error *err)
+{
+	fz_outline_iterator *iter = NULL;
+	ex_onode *node = NULL;
+	fz_var(iter);
+	fz_var(node);
+	fz_try(ctx)
+	{
+		int at;
+		iter = ex_outline_walk(ctx, doc, from, from_depth, &at);
+		if (at != FZ_OUTLINE_ITERATOR_AT_ITEM)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no outline entry at the path");
+		node = ex_onode_read(ctx, iter, 0);
+		fz_outline_iterator_delete(ctx, iter);
+		fz_drop_outline_iterator(ctx, iter);
+		iter = NULL;
+		iter = ex_outline_walk(ctx, doc, to, to_depth, &at);
+		ex_onode_write(ctx, iter, node);
+	}
+	fz_always(ctx)
+	{
+		ex_onode_drop(ctx, node);
+		fz_drop_outline_iterator(ctx, iter);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_link_uri(fz_context *ctx, fz_document *doc, int page, float x, float y, float zoom, char *buf, int size,
+	ex_error *err)
+{
+	char *uri = NULL;
+	fz_var(uri);
+	if (size < 1)
+		return 0;
+	buf[0] = 0;
+	fz_try(ctx)
+	{
+		fz_link_dest dest = fz_make_link_dest_xyz(0, page, x, y, zoom * 100);
+		uri = fz_format_link_uri(ctx, doc, dest);
+		fz_strlcpy(buf, uri, (size_t)size);
+	}
+	fz_always(ctx)
+		fz_free(ctx, uri);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+/* ---- Saving (K.15) ---- */
+
+int ex_save_pdf(fz_context *ctx, fz_document *doc, const char *path, int *incremental, ex_error *err)
+{
+	*incremental = 0;
+	fz_try(ctx)
+	{
+		pdf_document *pdf = ex_pdf(ctx, doc);
+		if (pdf_can_be_saved_incrementally(ctx, pdf))
+		{
+			/* Incremental, and the edits stay live for undo and the next save (patch 0088). */
+			pdf_save_snapshot(ctx, pdf, path);
+			*incremental = 1;
+		}
+		else
+		{
+			pdf_write_options opts = pdf_default_write_options;
+			pdf_save_document(ctx, pdf, path, &opts);
+		}
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}

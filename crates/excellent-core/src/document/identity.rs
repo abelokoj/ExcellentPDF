@@ -7,6 +7,8 @@ use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+use crate::oplog::Fingerprint;
+
 /// Bytes hashed at each end of the file.
 const SAMPLE: u64 = 64 * 1024;
 
@@ -68,6 +70,34 @@ impl FileId {
         hash.write(&modified.to_le_bytes());
         hash.write(&self.sample.to_le_bytes());
         hash.0
+    }
+
+    /// A number for the path alone, the same in every run and through every version of the file: names what
+    /// follows the file as it is saved, such as its operation log.
+    pub(crate) fn path_key(&self) -> u64 {
+        let mut hash = Fnv::default();
+        hash.write(self.path.as_os_str().as_encoded_bytes());
+        hash.0
+    }
+
+    /// This version of the file, as the operation log records it.
+    pub(crate) fn fingerprint(&self) -> Fingerprint {
+        let modified = self
+            .modified
+            .and_then(|time| time.duration_since(SystemTime::UNIX_EPOCH).ok())
+            .map_or(0, |since| {
+                u64::try_from(since.as_nanos()).unwrap_or(u64::MAX)
+            });
+        Fingerprint {
+            size: self.size,
+            modified,
+            sample: self.sample,
+        }
+    }
+
+    /// Whether this file holds the same bytes as the version `fingerprint`, whenever it was written.
+    pub(crate) fn same_bytes(&self, fingerprint: Fingerprint) -> bool {
+        self.size == fingerprint.size && self.sample == fingerprint.sample
     }
 }
 

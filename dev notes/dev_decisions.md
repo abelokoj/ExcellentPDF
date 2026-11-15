@@ -73,3 +73,20 @@ for now only Windows is built.
   checks, then five minutes of the `open_render` fuzz target (`tests/fuzz/`). Linux only, since both tools need it;
   weekly (Monday 03:00 UTC) and by hand. K.23 makes it nightly and adds targets.
 - Still to come from plan §17: `budgets` and `release` workflows, with the tasks that need them (T10, K.24).
+
+## DD3. Release names (2026-11-14)
+
+**Decision (maintainer):** every release of the app is named `App-vYY-MM-DD.N-vSEMVER-platform`.
+
+**What it means:**
+
+- `App` is the app's name, `ExcellentPDF`.
+- `YY-MM-DD` is the release date, two digits each.
+- `N` counts releases since the first one was published: the first release is `.1`, and it never resets (not per day,
+  not per version).
+- `SEMVER` is the workspace version from `Cargo.toml` (`0.1.0`).
+- `platform` is the build's platform, such as `windows-x64` or `windows-arm64`.
+- Example: the third release ever, version 0.4.2 for 64-bit Windows on 9 March 2027, is
+  `ExcellentPDF-v27-03-09.3-v0.4.2-windows-x64`.
+- Git tags, release titles and installer file names use it. The `release` workflow (plan §17) builds it when it is
+  written.

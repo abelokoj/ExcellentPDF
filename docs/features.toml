@@ -67,6 +67,18 @@ status = "in-progress"
 tests = ["links_are_read_and_resolved", "web_links_open_and_other_protocols_ask", "scripts_never_run_and_files_always_ask", "a_link_target_shows_at_the_top", "file_links_become_paths", "epub_and_xps_links_are_read_and_resolved"]
 open = "page preview on hover (needs R.5)"
 
+["K.14"]
+label = "Ph1: 4/60"
+status = "in-progress"
+tests = ["changes_read_back_as_they_were_written", "an_unknown_change_is_not_read", "nothing_is_written_until_the_first_record", "a_log_from_an_earlier_run_is_kept_for_recovery", "a_log_cut_anywhere_keeps_every_whole_record", "saving_marks_the_history_saved_until_it_moves", "outline_edits_are_undone_and_redone_one_operation_at_a_time", "a_failed_operation_changes_nothing", "edits_are_logged_undone_and_saved_over_the_file", "a_failed_edit_changes_nothing_and_is_not_logged"]
+open = "annotation model (step 1, Phase 3) and its 10,000-sequence model tests; author in records; undo after reopening"
+
+["K.15"]
+label = "Ph1: 5/60"
+status = "in-progress"
+tests = ["the_temp_file_is_hidden_beside_the_original", "saves_replace_the_open_file_and_keep_undo", "unsaved_edits_come_back_after_a_crash", "discarded_edits_are_gone", "hibernates_only_without_unsaved_changes"]
+open = "watching for outside changes and keep both (step 5); saving at sign-out and shutdown (step 6); fault injection; qpdf --check"
+
 ["K.13"]
 label = "Ph1: 3/60"
 status = "in-progress"
@@ -76,8 +88,32 @@ open = "reading order and ICU4X normalization and words (steps 2, 3); rectangle 
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"
-tests = ["ids_are_paths_and_find_their_entries", "the_reader_is_in_the_nearest_entry_before_the_page", "a_chosen_entry_stays_while_it_opens_the_page", "an_outline_is_read_on_the_workers"]
-open = "reading only: adding entries needs K.13, K.14, K.15; hover preview; 10,000-entry check (K.24)"
+tests = ["ids_are_paths_and_find_their_entries", "the_reader_is_in_the_nearest_entry_before_the_page", "a_chosen_entry_stays_while_it_opens_the_page", "an_outline_is_read_on_the_workers", "paths_titles_and_where_a_new_entry_goes", "the_first_entry_makes_an_outline"]
+open = "an added entry checked in Acrobat and pdf.js (by hand); hover preview; 10,000-entry check (K.24)"
+
+["B.2"]
+label = "Ph1: 32/60"
+status = "in-progress"
+tests = ["deletes_go_from_the_last_and_skip_entries_already_going", "outline_edits_are_undone_and_redone_one_operation_at_a_time"]
+open = "promote the children one level before deleting"
+
+["B.3"]
+label = "Ph1: 33/60"
+status = "in-progress"
+tests = ["entries_move_one_place_as_a_group", "entries_go_in_and_out_with_the_entries_under_them"]
+open = "drag and drop (NSH v0.5.0 has no element drag); 500-entry subtree in a 10,000-entry outline (needs a corpus file)"
+
+["B.4"]
+label = "Ph1: 34/60"
+status = "in-progress"
+tests = ["a_repointed_entry_opens_its_new_place_after_reopening"]
+open = "the inspector shows the entry's page and zoom"
+
+["B.5"]
+label = "Ph1: 35/60"
+status = "in-progress"
+tests = ["entries_move_one_place_as_a_group", "only_open_state_the_reader_changed_is_written"]
+open = "multi-entry move undone in one step, checked end to end by hand; restyle; open state saved without another edit"
 
 ["R.8"]
 label = "Ph1: 19/60"

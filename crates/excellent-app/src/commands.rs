@@ -6,10 +6,12 @@
 //! letters belong to whatever has the keyboard focus, so they reach the pages only while the pages have it (Enhanced's
 //! rule for its canvas). A command that needs a document is left out of the palette while none is open.
 
+use excellent_features::outline::Shift;
 use nsh_base::CommandItem;
 use nsh_core::prelude::*;
 
 use crate::keymap::{self, Keymap, Scope};
+use crate::outline::OutlineAction;
 use crate::tabs::{Action as TabAction, Step};
 
 /// What a command does; [`crate::shell`] carries it out.
@@ -44,14 +46,29 @@ pub(crate) enum CommandId {
     LeaveModes,
     /// A page-canvas command, by its name in the canvas's protocol (`zoomIn`, `layoutBook`, `rotateClockwise`).
     Canvas(&'static str),
+    /// Something done to the shown document's outline (B.1 to B.5).
+    Outline(OutlineAction),
+    /// Takes back the shown document's last edit (K.14).
+    Undo,
+    /// Makes the last undone edit again (K.14).
+    Redo,
+    /// Saves the edited documents now (K.15); they are saved on their own too.
+    Save,
 }
 
 impl CommandId {
     /// Whether it does anything now: page commands need a document.
     pub(crate) fn is_available(self, has_document: bool) -> bool {
         has_document
-            || !matches!(self, Self::Canvas(_) | Self::GoToPage)
-                && !matches!(self, Self::Tab(action) if action != TabAction::ReopenClosed)
+            || !matches!(
+                self,
+                Self::Canvas(_)
+                    | Self::GoToPage
+                    | Self::Outline(_)
+                    | Self::Undo
+                    | Self::Redo
+                    | Self::Save
+            ) && !matches!(self, Self::Tab(action) if action != TabAction::ReopenClosed)
     }
 }
 
@@ -89,6 +106,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.file",
         // Enhanced's CmdOpenFile.
         keys: &["mod+o"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Save,
+        name: "file.save",
+        label: "command.save",
+        group: "command.group.file",
+        // Enhanced's CmdSave.
+        keys: &["mod+s"],
         page_keys: &[],
     },
     Command {
@@ -271,6 +297,24 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.view",
         // Enhanced has no inspector; VS Code's secondary side bar.
         keys: &["mod+alt+b"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Undo,
+        name: "edit.undo",
+        label: "command.undo",
+        group: "command.group.edit",
+        // Enhanced's undo. A text field that has the focus keeps its own.
+        keys: &["mod+z"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Redo,
+        name: "edit.redo",
+        label: "command.redo",
+        group: "command.group.edit",
+        // Not Ctrl+Y: Enhanced gives it to zoom.
+        keys: &["mod+shift+z"],
         page_keys: &[],
     },
     Command {
@@ -526,6 +570,77 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &["shift+space", "shift+enter"],
     },
     Command {
+        id: CommandId::Outline(OutlineAction::Add),
+        name: "outline.add",
+        label: "command.outline_add",
+        group: "command.group.outline",
+        // Enhanced's CmdAddBookmark.
+        keys: &["mod+b"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Rename),
+        name: "outline.rename",
+        label: "command.outline_rename",
+        group: "command.group.outline",
+        // F2 while the outline has the keyboard (the panel binds it).
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::SetDestination),
+        name: "outline.set_destination",
+        label: "command.outline_set_destination",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Move(Shift::Up)),
+        name: "outline.move_up",
+        label: "command.outline_move_up",
+        group: "command.group.outline",
+        // Alt+Up while the outline has the keyboard.
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Move(Shift::Down)),
+        name: "outline.move_down",
+        label: "command.outline_move_down",
+        group: "command.group.outline",
+        // Alt+Down while the outline has the keyboard.
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Move(Shift::In)),
+        name: "outline.indent",
+        label: "command.outline_indent",
+        group: "command.group.outline",
+        // Tab while the outline has the keyboard.
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Move(Shift::Out)),
+        name: "outline.outdent",
+        label: "command.outline_outdent",
+        group: "command.group.outline",
+        // Shift+Tab while the outline has the keyboard.
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Outline(OutlineAction::Delete),
+        name: "outline.delete",
+        label: "command.outline_delete",
+        group: "command.group.outline",
+        // Delete while the outline has the keyboard.
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
         id: CommandId::ToggleFullScreen,
         name: "view.full_screen",
         label: "command.full_screen",
@@ -684,13 +799,18 @@ pub(crate) fn palette_items(has_document: bool) -> Vec<CommandItem> {
         .collect()
 }
 
-/// What screen readers say for a button that runs `id`: its label, and its first shortcut if it has one.
-pub(crate) fn label_with_shortcut(id: CommandId) -> String {
-    let label = COMMANDS
+/// The label of `id`, in the app's language.
+pub(crate) fn label(id: CommandId) -> String {
+    COMMANDS
         .iter()
         .find(|c| c.id == id)
         .map(|c| t!(c.label))
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
+
+/// What screen readers say for a button that runs `id`: its label, and its first shortcut if it has one.
+pub(crate) fn label_with_shortcut(id: CommandId) -> String {
+    let label = label(id);
     match shortcut_label(id) {
         keys if keys.is_empty() => label,
         keys => t!("command.with_shortcut", label = label, keys = keys),
@@ -751,6 +871,8 @@ mod tests {
         assert!(!CommandId::Tab(TabAction::Close).is_available(false));
         assert!(CommandId::Tab(TabAction::ReopenClosed).is_available(false));
         assert!(CommandId::OpenFile.is_available(false));
+        assert!(!CommandId::Undo.is_available(false));
+        assert!(!CommandId::Outline(OutlineAction::Add).is_available(false));
     }
 
     #[test]

@@ -21,6 +21,7 @@ use nsh_core::JsonValue;
 use nsh_core::prelude::*;
 
 use crate::commands::{self, CommandId};
+use crate::editing::Editing;
 use crate::full_screen::FullScreen;
 use crate::goto::{self, PageState};
 use crate::links::{self, LinkState};
@@ -126,6 +127,8 @@ struct Document {
     full_screen: FullScreen,
     tabs: TabState,
     recent: RecentState,
+    /// The outline (B.1): the pages report the places its new entries open.
+    outline: OutlineState,
 }
 
 /// Opens a closed dock and closes an open one.
@@ -151,7 +154,8 @@ pub(crate) fn shell() -> impl IntoElement {
     crate::session::keep(tabs);
     let recent = RecentState::new();
     crate::recent::keep(recent, tabs);
-    let outline_state = OutlineState::new(tabs);
+    let editing = Editing::new(tabs);
+    let outline_state = OutlineState::new(tabs, pages, editing);
     let document = Document {
         canvas: element_ref(),
         focus: element_ref(),
@@ -162,6 +166,7 @@ pub(crate) fn shell() -> impl IntoElement {
         full_screen: FullScreen::new(layout),
         tabs,
         recent,
+        outline: outline_state,
     };
     let Document {
         canvas,
@@ -190,6 +195,7 @@ pub(crate) fn shell() -> impl IntoElement {
             || tab_list_open.get()
             || tabs.editing().is_some()
             || link_state.is_asking()
+            || outline_state.is_menu_open()
     };
     // Nothing has the focus at first, and then the pages take it (`page_canvas`).
     let on_page = signal(true);
@@ -217,6 +223,10 @@ pub(crate) fn shell() -> impl IntoElement {
             full_screen.leave();
         }
         CommandId::Canvas(name) => to_canvas(name),
+        CommandId::Outline(action) => outline_state.run(action, canvas),
+        CommandId::Undo => editing.undo(),
+        CommandId::Redo => editing.redo(),
+        CommandId::Save => editing.save_now(),
     };
     // Later launches' files (R.11), until the window closes.
     spawn(async move {
@@ -473,7 +483,7 @@ fn docks(
                         .into_element()
                 }
                 Some(Panel::Outline) => when(shown, move || {
-                    outline::outline_panel(outline_state, pages, go)
+                    outline::outline_panel(outline_state, go, run, document.focus)
                 })
                 .otherwise(move || empty_state(panel))
                 .into_element(),
@@ -612,6 +622,7 @@ fn page_canvas(
         full_screen,
         tabs,
         recent: _,
+        outline,
     } = document;
     let canvas_ref = canvas;
     let label = move || {
@@ -648,6 +659,7 @@ fn page_canvas(
             thumbs.on_canvas_event(event);
             reading.on_canvas_event(event);
             full_screen.on_canvas_event(event);
+            outline.on_canvas_event(event);
             copy_selection(event);
         })
         .flex_1()

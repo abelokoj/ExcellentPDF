@@ -731,3 +731,153 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn ex_drop_buffer(ctx: *mut fz_context, buf: *mut fz_buffer);
 }
+unsafe extern "C" {
+    pub fn ex_open_pdf(
+        ctx: *mut fz_context,
+        path: *const ::core::ffi::c_char,
+        out: *mut *mut fz_document,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_is_pdf(ctx: *mut fz_context, doc: *mut fz_document) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_begin_operation(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        name: *const ::core::ffi::c_char,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_end_operation(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_abandon_operation(ctx: *mut fz_context, doc: *mut fz_document);
+}
+unsafe extern "C" {
+    pub fn ex_undo_state(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        position: *mut ::core::ffi::c_int,
+        steps: *mut ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_undo(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_redo(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ex_outline_edit {
+    pub title: *const ::core::ffi::c_char,
+    pub uri: *const ::core::ffi::c_char,
+    pub is_open: ::core::ffi::c_int,
+    pub flags: ::core::ffi::c_int,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of ex_outline_edit"][::core::mem::size_of::<ex_outline_edit>() - 40usize];
+    ["Alignment of ex_outline_edit"][::core::mem::align_of::<ex_outline_edit>() - 8usize];
+    ["Offset of field: ex_outline_edit::title"]
+        [::core::mem::offset_of!(ex_outline_edit, title) - 0usize];
+    ["Offset of field: ex_outline_edit::uri"]
+        [::core::mem::offset_of!(ex_outline_edit, uri) - 8usize];
+    ["Offset of field: ex_outline_edit::is_open"]
+        [::core::mem::offset_of!(ex_outline_edit, is_open) - 16usize];
+    ["Offset of field: ex_outline_edit::flags"]
+        [::core::mem::offset_of!(ex_outline_edit, flags) - 20usize];
+    ["Offset of field: ex_outline_edit::r"][::core::mem::offset_of!(ex_outline_edit, r) - 24usize];
+    ["Offset of field: ex_outline_edit::g"][::core::mem::offset_of!(ex_outline_edit, g) - 28usize];
+    ["Offset of field: ex_outline_edit::b"][::core::mem::offset_of!(ex_outline_edit, b) - 32usize];
+};
+impl Default for ex_outline_edit {
+    fn default() -> Self {
+        let mut s = ::core::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::core::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+unsafe extern "C" {
+    pub fn ex_outline_insert(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        path: *const ::core::ffi::c_int,
+        depth: ::core::ffi::c_int,
+        item: *const ex_outline_edit,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_outline_update(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        path: *const ::core::ffi::c_int,
+        depth: ::core::ffi::c_int,
+        item: *const ex_outline_edit,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_outline_delete(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        path: *const ::core::ffi::c_int,
+        depth: ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_outline_move(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        from: *const ::core::ffi::c_int,
+        from_depth: ::core::ffi::c_int,
+        to: *const ::core::ffi::c_int,
+        to_depth: ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_link_uri(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        page: ::core::ffi::c_int,
+        x: f32,
+        y: f32,
+        zoom: f32,
+        buf: *mut ::core::ffi::c_char,
+        size: ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_save_pdf(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        path: *const ::core::ffi::c_char,
+        incremental: *mut ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}

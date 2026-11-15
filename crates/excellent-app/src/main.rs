@@ -21,6 +21,7 @@ fn main() -> impl std::process::Termination {
         std::process::exit(0);
     }
     excellent_app::load_settings();
+    excellent_app::keep_edit_logs();
     excellent_app::open_library();
     let components = platform::Components::default();
     #[cfg(target_os = "windows")]

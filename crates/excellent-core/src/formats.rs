@@ -23,11 +23,16 @@ pub fn is_document(head: &[u8], extension: Option<&str>) -> bool {
     has_signature(head) || (extension == Some("md") && is_text(head))
 }
 
+/// Whether `head` (a file's first bytes, up to a kilobyte) starts a PDF. PDF allows junk before its header; MuPDF
+/// looks through the first kilobyte.
+pub fn is_pdf(head: &[u8]) -> bool {
+    head.windows(5).take(1024).any(|window| window == b"%PDF-")
+}
+
 /// Whether `head` starts the way one of the [`EXTENSIONS`]' formats does.
 fn has_signature(head: &[u8]) -> bool {
     let starts = |magic: &[u8]| head.starts_with(magic);
-    // PDF allows junk before its header; MuPDF looks through the first kilobyte.
-    let pdf = head.windows(5).take(1024).any(|window| window == b"%PDF-");
+    let pdf = is_pdf(head);
     // ZIP: EPUB, CBZ, XPS and OpenXPS.
     let zip = starts(b"PK\x03\x04");
     // Mobipocket and PalmDOC name their type at byte 60.
