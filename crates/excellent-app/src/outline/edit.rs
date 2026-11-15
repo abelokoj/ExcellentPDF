@@ -69,9 +69,9 @@ impl OutlineState {
         }
     }
 
-    /// The pages reported where the reader is (`outlineTarget`): the action waiting for it goes on.
+    /// The pages reported where the reader is (`readerPlace`): the action waiting for it goes on.
     pub(crate) fn on_canvas_event(self, event: &NativeEvent) {
-        if &*event.name != "outlineTarget" {
+        if &*event.name != "readerPlace" {
             return;
         }
         let Some(awaiting) = self.awaiting.replace(None) else {
@@ -166,13 +166,13 @@ impl OutlineState {
         self.edit(&entries, t!("outline.op.rename"), vec![change]);
     }
 
-    /// Asks the pages where the reader is; the answer comes as `outlineTarget`.
+    /// Asks the pages where the reader is; the answer comes as `readerPlace`.
     fn ask_place(self, awaiting: Awaiting, canvas: ElementRef) {
         self.awaiting.replace(Some(awaiting));
-        canvas.command("outlineTarget", JsonValue::Null);
+        canvas.command("readerPlace", JsonValue::Null);
     }
 
-    /// The place in an `outlineTarget` event, with the link to it.
+    /// The place in an `readerPlace` event, with the link to it.
     fn place(self, data: &JsonValue) -> Option<Place> {
         let page = usize::try_from(data.get("page")?.as_u64()?).ok()?;
         let number = |key: &str| data.get(key).and_then(JsonValue::as_f64).map(|n| n as f32);

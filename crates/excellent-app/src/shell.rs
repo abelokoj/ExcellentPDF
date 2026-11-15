@@ -20,6 +20,7 @@ use nsh_core::geometry::Points;
 use nsh_core::JsonValue;
 use nsh_core::prelude::*;
 
+use crate::bookmarks::{self, BookmarkState};
 use crate::commands::{self, CommandId};
 use crate::editing::Editing;
 use crate::full_screen::FullScreen;
@@ -45,19 +46,28 @@ enum Panel {
     Document,
     /// The pages, as thumbnails (R.5).
     Pages,
-    /// The document's table of contents (§11.14); bookmarks (B.6) join these as a tab.
+    /// The document's table of contents (§11.14).
     Outline,
+    /// The reader's own bookmarks in the document (B.6).
+    Bookmarks,
     Inspector,
 }
 
 impl Panel {
-    const ALL: [Self; 4] = [Self::Document, Self::Pages, Self::Outline, Self::Inspector];
+    const ALL: [Self; 5] = [
+        Self::Document,
+        Self::Pages,
+        Self::Outline,
+        Self::Bookmarks,
+        Self::Inspector,
+    ];
 
     fn key(self) -> &'static str {
         match self {
             Self::Document => "document",
             Self::Pages => "pages",
             Self::Outline => "outline",
+            Self::Bookmarks => "bookmarks",
             Self::Inspector => "inspector",
         }
     }
@@ -72,6 +82,7 @@ impl Panel {
             Self::Document => t!("panel.document"),
             Self::Pages => t!("panel.pages"),
             Self::Outline => t!("panel.outline"),
+            Self::Bookmarks => t!("panel.bookmarks"),
             Self::Inspector => t!("panel.inspector"),
         }
     }
@@ -80,7 +91,7 @@ impl Panel {
     fn heading(self) -> String {
         match self {
             Self::Document => t!("document.empty.title"),
-            Self::Pages | Self::Outline | Self::Inspector => self.title(),
+            Self::Pages | Self::Outline | Self::Bookmarks | Self::Inspector => self.title(),
         }
     }
 
@@ -94,6 +105,7 @@ impl Panel {
             ),
             Self::Pages => t!("pages.empty"),
             Self::Outline => t!("outline.empty"),
+            Self::Bookmarks => t!("bookmark.empty"),
             Self::Inspector => t!("inspector.empty"),
         }
     }
@@ -104,7 +116,8 @@ fn default_layout() -> DockAreaLayout {
     let mut sidebar = DockRegion::new(
         DockLayout::tabs()
             .panel(Panel::Pages.key())
-            .panel(Panel::Outline.key()),
+            .panel(Panel::Outline.key())
+            .panel(Panel::Bookmarks.key()),
     );
     sidebar.size = Some(px(260.0));
     let mut inspector = DockRegion::new(DockLayout::tabs().panel(Panel::Inspector.key()));
@@ -129,6 +142,8 @@ struct Document {
     recent: RecentState,
     /// The outline (B.1): the pages report the places its new entries open.
     outline: OutlineState,
+    /// The personal bookmarks (B.6): the pages report the places new ones open.
+    bookmarks: BookmarkState,
 }
 
 /// Opens a closed dock and closes an open one.
@@ -156,6 +171,7 @@ pub(crate) fn shell() -> impl IntoElement {
     crate::recent::keep(recent, tabs);
     let editing = Editing::new(tabs);
     let outline_state = OutlineState::new(tabs, pages, editing);
+    let bookmark_state = BookmarkState::new(tabs, pages);
     let document = Document {
         canvas: element_ref(),
         focus: element_ref(),
@@ -167,6 +183,7 @@ pub(crate) fn shell() -> impl IntoElement {
         tabs,
         recent,
         outline: outline_state,
+        bookmarks: bookmark_state,
     };
     let Document {
         canvas,
@@ -196,6 +213,7 @@ pub(crate) fn shell() -> impl IntoElement {
             || tabs.editing().is_some()
             || link_state.is_asking()
             || outline_state.is_menu_open()
+            || bookmark_state.covers_pages()
     };
     // Nothing has the focus at first, and then the pages take it (`page_canvas`).
     let on_page = signal(true);
@@ -224,6 +242,7 @@ pub(crate) fn shell() -> impl IntoElement {
         }
         CommandId::Canvas(name) => to_canvas(name),
         CommandId::Outline(action) => outline_state.run(action, canvas),
+        CommandId::Bookmark(action) => bookmark_state.run(action, canvas),
         CommandId::Undo => editing.undo(),
         CommandId::Redo => editing.redo(),
         CommandId::Save => editing.save_now(),
@@ -269,6 +288,10 @@ pub(crate) fn shell() -> impl IntoElement {
         .child(when(
             move || tabs.editing().is_some(),
             move || tabs::group_dialog(tabs),
+        ))
+        .child(when(
+            move || bookmark_state.is_editing(),
+            move || bookmarks::bookmark_dialog(bookmark_state),
         ))
         .child(when(settings_open, move || {
             settings_window(settings_open, live, theme_choice, run)
@@ -487,6 +510,11 @@ fn docks(
                 })
                 .otherwise(move || empty_state(panel))
                 .into_element(),
+                Some(Panel::Bookmarks) => when(shown, move || {
+                    bookmarks::bookmark_panel(document.bookmarks, canvas, run, document.focus)
+                })
+                .otherwise(move || empty_state(panel))
+                .into_element(),
                 _ => empty_state(panel).into_element(),
             }
         })
@@ -583,7 +611,7 @@ fn document_missing(tabs: TabState) -> impl IntoElement {
 }
 
 /// The one button of a panel's message, in the primary colour, labelled by the translation `key`.
-fn primary_button(key: &'static str, on_press: impl Fn() + 'static) -> impl IntoElement {
+pub(crate) fn primary_button(key: &'static str, on_press: impl Fn() + 'static) -> impl IntoElement {
     button()
         .accessibility_label(t!(key))
         .on_press(on_press)
@@ -623,6 +651,7 @@ fn page_canvas(
         tabs,
         recent: _,
         outline,
+        bookmarks,
     } = document;
     let canvas_ref = canvas;
     let label = move || {
@@ -660,6 +689,7 @@ fn page_canvas(
             reading.on_canvas_event(event);
             full_screen.on_canvas_event(event);
             outline.on_canvas_event(event);
+            bookmarks.on_canvas_event(event);
             copy_selection(event);
         })
         .flex_1()

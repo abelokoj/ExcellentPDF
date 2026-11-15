@@ -72,6 +72,15 @@ impl FileId {
         hash.0
     }
 
+    /// A number for the bytes alone (size and sample), wherever the file is and whenever it was written: finds a
+    /// renamed or moved file again (B.6).
+    pub fn content_key(&self) -> u64 {
+        let mut hash = Fnv::default();
+        hash.write(&self.size.to_le_bytes());
+        hash.write(&self.sample.to_le_bytes());
+        hash.0
+    }
+
     /// A number for the path alone, the same in every run and through every version of the file: names what
     /// follows the file as it is saved, such as its operation log.
     pub(crate) fn path_key(&self) -> u64 {
@@ -142,9 +151,19 @@ mod tests {
         let other = temp_file("identity-other.bin", &changed);
         let second = FileId::of(&other).expect("id");
         assert_ne!(first.sample, second.sample, "the last 64 KB differ");
+        assert_ne!(first.content_key(), second.content_key());
+
+        // B.6: the same bytes under another name are the same content.
+        let copy = temp_file("identity-copy.bin", &big);
+        assert_eq!(
+            first.content_key(),
+            FileId::of(&copy).expect("id").content_key()
+        );
+        assert_ne!(first.key(), FileId::of(&copy).expect("id").key());
 
         std::fs::remove_file(path).expect("clean up");
         std::fs::remove_file(other).expect("clean up");
+        std::fs::remove_file(copy).expect("clean up");
     }
 
     #[test]

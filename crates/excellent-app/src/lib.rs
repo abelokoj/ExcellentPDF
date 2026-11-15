@@ -3,6 +3,7 @@
 //! `app/nsh.json` names [`App`] as the root; the desktop binary (`src/main.rs`) and the tests start it through
 //! [`root`], which adds the app's translations.
 
+mod bookmarks;
 mod commands;
 mod editing;
 mod full_screen;

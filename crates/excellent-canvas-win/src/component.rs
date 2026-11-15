@@ -19,6 +19,7 @@ use excellent_core::view::ViewCommand;
 use excellent_features::read::autoscroll::Change;
 use excellent_features::read::focus::Scope;
 use excellent_features::read::ruler::{Step, Style};
+use excellent_mupdf::PagePoint;
 
 /// The component's name, as the app's `native(...)` element uses it.
 pub const NAME: &str = "excellent.page-canvas";
@@ -100,8 +101,8 @@ impl NativeComponent for PageCanvas {
 
     /// `zoomIn`, `zoomOut`, `actualSize`, `screenDown`, `screenUp`, `stepLeft`, `stepRight` (R.3), `historyBack`, `historyForward`, `firstPage`,
     /// `lastPage`, `goToPage` (`{"index": n}`, from 0), `setView` (a `view` event's data; with only a `page`: that
-    /// page), `copy`, `selectAll` (the reader's page), `outlineTarget` (B.1, B.4: answered by the event of that name),
-    /// and the view
+    /// page), `goToPoint` (`{page, x, y, zoom}`, page points; `zoom` may be `null`), `copy`, `selectAll` (the
+    /// reader's page), `readerPlace` (B.1, B.4, B.6: answered by the event of that name), and the view
     /// commands [`ViewCommand::parse`] knows (layouts, rotation, page box, fit modes). The reading aids (R.19-R.21):
     /// `toggleRuler`, `toggleFocus`, `lineDown`, `lineUp`, `toggleAutoScroll`, `autoScrollPause` (without
     /// auto-scroll: a screen down), `autoScrollFaster`, `autoScrollSlower`, `leaveModes`.
@@ -110,8 +111,8 @@ impl NativeComponent for PageCanvas {
     /// closes, `page` (`{index}`) when the reader's page changes, `copy` (`{text}`) with the selected text,
     /// `autoScrollSpeed` (`{speed}`) when the reader changes it, `edge` (`{at}`) when the mouse reaches or
     /// leaves the canvas's top edge, `press` when the reader presses on the pages, `view` (the place, zoom,
-    /// layout and rotation; see [`crate::saved`]) when the view settles somewhere new, and `outlineTarget`
-    /// (`{page, x, y, zoom, title}`, see [`Canvas::outline_target`]) when the app asked for it.
+    /// layout and rotation; see [`crate::saved`]) when the view settles somewhere new, and `readerPlace`
+    /// (`{page, x, y, zoom, title}`, see [`Canvas::reader_place`]) when the app asked for it.
     fn command(&mut self, name: &str, args: &JsonValue) {
         let mut canvas = self.canvas.borrow_mut();
         match name {
@@ -128,7 +129,7 @@ impl NativeComponent for PageCanvas {
             "lastPage" => canvas.last_page(),
             "copy" => canvas.copy(),
             "selectAll" => canvas.select_page(),
-            "outlineTarget" => canvas.outline_target(),
+            "readerPlace" => canvas.reader_place(),
             "toggleRuler" => canvas.toggle_ruler(),
             "toggleFocus" => canvas.toggle_focus(),
             "lineDown" => canvas.line_step(Step::Next),
@@ -141,6 +142,10 @@ impl NativeComponent for PageCanvas {
             "goToPage" => match args.get("index").and_then(JsonValue::as_u64) {
                 Some(index) => canvas.go_to_page(usize::try_from(index).unwrap_or(usize::MAX)),
                 None => log::warn!("page canvas: goToPage without an index: {args}"),
+            },
+            "goToPoint" => match go_to_point_args(args) {
+                Some((page, point, zoom)) => canvas.go_to_point(page, point, zoom),
+                None => log::warn!("page canvas: goToPoint without a page and point: {args}"),
             },
             "setView" => match SavedView::from_json(args) {
                 Some(view) => canvas.set_view(view),
@@ -164,6 +169,18 @@ impl Drop for PageCanvas {
             let _ = DestroyWindow(self.hwnd);
         }
     }
+}
+
+/// The page, point and zoom of a `goToPoint` command; `None` without a page or a point.
+fn go_to_point_args(args: &JsonValue) -> Option<(usize, PagePoint, Option<f32>)> {
+    let number = |key: &str| args.get(key).and_then(JsonValue::as_f64);
+    let page = usize::try_from(args.get("page")?.as_u64()?).ok()?;
+    let point = PagePoint {
+        x: number("x")? as f32,
+        y: number("y")? as f32,
+    };
+    let zoom = number("zoom").map(|zoom| zoom as f32);
+    Some((page, point, zoom))
 }
 
 /// The ruler's look from the `readingRuler` prop: each value missing or of the wrong kind is its default.

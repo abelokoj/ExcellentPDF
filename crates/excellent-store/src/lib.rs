@@ -2,10 +2,12 @@
 //!
 //! [`Store`] opens the database in WAL mode, brings its schema up to date ([`migrations`]) and starts the writer
 //! thread; every change goes through [`Store::write`] as one transaction, and reads open a connection of their own
-//! on any thread ([`Store::read`]). The tables each feature keeps are in modules of their own: [`workspace`] (§11.16)
-//! and [`recent`] (R.10) so far; [`home`] finds the files again when a portable copy of the app moves. A table a later feature needs (tags, collections, bookmarks, cards, notes) comes with that feature, in a
-//! migration of its own.
+//! on any thread ([`Store::read`]). The tables each feature keeps are in modules of their own: [`workspace`] (§11.16),
+//! [`recent`] (R.10) and [`bookmarks`] (B.6) so far; [`home`] finds the files again when a portable copy of the app
+//! moves. A table a later feature needs (tags, collections, cards, notes) comes with that feature, in a migration of
+//! its own.
 
+pub mod bookmarks;
 mod error;
 pub mod home;
 mod migrations;

@@ -6,6 +6,21 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-14 22:35; Ph1: 36/60 | B.6: Personal bookmarks
+
+#### Added
+
+- Personal bookmarks, kept in the library so every format has them: **Bookmark this place** (Ctrl+D) saves the
+  selection or the top of the view at its zoom, in a dialog for its title, note, tags and colour. The sidebar's
+  **Bookmarks** tab lists them in reading order with a search over titles, notes and tags; a press goes to the exact
+  place. Edit and Delete are in each row's context menu, on F2 and Delete, and in the palette.
+- A renamed or moved file finds its bookmarks again by its content the next time it is shown.
+
+#### Changed
+
+- K.15's fault-injection test cuts the log at each line's end, either side of it and inside each line, instead of at
+  every byte: excellent-core's tests took 58 s instead of 1396 s on this machine.
+
 ### 2026-11-14 21:56; Ph1: 4/60, 5/60, 31/60 to 35/60 | K.14, K.15, B.1 to B.5: Editing the outline, with undo and autosave
 
 #### Added

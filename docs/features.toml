@@ -115,6 +115,12 @@ status = "in-progress"
 tests = ["entries_move_one_place_as_a_group", "only_open_state_the_reader_changed_is_written"]
 open = "multi-entry move undone in one step, checked end to end by hand; restyle; open state saved without another edit"
 
+["B.6"]
+label = "Ph1: 36/60"
+status = "in-progress"
+tests = ["bookmarks_are_listed_in_reading_order_with_their_details", "a_renamed_file_finds_its_bookmarks_by_its_content", "a_search_finds_every_word_in_the_title_note_or_tags", "a_reported_place_keeps_its_point_zoom_and_selected_text"]
+open = "survives a re-typeset version (needs K.28, Phase 3); edited-then-renamed file; checked in the app by hand"
+
 ["R.8"]
 label = "Ph1: 19/60"
 status = "shipped"

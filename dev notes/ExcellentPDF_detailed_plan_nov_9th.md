@@ -2832,6 +2832,13 @@ undo. Tests: `entries_move_one_place_as_a_group`, `only_open_state_the_reader_ch
 
 **Done when:** bookmarks survive a file rename (found by file identity) and a re-typeset version (K.28).
 
+**Built (2026-11-14), steps 1 and 2; step 3 in part:** model in `excellent-features::bookmarks` (tags, search), table
+in `excellent-store::bookmarks` (migration 4), view in `excellent-app::bookmarks`. The anchor is page, point and zoom
+plus the selected text (`quote`); tags are a table of their own; colour reuses the tab groups' palette. A rename or
+move is found by content (`FileId::content_key`, stored as `file.content`) when the file is next shown. The canvas's
+`outlineTarget` is now `readerPlace`, and `goToPoint` jumps to a point. Open: re-anchoring by text (K.28, Phase 3),
+so a re-typeset version, and a file edited and then renamed before it is shown, don't find their bookmarks yet.
+
 #### Ph3: 4/49 | B.7: Bold, italic and color
 **P1; Phase 3; Needs:** B.1; **Code:** as B.1
 1. Set `flags` and `r g b` through `fz_outline_iterator_update`; draw with theme-aware colors as Enhanced does.

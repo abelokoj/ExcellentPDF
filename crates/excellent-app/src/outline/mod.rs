@@ -474,7 +474,7 @@ fn entry_menu(
 }
 
 /// A menu item for command `id`: its label and its shortcut, as the palette shows them.
-fn menu_entry(id: CommandId, select: impl Fn() + 'static) -> MenuItemElement {
+pub(crate) fn menu_entry(id: CommandId, select: impl Fn() + 'static) -> MenuItemElement {
     menu_item()
         .on_select(select)
         .accessibility_label(commands::label_with_shortcut(id))

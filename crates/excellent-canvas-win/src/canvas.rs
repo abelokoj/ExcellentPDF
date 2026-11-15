@@ -469,6 +469,18 @@ impl Canvas {
         }
     }
 
+    /// Jumps to `point` on page `page` (B.6), at `zoom` when there is one (1 is 100 %), else in the reader's zoom,
+    /// remembering where the reader was (R.8).
+    pub(crate) fn go_to_point(&mut self, page: usize, point: PagePoint, zoom: Option<f32>) {
+        if let Some(zoom) = zoom {
+            self.viewport.set_zoom(zoom, &self.layout);
+        }
+        self.jump(Target {
+            page,
+            point: Some(point),
+        });
+    }
+
     /// Jumps to page `index` (R.6), remembering where the reader was (R.8).
     pub(crate) fn go_to_page(&mut self, index: usize) {
         self.jump(Target {
@@ -672,11 +684,11 @@ impl Canvas {
         self.invalidate();
     }
 
-    /// Tells the app where an outline entry made now would open (B.1, B.4), as `outlineTarget`:
+    /// Tells the app where the reader is, for a new outline entry or bookmark (B.1, B.4, B.6), as `readerPlace`:
     /// `{page, x, y, zoom, title}`, the place in page points. With selected text it is the top of the selection's
     /// first line and `title` is the text; otherwise the top left of what shows of the first page in view, and
     /// `title` is `null`. `zoom` is the reader's (1 is 100 %), `null` while a fit mode sets it.
-    pub(crate) fn outline_target(&self) {
+    pub(crate) fn reader_place(&self) {
         let selected = self
             .selection
             .filter(|selection| !selection.is_collapsed())
@@ -697,7 +709,7 @@ impl Canvas {
         let zoom =
             matches!(self.viewport.zoom_mode(), ZoomMode::Custom).then(|| self.viewport.zoom());
         self.emit(
-            "outlineTarget",
+            "readerPlace",
             serde_json::json!({ "page": page, "x": point.x, "y": point.y, "zoom": zoom, "title": title }),
         );
     }

@@ -27,7 +27,7 @@ use crate::goto::PageState;
 use crate::open::Launch;
 use crate::settings::Live;
 
-pub(crate) use group_dialog::group_dialog;
+pub(crate) use group_dialog::{Tone, action_button, color_name, group_dialog};
 pub(crate) use groups::{GroupColor, GroupId};
 pub(crate) use list::tab_list;
 pub(crate) use model::{Closed, Cycle, Step, TabId, Tabs};

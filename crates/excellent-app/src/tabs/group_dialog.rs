@@ -118,19 +118,24 @@ fn swatch_button(
 }
 
 /// The name of `color`, as screen readers and the chip of a group without a name say it.
-pub(super) fn color_name(color: GroupColor) -> String {
+pub(crate) fn color_name(color: GroupColor) -> String {
     t!(&format!("tab_group.color.{}", color.id()))
 }
 
 /// How a dialog button reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Tone {
+pub(crate) enum Tone {
     Plain,
     /// It loses work: closing tabs.
     Destructive,
 }
 
-fn action_button(key: &'static str, tone: Tone, on_press: impl Fn() + 'static) -> impl IntoElement {
+/// A dialog button labelled by the translation `key`, in `tone`.
+pub(crate) fn action_button(
+    key: &'static str,
+    tone: Tone,
+    on_press: impl Fn() + 'static,
+) -> impl IntoElement {
     button()
         .accessibility_label(t!(key))
         .on_press(on_press)

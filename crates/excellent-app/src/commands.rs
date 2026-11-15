@@ -10,6 +10,7 @@ use excellent_features::outline::Shift;
 use nsh_base::CommandItem;
 use nsh_core::prelude::*;
 
+use crate::bookmarks::BookmarkAction;
 use crate::keymap::{self, Keymap, Scope};
 use crate::outline::OutlineAction;
 use crate::tabs::{Action as TabAction, Step};
@@ -48,6 +49,8 @@ pub(crate) enum CommandId {
     Canvas(&'static str),
     /// Something done to the shown document's outline (B.1 to B.5).
     Outline(OutlineAction),
+    /// Something done to the shown document's personal bookmarks (B.6).
+    Bookmark(BookmarkAction),
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -65,6 +68,7 @@ impl CommandId {
                 Self::Canvas(_)
                     | Self::GoToPage
                     | Self::Outline(_)
+                    | Self::Bookmark(_)
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -637,6 +641,33 @@ pub(crate) const COMMANDS: &[Command] = &[
         label: "command.outline_delete",
         group: "command.group.outline",
         // Delete while the outline has the keyboard.
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Bookmark(BookmarkAction::Add),
+        name: "bookmark.add",
+        label: "command.bookmark_add",
+        group: "command.group.bookmarks",
+        // Plan B.6; Enhanced has no key for CmdFavoriteAdd.
+        keys: &["mod+d"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Bookmark(BookmarkAction::Edit),
+        name: "bookmark.edit",
+        label: "command.bookmark_edit",
+        group: "command.group.bookmarks",
+        // F2 while the bookmarks have the keyboard (the panel binds it).
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Bookmark(BookmarkAction::Delete),
+        name: "bookmark.delete",
+        label: "command.bookmark_delete",
+        group: "command.group.bookmarks",
+        // Delete while the bookmarks have the keyboard.
         keys: &[],
         page_keys: &[],
     },

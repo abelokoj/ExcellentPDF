@@ -11,6 +11,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/0001_workspaces.sql"),
     include_str!("migrations/0002_tab_groups.sql"),
     include_str!("migrations/0003_recent.sql"),
+    include_str!("migrations/0004_bookmarks.sql"),
 ];
 
 /// The newest version this build knows.

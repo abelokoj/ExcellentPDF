@@ -497,7 +497,18 @@ mod tests {
                 .filter(|&(_, &byte)| byte == b'\n')
                 .map(|(at, _)| at + 1)
                 .collect();
-            for cut in 0..=bytes.len() {
+            // Every way a cut can fall: at each line's end, a byte either side of it, and inside each line. Every
+            // byte would write the file thousands of times a case, which took over 20 minutes on Windows.
+            let mut cuts: Vec<usize> = vec![0, bytes.len()];
+            let mut start = 0;
+            for &end in &ends {
+                cuts.extend([(start + end) / 2, end - 1, end, end + 1]);
+                start = end;
+            }
+            cuts.retain(|&cut| cut <= bytes.len());
+            cuts.sort_unstable();
+            cuts.dedup();
+            for cut in cuts {
                 fs::write(&cut_path, &bytes[..cut]).expect("write");
                 let lines = ends.iter().filter(|&&end| end <= cut).count();
                 match read(&cut_path).expect("read") {
