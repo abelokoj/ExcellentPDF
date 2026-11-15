@@ -56,6 +56,15 @@ impl Onboarding {
         }
     }
 
+    /// A workspace window's (W.8): no guide until the reader asks for it; tips as the main window's.
+    pub(crate) fn quiet(live: Live) -> Self {
+        Self {
+            guide: signal(None),
+            tip: signal(None),
+            live,
+        }
+    }
+
     /// Opens the guide at its first step (the replay command); it closes any tip.
     pub(crate) fn replay(self) {
         self.tip.set(None);

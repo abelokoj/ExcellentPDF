@@ -3078,6 +3078,9 @@ context menu and the drag wait for popups over the canvas and R.12's tab drag.
 1. "Open workspace in new window" (`open_window`, NSH v0.5.0); a workspace open in one window can't be opened in
    another (focus that window through its `WindowRef` instead).
 
+*Built (2026-11-16):* the rule is `workspaces::claims`, asked by every way a window comes to show a workspace; the
+other windows' workspaces are kept in `meta` for the next start, which also completes W.7.
+
 **Done when:** the rule holds under every open path (test).
 
 #### Ph3: 12/49 | W.9: Search tabs across workspaces

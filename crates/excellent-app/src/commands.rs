@@ -1258,6 +1258,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &[],
     },
     Command {
+        id: CommandId::Workspace(WorkspaceAction::OpenWindow),
+        name: "workspace.open_window",
+        label: "command.open_workspace_window",
+        group: "command.group.workspaces",
+        keys: &["mod+alt+shift+n"],
+        page_keys: &[],
+    },
+    Command {
         id: CommandId::Workspace(WorkspaceAction::Shift(Step::Previous)),
         name: "workspace.move_earlier",
         label: "command.move_workspace_earlier",

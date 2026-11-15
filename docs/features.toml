@@ -323,7 +323,13 @@ open = "tried by hand; matching by file identity (K.5)"
 label = "Ph1: 51/60"
 status = "in-progress"
 tests = ["the_shown_workspace_is_remembered_until_it_goes"]
-open = "tried by hand; per window with W.8"
+open = "tried by hand; two windows restoring two workspaces comes with W.8"
+
+["W.8"]
+label = "Ph3: 11/49"
+status = "in-progress"
+tests = ["a_workspace_shows_in_one_window_at_a_time", "the_other_windows_workspaces_are_remembered_until_they_go"]
+open = "not tried by hand; quitting with workspace windows open not checked to keep them for the next start"
 
 ["W.14"]
 label = "Ph1: 52/60"

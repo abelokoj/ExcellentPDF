@@ -1,4 +1,4 @@
-//! The set of workspaces (plan §11.16; W.1 to W.7): their names, icons, colours and order, and the one each window
+//! The set of workspaces (plan §11.16; W.1 to W.8): their names, icons, colours and order, and the one each window
 //! shows. What a workspace holds (its panes and tabs) is [`crate::workspace`]'s.
 
 use std::path::Path;
@@ -8,8 +8,12 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use crate::Result;
 use crate::workspace::WorkspaceId;
 
-/// `meta`'s key for the workspace the window showed last (W.7). shortcut: one window; W.8's windows each get a key.
+/// `meta`'s key for the workspace the main window showed last (W.7).
 const SHOWN_KEY: &str = "workspace.shown";
+
+/// `meta`'s key for the workspaces the app's other windows showed (W.8): their ids, comma-separated, in the order
+/// the windows opened.
+const WINDOWS_KEY: &str = "workspace.windows";
 
 /// A workspace as the switcher lists it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -142,6 +146,49 @@ pub fn set_shown(tx: &Transaction<'_>, workspace: WorkspaceId) -> Result<()> {
     Ok(())
 }
 
+/// The workspaces the app's other windows showed when it last ran (W.8), in the order they opened; deleted ones
+/// are left out.
+///
+/// # Errors
+///
+/// SQLite failed.
+pub fn windows(conn: &Connection) -> Result<Vec<WorkspaceId>> {
+    let value: Option<String> = conn
+        .query_row(
+            "SELECT value FROM meta WHERE key = ?1",
+            [WINDOWS_KEY],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let Some(value) = value else {
+        return Ok(Vec::new());
+    };
+    let live: Vec<WorkspaceId> = list(conn)?.into_iter().map(|w| w.id).collect();
+    Ok(value
+        .split(',')
+        .filter_map(|id| id.trim().parse().ok().map(WorkspaceId))
+        .filter(|id| live.contains(id))
+        .collect())
+}
+
+/// Notes the workspaces the app's other windows show, in the order they opened (W.8).
+///
+/// # Errors
+///
+/// SQLite failed.
+pub fn set_windows(tx: &Transaction<'_>, shown: &[WorkspaceId]) -> Result<()> {
+    let value = shown
+        .iter()
+        .map(|id| id.0.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    tx.execute(
+        "INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+        params![WINDOWS_KEY, value],
+    )?;
+    Ok(())
+}
+
 /// The first workspace other than `except` with an open tab of the file at `path` (W.6). Paths are compared as
 /// written, ignoring case. shortcut: matches the path, not the file's identity (K.5); moved files aren't found.
 ///
@@ -260,6 +307,24 @@ mod tests {
         assert_eq!(shown(&conn).expect("shown"), Some(other));
         change(&mut conn, |tx| delete(tx, other));
         assert_eq!(shown(&conn).expect("shown"), None);
+    }
+
+    #[test]
+    fn the_other_windows_workspaces_are_remembered_until_they_go() {
+        let mut conn = database();
+        assert_eq!(windows(&conn).expect("windows"), []);
+        let a = change(&mut conn, |tx| create(tx, &look("A")));
+        let b = change(&mut conn, |tx| create(tx, &look("B")));
+        change(&mut conn, |tx| set_windows(tx, &[b, a]));
+        assert_eq!(
+            windows(&conn).expect("windows"),
+            [b, a],
+            "in the order they opened"
+        );
+        change(&mut conn, |tx| delete(tx, b));
+        assert_eq!(windows(&conn).expect("windows"), [a]);
+        change(&mut conn, |tx| set_windows(tx, &[]));
+        assert_eq!(windows(&conn).expect("windows"), []);
     }
 
     #[test]

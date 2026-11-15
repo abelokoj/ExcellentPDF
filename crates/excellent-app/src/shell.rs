@@ -6,16 +6,23 @@
 //! their features (W.1, R.13). The document area is the split view's grid of panes ([`crate::panes`]): the tab
 //! strip, the page button, the sidebar's panels and every command are the active pane's (V.5).
 //!
+//! Every window of the app has this shell (W.8): [`shell`] is the main window's and does what the app does once (the
+//! theme, the language, the windows of the last run); [`open_workspace_window`] opens another on a workspace of its
+//! own. What they share is [`App`].
+//!
 //! The pages take the keyboard focus when a document opens and when the reader presses on them; keys scoped to the
 //! pages ([`crate::keymap::Scope::Page`]) work while they have it. In full screen (R.19) the title bar and the docks
 //! hide ([`FullScreen`]).
 
+use excellent_store::workspace::WorkspaceId;
+use excellent_store::workspaces::Workspace;
 use nsh_base::dock::{
     DockAreaLayout, DockLayout, DockPanel, DockPanelOptions, DockPlacement, DockRegion, DockTab,
 };
 use nsh_base::{CommandEntry, button, command, dock_area, theme};
 use nsh_core::desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes};
-use nsh_core::element::desktop::{current_window, title_bar};
+use nsh_core::element::desktop::{OpenChange, current_window, open_window};
+use nsh_core::element::{create_root, next_frame};
 use nsh_core::geometry::Points;
 
 use nsh_core::JsonValue;
@@ -40,7 +47,7 @@ use crate::settings_window::settings_window;
 use crate::tabs;
 use crate::theme as themes;
 use crate::thumbnails;
-use crate::workspaces::{self, Workspaces};
+use crate::workspaces::{self, MAIN, Workspaces};
 
 /// The title bar's height; Windows draws its caption buttons this tall.
 const TITLE_BAR_HEIGHT: Points = px(40.0);
@@ -48,6 +55,9 @@ const TITLE_BAR_HEIGHT: Points = px(40.0);
 /// Below this window width the docks become drawers over the document (U.4): with the sidebar's 260 points and the
 /// inspector's 300 both open, the page would get less than 340. A 1280-point screen at 150 % scaling is 853.
 const COMPACT_BELOW: Points = px(900.0);
+
+/// A workspace window's size before the platform keeps one of its own (W.8).
+const WINDOW_SIZE: (f32, f32) = (1100.0, 800.0);
 
 /// How often the system's high contrast is looked at (U.4).
 const SYSTEM_CONTRAST_POLL: std::time::Duration = std::time::Duration::from_secs(2);
@@ -159,51 +169,37 @@ fn toggle(dock: &mut Option<DockRegion>) {
     }
 }
 
+/// What every window of the app shares (W.8): the settings, the recent files, the theme picked and the list of
+/// workspaces.
+#[derive(Clone, Copy)]
+pub(crate) struct App {
+    pub(crate) live: settings::Live,
+    pub(crate) recent: RecentState,
+    pub(crate) workspace_list: Signal<Vec<Workspace>>,
+    /// The pickers keep their choice in the settings file; the root starts with it (`crate::root`).
+    theme_choice: Signal<themes::ThemeChoice>,
+}
+
+/// Which window a shell is in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Role {
+    /// The main window: later launches' files come to it, and the guide opens in it (U.9).
+    Main,
+    /// A workspace's window (W.8).
+    Workspace,
+}
+
+/// The main window's shell, and what the app does once: following the theme, the language and the system's
+/// contrast, and opening the workspace windows of the last run (W.8).
 pub(crate) fn shell() -> impl IntoElement {
-    let layout = signal(default_layout());
-    let palette_open = signal(false);
-    let theme_open = signal(false);
-    let appearance_open = signal(false);
-    let goto_open = signal(false);
-    let settings_open = signal(false);
-    // Not a dialog: it lies in the title bar, so the pages stay in sight to preview each theme.
-    let reading_theme_open = signal(false);
-    let tab_list_open = signal(false);
     let live = settings::Live::new();
-    let printing = Printing::new();
-    let recent = RecentState::new();
-    let (shown, restored) = workspaces::opening();
-    let panes = Panes::new(live, recent, restored);
-    let workspaces = Workspaces::new(panes, shown, live);
-    let shared = Shared {
-        reading: Reading::new(live),
-        full_screen: FullScreen::new(layout),
-        recent,
-        file_drag: FileDrag::new(),
-        covers: crate::home::Covers::new(),
-        workspaces,
+    let app = App {
+        live,
+        recent: RecentState::new(),
+        workspace_list: workspaces::shared_list(),
+        theme_choice: signal(themes::saved()),
     };
-    let Shared {
-        full_screen,
-        reading,
-        file_drag,
-        ..
-    } = shared;
-    // The pickers keep their choice in the settings file; the root starts with it (`crate::root`).
-    let theme_choice = signal(themes::saved());
-    // U.9: the guide opens now when this start is its moment; tips come at theirs.
-    let onboarding = Onboarding::new(live);
-    // K.18: the mode and its toolbar; the tab strip and the panes find it in the context (the accent, the pen).
-    let modes = Modes::new(live);
-    provide_context(modes);
-    effect(move || {
-        let tabs = panes.active().tabs;
-        if tabs.count() >= 2 {
-            onboarding.moment(excellent_features::onboarding::Tip::TabList);
-        } else if tabs.has_shown() {
-            onboarding.moment(excellent_features::onboarding::Tip::Palette);
-        }
-    });
+    let theme_choice = app.theme_choice;
     // An edit of the settings file changes the theme too.
     effect(move || {
         let saved = live.read(themes::ThemeChoice::from_settings);
@@ -222,6 +218,107 @@ pub(crate) fn shell() -> impl IntoElement {
     set_interval(SYSTEM_CONTRAST_POLL, move || {
         if themes::follow_system(&settings::shared()) {
             themes::apply(untracked(|| theme_choice.get()));
+        }
+    });
+    let (shown, restored) = workspaces::opening();
+    let panes = Panes::new(live, app.recent, restored);
+    let workspaces = Workspaces::new(app, panes, shown, MAIN);
+    workspaces.set_window(current_window());
+    // W.8: the windows open when the app last quit, once the main window is up.
+    spawn(async move {
+        next_frame().await;
+        for id in workspaces::reopened(shown) {
+            open_workspace_window(app, id);
+        }
+    });
+    window_shell(app, panes, workspaces, Role::Main)
+}
+
+/// Opens workspace `id` in a window of its own (W.8), with every part of the main window. The caller checked that no
+/// window shows it.
+pub(crate) fn open_workspace_window(app: App, id: WorkspaceId) {
+    let no = workspaces::next_window();
+    // The window's panes and workspaces live until its content goes (the cleanup below), not with the window that
+    // opened it; they are made out here so its closing can still save them.
+    let (owner, (panes, workspaces)) = create_root(move || {
+        let restored = crate::session::load(id).unwrap_or_default();
+        let panes = Panes::new(app.live, app.recent, restored);
+        (panes, Workspaces::new(app, panes, id, no))
+    });
+    let opened = open_window(
+        nsh_core::element::desktop::window()
+            .id(format!("workspace-{no}"))
+            .title(move || {
+                let name = workspaces
+                    .shown()
+                    .map(|w| workspaces::display_name(&w))
+                    .unwrap_or_default();
+                t!("workspace.window_name", name = name)
+            })
+            .default_size(size(px(WINDOW_SIZE.0), px(WINDOW_SIZE.1)))
+            // However it closes, its tabs are saved and its workspace is free.
+            .on_open_change(move |_: &OpenChange| workspaces.close())
+            .content(move || {
+                cleanup(move || owner.dispose());
+                window_shell(app, panes, workspaces, Role::Workspace)
+            }),
+    );
+    match opened {
+        Some(window) => workspaces.set_window(window),
+        // No windows of the app's own here.
+        None => {
+            workspaces.close();
+            owner.dispose();
+        }
+    }
+}
+
+/// A window's shell, showing `workspaces`' shown workspace in `panes`.
+fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> impl IntoElement {
+    let App {
+        live,
+        recent,
+        theme_choice,
+        ..
+    } = app;
+    let layout = signal(default_layout());
+    let palette_open = signal(false);
+    let theme_open = signal(false);
+    let appearance_open = signal(false);
+    let goto_open = signal(false);
+    let settings_open = signal(false);
+    // Not a dialog: it lies in the title bar, so the pages stay in sight to preview each theme.
+    let reading_theme_open = signal(false);
+    let tab_list_open = signal(false);
+    let printing = Printing::new();
+    let shared = Shared {
+        reading: Reading::new(live),
+        full_screen: FullScreen::new(layout),
+        recent,
+        file_drag: FileDrag::new(),
+        covers: crate::home::Covers::new(),
+        workspaces,
+    };
+    let Shared {
+        full_screen,
+        reading,
+        file_drag,
+        ..
+    } = shared;
+    // U.9: the guide opens now when this start is its moment; tips come at theirs. A workspace window opens no guide.
+    let onboarding = match role {
+        Role::Main => Onboarding::new(live),
+        Role::Workspace => Onboarding::quiet(live),
+    };
+    // K.18: the mode and its toolbar; the tab strip and the panes find it in the context (the accent, the pen).
+    let modes = Modes::new(live);
+    provide_context(modes);
+    effect(move || {
+        let tabs = panes.active().tabs;
+        if tabs.count() >= 2 {
+            onboarding.moment(excellent_features::onboarding::Tip::TabList);
+        } else if tabs.has_shown() {
+            onboarding.moment(excellent_features::onboarding::Tip::Palette);
         }
     });
     // The page canvases are windows over the app's, so they hide while a dialog is open.
@@ -320,16 +417,19 @@ pub(crate) fn shell() -> impl IntoElement {
             }
         }
     };
-    // Later launches' files (R.11), until the window closes.
-    spawn(async move {
-        loop {
-            let launch = crate::open::next().await;
-            current_window().focus();
-            // The files are what the reader wants now (U.9).
-            onboarding.make_way();
-            workspaces.open(&launch);
-        }
-    });
+    // Later launches' files (R.11), until the window closes; the main window takes them, or hands them to the window
+    // that shows their workspace (W.6, W.8).
+    if role == Role::Main {
+        spawn(async move {
+            loop {
+                let launch = crate::open::next().await;
+                current_window().focus();
+                // The files are what the reader wants now (U.9).
+                onboarding.make_way();
+                workspaces.open(&launch);
+            }
+        });
+    }
     // Bound again when the settings change: the user's keys may have.
     effect(move || {
         live.read(|_| ());
@@ -441,7 +541,10 @@ fn window_bar(
     bar.height = Some(TITLE_BAR_HEIGHT);
     let mut attributes = WindowAttributes::default();
     attributes.title_bar = Some(bar);
-    current_window().set(attributes);
+    // This window's, the main one or a workspace's (W.8).
+    let window = current_window();
+    window.set(attributes);
+    let left = window.clone();
 
     view()
         .h(TITLE_BAR_HEIGHT)
@@ -450,8 +553,8 @@ fn window_bar(
         .items_center()
         .gap_2()
         .window_drag(true)
-        .pl(move || title_bar().left + px(8.0))
-        .pr(move || title_bar().right + px(8.0))
+        .pl(move || left.title_bar().left + px(8.0))
+        .pr(move || window.title_bar().right + px(8.0))
         .bg(move || theme().sidebar)
         .border_b_1()
         .border_b_color(move || theme().border)

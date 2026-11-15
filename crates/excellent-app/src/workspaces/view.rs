@@ -95,9 +95,8 @@ pub(crate) fn workspace_dialogs(
     dynamic(move || {
         let dialog = workspaces.dialog();
         untracked(|| match dialog {
-            Some(Dialog::Switch) => workspace_list(workspaces, None, run).into_element(),
-            Some(Dialog::Send(transfer)) => {
-                workspace_list(workspaces, Some(transfer), run).into_element()
+            Some(list @ (Dialog::Switch | Dialog::Send(_) | Dialog::Window)) => {
+                workspace_list(workspaces, list, run).into_element()
             }
             Some(Dialog::Edit) => edit_dialog(workspaces).into_element(),
             Some(Dialog::Delete) => delete_dialog(workspaces).into_element(),
@@ -113,25 +112,26 @@ enum Row {
     Run(WorkspaceAction),
 }
 
-/// Every workspace, to switch to, or (while `sending`) to send the shown tab to; switching also offers the
-/// workspace commands.
+/// Every workspace, to switch to, to send the shown tab to (`Dialog::Send`), or to open in a new window
+/// (`Dialog::Window`, W.8); switching also offers the workspace commands.
 fn workspace_list(
     workspaces: Workspaces,
-    sending: Option<Transfer>,
+    list: Dialog,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
     let close = move || workspaces.set_dialog(None);
-    let rows = untracked(|| rows(workspaces, sending));
+    let rows = untracked(|| rows(workspaces, list));
     let items: Vec<CommandItem> = rows.iter().map(|(item, _)| item.clone()).collect();
     let find = move |id: &str| {
         rows.iter()
             .find(|(item, _)| item.id.as_ref() == id)
             .map(|(_, row)| *row)
     };
-    let title = match sending {
-        None => t!("workspace.list"),
-        Some(Transfer::Move) => t!("workspace.move_to"),
-        Some(Transfer::Copy) => t!("workspace.copy_to"),
+    let title = match list {
+        Dialog::Send(Transfer::Move) => t!("workspace.move_to"),
+        Dialog::Send(Transfer::Copy) => t!("workspace.copy_to"),
+        Dialog::Window => t!("workspace.window_title"),
+        Dialog::Switch | Dialog::Edit | Dialog::Delete => t!("workspace.list"),
     };
     list_dialog(
         title.clone(),
@@ -147,9 +147,10 @@ fn workspace_list(
                         return;
                     };
                     close();
-                    match (row, sending) {
-                        (Row::Go(to), Some(transfer)) => workspaces.send_tab(transfer, to),
-                        (Row::Go(to), None) => workspaces.switch(to),
+                    match (row, list) {
+                        (Row::Go(to), Dialog::Send(transfer)) => workspaces.send_tab(transfer, to),
+                        (Row::Go(to), Dialog::Window) => workspaces.open_in_window(to),
+                        (Row::Go(to), _) => workspaces.switch(to),
                         (Row::Run(action), _) => run(CommandId::Workspace(action)),
                     }
                 })
@@ -158,9 +159,10 @@ fn workspace_list(
     )
 }
 
-/// The list's rows: each workspace with its tab count (the shown one checked, or left out while sending), then the
-/// commands.
-fn rows(workspaces: Workspaces, sending: Option<Transfer>) -> Vec<(CommandItem, Row)> {
+/// The list's rows: each workspace with its tab count (the shown one checked, or left out while sending or opening
+/// a window), those another window shows saying so (W.8), then the commands.
+fn rows(workspaces: Workspaces, list_of: Dialog) -> Vec<(CommandItem, Row)> {
+    let switching = list_of == Dialog::Switch;
     let shown = workspaces.shown_id();
     let list = workspaces.list();
     let keymap = keymap::current();
@@ -168,24 +170,28 @@ fn rows(workspaces: Workspaces, sending: Option<Transfer>) -> Vec<(CommandItem, 
     let mut rows: Vec<(CommandItem, Row)> = list
         .iter()
         .enumerate()
-        .filter(|(_, w)| sending.is_none() || w.id != shown)
+        .filter(|(_, w)| switching || w.id != shown)
         .map(|(n, w)| {
             let tabs = if w.id == shown {
                 workspaces.shown_tab_count()
             } else {
                 w.tabs
             };
-            let label = t!("workspace.row", name = row_name(w), count = tabs);
+            let label = if workspaces.in_other_window(w.id) {
+                t!("workspace.row_elsewhere", name = row_name(w), count = tabs)
+            } else {
+                t!("workspace.row", name = row_name(w), count = tabs)
+            };
             let mut item = CommandItem::new(format!("workspace:{n}"), label);
             item.group = Some(group.clone());
-            item.checked = sending.is_none() && w.id == shown;
+            item.checked = switching && w.id == shown;
             if let Some(keys) = keymap.first_keys(CommandId::Workspace(WorkspaceAction::Go(n))) {
                 item = item.shortcut(keys.to_owned());
             }
             (item, Row::Go(w.id))
         })
         .collect();
-    if sending.is_none() {
+    if switching {
         let actions: SharedString = t!("workspace.group.actions").into();
         for action in [
             WorkspaceAction::New(Start::Empty),
@@ -193,6 +199,7 @@ fn rows(workspaces: Workspaces, sending: Option<Transfer>) -> Vec<(CommandItem, 
             WorkspaceAction::New(Start::ShownTab),
             WorkspaceAction::SendTab(Transfer::Move),
             WorkspaceAction::Edit,
+            WorkspaceAction::OpenWindow,
         ] {
             let id = CommandId::Workspace(action);
             let available = workspaces.panes.active().tabs.has_shown();

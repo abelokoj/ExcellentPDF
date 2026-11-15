@@ -1,12 +1,15 @@
-//! Workspaces (plan §11.16; W.1 to W.7, W.14): named sets of tabs, like Vivaldi's. The window shows one; switching
-//! saves its panes and tabs and puts the other's in their place ([`Panes::show`]). A workspace not shown is rows in
+//! Workspaces (plan §11.16; W.1 to W.8, W.14): named sets of tabs, like Vivaldi's. Each window shows one, and a
+//! workspace shows in one window at a time (W.8, [`claims`]): a switch to one another window shows focuses that
+//! window. Switching saves the window's panes and tabs and puts the other's in their place ([`Panes::show`]). A workspace not shown is rows in
 //! the library and nothing else: no document, no file handle (W.14). The switcher at the left of the title bar
 //! ([`view::switcher_button`]) lists them; the palette and Ctrl+Alt+1 to 9 switch too.
 //!
 //! What a workspace holds is saved by [`crate::session`]; this module keeps the list (names, icons, colours, order)
 //! and the shown one, and does what the workspace commands ask.
 
+mod claims;
 mod view;
+mod windows;
 
 use std::path::PathBuf;
 
@@ -19,7 +22,10 @@ use crate::open::Launch;
 use crate::panes::{ClosingTabs, Panes};
 use crate::session::{self, Keeper, Restored};
 use crate::settings::Live;
+use crate::shell::App;
 use crate::tabs::{Closed, GroupColor, Step};
+
+pub(crate) use windows::{MAIN, WindowNo};
 
 pub(crate) use view::{color_dot, switcher_button, workspace_dialogs};
 
@@ -81,6 +87,8 @@ pub(crate) enum WorkspaceAction {
     Go(usize),
     /// The next or previous workspace, round the ends (W.5).
     Cycle(Step),
+    /// Lists the workspaces, to open the one picked in a window of its own (W.8).
+    OpenWindow,
 }
 
 /// Which of the workspace dialogs is open.
@@ -94,9 +102,11 @@ pub(crate) enum Dialog {
     Edit,
     /// "Delete this workspace?": move its tabs or close them.
     Delete,
+    /// The list, to open the one picked in a new window (W.8).
+    Window,
 }
 
-/// The window's workspaces.
+/// A window's workspaces: the list, which every window shares, and the one it shows.
 #[derive(Clone, Copy)]
 pub(crate) struct Workspaces {
     list: Signal<Vec<Workspace>>,
@@ -105,9 +115,33 @@ pub(crate) struct Workspaces {
     keeper: Keeper,
     live: Live,
     dialog: Signal<Option<Dialog>>,
+    /// The window's number (W.8).
+    window: WindowNo,
+    /// What every window shares, to open another.
+    app: App,
 }
 
-/// The workspace the window opens on (W.7) and what it holds.
+/// A number for a new window (W.8).
+pub(crate) fn next_window() -> WindowNo {
+    windows::next_number()
+}
+
+/// The list every window shares, as the library has it.
+pub(crate) fn shared_list() -> Signal<Vec<Workspace>> {
+    signal(read_list())
+}
+
+/// The workspaces the other windows showed when the app last ran (W.8), but `main`, the main window's.
+pub(crate) fn reopened(main: WorkspaceId) -> Vec<WorkspaceId> {
+    let mut ids = store()
+        .and_then(|store| store.read(workspaces::windows).ok())
+        .unwrap_or_default();
+    ids.retain(|&id| id != main);
+    ids.dedup();
+    ids
+}
+
+/// The workspace the main window opens on (W.7) and what it holds.
 pub(crate) fn opening() -> (WorkspaceId, Restored) {
     let shown = crate::library::store()
         .and_then(|store| store.read(workspaces::shown).ok().flatten())
@@ -116,16 +150,59 @@ pub(crate) fn opening() -> (WorkspaceId, Restored) {
 }
 
 impl Workspaces {
-    /// The window's workspaces, `shown` in `panes`; its tabs are saved from now on.
-    pub(crate) fn new(panes: Panes, shown: WorkspaceId, live: Live) -> Self {
+    /// Window `window`'s workspaces, `shown` in `panes`; its tabs are saved from now on. Nothing else may show
+    /// `shown` (W.8: [`open_in_window`](Self::open_in_window) asks first).
+    pub(crate) fn new(app: App, panes: Panes, shown: WorkspaceId, window: WindowNo) -> Self {
+        let id = shown;
         let shown = signal(shown);
-        Self {
-            list: signal(read_list()),
+        let this = Self {
+            list: app.workspace_list,
             shown,
             panes,
             keeper: Keeper::new(panes, shown),
-            live,
+            live: app.live,
             dialog: signal(None),
+            window,
+            app,
+        };
+        windows::add(window, this);
+        if let Err(holder) = windows::claim(window, id) {
+            log::warn!("workspaces: window {holder} shows the workspace too");
+        }
+        this
+    }
+
+    /// The window `window` gives its ref to, so other windows can bring it to the front (W.8).
+    pub(crate) fn set_window(self, window: nsh_core::element::desktop::WindowRef) {
+        windows::set_window(self.window, window);
+    }
+
+    /// The window closes (W.8): every edit and its tabs are saved, its popped-out tabs come back first, and its
+    /// workspace is free for another window.
+    pub(crate) fn close(self) {
+        self.panes.windows().dock_all(self.panes);
+        for pane in self.panes.slots() {
+            pane.editing.save_now();
+        }
+        self.keeper.save_now();
+        windows::remove(self.window);
+        remember_windows();
+    }
+
+    /// Whether another window shows workspace `id` (W.8).
+    pub(crate) fn in_other_window(self, id: WorkspaceId) -> bool {
+        windows::holder(id, self.window).is_some()
+    }
+
+    /// Shows workspace `id` in a window of its own (W.8); when a window shows it already, that window comes to the
+    /// front.
+    pub(crate) fn open_in_window(self, id: WorkspaceId) {
+        if id == self.shown.get_untracked() {
+            return;
+        }
+        match windows::holder(id, self.window) {
+            Some(no) => windows::focus(no),
+            None => crate::shell::open_workspace_window(self.app, id),
         }
     }
 
@@ -184,16 +261,28 @@ impl Workspaces {
             }
             WorkspaceAction::Cycle(step) => {
                 let shown = self.shown.get_untracked();
-                if let Some(id) = cycle(&self.ids(), shown, step) {
+                // W.8: past those other windows show.
+                let free = windows::free_for(self.window, &self.ids());
+                if let Some(id) = cycle(&free, shown, step) {
                     self.switch(id);
+                }
+            }
+            WorkspaceAction::OpenWindow => {
+                if self.list.with_untracked(Vec::len) > 1 {
+                    self.set_dialog(Some(Dialog::Window));
                 }
             }
         }
     }
 
-    /// Shows workspace `id`: the shown one's panes are saved, and `id`'s take their place.
+    /// Shows workspace `id`: the shown one's panes are saved, and `id`'s take their place. When another window shows
+    /// it, that window comes to the front instead (W.8).
     pub(crate) fn switch(self, id: WorkspaceId) {
         if id == self.shown.get_untracked() {
+            return;
+        }
+        if let Err(holder) = windows::claim(self.window, id) {
+            windows::focus(holder);
             return;
         }
         self.keeper.save_now();
@@ -203,7 +292,11 @@ impl Workspaces {
             self.panes.show(restored);
         });
         // Waiting also lets the save above land first, so the list's counts are current.
-        self.write(move |tx| workspaces::set_shown(tx, id));
+        if self.window == MAIN {
+            self.write(move |tx| workspaces::set_shown(tx, id));
+        } else {
+            remember_windows();
+        }
         self.reload();
     }
 
@@ -214,6 +307,14 @@ impl Workspaces {
             && launch.split.is_none()
             && let Some(id) = launch.files.iter().find_map(|path| self.holder(path))
         {
+            // W.8: another window shows that workspace, so the files open there.
+            if let Some(no) = windows::holder(id, self.window)
+                && let Some(there) = windows::workspaces(no)
+            {
+                windows::focus(no);
+                there.panes.launch(launch);
+                return;
+            }
             self.switch(id);
         }
         self.panes.launch(launch);
@@ -244,11 +345,12 @@ impl Workspaces {
         });
     }
 
-    /// The workspace the shown one's tabs go to when it is deleted, and that is shown then.
+    /// The workspace the shown one's tabs go to when it is deleted, and that is shown then: one no other window
+    /// shows (W.8).
     pub(crate) fn neighbour(self) -> Option<Workspace> {
         let shown = self.shown.get();
         let ids: Vec<WorkspaceId> = self.list.with(|list| list.iter().map(|w| w.id).collect());
-        let to = neighbour(&ids, shown)?;
+        let to = neighbour(&windows::free_for(self.window, &ids), shown)?;
         self.list
             .with(|list| list.iter().find(|w| w.id == to).cloned())
     }
@@ -278,7 +380,11 @@ impl Workspaces {
             Transfer::Copy => tabs.shown_copy(),
         };
         if let Some(tab) = tab {
-            session::add_to(to, &tab);
+            // W.8: a workspace another window shows takes it there and then; its saved tabs would be written over.
+            match windows::holder(to, self.window).and_then(windows::workspaces) {
+                Some(there) => there.panes.active().tabs.adopt(vec![tab]),
+                None => session::add_to(to, &tab),
+            }
             self.reload();
         }
     }
@@ -371,6 +477,18 @@ impl Workspaces {
 /// The library, if it opened.
 fn store() -> Option<&'static Store> {
     crate::library::store()
+}
+
+/// Notes which workspaces the other windows show, for the next start (W.8).
+fn remember_windows() {
+    let shown = windows::others();
+    if let Some(store) = store()
+        && let Err(err) = store
+            .write(move |tx| workspaces::set_windows(tx, &shown))
+            .wait()
+    {
+        log::warn!("workspaces: can't note the windows: {err}");
+    }
 }
 
 /// The list from the library; without one, the first workspace alone.

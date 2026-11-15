@@ -6,6 +6,20 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 00:40; Ph3: 11/49 | W.8: One workspace per window
+
+- "Open workspace in new window" (Ctrl+Alt+Shift+N, the palette, the workspace list's actions) lists the other
+  workspaces; the one picked opens in a window of its own with everything the main window has: tabs, panes,
+  sidebar, palette, dialogs and modes.
+- A workspace shows in one window at a time. Switching to one another window shows (the list, Ctrl+Alt+1 to 9),
+  opening a file that workspace has, or opening it in a window again brings that window to the front; cycling
+  passes over it; a deleted workspace's tabs go to one no other window shows; a tab sent to it lands there at once.
+  The list says which workspaces are open in another window.
+- Closing a workspace window saves its edits and tabs and frees its workspace; the next start opens the windows that
+  were open (`meta` key `workspace.windows`), the main window on its own workspace as before (W.7).
+- Full screen (R.19) acts on its own window. The shell is now the app's part (`shell`) and each window's
+  (`window_shell`); the workspace list is one signal every window shares.
+
 ### 2026-11-15 23:30; Ph3: 10/49 | V.11: Pop out to a window
 
 - "Move tab to its own window or back" (Ctrl+Alt+O) moves the shown tab into a window of its own, at its page and

@@ -7,35 +7,43 @@
 use nsh_base::dock::{DockAreaLayout, DockRegion};
 use nsh_core::JsonValue;
 use nsh_core::desktop::WindowMode;
-use nsh_core::element::desktop::{current_window, window_state};
+use nsh_core::element::desktop::{WindowRef, current_window};
 use nsh_core::prelude::*;
 
 /// Full screen, as the shell shows it.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub(crate) struct FullScreen {
     /// The mode to go back to: the last one that wasn't full screen.
     windowed: Signal<WindowMode>,
     /// The pointer brought the title bar back.
     revealed: Signal<bool>,
+    /// Its window, the main one or a workspace's (W.8).
+    window: Stored<WindowRef>,
 }
 
 impl FullScreen {
     /// Follows the current window's mode while the current component lives, closing the docks of `layout` on
     /// entering full screen and opening them as they were on leaving it.
     pub(crate) fn new(layout: Signal<DockAreaLayout>) -> Self {
-        let start = untracked(window_state).map_or(WindowMode::Normal, |state| state.mode);
+        // Its window's: commands run outside any window, where `current_window` is the main one (W.8).
+        let window = current_window();
+        let start = untracked(|| window.state()).map_or(WindowMode::Normal, |state| state.mode);
         let windowed = signal(if start == WindowMode::FullScreen {
             WindowMode::Normal
         } else {
             start
         });
         let revealed = signal(false);
-        current_window().on_mode_change(move |mode, _| {
+        window.on_mode_change(move |mode, _| {
             if mode != WindowMode::FullScreen {
                 windowed.set(mode);
             }
         });
-        let this = Self { windowed, revealed };
+        let this = Self {
+            windowed,
+            revealed,
+            window: stored(window),
+        };
         // Each dock's open flag before full screen closed it; `None` while not in full screen.
         let docks: Signal<Option<(Option<bool>, Option<bool>)>> = signal(None);
         effect(move || {
@@ -71,7 +79,9 @@ impl FullScreen {
 
     /// Whether the window is in full screen (reactive).
     pub(crate) fn is_on(self) -> bool {
-        window_state().is_some_and(|state| state.mode == WindowMode::FullScreen)
+        self.window
+            .with(|window| window.state())
+            .is_some_and(|state| state.mode == WindowMode::FullScreen)
     }
 
     /// Goes into full screen, or back to the mode before it.
@@ -81,7 +91,7 @@ impl FullScreen {
         } else {
             WindowMode::FullScreen
         };
-        current_window().set_mode(mode);
+        self.window.with(|window| window.set_mode(mode));
     }
 
     /// Leaves full screen, if the window is in it.
