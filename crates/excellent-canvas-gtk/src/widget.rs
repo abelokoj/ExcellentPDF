@@ -15,6 +15,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib};
 
+use crate::access;
 use crate::host::{Canvas, GtkHost};
 
 /// One wheel notch's scroll, in widget pixels (about three lines of text, as browsers do; the same as Windows).
@@ -42,6 +43,7 @@ mod imp {
         const NAME: &'static str = "ExcellentPageCanvas";
         type Type = super::CanvasWidget;
         type ParentType = gtk::Widget;
+        type Interfaces = (gtk::AccessibleText,);
 
         fn class_init(class: &mut Self::Class) {
             class.set_accessible_role(gtk::AccessibleRole::Document);
@@ -60,13 +62,51 @@ mod imp {
             self.obj().draw(snapshot);
         }
     }
+
+    /// Screen readers read the pages' text (U.3); see `crate::access`. A busy canvas reads as empty for the moment.
+    impl AccessibleTextImpl for CanvasWidget {
+        fn contents(&self, start: u32, end: u32) -> Option<glib::Bytes> {
+            self.obj()
+                .read_canvas(|canvas| access::contents(canvas, start, end))
+        }
+
+        fn contents_at(
+            &self,
+            offset: u32,
+            granularity: gtk::AccessibleTextGranularity,
+        ) -> Option<(u32, u32, glib::Bytes)> {
+            self.obj()
+                .read_canvas(|canvas| access::contents_at(canvas, offset, granularity))
+        }
+
+        fn caret_position(&self) -> u32 {
+            self.obj().read_canvas(access::caret).unwrap_or(0)
+        }
+
+        fn selection(&self) -> Vec<gtk::AccessibleTextRange> {
+            self.obj()
+                .read_canvas(access::selection)
+                .unwrap_or_default()
+        }
+
+        fn attributes(
+            &self,
+            _offset: u32,
+        ) -> Vec<(gtk::AccessibleTextRange, glib::GString, glib::GString)> {
+            Vec::new()
+        }
+
+        fn default_attributes(&self) -> Vec<(glib::GString, glib::GString)> {
+            Vec::new()
+        }
+    }
 }
 
 glib::wrapper! {
     /// The page canvas's widget.
     pub(crate) struct CanvasWidget(ObjectSubclass<imp::CanvasWidget>)
         @extends gtk::Widget,
-        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+        @implements gtk::Accessible, gtk::AccessibleText, gtk::Buildable, gtk::ConstraintTarget;
 }
 
 impl CanvasWidget {
@@ -105,6 +145,28 @@ impl CanvasWidget {
         let canvas = self.imp().canvas.get()?;
         let mut canvas = canvas.try_borrow_mut().ok()?;
         Some(f(&mut canvas))
+    }
+
+    /// Runs `f` on the canvas unless it is being changed further up the stack (then `None`).
+    pub(crate) fn read_canvas<T>(&self, f: impl FnOnce(&Canvas) -> T) -> Option<T> {
+        let canvas = self.imp().canvas.get()?;
+        let canvas = canvas.try_borrow().ok()?;
+        Some(f(&canvas))
+    }
+
+    /// Tells screen readers the text changed (pages read, a document opened).
+    // shortcut: announced as the whole text inserted; GTK has no "replaced" change. Send the pages' own ranges if
+    // Orca repeats text it already read.
+    pub(crate) fn text_changed(&self) {
+        if let Some(len) = self.read_canvas(access::len) {
+            self.update_contents(gtk::AccessibleTextContentChange::Insert, 0, len);
+        }
+    }
+
+    /// Tells screen readers the selection, and so the caret, moved.
+    pub(crate) fn selection_moved(&self) {
+        self.update_selection_bound();
+        self.update_caret_position();
     }
 
     /// Tells the canvas the widget's size and scale when either changed.

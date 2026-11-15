@@ -1,12 +1,13 @@
 //! What the canvas tells screen readers (plan U.2): its pages, their links, notes and text, for the UI Automation
-//! providers in `crate::uia`. Areas come back in client pixels.
+//! providers on Windows, and as one flat string ([`FlatText`]) for GTK's and AppKit's text interfaces (U.3). Areas come
+//! back in client pixels.
 
 use std::ops::Range;
 
 use crate::Rect;
 use excellent_core::render::Note;
 use excellent_mupdf::{Link, PageRect};
-use excellent_text::{DocumentText, Granularity, Selection, TextPos};
+use excellent_text::{DocumentText, FlatText, Granularity, Selection, TextPos, TextUnit};
 
 use super::PageCanvas;
 use crate::page::host::Host;
@@ -164,6 +165,55 @@ impl<H: Host> PageCanvas<H> {
             Some(point) => self.go_to_point(at.page, point, None),
             None => self.go_to_page(at.page),
         }
+    }
+
+    /// The text as far as it is read, as one string (U.3).
+    // shortcut: made again on every call; keep it until the text changes if screen readers make scrolling stall.
+    pub fn flat_text(&self) -> FlatText {
+        FlatText::new(&self.document_text())
+    }
+
+    /// The `unit` around offset `offset` of `flat`, as its offsets.
+    pub fn flat_unit(&self, flat: &FlatText, offset: usize, unit: TextUnit) -> Range<usize> {
+        let (start, end) = self.document_text().expand(flat.pos(offset), unit);
+        flat.offset(start)..flat.offset(end)
+    }
+
+    /// The selection as offsets of `flat`.
+    pub fn flat_selection(&self, flat: &FlatText) -> Option<Range<usize>> {
+        let (start, end) = self.selected()?;
+        Some(flat.offset(start)..flat.offset(end))
+    }
+
+    /// Selects offsets `range` of `flat`.
+    pub fn flat_select(&mut self, flat: &FlatText, range: Range<usize>) {
+        self.select(flat.pos(range.start), flat.pos(range.end));
+    }
+
+    /// The offsets of `flat` on the pages on the screen.
+    pub fn flat_shown(&self, flat: &FlatText) -> Range<usize> {
+        let Some(pages) = self.shown_pages() else {
+            return 0..0;
+        };
+        let start = flat.offset(TextPos {
+            page: pages.start,
+            index: 0,
+        });
+        // Past the last page, `offset` gives the text's end.
+        let end = flat.offset(TextPos {
+            page: pages.end,
+            index: 0,
+        });
+        start..end.max(start)
+    }
+
+    /// The client-pixel areas of offsets `range` of `flat`.
+    pub fn flat_areas(&self, flat: &FlatText, range: Range<usize>) -> Vec<Rect> {
+        self.document_text()
+            .spans(flat.pos(range.start), flat.pos(range.end))
+            .into_iter()
+            .flat_map(|(page, chars)| self.text_areas(page, chars))
+            .collect()
     }
 
     /// Follows `link`: a place in the document jumps there; any other goes to the app (`openLink`: `{uri}`), which

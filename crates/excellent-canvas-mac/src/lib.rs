@@ -4,8 +4,11 @@
 //! [`host`](excellent_canvas::page::Host) and input; layouts, tiles, selection, find, reading aids and ink are the
 //! shared core's, as on Windows and Linux.
 //!
-//! Still to come here: screen-reader text (U.2's macOS side) and the pen's tilt.
+//! VoiceOver reads the pages' text through the view's accessibility text-area methods (U.3, `access`). Still to come
+//! here: the pen's tilt.
 
+#[cfg(target_os = "macos")]
+mod access;
 #[cfg(target_os = "macos")]
 mod component;
 #[cfg(target_os = "macos")]

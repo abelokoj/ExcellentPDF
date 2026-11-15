@@ -7,12 +7,14 @@
 //! normalization and ICU4X word breaks (languages written without spaces, bidirectional text) come next (K.13 steps 2
 //! and 3). Until then a Chinese or Japanese character is a word of its own and a Thai run is one word.
 
+mod flat;
 mod page;
 mod selection;
 mod walk;
 mod words;
 
 pub use excellent_mupdf::TextLayout;
+pub use flat::FlatText;
 pub use page::PageText;
 pub use selection::{Granularity, Selection, TextPos};
 pub use walk::{DocumentText, TextUnit};

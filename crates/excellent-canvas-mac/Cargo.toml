@@ -11,6 +11,7 @@ description = "macOS page canvas: NSView drawn with Core Graphics, with tablet a
 dispatch2.workspace = true
 excellent-canvas.workspace = true
 excellent-mupdf.workspace = true
+excellent-text.workspace = true
 log.workspace = true
 nsh-core.workspace = true
 nsh-platform-macos.workspace = true

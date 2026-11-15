@@ -16,7 +16,7 @@ use excellent_canvas::page::{Host, PageCanvas};
 use excellent_mupdf::Pixmap;
 use nsh_core::JsonValue;
 use nsh_platform_macos::ComponentContext;
-use objc2::rc::Weak;
+use objc2::rc::{Retained, Weak};
 use objc2_core_foundation::{CFData, CFRetained, CGFloat, CGPoint, CGRect, CGSize};
 use objc2_core_graphics::{
     CGBitmapInfo, CGBlendMode, CGColorRenderingIntent, CGColorSpace, CGContext, CGDataProvider,
@@ -128,9 +128,14 @@ impl Drop for MacHost {
     }
 }
 
+/// The canvas view `id`, while it lives. Called on the main thread, where the views are.
+fn view(id: u64) -> Option<Retained<CanvasView>> {
+    VIEWS.with_borrow(|views| views.get(&id).and_then(Weak::load))
+}
+
 /// Wakes the canvas `id` after a worker finished: its jobs are taken on the main thread.
 fn jobs_done(id: u64) {
-    let Some(view) = VIEWS.with_borrow(|views| views.get(&id).and_then(Weak::load)) else {
+    let Some(view) = view(id) else {
         return;
     };
     if !view.jobs_done() {
@@ -334,6 +339,25 @@ impl Host for MacHost {
 
     fn frame_ready(&mut self) -> bool {
         self.target.is_some()
+    }
+
+    fn content_changed(&self) {
+        // Later: VoiceOver may read the text back at once, and the canvas is busy now.
+        let id = self.id;
+        dispatch2::DispatchQueue::main().exec_async(move || {
+            if let Some(view) = view(id) {
+                view.text_changed();
+            }
+        });
+    }
+
+    fn selection_changed(&self) {
+        let id = self.id;
+        dispatch2::DispatchQueue::main().exec_async(move || {
+            if let Some(view) = view(id) {
+                view.selection_moved();
+            }
+        });
     }
 }
 

@@ -76,7 +76,7 @@ impl<'a> DocumentText<'a> {
         }
     }
 
-    fn page(&self, page: usize) -> Option<&'a PageText> {
+    pub(crate) fn page(&self, page: usize) -> Option<&'a PageText> {
         self.pages.get(page).copied().flatten()
     }
 
@@ -257,13 +257,13 @@ fn word_starts(text: &PageText) -> Vec<usize> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use excellent_mupdf::{PagePoint, PageRect, Quad, TextBlock, TextChar, TextLayout, TextLine};
 
     use super::*;
 
     /// A page of `paragraphs`, each a list of lines, laid out left to right, top to bottom.
-    fn page(paragraphs: &[&[&str]]) -> PageText {
+    pub(crate) fn page(paragraphs: &[&[&str]]) -> PageText {
         let mut layout = TextLayout {
             blocks: Vec::new(),
             lines: Vec::new(),

@@ -66,11 +66,6 @@ impl GtkHost {
         }
     }
 
-    /// The widget's key for wake-ups.
-    pub(crate) fn id(&self) -> u64 {
-        self.id
-    }
-
     /// The canvas is `size` device pixels at `scale` device pixels per widget pixel; whether that changed.
     pub(crate) fn set_size(&self, size: (f32, f32), scale: f64) -> bool {
         let changed = self.size.get() != size || self.scale.get() != scale;
@@ -307,6 +302,25 @@ impl Host for GtkHost {
 
     fn frame_ready(&mut self) -> bool {
         self.target.is_some()
+    }
+
+    fn content_changed(&self) {
+        // Later: GTK reads the text back at once, and the canvas is busy now.
+        let widget = self.widget.clone();
+        glib::idle_add_local_once(move || {
+            if let Some(widget) = widget.upgrade() {
+                widget.text_changed();
+            }
+        });
+    }
+
+    fn selection_changed(&self) {
+        let widget = self.widget.clone();
+        glib::idle_add_local_once(move || {
+            if let Some(widget) = widget.upgrade() {
+                widget.selection_moved();
+            }
+        });
     }
 }
 

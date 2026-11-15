@@ -11,6 +11,7 @@ description = "Linux page canvas: GTK 4 widget with GtkGestureStylus axes"
 [target.'cfg(target_os = "linux")'.dependencies]
 excellent-canvas.workspace = true
 excellent-mupdf.workspace = true
+excellent-text.workspace = true
 log.workspace = true
 nsh-core.workspace = true
 nsh-platform-linux.workspace = true

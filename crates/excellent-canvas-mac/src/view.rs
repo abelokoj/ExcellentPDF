@@ -11,15 +11,18 @@ use std::rc::Rc;
 use excellent_canvas::page::{ClickLimits, Cursor, PenSample};
 use nsh_platform_macos::ComponentContext;
 use objc2::rc::Retained;
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
+use objc2::{AnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSAccessibility, NSAccessibilityGroupRole, NSCursor, NSEvent, NSEventModifierFlags,
+    NSAccessibility, NSAccessibilityPostNotification,
+    NSAccessibilitySelectedTextChangedNotification, NSAccessibilityTextAreaRole,
+    NSAccessibilityValueChangedNotification, NSCursor, NSEvent, NSEventModifierFlags,
     NSEventSubtype, NSGraphicsContext, NSPointingDeviceType, NSTrackingArea, NSTrackingAreaOptions,
     NSView,
 };
 use objc2_core_foundation::{CGFloat, CGSize};
-use objc2_foundation::{NSObjectProtocol, NSPoint, NSRect, NSString};
+use objc2_foundation::{NSInteger, NSObjectProtocol, NSPoint, NSRange, NSRect, NSString};
 
+use crate::access;
 use crate::host::{Canvas, MacHost};
 
 /// A line of a wheel that scrolls by lines, in points (about a line of text; three make the 100 px notch Windows
@@ -166,6 +169,68 @@ define_class!(
                 .eraser
                 .set(event.isEnteringProximity() && event.pointingDeviceType() == NSPointingDeviceType::Eraser);
         }
+
+        // Screen readers (U.3): the view is a read-only text area over the pages' text; see `crate::access`.
+
+        #[unsafe(method_id(accessibilityValue))]
+        fn accessibility_value(&self) -> Option<Retained<NSString>> {
+            self.read_canvas(access::value).map(|text| NSString::from_str(&text))
+        }
+
+        #[unsafe(method(accessibilityNumberOfCharacters))]
+        fn accessibility_number_of_characters(&self) -> NSInteger {
+            to_integer(self.read_canvas(access::count).unwrap_or(0))
+        }
+
+        #[unsafe(method_id(accessibilitySelectedText))]
+        fn accessibility_selected_text(&self) -> Option<Retained<NSString>> {
+            self.read_canvas(|canvas| access::string(canvas, access::selected(canvas)))
+                .map(|text| NSString::from_str(&text))
+        }
+
+        #[unsafe(method(accessibilitySelectedTextRange))]
+        fn accessibility_selected_text_range(&self) -> NSRange {
+            ns_range(self.read_canvas(access::selected).unwrap_or(0..0))
+        }
+
+        #[unsafe(method(setAccessibilitySelectedTextRange:))]
+        fn set_accessibility_selected_text_range(&self, range: NSRange) {
+            self.with_canvas(|canvas| access::select(canvas, range_of(range)));
+        }
+
+        #[unsafe(method(accessibilityVisibleCharacterRange))]
+        fn accessibility_visible_character_range(&self) -> NSRange {
+            ns_range(self.read_canvas(access::shown).unwrap_or(0..0))
+        }
+
+        #[unsafe(method(accessibilityInsertionPointLineNumber))]
+        fn accessibility_insertion_point_line_number(&self) -> NSInteger {
+            let line = self.read_canvas(|canvas| access::line_at(canvas, access::selected(canvas).start));
+            to_integer(line.unwrap_or(0))
+        }
+
+        #[unsafe(method_id(accessibilityStringForRange:))]
+        fn accessibility_string_for_range(&self, range: NSRange) -> Option<Retained<NSString>> {
+            self.read_canvas(|canvas| access::string(canvas, range_of(range)))
+                .map(|text| NSString::from_str(&text))
+        }
+
+        #[unsafe(method(accessibilityLineForIndex:))]
+        fn accessibility_line_for_index(&self, index: NSInteger) -> NSInteger {
+            let index = usize::try_from(index).unwrap_or(0);
+            to_integer(self.read_canvas(|canvas| access::line_at(canvas, index)).unwrap_or(0))
+        }
+
+        #[unsafe(method(accessibilityRangeForLine:))]
+        fn accessibility_range_for_line(&self, line: NSInteger) -> NSRange {
+            let line = usize::try_from(line).unwrap_or(0);
+            ns_range(self.read_canvas(|canvas| access::line_range(canvas, line)).unwrap_or(0..0))
+        }
+
+        #[unsafe(method(accessibilityFrameForRange:))]
+        fn accessibility_frame_for_range(&self, range: NSRange) -> NSRect {
+            self.screen_frame(range_of(range))
+        }
     }
 );
 
@@ -188,7 +253,7 @@ impl CanvasView {
             .unwrap_or_else(|_| unreachable!("the canvas is set once, here"));
         view.setAccessibilityElement(true);
         // SAFETY: AppKit's role constant.
-        view.setAccessibilityRole(Some(unsafe { NSAccessibilityGroupRole }));
+        view.setAccessibilityRole(Some(unsafe { NSAccessibilityTextAreaRole }));
         view.track_mouse();
         (view, canvas)
     }
@@ -210,6 +275,51 @@ impl CanvasView {
         let canvas = self.ivars().canvas.get()?;
         let mut canvas = canvas.try_borrow_mut().ok()?;
         Some(f(&mut canvas))
+    }
+
+    /// Runs `f` on the canvas unless it is being changed further up the stack (then `None`).
+    fn read_canvas<T>(&self, f: impl FnOnce(&Canvas) -> T) -> Option<T> {
+        let canvas = self.ivars().canvas.get()?;
+        let canvas = canvas.try_borrow().ok()?;
+        Some(f(&canvas))
+    }
+
+    /// Where characters `range` are on the screen, in AppKit's screen coordinates; empty when not laid out.
+    fn screen_frame(&self, range: std::ops::Range<usize>) -> NSRect {
+        let Some(area) = self
+            .read_canvas(|canvas| access::area(canvas, range))
+            .flatten()
+        else {
+            return NSRect::ZERO;
+        };
+        let scale = self.backing_scale();
+        let in_view = NSRect::new(
+            NSPoint::new(
+                CGFloat::from(area.x0) / scale,
+                CGFloat::from(area.y0) / scale,
+            ),
+            CGSize::new(
+                CGFloat::from(area.width()) / scale,
+                CGFloat::from(area.height()) / scale,
+            ),
+        );
+        let in_window = self.convertRect_toView(in_view, None);
+        self.window()
+            .map_or(in_window, |window| window.convertRectToScreen(in_window))
+    }
+
+    /// Tells screen readers the text changed (pages read, a document opened).
+    pub(crate) fn text_changed(&self) {
+        // SAFETY: this view is an accessibility element; the name is AppKit's constant.
+        unsafe { NSAccessibilityPostNotification(self, NSAccessibilityValueChangedNotification) };
+    }
+
+    /// Tells screen readers the selection moved.
+    pub(crate) fn selection_moved(&self) {
+        // SAFETY: as in `text_changed`.
+        unsafe {
+            NSAccessibilityPostNotification(self, NSAccessibilitySelectedTextChangedNotification)
+        };
     }
 
     /// Tells the canvas the view's size and scale when either changed.
@@ -240,7 +350,7 @@ impl CanvasView {
         let Some(context) = NSGraphicsContext::currentContext() else {
             return;
         };
-        let context = context.CGContext();
+        let context = context.CGContext().into();
         let drawn = self.with_canvas(|canvas| {
             canvas.host_mut().lend(Some(context));
             canvas.paint();
@@ -396,6 +506,20 @@ impl CanvasView {
             show_cursor(canvas.cursor());
         });
     }
+}
+
+/// A range of characters as AppKit's.
+fn ns_range(range: std::ops::Range<usize>) -> NSRange {
+    NSRange::new(range.start, range.len())
+}
+
+/// AppKit's range as characters.
+fn range_of(range: NSRange) -> std::ops::Range<usize> {
+    range.location..range.location.saturating_add(range.length)
+}
+
+fn to_integer(n: usize) -> NSInteger {
+    NSInteger::try_from(n).unwrap_or(NSInteger::MAX)
 }
 
 /// Shows the pointer shape the canvas wants.

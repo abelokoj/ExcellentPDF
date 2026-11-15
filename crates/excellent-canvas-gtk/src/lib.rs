@@ -3,8 +3,11 @@
 //! `GtkGestureStylus` (pressure; the eraser end). This crate is the canvas's GTK [`host`](excellent_canvas::page::Host)
 //! and input; layouts, tiles, selection, find, reading aids and ink are the shared core's, as on Windows.
 //!
-//! Still to come here: touch gestures (U.3), screen-reader text (U.2's GTK side) and the pen's tilt.
+//! Screen readers read the pages' text through `GtkAccessibleText` (U.3, `access`). Still to come here: touch
+//! gestures and the pen's tilt.
 
+#[cfg(target_os = "linux")]
+mod access;
 #[cfg(target_os = "linux")]
 mod component;
 #[cfg(target_os = "linux")]

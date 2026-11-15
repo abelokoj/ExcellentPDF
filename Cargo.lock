@@ -788,6 +788,7 @@ version = "0.1.0"
 dependencies = [
  "excellent-canvas",
  "excellent-mupdf",
+ "excellent-text",
  "log",
  "nsh-core",
  "nsh-platform-linux",
@@ -804,6 +805,7 @@ dependencies = [
  "dispatch2",
  "excellent-canvas",
  "excellent-mupdf",
+ "excellent-text",
  "log",
  "nsh-core",
  "nsh-platform-macos",
@@ -879,7 +881,13 @@ version = "0.1.0"
 name = "excellent-platform"
 version = "0.1.0"
 dependencies = [
+ "dispatch2",
+ "flate2",
  "log",
+ "nsh-platform-linux",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "windows",
 ]
 
