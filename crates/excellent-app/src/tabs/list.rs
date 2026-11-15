@@ -1,6 +1,6 @@
 //! The tab list (R.12 steps 3 and 4; reference `dev notes/images/ui-reference-vivaldi-tab-list.png`): every tab in
 //! one searchable list, in counted sections: the open tabs, the files open in more than one tab (with "close the
-//! copies") and the tabs closed lately. Typing searches the names and the folders; Return shows, reopens or closes;
+//! copies"), the tabs closed lately, and the recent files not open (R.10). Typing searches the names and the folders; Return shows, reopens or closes;
 //! Delete closes the highlighted open tab. A dialog, as the palette is: the page canvas is a window over the app's,
 //! so a dropdown under the title bar would be drawn behind it.
 //!
@@ -13,6 +13,7 @@ use nsh_core::prelude::*;
 use super::model::Tabs;
 use super::{TabId, TabState};
 use crate::list_dialog::{list_dialog, style};
+use crate::recent::RecentState;
 
 /// What a row does.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,12 +21,23 @@ enum Row {
     Show(TabId),
     CloseCopies(TabId),
     Reopen(std::path::PathBuf),
+    /// A recent file, at its page.
+    OpenRecent(std::path::PathBuf, usize),
 }
 
 /// The tab list, while `open`.
-pub(crate) fn tab_list(open: Signal<bool>, state: TabState) -> impl IntoElement {
+pub(crate) fn tab_list(
+    open: Signal<bool>,
+    state: TabState,
+    recent: RecentState,
+) -> impl IntoElement {
     let close = move || open.set(false);
-    let rows = move || state.tabs.with(rows);
+    recent.load();
+    let rows = move || {
+        let mut rows = state.tabs.with(rows);
+        rows.extend(state.tabs.with(|tabs| recent_rows(tabs, &recent.files())));
+        rows
+    };
     let highlighted = signal(None::<SharedString>);
     let find = move |id: &str| rows().into_iter().find(|(key, _, _)| key == id);
     on_key("delete", move |_| {
@@ -65,6 +77,10 @@ pub(crate) fn tab_list(open: Signal<bool>, state: TabState) -> impl IntoElement 
                         Row::Reopen(path) => {
                             close();
                             state.reopen(&path);
+                        }
+                        Row::OpenRecent(path, page) => {
+                            close();
+                            state.open_at(path, page);
                         }
                     }
                 })
@@ -113,4 +129,31 @@ fn rows(tabs: &Tabs) -> Vec<(SharedString, CommandItem, Row)> {
         rows.push((id, item, Row::Reopen(tab.path.clone())));
     }
     rows
+}
+
+/// The recent files no tab has open (R.10), pinned first.
+fn recent_rows(
+    tabs: &Tabs,
+    files: &[excellent_store::recent::RecentFile],
+) -> Vec<(SharedString, CommandItem, Row)> {
+    let files: Vec<_> = files
+        .iter()
+        .filter(|file| tabs.find(&file.path).is_none())
+        .collect();
+    let group: SharedString = t!("tabs.group.recent", count = files.len()).into();
+    files
+        .into_iter()
+        .enumerate()
+        .map(|(index, file)| {
+            let id: SharedString = format!("recent:{index}").into();
+            let name = file.path.file_name().map_or_else(
+                || file.path.display().to_string(),
+                |name| name.to_string_lossy().into_owned(),
+            );
+            let mut item = CommandItem::new(id.clone(), name);
+            item.keywords = vec![file.path.to_string_lossy().into_owned().into()];
+            item.group = Some(group.clone());
+            (id, item, Row::OpenRecent(file.path.clone(), file.page))
+        })
+        .collect()
 }

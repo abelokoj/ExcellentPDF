@@ -11,7 +11,9 @@ use windows::Win32::UI::WindowsAndMessaging::{DestroyWindow, SetWindowTextW};
 use windows::core::HSTRING;
 
 use crate::canvas::{Canvas, ZoomChange};
+use crate::saved::SavedView;
 use crate::window;
+use excellent_canvas::viewport::Side;
 use excellent_core::darkmode::{PageColors, Pictures};
 use excellent_core::view::ViewCommand;
 use excellent_features::read::autoscroll::Change;
@@ -53,7 +55,8 @@ impl NativeComponent for PageCanvas {
     /// ruler's look, `{height, color, opacity, invert}` (each missing or wrong one: its default). `focusScope`:
     /// `"paragraph"` or `"line"`. `autoScrollSpeed`: pixels a second at 96 dpi. `pageColors`: the colours the pages
     /// are drawn in (R.14), `{ink, paper, link, pictures}` with `#rrggbb` colours (`link` optional) and `pictures`
-    /// `"keep"` or `"recolor"`; `null`, or without a valid `ink` and `paper`: the document's own.
+    /// `"keep"` or `"recolor"`; `null`, or without a valid `ink` and `paper`: the document's own. `reflowFontSize`:
+    /// a reflowable book's text size in points (R.28); `null`: the default.
     fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -74,6 +77,10 @@ impl NativeComponent for PageCanvas {
                 .canvas
                 .borrow_mut()
                 .set_page_colors(value.and_then(page_colors)),
+            "reflowFontSize" => self
+                .canvas
+                .borrow_mut()
+                .set_reflow_font_size(value.and_then(JsonValue::as_f64).map(|size| size as f32)),
             "path" => self.canvas.borrow_mut().open(text.map(Path::new)),
             "background" => match text.and_then(parse_rgb) {
                 Some(rgb) => self.canvas.borrow_mut().set_background(rgb),
@@ -91,8 +98,9 @@ impl NativeComponent for PageCanvas {
         }
     }
 
-    /// `zoomIn`, `zoomOut`, `actualSize`, `screenDown`, `screenUp`, `historyBack`, `historyForward`, `firstPage`,
-    /// `lastPage`, `goToPage` (`{"index": n}`, from 0), `copy`, `selectAll` (the reader's page), and the view
+    /// `zoomIn`, `zoomOut`, `actualSize`, `screenDown`, `screenUp`, `stepLeft`, `stepRight` (R.3), `historyBack`, `historyForward`, `firstPage`,
+    /// `lastPage`, `goToPage` (`{"index": n}`, from 0), `setView` (a `view` event's data; with only a `page`: that
+    /// page), `copy`, `selectAll` (the reader's page), and the view
     /// commands [`ViewCommand::parse`] knows (layouts, rotation, page box, fit modes). The reading aids (R.19-R.21):
     /// `toggleRuler`, `toggleFocus`, `lineDown`, `lineUp`, `toggleAutoScroll`, `autoScrollPause` (without
     /// auto-scroll: a screen down), `autoScrollFaster`, `autoScrollSlower`, `leaveModes`.
@@ -100,7 +108,8 @@ impl NativeComponent for PageCanvas {
     /// Events: `pages` (`{count, labels}`, labels `null` when the pages go by number) when a document opens or
     /// closes, `page` (`{index}`) when the reader's page changes, `copy` (`{text}`) with the selected text,
     /// `autoScrollSpeed` (`{speed}`) when the reader changes it, `edge` (`{at}`) when the mouse reaches or
-    /// leaves the canvas's top edge, and `press` when the reader presses on the pages.
+    /// leaves the canvas's top edge, `press` when the reader presses on the pages, and `view` (the place, zoom,
+    /// layout and rotation; see [`crate::saved`]) when the view settles somewhere new.
     fn command(&mut self, name: &str, args: &JsonValue) {
         let mut canvas = self.canvas.borrow_mut();
         match name {
@@ -109,6 +118,8 @@ impl NativeComponent for PageCanvas {
             "actualSize" => canvas.actual_size(),
             "screenDown" => canvas.scroll_screen(1.0),
             "screenUp" => canvas.scroll_screen(-1.0),
+            "stepLeft" => canvas.step_side(Side::Left),
+            "stepRight" => canvas.step_side(Side::Right),
             "historyBack" => canvas.history_back(),
             "historyForward" => canvas.history_forward(),
             "firstPage" => canvas.first_page(),
@@ -127,6 +138,13 @@ impl NativeComponent for PageCanvas {
             "goToPage" => match args.get("index").and_then(JsonValue::as_u64) {
                 Some(index) => canvas.go_to_page(usize::try_from(index).unwrap_or(usize::MAX)),
                 None => log::warn!("page canvas: goToPage without an index: {args}"),
+            },
+            "setView" => match SavedView::from_json(args) {
+                Some(view) => canvas.set_view(view),
+                None => match args.get("page").and_then(JsonValue::as_u64) {
+                    Some(page) => canvas.go_to_page(usize::try_from(page).unwrap_or(usize::MAX)),
+                    None => log::warn!("page canvas: setView without a view: {args}"),
+                },
             },
             _ => match ViewCommand::parse(name) {
                 Some(command) => canvas.view_command(command),

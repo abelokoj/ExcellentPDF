@@ -10,9 +10,10 @@ use std::time::Instant;
 
 use excellent_canvas::layout::{Axis, Direction, Layout, PageSize};
 use excellent_canvas::tiles::{self, TileCache, TileKey};
-use excellent_canvas::viewport::{self, Viewport, ZoomMode};
+use excellent_canvas::viewport::{self, Side, Viewport, ZoomMode};
 use excellent_core::darkmode::{PageColors, PageImages};
 use excellent_core::document::{self, Document};
+use excellent_core::formats;
 use excellent_core::render::{Job, Priority, Recolor};
 use excellent_core::shared::{pool, registry};
 use excellent_core::transform::Transform;
@@ -20,7 +21,7 @@ use excellent_core::view::history::Place;
 use excellent_core::view::{Effect, View, ViewCommand};
 use excellent_ink::stroke::{InkPoint, Stroke, WidthCurve};
 use excellent_mupdf::{
-    DeviceRect, DisplayList, Link, PageBox, PagePoint, PageRect, Pixmap, Target, TextLayout,
+    DeviceRect, DisplayList, Link, PageBox, PagePoint, PageRect, Pixmap, Reflow, Target, TextLayout,
 };
 use excellent_text::{Granularity, PageText, Selection, TextPos};
 use nsh_core::JsonValue;
@@ -36,6 +37,7 @@ use crate::gfx::{self, Gfx, Wash};
 use crate::near::Near;
 use crate::placement::Placement;
 use crate::pointer::Sample;
+use crate::saved::SavedView;
 
 mod reading;
 
@@ -50,6 +52,8 @@ const PAPER: u32 = 0xffffff;
 const TILE_BUDGET: usize = 64 << 20;
 /// Display lists kept for pages this far from the screen.
 const LIST_REACH: usize = 8;
+/// Of the screen's width, what the Left and Right arrows scroll while the pages are wider than it (R.3).
+const SIDE_STEP: f32 = 0.1;
 /// How much of a screen "screen down" moves; the rest stays on screen to keep the reader's place.
 const SCREEN_STEP: f32 = 0.9;
 /// Ink colour.
@@ -103,6 +107,15 @@ struct Opened {
     right_to_left: bool,
     /// Each page's label, or `None` when the pages go by number.
     labels: Option<Vec<String>>,
+    /// The pages a reflowable book was laid out on (R.28); `None` for fixed pages.
+    reflow: Option<Reflow>,
+}
+
+/// A book laid out again (R.28): its new pages, and the page that starts where the reader was.
+struct Reflowed {
+    reflow: Reflow,
+    bounds: Vec<PageRect>,
+    kept: Option<usize>,
 }
 
 /// A page's display list.
@@ -142,6 +155,8 @@ pub(crate) struct Canvas {
     events: Option<ComponentContext>,
     /// The page last reported as the reader's.
     reported_page: Option<usize>,
+    /// The view last reported, for the app to save with the tab (R.9).
+    reported_view: Option<SavedView>,
     /// The links of the pages near the screen (R.7).
     links: Near<Vec<Link>>,
     /// The text of the pages near the screen and of the selected pages (K.13).
@@ -168,6 +183,14 @@ pub(crate) struct Canvas {
     page_colors: Option<PageColors>,
     /// The reading ruler, focus mode and auto-scroll (R.19–R.21).
     reading: reading::Reading,
+    /// A reflowable book's text size, in points (R.28).
+    font_size: f32,
+    /// The pages the book shown is laid out on; `None` for fixed pages.
+    reflow: Option<Reflow>,
+    /// The book being laid out again for a new window size or text size.
+    reflowing: Option<Receiver<document::Result<Reflowed>>>,
+    /// The size or the text changed again while the book was being laid out.
+    reflow_again: bool,
 }
 
 /// A stroke on a page, in that page's points: it stays on the page through any layout, zoom or rotation.
@@ -250,6 +273,7 @@ impl Canvas {
             trail: Vec::new(),
             events: None,
             reported_page: None,
+            reported_view: None,
             links: Near::new("links"),
             texts: Near::new("text"),
             selection: None,
@@ -263,6 +287,10 @@ impl Canvas {
             background: BACKGROUND,
             page_colors: None,
             reading: reading::Reading::default(),
+            font_size: formats::DEFAULT_FONT_SIZE,
+            reflow: None,
+            reflowing: None,
+            reflow_again: false,
         }
     }
 
@@ -279,7 +307,54 @@ impl Canvas {
         };
         self.opened_at = Some(Instant::now());
         let page_box = self.view.page_box;
-        self.opening = self.in_background("open-document", move || open_document(&path, page_box));
+        let reflow = self.reflow_size();
+        self.opening = self.in_background("open-document", move || {
+            open_document(&path, page_box, reflow)
+        });
+    }
+
+    /// The pages a reflowable book is laid out on in this window, at the reader's text size (R.28).
+    fn reflow_size(&self) -> Reflow {
+        let (width, height) = self.viewport_size();
+        let ppp = self.viewport.pixels_per_point();
+        formats::reflow_pages(width / ppp, height / ppp, self.font_size)
+    }
+
+    /// The reader's text size for books, in points (`None`: the default).
+    pub(crate) fn set_reflow_font_size(&mut self, points: Option<f32>) {
+        let range = formats::FONT_SIZES;
+        let points = points.unwrap_or(formats::DEFAULT_FONT_SIZE);
+        self.font_size = points.clamp(*range.start(), *range.end());
+        self.reflow();
+    }
+
+    /// Lays the book shown out again for the window and the text size, on a background thread, keeping the
+    /// reader's place. Fixed pages, and a book already laid out so, are left alone; a change while a layout runs
+    /// waits for it.
+    fn reflow(&mut self) {
+        let (Some(document), Some(current)) = (self.document.clone(), self.reflow) else {
+            return;
+        };
+        if self.reflowing.is_some() {
+            self.reflow_again = true;
+            return;
+        }
+        let target = self.reflow_size();
+        if target == current {
+            return;
+        }
+        let keep = self.viewport.current_page(&self.layout);
+        let page_box = self.view.page_box;
+        self.reflowing = self.in_background("reflow", move || {
+            let kept = document.reflow(target, keep)?;
+            let mupdf = document.mupdf()?;
+            let bounds = page_boxes(&mupdf.lock().expect("document lock poisoned"), page_box)?;
+            Ok(Reflowed {
+                reflow: target,
+                bounds,
+                kept,
+            })
+        });
     }
 
     /// Runs `work` on a thread of its own and wakes the canvas when it is done; `None` (logged) if Windows can't
@@ -340,6 +415,47 @@ impl Canvas {
             "pages",
             serde_json::json!({ "count": self.layout.len(), "labels": labels, "sizes": sizes }),
         );
+    }
+
+    /// Reports the view (the place, zoom, layout and rotation) when it changed, for the app to save with the tab.
+    fn report_view(&mut self) {
+        let Some(place) = self.place() else {
+            return;
+        };
+        let view = SavedView {
+            place,
+            spec: self.view.spec,
+            rotation: self.view.rotation,
+        };
+        if self.reported_view != Some(view) {
+            self.reported_view = Some(view);
+            self.emit("view", view.to_json());
+        }
+    }
+
+    /// Shows a saved view (R.9): its layout and rotation, then its zoom and place. A book keeps the zoom it is laid
+    /// out for and goes to the page.
+    // shortcut: a book's page number points at other text when the window or the text size differ from when it was
+    // saved; save a MuPDF bookmark instead when readers notice.
+    pub(crate) fn set_view(&mut self, saved: SavedView) {
+        let page = saved.place.anchor.page;
+        if page >= self.layout.len() {
+            log::warn!("page canvas: no page {page} to show");
+            return;
+        }
+        if self.reflow.is_some() {
+            self.viewport.scroll_to_page(page, &self.layout);
+            self.invalidate();
+            return;
+        }
+        if self.view.rotation != saved.rotation {
+            self.tiles.clear();
+        }
+        self.view.spec = saved.spec;
+        self.view.rotation = saved.rotation;
+        self.view.resized(self.viewport.width());
+        self.layout = Layout::new(&self.shown_sizes(), self.view.spec);
+        self.go_to_place(saved.place);
     }
 
     /// Reports the reader's page when it changed.
@@ -572,14 +688,27 @@ impl Canvas {
     fn close(&mut self) {
         self.opening = None;
         self.measuring = None;
+        self.reflowing = None;
+        self.reflow_again = false;
+        self.reflow = None;
         self.document = None;
+        self.reported_view = None;
         self.bounds.clear();
         self.layout = Layout::default();
+        self.forget_pages();
+        self.pen = None;
+        self.trail.clear();
+        self.report_pages(None);
+        self.opened_at = None;
+        self.reading.reset();
+    }
+
+    /// Forgets what was read from and drawn of the pages: tiles, lists, links, text, the selection and the ink on
+    /// them. For a closed document, and a book whose pages were laid out again.
+    fn forget_pages(&mut self) {
         self.lists.clear();
         self.tiles.clear();
         self.ink.clear();
-        self.pen = None;
-        self.trail.clear();
         self.links.clear();
         self.texts.clear();
         self.selection = None;
@@ -588,9 +717,6 @@ impl Canvas {
         self.copy_pending = false;
         self.hovered = None;
         self.pressed = None;
-        self.report_pages(None);
-        self.opened_at = None;
-        self.reading.reset();
     }
 
     /// The window is `width` × `height` pixels on a screen of `dpi`.
@@ -605,6 +731,7 @@ impl Canvas {
         if self.view.resized(width as f32) {
             self.relayout();
         }
+        self.reflow();
         if let Some(gfx) = &mut self.gfx
             && let Err(err) = gfx.resize(width, height)
         {
@@ -628,6 +755,14 @@ impl Canvas {
         } else {
             self.scroll_by(dx, dy);
         }
+    }
+
+    /// The Left or Right arrow (R.3): a row of pages back or on by the reading direction, or sideways when the pages
+    /// are wider than the screen.
+    pub(crate) fn step_side(&mut self, side: Side) {
+        let pixels = self.viewport.width() * SIDE_STEP;
+        self.viewport.step_side(side, pixels, &self.layout);
+        self.invalidate();
     }
 
     /// Scrolls one screen toward the later pages (`direction` 1) or the earlier ones (-1), along the layout.
@@ -875,6 +1010,7 @@ impl Canvas {
         self.waker.posted.store(false, Ordering::Release);
         let mut changed = self.take_opened();
         changed |= self.take_measured();
+        changed |= self.take_reflowed();
         self.links.take_done();
         if self.texts.take_done() {
             changed |= self.selection.is_some();
@@ -932,6 +1068,7 @@ impl Canvas {
         match result {
             Ok(opened) => {
                 self.bounds = opened.bounds;
+                self.reflow = opened.reflow;
                 self.document = Some(opened.document);
                 self.view.history = Default::default();
                 // R.3: a document that reads right to left opens that way, without a setting.
@@ -943,15 +1080,48 @@ impl Canvas {
                 let (w, h) = self.viewport_size();
                 self.view.resized(w);
                 self.layout = Layout::new(&self.shown_sizes(), self.view.spec);
-                // A new document fits the width, and keeps fitting it as the window changes.
+                // A new document fits the width, and keeps fitting it as the window changes. A book's pages are
+                // the window's size already, so it shows them at their size: its text at the reader's.
                 self.viewport = Viewport::new(self.viewport.pixels_per_point());
                 self.viewport.resize(w, h, &self.layout);
-                self.viewport.fit(ZoomMode::FitWidth, &self.layout);
+                if self.reflow.is_some() {
+                    self.viewport.set_zoom(1.0, &self.layout);
+                } else {
+                    self.viewport.fit(ZoomMode::FitWidth, &self.layout);
+                }
                 self.viewport.scroll_to_page(0, &self.layout);
                 self.report_pages(opened.labels);
+                // The window or the text size may have changed while it opened.
+                self.reflow();
             }
             // shortcut: the failure is only logged; the error view comes with R.11's open flow.
             Err(err) => log::error!("cannot open {:?}: {err}", self.path),
+        }
+        true
+    }
+
+    /// The book was laid out again, if it was: its new pages, at the reader's place.
+    fn take_reflowed(&mut self) -> bool {
+        let Some(result) = take_sent(&mut self.reflowing, "reflow") else {
+            return false;
+        };
+        match result {
+            Ok(reflowed) => {
+                self.reflow = Some(reflowed.reflow);
+                self.bounds = reflowed.bounds;
+                self.forget_pages();
+                // Page numbers before the layout mean other text now.
+                self.view.history = Default::default();
+                self.layout = Layout::new(&self.shown_sizes(), self.view.spec);
+                self.viewport.relayout(None, &self.layout);
+                self.viewport
+                    .scroll_to_page(reflowed.kept.unwrap_or(0), &self.layout);
+                self.report_pages(None);
+            }
+            Err(err) => log::warn!("cannot lay the book out again: {err}"),
+        }
+        if std::mem::take(&mut self.reflow_again) {
+            self.reflow();
         }
         true
     }
@@ -1015,6 +1185,9 @@ impl Canvas {
         }
         self.tiles.evict();
         self.report_page();
+        if !moving {
+            self.report_view();
+        }
         // The next frame waits for the display's refresh (`Gfx::begin`), so moving pages go at its rate.
         if moving {
             self.invalidate();
@@ -1312,13 +1485,17 @@ fn page_boxes(
         .collect()
 }
 
-/// Opens `path`, or takes it from the registry if it is open, and reads every page's size and the reading direction
-/// (on a background thread).
-fn open_document(path: &Path, page_box: PageBox) -> document::Result<Opened> {
+/// Opens `path`, or takes it from the registry if it is open, lays a reflowable book out on `reflow`'s pages (R.28),
+/// and reads every page's size and the reading direction (on a background thread).
+// shortcut: two views of one book share its layout, so the last to lay it out wins; per-view layouts would need a
+// MuPDF document each (V.1's split views).
+fn open_document(path: &Path, page_box: PageBox, reflow: Reflow) -> document::Result<Opened> {
     let document = registry().open(path)?;
-    let (bounds, right_to_left, labels) = {
+    document.reflow(reflow, None)?;
+    let (bounds, right_to_left, labels, reflow) = {
         let mupdf = document.mupdf()?;
         let mupdf = mupdf.lock().expect("document lock poisoned");
+        let reflow = mupdf.is_reflowable()?.then_some(reflow);
         let bounds = page_boxes(&mupdf, page_box)?;
         let right_to_left = mupdf.reads_right_to_left().unwrap_or_else(|err| {
             log::warn!("cannot read the reading direction: {err}");
@@ -1328,13 +1505,14 @@ fn open_document(path: &Path, page_box: PageBox) -> document::Result<Opened> {
             log::warn!("cannot read the page labels: {err}");
             None
         });
-        (bounds, right_to_left, labels)
+        (bounds, right_to_left, labels, reflow)
     };
     Ok(Opened {
         document,
         bounds,
         right_to_left,
         labels,
+        reflow,
     })
 }
 

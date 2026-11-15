@@ -15,10 +15,13 @@ fn main() -> impl std::process::Termination {
         .format_timestamp_millis()
         .init();
     log::debug!("app: main started");
-    excellent_app::load_settings();
-    if let Some(path) = std::env::args_os().nth(1) {
-        excellent_app::set_startup_file(path.into());
+    // A second launch hands its files to the running app and ends, before anything else loads (R.11).
+    if excellent_app::start() == excellent_app::Started::Forwarded {
+        log::debug!("app: the running instance took the command line");
+        std::process::exit(0);
     }
+    excellent_app::load_settings();
+    excellent_app::open_library();
     let components = platform::Components::default();
     #[cfg(target_os = "windows")]
     excellent_app::components(&components);

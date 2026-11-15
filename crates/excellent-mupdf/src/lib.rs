@@ -35,7 +35,7 @@ mod writer;
 pub use annot::{Annot, AnnotKind};
 pub use cookie::Cookie;
 pub use display_list::DisplayList;
-pub use document::Document;
+pub use document::{Document, Reflow};
 pub use error::{MuError, Result};
 pub use geometry::{DevicePoint, DeviceRect, Matrix, PageBox, PagePoint, PageRect, Quad};
 pub use image::PageImage;

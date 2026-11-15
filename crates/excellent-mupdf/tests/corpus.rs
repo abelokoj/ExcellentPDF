@@ -7,7 +7,7 @@ use std::thread;
 
 use excellent_mupdf::{
     AnnotKind, Background, Cookie, DeviceRect, DisplayList, Document, Matrix, OutlineItem, Pixmap,
-    Writer,
+    Reflow, Writer,
 };
 
 fn corpus_dir() -> PathBuf {
@@ -36,10 +36,21 @@ fn every_corpus_file_renders_page_one_to_png_and_gives_text() {
     let mut files: Vec<PathBuf> = fs::read_dir(corpus_dir())
         .expect("tests/corpus exists")
         .map(|entry| entry.expect("readable corpus entry").path())
-        .filter(|path| path.extension().is_some_and(|ext| ext != "md"))
+        .filter(|path| path.file_name().is_some_and(|name| name != "README.md"))
         .collect();
     files.sort();
     assert!(files.len() >= 2, "corpus has files: {files:?}");
+    // R.28: every format MuPDF opens besides PDF has a file here.
+    for format in [
+        "cbz", "epub", "fb2", "html", "md", "mobi", "png", "svg", "xps",
+    ] {
+        assert!(
+            files
+                .iter()
+                .any(|path| path.extension().is_some_and(|ext| ext == format)),
+            "the corpus has a .{format} file"
+        );
+    }
 
     for path in files {
         let name = path
@@ -61,9 +72,96 @@ fn every_corpus_file_renders_page_one_to_png_and_gives_text() {
         assert!(png.starts_with(PNG_SIGNATURE), "{name}: is a PNG");
         fs::write(out_dir().join(format!("{name}.png")), &png).expect("write PNG");
 
-        let text = page.text(None).and_then(|t| t.text()).expect("text");
-        assert!(!text.trim().is_empty(), "{name}: page 1 has text");
+        // Pictures and the hand-written XPS page (a shape, no font) have no text.
+        let pictures = ["png", "cbz", "xps"];
+        if !path
+            .extension()
+            .is_some_and(|ext| pictures.iter().any(|p| ext == *p))
+        {
+            let text = page.text(None).and_then(|t| t.text()).expect("text");
+            assert!(!text.trim().is_empty(), "{name}: page 1 has text");
+        }
     }
+}
+
+/// The first "Mark c.nn" on page `index`: every sentence of the `formats.*` books starts with one.
+fn page_text(doc: &Document, index: usize) -> String {
+    doc.load_page(index)
+        .expect("page")
+        .text(None)
+        .and_then(|t| t.text())
+        .expect("text")
+}
+
+fn first_mark(doc: &Document, index: usize) -> String {
+    let text = page_text(doc, index);
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let at = words
+        .windows(2)
+        .position(|pair| pair[0] == "Mark")
+        .unwrap_or_else(|| panic!("page {index} has a mark: {text:?}"));
+    words[at + 1].to_owned()
+}
+
+#[test]
+fn reflowing_keeps_the_reading_position() {
+    for name in [
+        "formats.epub",
+        "formats.fb2",
+        "formats.mobi",
+        "formats.html",
+        "formats.md",
+    ] {
+        let mut doc = Document::open(corpus(name)).expect("open");
+        assert!(doc.is_reflowable().expect("reflowable"), "{name} reflows");
+        let small = Reflow {
+            width: 420.0,
+            height: 595.0,
+            font_size: 9.0,
+        };
+        assert_eq!(doc.reflow(small, None).expect("reflow"), None);
+        let before = doc.page_count().expect("count");
+        assert!(before >= 3, "{name}: {before} pages at 9 pt");
+        let page = before / 2;
+        let mark = first_mark(&doc, page);
+
+        let large = Reflow {
+            font_size: 18.0,
+            ..small
+        };
+        let kept = doc
+            .reflow(large, Some(page))
+            .expect("reflow")
+            .expect("the page's text is found again");
+        assert!(
+            doc.page_count().expect("count") > before,
+            "{name}: larger text, more pages"
+        );
+        // Larger text never moves text to an earlier page.
+        assert!(kept >= page, "{name}: page {page} moved to {kept}");
+        // The page's first words (perhaps the end of the sentence before the mark) open page `kept`, so its first
+        // mark is on that page or, cut by the larger text, opens the next.
+        let text = page_text(&doc, kept);
+        assert!(
+            text.split_whitespace()
+                .collect::<Vec<_>>()
+                .windows(2)
+                .any(|pair| pair == ["Mark", mark.as_str()])
+                || first_mark(&doc, kept + 1) == mark,
+            "{name}: {mark} on page {kept}: {text:?}"
+        );
+    }
+
+    let mut pdf = Document::open(corpus("zlib-manual.pdf")).expect("open");
+    assert!(!pdf.is_reflowable().expect("reflowable"));
+    let size = Reflow {
+        width: 100.0,
+        height: 100.0,
+        font_size: 9.0,
+    };
+    pdf.reflow(size, None).expect("a fixed layout ignores it");
+    assert_eq!(pdf.page_count().expect("count"), 2);
+    assert!(pdf.reflow(Reflow { width: 0.0, ..size }, None).is_err());
 }
 
 #[test]
@@ -424,6 +522,34 @@ fn links_are_read_and_resolved() {
             .expect("links")
             .is_empty()
     );
+}
+
+/// R.7: links in an EPUB (to a chapter, and to the web) and on an XPS page are read like a PDF's.
+#[test]
+fn epub_and_xps_links_are_read_and_resolved() {
+    let doc = Document::open(corpus("formats.epub")).expect("open");
+    let links = doc.load_page(0).expect("page").links().expect("links");
+    assert_eq!(links.len(), 2, "{links:?}");
+    // MuPDF lists a page's links in no promised order.
+    let chapter = links
+        .iter()
+        .find_map(|link| link.uri.ends_with("c2.xhtml").then_some(link.target?.page))
+        .unwrap_or_else(|| panic!("the chapter link goes inside the book: {links:?}"));
+    assert!(
+        first_mark(&doc, chapter).starts_with("3."),
+        "page {chapter} starts the last chapter"
+    );
+    let web = links
+        .iter()
+        .find(|link| link.uri == "https://example.com/")
+        .expect("the web link");
+    assert_eq!(web.target, None);
+
+    let xps = Document::open(corpus("formats.xps")).expect("open");
+    let links = xps.load_page(0).expect("page").links().expect("links");
+    assert_eq!(links.len(), 1, "{links:?}");
+    assert_eq!(links[0].uri, "https://example.com/");
+    assert!(links[0].rect.x1 > links[0].rect.x0);
 }
 
 /// R.14: a page's pictures are listed with where they land and their own size, and sample in RGB.

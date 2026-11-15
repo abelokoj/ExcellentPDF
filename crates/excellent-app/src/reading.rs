@@ -9,6 +9,9 @@
 //! `document_colors` is `"off"` (the document's own colours), `"smart"` (photos and artwork kept) or `"all"`, and
 //! `reading_theme` picks the ink and paper ([`ReadingTheme::id`]; `"app"`, the app theme's, by default), with
 //! `reading_ink` and `reading_paper` (`#rrggbb`) for `"custom"`.
+//!
+//! Books that reflow (R.28: EPUB, FB2, MOBI, HTML, Markdown) are laid out with their text at `reflow_font_size`
+//! points.
 
 use excellent_core::darkmode::themes::is_dark;
 use excellent_core::darkmode::{Palette, Pictures, ReadingTheme, Rgb};
@@ -30,6 +33,7 @@ pub(crate) const DOCUMENT_COLORS: &str = "document_colors";
 pub(crate) const READING_THEME: &str = "reading_theme";
 pub(crate) const READING_INK: &str = "reading_ink";
 pub(crate) const READING_PAPER: &str = "reading_paper";
+pub(crate) const REFLOW_FONT_SIZE: &str = "reflow_font_size";
 
 /// The reading aids' settings, followed while the app runs, and the reading theme shown for a moment while the reader
 /// moves through the reading-theme bar.
@@ -76,6 +80,13 @@ impl Reading {
     pub(crate) fn speed_prop(self) -> JsonValue {
         self.live
             .read(|settings| settings.number(AUTO_SCROLL_SPEED))
+            .map_or(JsonValue::Null, JsonValue::from)
+    }
+
+    /// The canvas's `reflowFontSize` prop (R.28): the setting, or `null` for the default.
+    pub(crate) fn reflow_font_size_prop(self) -> JsonValue {
+        self.live
+            .read(|settings| settings.number(REFLOW_FONT_SIZE))
             .map_or(JsonValue::Null, JsonValue::from)
     }
 

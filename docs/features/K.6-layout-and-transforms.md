@@ -1,8 +1,8 @@
-# K.6 Layout and coordinate transforms
+# Ph1: 2/60 | K.6: Layout and coordinate transforms
 
-**Tag:** K.6 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.3 · **Code:** `excellent-canvas::layout`,
+**Tag:** K.6; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `excellent-canvas::layout`,
 `excellent-core::transform`, `excellent-mupdf::Document::page_box`, `excellent-canvas-win::placement`
-**Plan:** §27 entry `#### K.6`.
+**Plan:** §27 entry `Ph1: 2/60 | K.6`.
 
 ## Problem
 

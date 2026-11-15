@@ -1,8 +1,8 @@
-# K.13 Text layer and selection
+# Ph1: 3/60 | K.13: Text layer and selection
 
-**Tag:** K.13 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.3 · **Code:** `crates/excellent-text`,
+**Tag:** K.13; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `crates/excellent-text`,
 `excellent-mupdf::text`, `excellent-core::render::read_text`, `excellent-canvas-win`
-**Plan:** §27 entry `#### K.13`, Appendix D.1.3.
+**Plan:** §27 entry `Ph1: 3/60 | K.13`, Appendix D.1.3.
 
 ## Problem
 

@@ -1,8 +1,8 @@
-# R.5 Thumbnails
+# Ph1: 16/60 | R.5: Thumbnails
 
-**Tag:** R.5 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.7 · **Code:** `excellent-features::read::thumbnails`,
+**Tag:** R.5; **Priority:** P0; **Phase:** 1; **Needs:** K.7; **Code:** `excellent-features::read::thumbnails`,
 `excellent-core::thumbnail`, `excellent-app::thumbnails`
-**Plan:** §27 entry `#### R.5`.
+**Plan:** §27 entry `Ph1: 16/60 | R.5`.
 
 ## Problem
 

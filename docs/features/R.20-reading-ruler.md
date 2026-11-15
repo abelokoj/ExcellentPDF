@@ -1,8 +1,8 @@
-# R.20 Reading ruler (reading bar)
+# Ph1: 28/60 | R.20: Reading ruler (reading bar)
 
-**Tag:** R.20 · **Priority:** P1 · **Phase:** 1 · **Needs:** K.8, K.13 · **Code:** `excellent-features::read::ruler`,
+**Tag:** R.20; **Priority:** P1; **Phase:** 1; **Needs:** K.8, K.13; **Code:** `excellent-features::read::ruler`,
 `excellent-canvas-win::canvas::reading`, `excellent-app::reading`
-**Plan:** §27 entry `#### R.20`.
+**Plan:** §27 entry `Ph1: 28/60 | R.20`.
 
 ## Problem
 

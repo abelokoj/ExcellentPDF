@@ -2,13 +2,18 @@
 //! between them and screen readers hear one list. The shown tab takes the page's colour, as if the page came up into
 //! it; a dot marks unsaved changes, a pin the pinned tabs (which keep no close button). A middle click closes a tab.
 //! Then the open button and, at the right end, the button of the tab list.
+//!
+//! A tab group (R.13) shows as a chip in its colour before its tabs, which are underlined in that colour. The chip
+//! names the group and, while it is collapsed, counts its hidden tabs; pressing it collapses or expands the group, a
+//! right click opens its edit dialog.
 
 use nsh_base::{button, tabs, theme};
 use nsh_core::geometry::Radians;
 use nsh_core::prelude::*;
 
-use super::TabState;
+use super::group_dialog::color_name;
 use super::model::Tab;
+use super::{GroupColor, GroupId, TabId, TabState, Tabs};
 use crate::commands::{self, CommandId};
 
 /// A tab's widths: it shrinks as tabs are added, down to `MIN`.
@@ -21,7 +26,6 @@ pub(crate) fn tab_strip(
     state: TabState,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
-    let items = move || state.tabs.with(|tabs| tabs.all().to_vec());
     let list = tabs()
         .flex_row()
         .items_end()
@@ -30,9 +34,12 @@ pub(crate) fn tab_strip(
         .flex_shrink(1.0)
         .h_full()
         .child(each(
-            items,
-            |tab: &Tab| tab.id,
-            move |tab, _| tab_view(state, tab),
+            move || state.tabs.with(items),
+            |item: &Item| *item,
+            move |item, _| match item.with_untracked(|item| *item) {
+                Item::Group(id) => group_chip(state, id).into_element(),
+                Item::Tab(id) => tab_view(state, id).into_element(),
+            },
         ));
     view()
         .flex_1()
@@ -42,7 +49,7 @@ pub(crate) fn tab_strip(
         .items_center()
         .gap_1()
         .child(when(
-            move || !state.has_shown(),
+            move || !state.has_tabs(),
             || {
                 text(move || t!("app.name"))
                     .text_size(px(13.0))
@@ -65,12 +72,137 @@ pub(crate) fn tab_strip(
         ))
 }
 
-/// One tab: its file's name, a dot while it has unsaved changes, a pin or a close button.
-fn tab_view(state: TabState, tab: ReadSignal<Tab>) -> impl IntoElement {
-    let id = tab.with_untracked(|tab| tab.id);
+/// What the strip shows, left to right.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Item {
+    /// A group's chip, before its tabs.
+    Group(GroupId),
+    /// A tab not hidden in a collapsed group.
+    Tab(TabId),
+}
+
+/// The strip's items: the tabs in order, each group's chip before its first tab (a group's tabs sit together).
+fn items(tabs: &Tabs) -> Vec<Item> {
+    let mut items = Vec::new();
+    let mut last = None;
+    for tab in tabs.all() {
+        if tab.group != last {
+            items.extend(tab.group.map(Item::Group));
+            last = tab.group;
+        }
+        if !tabs.hidden(tab.id) {
+            items.push(Item::Tab(tab.id));
+        }
+    }
+    items
+}
+
+/// The fill of `color`'s chip, and the text on it.
+fn swatch(color: GroupColor) -> (Hsla, Hsla) {
+    let (fill, ink) = color.swatch();
+    let parse = |hex| Hsla::parse_hex(hex).expect("a built-in colour");
+    (parse(fill), parse(ink))
+}
+
+/// A group's chip: its name on its colour, a dot when it has none; while collapsed, the number of its tabs.
+fn group_chip(state: TabState, id: GroupId) -> impl IntoElement {
+    let group = computed(move || {
+        state.tabs.with(|tabs| {
+            tabs.group(id)
+                .cloned()
+                .map(|group| (group, tabs.members(id).count()))
+        })
+    });
+    let color = move || group.with(|g| g.as_ref().map_or(GroupColor::Grey, |(g, _)| g.color));
+    let name = move || group.with(|g| g.as_ref().map(|(g, _)| g.name.clone()).unwrap_or_default());
+    let collapsed = move || group.with(|g| g.as_ref().is_some_and(|(g, _)| g.collapsed));
+    let count = move || group.with(|g| g.as_ref().map_or(0, |(_, count)| *count));
+    let fill = move || swatch(color()).0;
+    let ink = move || swatch(color()).1;
+    // A screen reader hears the name (or the colour, for a group without one), the tab count and the state: NSH's
+    // `Button` sets no expanded state, so the label says it.
+    let label = move || {
+        let name = name();
+        let name = if name.is_empty() {
+            color_name(color())
+        } else {
+            name
+        };
+        let key = if collapsed() {
+            "tab_group.chip_collapsed"
+        } else {
+            "tab_group.chip_expanded"
+        };
+        SharedString::from(t!(key, name = name, count = count()))
+    };
+    let named = move || !name().is_empty();
+    let chip = button()
+        .accessibility_label(move || Some(label()))
+        .on_press(move || state.toggle_group(id))
+        .flex_shrink(0.0)
+        .flex_row()
+        .items_center()
+        .gap(px(4.0))
+        .h(px(22.0))
+        .min_w(px(22.0))
+        .px(px(6.0))
+        .rounded_full()
+        .justify_center()
+        .bg(fill)
+        .hover(|s| s.opacity(0.9))
+        .active(|s| s.opacity(0.7))
+        .focus_visible(|s| s.border_2().border_color(move || theme().ring))
+        .child(when(
+            move || !named() && !collapsed(),
+            move || view().w(px(8.0)).h(px(8.0)).rounded_full().bg(ink),
+        ))
+        .child(when(named, move || {
+            text(name)
+                .max_w(px(140.0))
+                .truncate()
+                .text_size(px(12.0))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(ink)
+        }))
+        .child(when(collapsed, move || {
+            text(move || count().to_string())
+                .tabular_nums()
+                .text_size(px(11.0))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(ink)
+        }));
+    // A right click opens the edit dialog; the chip itself takes only presses.
+    view()
+        .window_drag(false)
+        .on_mouse_up(move |event: &MouseEvent| {
+            if event.button == Some(MouseButton::Right) {
+                state.edit(id);
+            }
+        })
+        .h_full()
+        .items_center()
+        .justify_center()
+        .px(px(2.0))
+        .child(chip)
+}
+
+/// One tab: its file's name, a dot while it has unsaved changes, a pin or a close button; underlined in its group's
+/// colour.
+fn tab_view(state: TabState, id: TabId) -> impl IntoElement {
+    let tab = computed(move || state.tabs.with(|tabs| tabs.get(id).cloned()));
     let shown = move || state.tabs.with(|tabs| tabs.active().map(|tab| tab.id)) == Some(id);
-    let pinned = move || tab.with(|tab| tab.pinned);
-    let title = move || tab.with(Tab::title);
+    let pinned = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.pinned));
+    let missing = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.missing));
+    let dirty = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.dirty));
+    let title = move || tab.with(|tab| tab.as_ref().map(Tab::title).unwrap_or_default());
+    let underline = move || {
+        state.tabs.with(|tabs| {
+            tabs.get(id)
+                .and_then(|tab| tab.group)
+                .and_then(|group| tabs.group(group))
+                .map_or(Hsla::transparent_black(), |group| swatch(group.color).0)
+        })
+    };
     let tab_view = nsh_base::tab()
         .selected(shown)
         .on_press(move || state.show(id))
@@ -83,21 +215,32 @@ fn tab_view(state: TabState, tab: ReadSignal<Tab>) -> impl IntoElement {
         .pl_3()
         .pr_1()
         .rounded_t(px(8.0))
+        .border_b(px(2.0))
+        .border_b_color(underline)
         .hover(|s| s.bg(move || theme().sidebar_accent))
         .selected_style(|s| s.bg(move || theme().background))
         .focus_visible(|s| s.border_1().border_color(move || theme().ring))
-        .child(when(pinned, pin))
-        .child(when(
-            move || tab.with(|tab| tab.dirty),
-            || {
-                view()
-                    .label(t!("tabs.unsaved"))
-                    .w(px(6.0))
-                    .h(px(6.0))
-                    .rounded_full()
-                    .bg(move || theme().primary)
-            },
-        ))
+        .child(when(pinned, || {
+            pin_mark(move || theme().sidebar_foreground)
+        }))
+        .child(when(dirty, || {
+            view()
+                .label(t!("tabs.unsaved"))
+                .w(px(6.0))
+                .h(px(6.0))
+                .rounded_full()
+                .bg(move || theme().primary)
+        }))
+        // A file that has gone: a hollow ring where the unsaved dot would be, and the name greyed (R.9).
+        .child(when(missing, || {
+            view()
+                .label(t!("tabs.missing"))
+                .w(px(7.0))
+                .h(px(7.0))
+                .rounded_full()
+                .border_1()
+                .border_color(move || theme().muted_foreground)
+        }))
         .child(
             text(title)
                 .flex_1()
@@ -106,7 +249,9 @@ fn tab_view(state: TabState, tab: ReadSignal<Tab>) -> impl IntoElement {
                 .text_size(px(12.0))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(move || {
-                    if shown() {
+                    if missing() {
+                        theme().muted_foreground
+                    } else if shown() {
                         theme().foreground
                     } else {
                         theme().sidebar_foreground
@@ -135,7 +280,7 @@ fn tab_view(state: TabState, tab: ReadSignal<Tab>) -> impl IntoElement {
 /// A tab's close button.
 fn close_button(
     state: TabState,
-    id: super::TabId,
+    id: TabId,
     title: impl Fn() -> String + Copy + 'static,
 ) -> impl IntoElement {
     button()
@@ -156,25 +301,14 @@ fn close_button(
         )
 }
 
-/// A pinned tab's mark: a small filled disc on a stem, drawn from views.
-fn pin() -> impl IntoElement {
+/// The mark of something pinned (a tab, a recent file): a small filled disc on a stem, drawn from views in `color`.
+pub(crate) fn pin_mark(color: impl Fn() -> AdaptiveColor + Copy + 'static) -> impl IntoElement {
     view()
         .items_center()
         .flex_shrink(0.0)
         .accessibility_elements_hidden(true)
-        .child(
-            view()
-                .w(px(7.0))
-                .h(px(7.0))
-                .rounded_full()
-                .bg(move || theme().sidebar_foreground),
-        )
-        .child(
-            view()
-                .w(px(1.5))
-                .h(px(5.0))
-                .bg(move || theme().sidebar_foreground),
-        )
+        .child(view().w(px(7.0)).h(px(7.0)).rounded_full().bg(color))
+        .child(view().w(px(1.5)).h(px(5.0)).bg(color))
 }
 
 /// A downward chevron, drawn as the corner of a rotated square.
@@ -209,4 +343,34 @@ fn strip_button(
             .active(|s| s.opacity(0.7))
             .child(glyph),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn a_group_shows_its_chip_before_its_tabs_and_hides_them_collapsed() {
+        let mut tabs = Tabs::default();
+        let ids: Vec<TabId> = ["a", "b", "c", "d"]
+            .into_iter()
+            .map(|name| tabs.open(PathBuf::from(format!("{name}.pdf")), 0))
+            .collect();
+        let group = tabs.new_group(ids[1]).expect("group");
+        tabs.step_tab(ids[2], false);
+        let open = vec![
+            Item::Tab(ids[0]),
+            Item::Group(group),
+            Item::Tab(ids[1]),
+            Item::Tab(ids[2]),
+            Item::Tab(ids[3]),
+        ];
+        assert_eq!(items(&tabs), open);
+        assert!(tabs.toggle_group(group));
+        assert_eq!(
+            items(&tabs),
+            [Item::Tab(ids[0]), Item::Group(group), Item::Tab(ids[3])]
+        );
+    }
 }

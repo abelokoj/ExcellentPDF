@@ -118,7 +118,7 @@ fn open(uri: &str, kind: Ask, document: Option<PathBuf>) {
 
 /// The local file a link names (`file:`, `file:///C:/…`, a path), its `#…` dropped and its `%xx` escapes decoded,
 /// made absolute against `base` (the document's folder) when it is relative. `None` when nothing is left.
-fn file_path(uri: &str, base: Option<&Path>) -> Option<PathBuf> {
+pub(crate) fn file_path(uri: &str, base: Option<&Path>) -> Option<PathBuf> {
     let rest = match uri.get(..5) {
         Some(scheme) if scheme.eq_ignore_ascii_case("file:") => &uri[5..],
         _ => uri,

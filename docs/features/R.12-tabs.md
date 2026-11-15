@@ -1,8 +1,8 @@
-# R.12 Tabs
+# Ph1: 23/60 | R.12: Tabs
 
-**Tag:** R.12 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.5 · **Code:** `excellent-app::tabs` (`model`,
+**Tag:** R.12; **Priority:** P0; **Phase:** 1; **Needs:** K.5; **Code:** `excellent-app::tabs` (`model`,
 `strip`, `list`), `excellent-app::shell`, `excellent-app::commands`, `excellent-app::settings_window`
-**Plan:** §27 entry `#### R.12`.
+**Plan:** §27 entry `Ph1: 23/60 | R.12`.
 
 ## Problem
 
@@ -74,4 +74,4 @@ by name"):
 - [ ] A tab's context menu (pin, close others, close to the right): the commands are in the palette meanwhile; a
   popup menu would be drawn behind the page canvas, as the tab list would.
 - [ ] Workspaces (W.1, W.4, W.9): per-workspace closed tabs, tab search across workspaces and its badge.
-- [ ] Files from Explorer and a second launch (R.11) opening as tabs.
+- [x] Files from Explorer and a second launch (R.11) opening as tabs: `a_launch_shows_its_files_in_their_tabs_or_new_ones`.

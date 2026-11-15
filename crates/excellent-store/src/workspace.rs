@@ -1,0 +1,374 @@
+//! A workspace's tabs (plan §11.16, "Storage"): the open tabs in strip order with the one shown, their named groups
+//! (R.13), and the recently closed ones. A tab is its file and the app's View state, which this crate keeps as the app's JSON without
+//! reading it.
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use rusqlite::{Connection, OptionalExtension, Transaction, params};
+
+use crate::Result;
+
+/// The most closed tabs a workspace keeps (§11.16).
+pub const CLOSED_KEPT: usize = 50;
+
+/// A workspace, by its row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct WorkspaceId(i64);
+
+impl WorkspaceId {
+    /// The first workspace, which every database has from its first version.
+    pub const DEFAULT: Self = Self(1);
+}
+
+/// A tab as it is saved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SavedTab {
+    /// Its file.
+    pub path: PathBuf,
+    /// Its View state, as the app wrote it.
+    pub view: String,
+    /// Whether it is pinned.
+    pub pinned: bool,
+    /// Its group: a place in [`Tabs::groups`]. Closed tabs keep none.
+    pub group: Option<usize>,
+}
+
+/// A named tab group as it is saved (R.13).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SavedGroup {
+    /// Its name; may be empty.
+    pub name: String,
+    /// Its colour, as the app names it.
+    pub color: String,
+    /// Whether its tabs are hidden.
+    pub collapsed: bool,
+}
+
+/// A recently closed tab.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClosedTab {
+    /// The tab.
+    pub tab: SavedTab,
+    /// Its place in the strip when it closed.
+    pub position: usize,
+}
+
+/// A workspace's tabs.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Tabs {
+    /// The open tabs, in strip order.
+    pub open: Vec<SavedTab>,
+    /// The place in `open` of the tab shown.
+    pub active: Option<usize>,
+    /// The groups the open tabs name.
+    pub groups: Vec<SavedGroup>,
+    /// The closed tabs, newest first; only the first [`CLOSED_KEPT`] are saved.
+    pub closed: Vec<ClosedTab>,
+}
+
+/// Reads `workspace`'s tabs; a workspace that isn't there has none.
+///
+/// # Errors
+///
+/// SQLite failed.
+pub fn load_tabs(conn: &Connection, workspace: WorkspaceId) -> Result<Tabs> {
+    let active: Option<usize> = conn
+        .query_row(
+            "SELECT active_tab FROM workspace WHERE id = ?1",
+            [workspace.0],
+            |row| row.get(0),
+        )
+        .optional()?
+        .flatten();
+    let mut group_rows = conn.prepare(
+        "SELECT id, name, color, collapsed FROM tab_group WHERE workspace = ?1 ORDER BY position",
+    )?;
+    let mut place_of = HashMap::new();
+    let mut groups = Vec::new();
+    for row in group_rows.query_map([workspace.0], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            SavedGroup {
+                name: row.get(1)?,
+                color: row.get(2)?,
+                collapsed: row.get(3)?,
+            },
+        ))
+    })? {
+        let (id, group) = row?;
+        place_of.insert(id, groups.len());
+        groups.push(group);
+    }
+    let mut open_tabs = conn.prepare(
+        "SELECT f.path, t.view, t.pinned, t.tab_group FROM workspace_tab t JOIN file f ON f.id = t.file
+         WHERE t.workspace = ?1 ORDER BY t.position",
+    )?;
+    let open: Vec<SavedTab> = open_tabs
+        .query_map([workspace.0], |row| {
+            Ok(SavedTab {
+                path: PathBuf::from(row.get::<_, String>(0)?),
+                view: row.get(1)?,
+                pinned: row.get(2)?,
+                group: row
+                    .get::<_, Option<i64>>(3)?
+                    .and_then(|id| place_of.get(&id).copied()),
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut closed_tabs = conn.prepare(
+        "SELECT f.path, c.view, c.pinned, c.position FROM closed_tab c JOIN file f ON f.id = c.file
+         WHERE c.workspace = ?1 ORDER BY c.rank",
+    )?;
+    let closed = closed_tabs
+        .query_map([workspace.0], |row| {
+            Ok(ClosedTab {
+                tab: SavedTab {
+                    path: PathBuf::from(row.get::<_, String>(0)?),
+                    view: row.get(1)?,
+                    pinned: row.get(2)?,
+                    group: None,
+                },
+                position: row.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(Tabs {
+        active: active.filter(|&index| index < open.len()),
+        open,
+        groups,
+        closed,
+    })
+}
+
+/// Replaces `workspace`'s saved tabs with `tabs`.
+///
+/// shortcut: rewrites every row of the workspace, a few milliseconds for a hundred tabs; write only the changed
+/// rows if workspaces of thousands of tabs make saving slow.
+///
+/// # Errors
+///
+/// SQLite failed; the caller's transaction then rolls back, keeping what was saved before.
+pub fn save_tabs(tx: &Transaction<'_>, workspace: WorkspaceId, tabs: &Tabs) -> Result<()> {
+    tx.execute(
+        "UPDATE workspace SET active_tab = ?2 WHERE id = ?1",
+        params![workspace.0, tabs.active],
+    )?;
+    tx.execute(
+        "DELETE FROM workspace_tab WHERE workspace = ?1",
+        [workspace.0],
+    )?;
+    tx.execute("DELETE FROM closed_tab WHERE workspace = ?1", [workspace.0])?;
+    tx.execute("DELETE FROM tab_group WHERE workspace = ?1", [workspace.0])?;
+    let mut insert_group = tx.prepare(
+        "INSERT INTO tab_group (workspace, position, name, color, collapsed) VALUES (?1, ?2, ?3, ?4, ?5)
+         RETURNING id",
+    )?;
+    let group_ids = tabs
+        .groups
+        .iter()
+        .enumerate()
+        .map(|(position, group)| {
+            insert_group.query_row(
+                params![
+                    workspace.0,
+                    position,
+                    group.name,
+                    group.color,
+                    group.collapsed
+                ],
+                |row| row.get::<_, i64>(0),
+            )
+        })
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut insert_open = tx.prepare(
+        "INSERT INTO workspace_tab (workspace, position, file, view, pinned, tab_group)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+    )?;
+    for (position, tab) in tabs.open.iter().enumerate() {
+        let file = file_id(tx, &tab.path)?;
+        let group = tab.group.and_then(|place| group_ids.get(place));
+        insert_open.execute(params![
+            workspace.0,
+            position,
+            file,
+            tab.view,
+            tab.pinned,
+            group
+        ])?;
+    }
+    let mut insert_closed = tx.prepare(
+        "INSERT INTO closed_tab (workspace, rank, position, file, view, pinned)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+    )?;
+    for (rank, closed) in tabs.closed.iter().take(CLOSED_KEPT).enumerate() {
+        let file = file_id(tx, &closed.tab.path)?;
+        insert_closed.execute(params![
+            workspace.0,
+            rank,
+            closed.position,
+            file,
+            closed.tab.view,
+            closed.tab.pinned
+        ])?;
+    }
+    Ok(())
+}
+
+/// The row of the file at `path`, made if it isn't there.
+///
+/// shortcut: a path that isn't valid Unicode is saved with its odd characters replaced, so that tab won't reopen;
+/// store the platform's bytes if such names turn up.
+pub(crate) fn file_id(tx: &Transaction<'_>, path: &std::path::Path) -> Result<i64> {
+    Ok(tx.query_row(
+        "INSERT INTO file (path) VALUES (?1) ON CONFLICT (path) DO UPDATE SET path = excluded.path RETURNING id",
+        [path.to_string_lossy()],
+        |row| row.get(0),
+    )?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::migrations;
+
+    fn database() -> Connection {
+        let mut conn = Connection::open_in_memory().expect("open");
+        conn.pragma_update(None, "foreign_keys", true)
+            .expect("foreign keys");
+        migrations::migrate(&mut conn).expect("migrate");
+        conn
+    }
+
+    fn tab(name: &str, page: usize, pinned: bool) -> SavedTab {
+        SavedTab {
+            path: PathBuf::from(format!("C:/papers/{name}.pdf")),
+            view: format!("{{\"page\":{page}}}"),
+            pinned,
+            group: None,
+        }
+    }
+
+    fn grouped(name: &str, group: usize) -> SavedTab {
+        SavedTab {
+            group: Some(group),
+            ..tab(name, 0, false)
+        }
+    }
+
+    fn save(conn: &mut Connection, tabs: &Tabs) {
+        let tx = conn.transaction().expect("transaction");
+        save_tabs(&tx, WorkspaceId::DEFAULT, tabs).expect("save");
+        tx.commit().expect("commit");
+    }
+
+    #[test]
+    fn tabs_come_back_as_they_were_saved() {
+        let mut conn = database();
+        assert_eq!(
+            load_tabs(&conn, WorkspaceId::DEFAULT).expect("load"),
+            Tabs::default()
+        );
+        let tabs = Tabs {
+            open: vec![
+                tab("a", 3, true),
+                grouped("b", 0),
+                grouped("e", 0),
+                grouped("f", 1),
+                tab("a", 9, false),
+            ],
+            active: Some(4),
+            groups: vec![
+                SavedGroup {
+                    name: "Thesis".to_owned(),
+                    color: "blue".to_owned(),
+                    collapsed: false,
+                },
+                SavedGroup {
+                    name: String::new(),
+                    color: "red".to_owned(),
+                    collapsed: true,
+                },
+            ],
+            closed: vec![ClosedTab {
+                tab: tab("c", 4, false),
+                position: 1,
+            }],
+        };
+        save(&mut conn, &tabs);
+        assert_eq!(load_tabs(&conn, WorkspaceId::DEFAULT).expect("load"), tabs);
+        let fewer = Tabs {
+            open: vec![tab("b", 1, false)],
+            active: Some(0),
+            ..Tabs::default()
+        };
+        save(&mut conn, &fewer);
+        assert_eq!(load_tabs(&conn, WorkspaceId::DEFAULT).expect("load"), fewer);
+    }
+
+    #[test]
+    fn only_the_newest_closed_tabs_are_kept() {
+        let mut conn = database();
+        let closed: Vec<ClosedTab> = (0..CLOSED_KEPT + 7)
+            .map(|n| ClosedTab {
+                tab: tab(&n.to_string(), n, false),
+                position: 0,
+            })
+            .collect();
+        save(
+            &mut conn,
+            &Tabs {
+                closed: closed.clone(),
+                ..Tabs::default()
+            },
+        );
+        let loaded = load_tabs(&conn, WorkspaceId::DEFAULT).expect("load");
+        assert_eq!(loaded.closed, closed[..CLOSED_KEPT]);
+    }
+
+    #[test]
+    fn a_version_1_session_keeps_its_tabs_through_the_upgrade() {
+        let mut conn = Connection::open_in_memory().expect("open");
+        migrations::migrate_to(&mut conn, 1).expect("version 1");
+        conn.execute_batch(
+            "INSERT INTO file (id, path) VALUES (1, 'C:/papers/a.pdf');
+             INSERT INTO workspace_tab (workspace, position, file, view, pinned) VALUES (1, 0, 1, '{}', 1);
+             UPDATE workspace SET active_tab = 0;",
+        )
+        .expect("a version 1 session");
+        migrations::migrate(&mut conn).expect("upgrade");
+        let tabs = load_tabs(&conn, WorkspaceId::DEFAULT).expect("load");
+        assert_eq!(
+            tabs,
+            Tabs {
+                open: vec![SavedTab {
+                    path: PathBuf::from("C:/papers/a.pdf"),
+                    view: "{}".to_owned(),
+                    pinned: true,
+                    group: None,
+                }],
+                active: Some(0),
+                ..Tabs::default()
+            }
+        );
+    }
+
+    #[test]
+    fn an_active_tab_past_the_end_is_none() {
+        let mut conn = database();
+        save(
+            &mut conn,
+            &Tabs {
+                open: vec![tab("a", 0, false)],
+                active: Some(0),
+                ..Tabs::default()
+            },
+        );
+        conn.execute("UPDATE workspace SET active_tab = 5", [])
+            .expect("corrupt");
+        assert_eq!(
+            load_tabs(&conn, WorkspaceId::DEFAULT).expect("load").active,
+            None
+        );
+    }
+}

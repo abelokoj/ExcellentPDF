@@ -11,7 +11,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use excellent_mupdf::{DisplayList, MuError};
+use excellent_mupdf::{DisplayList, MuError, Reflow};
 
 pub use identity::FileId;
 
@@ -81,6 +81,11 @@ struct State {
     lists: HashMap<usize, Arc<DisplayList>>,
     /// Each changed page's revision; a page never changed is at 0.
     revisions: HashMap<usize, u64>,
+    /// Goes up with every layout of a reflowable document, which changes every page: it adds to each page's
+    /// revision.
+    layouts: u64,
+    /// The pages a reflowable document is laid out on, to lay it out the same way after hibernating.
+    reflow: Option<Reflow>,
     unsaved: bool,
 }
 
@@ -144,7 +149,11 @@ impl Document {
             return Ok(Arc::clone(mupdf));
         }
         // shortcut: a file changed on disk while hibernating is simply opened again; K.18 notices changes.
-        let mupdf = Arc::new(Mutex::new(excellent_mupdf::Document::open(&self.path)?));
+        let mut document = excellent_mupdf::Document::open(&self.path)?;
+        if let Some(reflow) = state.reflow {
+            document.reflow(reflow, None)?;
+        }
+        let mupdf = Arc::new(Mutex::new(document));
         state.mupdf = Some(Arc::clone(&mupdf));
         Ok(mupdf)
     }
@@ -179,15 +188,42 @@ impl Document {
     /// dropped.
     pub fn keep_display_list(&self, page: usize, revision: u64, list: Arc<DisplayList>) {
         let mut state = self.lock();
-        let current = state.revisions.get(&page).copied().unwrap_or(0);
+        let current = state.layouts + state.revisions.get(&page).copied().unwrap_or(0);
         if revision == current && state.mupdf.is_some() {
             state.lists.insert(page, list);
         }
     }
 
-    /// Page `page`'s revision: it goes up with every change to the page.
+    /// Page `page`'s revision: it goes up with every change to the page, and with every layout of a reflowable
+    /// document.
     pub fn revision(&self, page: usize) -> u64 {
-        self.lock().revisions.get(&page).copied().unwrap_or(0)
+        let state = self.lock();
+        state.layouts + state.revisions.get(&page).copied().unwrap_or(0)
+    }
+
+    /// Lays a reflowable document out on `reflow`'s pages (R.28) and returns where the text page `keep` started
+    /// with is now (see [`excellent_mupdf::Document::reflow`]). Every page changes: the display lists go and every
+    /// revision goes up, so views draw the pages again. A document with fixed pages is left as it is, and `keep`
+    /// comes back unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Waking failed, or MuPDF can't lay the document out.
+    pub fn reflow(&self, reflow: Reflow, keep: Option<usize>) -> Result<Option<usize>> {
+        if self.lock().reflow == Some(reflow) {
+            return Ok(keep);
+        }
+        let mupdf = self.mupdf()?;
+        let mut mupdf = mupdf.lock().expect("document lock poisoned");
+        if !mupdf.is_reflowable()? {
+            return Ok(keep);
+        }
+        let kept = mupdf.reflow(reflow, keep)?;
+        let mut state = self.lock();
+        state.reflow = Some(reflow);
+        state.layouts += 1;
+        state.lists.clear();
+        Ok(kept)
     }
 
     /// Page `page` changed: its revision goes up, its display list goes, and the document has unsaved changes.
@@ -267,5 +303,60 @@ mod tests {
         );
         document.keep_display_list(0, 1, list);
         assert!(document.display_list(0).is_some());
+    }
+
+    #[test]
+    fn a_reflow_changes_every_page_and_survives_hibernating() {
+        let document = Document::open(&corpus("formats.epub")).expect("open");
+        let small = Reflow {
+            width: 420.0,
+            height: 595.0,
+            font_size: 9.0,
+        };
+        document.reflow(small, None).expect("reflow");
+        let pages = page_count(&document);
+        let list = Arc::new(
+            document
+                .mupdf()
+                .expect("awake")
+                .lock()
+                .expect("lock")
+                .load_page(1)
+                .expect("page")
+                .display_list(None)
+                .expect("list"),
+        );
+        let revision = document.revision(1);
+        document.keep_display_list(1, revision, Arc::clone(&list));
+        assert!(document.display_list(1).is_some());
+
+        let large = Reflow {
+            font_size: 18.0,
+            ..small
+        };
+        let kept = document.reflow(large, Some(1)).expect("reflow");
+        assert!(kept.is_some_and(|page| page >= 1));
+        assert!(document.display_list(1).is_none(), "the old list is gone");
+        assert!(document.revision(1) > revision);
+        document.keep_display_list(1, revision, list);
+        assert!(
+            document.display_list(1).is_none(),
+            "laid out before the reflow"
+        );
+        assert!(!document.has_unsaved_changes(), "a layout is no edit");
+
+        let reflowed = page_count(&document);
+        assert!(reflowed > pages);
+        document.hibernate().expect("hibernate");
+        assert_eq!(
+            page_count(&document),
+            reflowed,
+            "laid out the same way on waking"
+        );
+
+        // Fixed pages: nothing changes.
+        let pdf = Document::open(&corpus("zlib-manual.pdf")).expect("open");
+        assert_eq!(pdf.reflow(small, Some(1)).expect("reflow"), Some(1));
+        assert_eq!(pdf.revision(1), 0);
     }
 }

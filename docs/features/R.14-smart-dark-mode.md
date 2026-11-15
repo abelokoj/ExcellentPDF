@@ -1,9 +1,9 @@
-# R.14 Smart dark mode
+# Ph1: 25/60 | R.14: Smart dark mode
 
-**Tag:** R.14 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.7 · **Code:** `excellent-core::darkmode`,
+**Tag:** R.14; **Priority:** P0; **Phase:** 1; **Needs:** K.7; **Code:** `excellent-core::darkmode`,
 `excellent-core::render` (`Recolor`), `excellent-mupdf` (`DisplayList::images`, `PageImage`), the shim's
 `ex_display_list_images`, `excellent-canvas-win` (`pageColors`), `excellent-app::reading` (`document_colors`)
-**Plan:** §27 entry `#### R.14` and §7.5.
+**Plan:** §27 entry `Ph1: 25/60 | R.14` and §7.5.
 
 ## Problem
 

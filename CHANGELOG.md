@@ -6,7 +6,95 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
-### 2026-11-14 16:11: Tabs (R.12)
+### 2026-11-14 19:09; Ph1: 20/60 | R.9: Each tab keeps its view
+
+#### Added
+
+- The corpus's EPUB and XPS files carry links, and a test reads them (R.7).
+- Left and Right (and H, L) go to the row of pages on that side, by the reading direction: Left goes on in a
+  right-to-left document. Zoomed in past the width, they scroll sideways (R.3).
+- Each tab keeps its zoom, layout (single, facing, book, strip or grid; paged or continuous; reading direction), view
+  rotation and the place on the page, through tab switches, closing and reopening, and restarts (R.1, R.2, R.9). A
+  page given alone, such as a launch's, still goes to that page.
+
+#### Changed
+
+- Settings for focus mode, the reading ruler and link protocols, and files from Explorer opening as tabs, were already
+  built: R.7, R.12, R.19 and R.20 no longer list them as open.
+
+#### Fixed
+
+- A book in FB2, HTML, Markdown or MOBI kept the old page number when its text size changed, instead of the page
+  where the reader's text went: the new layout was made only after the place was looked up (R.28).
+- A second launch could stop the first instance listening for files when it wrote and closed before the first was
+  ready for it; its message is now read (R.11, K.19).
+
+### 2026-11-14 18:28; Ph1: 30/60 | R.28: Other formats through MuPDF
+
+#### Added
+
+- EPUB, MOBI, FB2, XPS, CBZ, SVG, HTML, Markdown and pictures open like PDFs: from the Open dialog, by a drop, and
+  through "Set as default PDF viewer".
+- Books are laid out to the window: each page is a screen tall and as wide as the window, up to a comfortable line
+  length. Resizing the window lays the book out again, on the page the reader was on.
+- Settings, Reading: "Book text size" (8 to 32 pt).
+- A test corpus with one small file per format, made by `tests/corpus-src/make_formats.py`.
+
+#### Changed
+
+- DjVu is no longer offered: MuPDF can't read it (it is R.29's). Files are recognised by their contents in one place,
+  `excellent-core::formats`.
+
+### 2026-11-14 17:59; Phase labels for every feature
+
+#### Changed
+
+- Every feature is written as its label, `Ph<phase>: <n>/<count> | <TAG>: <Title>`, for example
+  `Ph1: 22/60 | R.11: Opening files`, so the reader sees where it sits in its phase. The plan's 275 entries carry it
+  in their headings; feature docs, `docs/features.toml` and the changelog headings use it too. Tags stay the permanent
+  names (AGENTS.md section 4, plan §27.0).
+- Centred dots between items are gone from the plan and the docs: semicolons separate them, and formulas use ×.
+
+### 2026-11-14 17:32; Ph1: 22/60 | R.11: Opening files from outside the app
+
+#### Added
+
+- Documents dropped on the window open in new tabs. Each file is checked by its contents, not its name.
+- Single instance: double-clicking a document, or starting the app with files, while it runs brings the running
+  window to the front and opens them there. A file that already has a tab is shown in that tab.
+- Command line: `--page N` shows the files at page N.
+- "Set as default PDF viewer" in the command palette offers the app for its document types and opens Windows'
+  Default apps settings at ExcellentPDF.
+
+### 2026-11-14 17:12; Ph1: 21/60 | R.10: Recent and pinned files
+
+#### Added
+
+- With no tab open, the document panel lists pinned and recent files with the page each was left at. Pressing one
+  opens it there; each row can be pinned or removed, and "Clear" empties the recent list but keeps pinned files.
+- The tab list (Ctrl+Shift+A) has a "Recent files" section with the recent files that aren't open.
+- A portable copy finds its files again after it moves to another folder or drive letter.
+
+### 2026-11-14 16:45; Ph1: 10/60 | K.20: Library database; Ph1: 20/60 | R.9: Session restore; Ph1: 24/60 | R.13: Tab groups
+
+#### Added
+
+- The library database, `library.db`, next to `settings.toml`: SQLite in WAL mode with one writer thread, numbered
+  migrations, and tests that upgrade every earlier version and survive a crash in the middle of a write.
+- The app comes back as it was left: every tab at its page, pins, the shown tab, recently closed tabs and tab groups.
+  The tabs are saved a second after they change and when the app quits.
+- A tab whose file has gone shows greyed with a hollow ring; shown, its panel says where the file was and offers
+  "Locate…".
+- Tab groups: "Add tab to new group" in the command palette puts the shown tab in a named, coloured group. A chip in
+  the strip names the group and collapses or expands it (a right click edits it); its tabs are underlined in its
+  colour. The edit dialog renames, recolours (eight named colours), ungroups or closes the group. Moving a tab with
+  Ctrl+Shift+PageUp / PageDown takes it into and out of groups. Collapsing hides tabs without closing them.
+
+#### Changed
+
+- A file given on the command line opens beside the restored tabs, or shows the restored tab of it.
+
+### 2026-11-14 16:11; Ph1: 23/60 | R.12: Tabs
 
 #### Added
 
@@ -28,7 +116,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   the thumbnails and file links follow the shown tab instead of the command line's file.
 - The command palette's button in the title bar is narrower (280 points), to leave the tabs the room.
 
-### 2026-11-14 15:07: Reading themes, previewed live on the page (R.15)
+### 2026-11-14 15:07; Ph1: 26/60 | R.15: Reading themes, previewed live on the page
 
 #### Added
 
@@ -54,7 +142,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   or move the build directory, leave the fork's settings alone, and keep the repository buildable with the stock
   cargo.
 
-### 2026-11-14 13:57: Smart dark mode: pages in the theme's colours, pictures kept (R.14)
+### 2026-11-14 13:57; Ph1: 25/60 | R.14: Smart dark mode; pages in the theme's colours, pictures kept
 
 #### Added
 
@@ -68,7 +156,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 - Selected text and the reading ruler's band show on dark pages: they are laid over them translucent.
 
-### 2026-11-14 13:10: Settings window, and settings.toml followed as you edit it (K.16)
+### 2026-11-14 13:10; Ph1: 6/60 | K.16: Settings window, and settings.toml followed as you edit it
 
 #### Added
 
@@ -81,7 +169,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - An edit of `settings.toml` takes effect within a second, keys included; no restart. A file broken by an edit is
   ignored (the old settings stay) until it is fixed.
 
-### 2026-11-14 11:29: Page keys, your own shortcuts and commands that need a document (K.16)
+### 2026-11-14 11:29; Ph1: 6/60 | K.16: Page keys, your own shortcuts and commands that need a document
 
 #### Added
 
@@ -96,7 +184,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 - The command palette leaves out page commands while no document is open.
 
-### 2026-11-14 11:19: Full screen, focus mode, reading ruler and auto-scroll (R.19, R.20, R.21)
+### 2026-11-14 11:19; Ph1: 27/60 | R.19: Full screen and focus mode; Ph1: 28/60 | R.20: Reading ruler; Ph1: 29/60 | R.21: Auto-scroll
 
 #### Added
 
@@ -116,7 +204,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - Plain keys (arrows, `Space`, `+`, `−`, `Esc`) act on the pages only while they have the keyboard focus, which they
   take when a document opens and when you press on them. Elsewhere, such as in the page list, the keys work as before.
 
-### 2026-11-14 08:51: Text selection and copy (K.13)
+### 2026-11-14 08:51; Ph1: 3/60 | K.13: Text selection and copy
 
 #### Added
 
@@ -130,7 +218,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - Page text is read without MuPDF's glyph-tight boxes, so a selection is an even band per line. Copied text joins
   words hyphenated across lines, as MuPDF's own text does.
 
-### 2026-11-14 08:21: Outline (B.1, reading)
+### 2026-11-14 08:21; Ph1: 31/60 | B.1: Outline (reading part)
 
 #### Added
 
@@ -138,7 +226,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   the arrow keys go to an entry's page, and Back returns; the entry you are reading is marked and kept in view as you
   turn pages. A document without an outline says so.
 
-### 2026-11-14 08:10: Thumbnails (R.5)
+### 2026-11-14 08:10; Ph1: 16/60 | R.5: Thumbnails
 
 #### Added
 
@@ -151,7 +239,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - The render workers and the open documents are shared by the whole app (`excellent-core::shared`), not owned by the
   page canvas.
 
-### 2026-11-14 07:49: Links (R.7)
+### 2026-11-14 07:49; Ph1: 18/60 | R.7: Links
 
 #### Added
 
@@ -160,7 +248,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - Web and mail links open in their app. A link to a file, a program or another protocol asks first; a script link
   never runs. The protocols that open without asking are the `link_protocols` setting (`http,https,mailto`).
 
-### 2026-11-14 07:12: One parse per file, history, page labels and go to page (K.5, R.8, R.6)
+### 2026-11-14 07:12; Ph1: 1/60 | K.5: One parse per file; Ph1: 19/60 | R.8: History; Ph1: 17/60 | R.6: Page labels and go to page
 
 #### Added
 
@@ -178,7 +266,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - The view state (layout, rotation, page box, history) moved from the Windows canvas to `excellent-core::view`, so
   every platform shares it.
 
-### 2026-11-14 06:37: Page layouts, fit modes, reading direction, rotation and page boxes (K.6, R.1–R.4)
+### 2026-11-14 06:37; Ph1: 2/60 | K.6: Layout and transforms; Ph1: 12/60 | R.1: Page layouts; Ph1: 13/60 | R.2: Fit modes; Ph1: 14/60 | R.3: Reading direction; Ph1: 15/60 | R.4: Rotation and page boxes
 
 #### Added
 
@@ -198,7 +286,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - Ink is kept on its page, so it stays in place through any layout, zoom, rotation or box. A stroke starts only on a
   page.
 
-### 2026-11-14 00:38: Settings file; the theme is kept between runs (K.16)
+### 2026-11-14 00:38; Ph1: 6/60 | K.16: Settings file; the theme is kept between runs
 
 #### Added
 
@@ -212,7 +300,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - The theme picker takes the keyboard focus once it shows, and only then previews: the palette that opens it gave
   the focus back to what had it before, so arrow keys did nothing.
 
-### 2026-11-14 00:32: Themes with live preview (K.17)
+### 2026-11-14 00:32; Ph1: 7/60 | K.17: Themes with live preview
 
 #### Added
 
@@ -328,7 +416,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   inside NSH's startup before the first frame; to be profiled in T10.
 - Release exe: 30 MB, before any release profile (T10).
 
-### 2026-11-13 17:03: render worker pool (T5, plan K.4); build-once rule
+### 2026-11-13 17:03; T5; Ph0: 4/13 | K.4: Render worker pool; build-once rule
 
 #### Added
 
@@ -348,7 +436,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 - The stress test has not run under ASan (needs nightly, as for T4).
 
-### 2026-11-13 16:42: safe MuPDF API (T4, plan K.3)
+### 2026-11-13 16:42; T4; Ph0: 3/13 | K.3: Safe MuPDF API
 
 #### Added
 

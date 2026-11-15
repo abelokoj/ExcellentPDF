@@ -5,6 +5,7 @@
 //! Built on the quick dialogs' card ([`crate::list_dialog`]), wider, with rows of a label and its hint on the left and
 //! the control on the right.
 
+use excellent_core::formats::{DEFAULT_FONT_SIZE, FONT_SIZES};
 use excellent_features::read::autoscroll::{DEFAULT_SPEED, SPEEDS};
 use excellent_features::read::links::DEFAULT_PROTOCOLS;
 use excellent_features::read::ruler::{self, MAX_HEIGHT, MIN_HEIGHT};
@@ -16,8 +17,8 @@ use crate::keymap::{self, Scope};
 use crate::links::PROTOCOLS_KEY;
 use crate::list_dialog::{card, list_dialog};
 use crate::reading::{
-    AUTO_SCROLL_SPEED, DocumentColors, FOCUS_SCOPE, READING_INK, READING_PAPER, RULER_COLOR,
-    RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
+    AUTO_SCROLL_SPEED, DocumentColors, FOCUS_SCOPE, READING_INK, READING_PAPER, REFLOW_FONT_SIZE,
+    RULER_COLOR, RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
 };
 use crate::reading_theme_bar;
 use crate::settings::{self, Live};
@@ -239,6 +240,19 @@ fn reading_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -
                         theme().destructive
                     }
                 })),
+        ))
+        .child(row(
+            "settings.reflow_font_size",
+            "settings.reflow_font_size_hint",
+            number_field(
+                live,
+                "settings.reflow_font_size",
+                REFLOW_FONT_SIZE,
+                f64::from(DEFAULT_FONT_SIZE),
+                (f64::from(*FONT_SIZES.start()), f64::from(*FONT_SIZES.end())),
+                1.0,
+                "settings.unit.points",
+            ),
         ))
         .child(row(
             "settings.ruler_color",

@@ -224,6 +224,40 @@ int ex_page_box(fz_context *ctx, fz_document *doc, int number, int box, fz_rect 
 	return 0;
 }
 
+int ex_is_reflowable(fz_context *ctx, fz_document *doc, int *out, ex_error *err)
+{
+	int reflowable = 0;
+	fz_try(ctx)
+		reflowable = fz_is_document_reflowable(ctx, doc);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	*out = reflowable;
+	return 0;
+}
+
+int ex_reflow(fz_context *ctx, fz_document *doc, float w, float h, float em, int keep, int *out, ex_error *err)
+{
+	int page = -1;
+	fz_try(ctx)
+	{
+		/* A bookmark names a place in the text, not a page, so it survives the layout. */
+		fz_bookmark mark = 0;
+		int marked = keep >= 0;
+		if (marked)
+			mark = fz_make_bookmark(ctx, doc, fz_location_from_page_number(ctx, doc, keep));
+		fz_layout_document(ctx, doc, w, h, em);
+		/* fz_layout_document only marks the layout stale, and the lookup doesn't redo it: an HTML-family
+		 * bookmark would be read against the old layout. Counting the pages lays the document out. */
+		fz_count_pages(ctx, doc);
+		if (marked)
+			page =fz_page_number_from_location(ctx, doc, fz_lookup_bookmark(ctx, doc, mark));
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	*out = page;
+	return 0;
+}
+
 int ex_reads_right_to_left(fz_context *ctx, fz_document *doc, int *out, ex_error *err)
 {
 	int rtl = 0;

@@ -5,9 +5,9 @@ use std::ffi::CString;
 use std::path::Path;
 
 use excellent_mupdf_sys::{
-    ex_count_pages, ex_drop_document, ex_has_page_labels, ex_load_page, ex_open_document,
-    ex_open_document_from_bytes, ex_page_box, ex_page_label, ex_reads_right_to_left, fz_document,
-    fz_rect,
+    ex_count_pages, ex_drop_document, ex_has_page_labels, ex_is_reflowable, ex_load_page,
+    ex_open_document, ex_open_document_from_bytes, ex_page_box, ex_page_label,
+    ex_reads_right_to_left, ex_reflow, fz_document, fz_rect,
 };
 
 use crate::context::{check, drop_with_context, with_context};
@@ -15,6 +15,17 @@ use crate::error::{MuError, Result};
 use crate::geometry::{PageBox, PageRect};
 use crate::outline::{self, OutlineItem};
 use crate::page::Page;
+
+/// The pages a reflowable document's text is laid out on (R.28): their size and the text's size, in points.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Reflow {
+    /// The page's width.
+    pub width: f32,
+    /// The page's height.
+    pub height: f32,
+    /// The body text's size (the em).
+    pub font_size: f32,
+}
 
 /// An open document of any format MuPDF reads (PDF, XPS, EPUB, CBZ, images, OFD, ...).
 ///
@@ -121,6 +132,63 @@ impl Document {
             })
         })?;
         Ok(rect.into())
+    }
+
+    /// Whether the document lays its text out to a page size of the reader's choosing (EPUB, FB2, MOBI, HTML,
+    /// Markdown): see [`Document::reflow`].
+    ///
+    /// # Errors
+    ///
+    /// MuPDF can't read the document.
+    pub fn is_reflowable(&self) -> Result<bool> {
+        let mut reflowable = 0;
+        with_context(|ctx| {
+            // SAFETY: the document is live and used by this thread only.
+            check(|err| unsafe { ex_is_reflowable(ctx, self.raw.as_ptr(), &mut reflowable, err) })
+        })?;
+        Ok(reflowable != 0)
+    }
+
+    /// Lays a reflowable document out on `reflow`'s pages. With `keep`, returns the page that now starts with the
+    /// text page `keep` started with (or the page holding it), so the reader stays where they were. A document that
+    /// isn't reflowable keeps its pages. `&mut self`: no page of the document may be loaded meanwhile, as the layout
+    /// replaces them.
+    ///
+    /// # Errors
+    ///
+    /// A size isn't positive, `keep` is out of range, or MuPDF can't lay the document out.
+    pub fn reflow(&mut self, reflow: Reflow, keep: Option<usize>) -> Result<Option<usize>> {
+        let Reflow {
+            width,
+            height,
+            font_size,
+        } = reflow;
+        if !(width > 0.0 && height > 0.0 && font_size > 0.0) {
+            return Err(MuError::argument("a reflow size isn't positive"));
+        }
+        let keep = match keep {
+            Some(page) => {
+                i32::try_from(page).map_err(|_| MuError::argument("page index out of range"))?
+            }
+            None => -1,
+        };
+        let mut page = -1;
+        with_context(|ctx| {
+            // SAFETY: the document is live, used by this thread only, and has no page loaded (`&mut self`).
+            check(|err| unsafe {
+                ex_reflow(
+                    ctx,
+                    self.raw.as_ptr(),
+                    width,
+                    height,
+                    font_size,
+                    keep,
+                    &mut page,
+                    err,
+                )
+            })
+        })?;
+        Ok(usize::try_from(page).ok())
     }
 
     /// Whether the document asks to be read right to left (a PDF's `/ViewerPreferences /Direction /R2L`).

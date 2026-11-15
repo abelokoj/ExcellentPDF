@@ -1,8 +1,8 @@
-# R.15 Reading themes
+# Ph1: 26/60 | R.15: Reading themes
 
-**Tag:** R.15 · **Priority:** P0 · **Phase:** 1 · **Needs:** R.14, K.17 · **Code:** `excellent-core::darkmode::themes`,
+**Tag:** R.15; **Priority:** P0; **Phase:** 1; **Needs:** R.14, K.17; **Code:** `excellent-core::darkmode::themes`,
 `excellent-app::reading` (`reading_theme`), `excellent-app::reading_theme_bar`, `excellent-app::settings_window`
-**Plan:** §27 entry `#### R.15`.
+**Plan:** §27 entry `Ph1: 26/60 | R.15`.
 
 ## Problem
 

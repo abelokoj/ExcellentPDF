@@ -9,3 +9,6 @@ description = "App data in SQLite: library, FTS5 index, notes, settings and migr
 
 [lints]
 workspace = true
+
+[dependencies]
+rusqlite.workspace = true

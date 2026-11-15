@@ -1,8 +1,8 @@
-# R.1 Page layouts
+# Ph1: 12/60 | R.1: Page layouts
 
-**Tag:** R.1 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.6, K.8 · **Code:** `excellent-canvas-win::view`,
+**Tag:** R.1; **Priority:** P0; **Phase:** 1; **Needs:** K.6, K.8; **Code:** `excellent-canvas-win::view`,
 `excellent-app::commands`
-**Plan:** §27 entry `#### R.1`.
+**Plan:** §27 entry `Ph1: 12/60 | R.1`.
 
 ## Problem
 
@@ -34,3 +34,5 @@ Every mode; continuous single page by default.
 
 - [x] `a_new_layout_keeps_the_reading_position`: switching layouts keeps the same text at the top.
 - [x] `book_view_puts_the_cover_alone_on_the_right`: book layout puts page 1 alone.
+- [x] Each tab keeps its layout, flow, direction and rotation through switches and restarts (R.9's
+  `a_saved_view_comes_back_as_it_was`).

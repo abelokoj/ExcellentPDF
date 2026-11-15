@@ -135,7 +135,7 @@ impl DeviceRect {
     }
 }
 
-/// An affine map from page space to device space: `x' = a·x + c·y + e`, `y' = b·x + d·y + f` (MuPDF's `fz_matrix`).
+/// An affine map from page space to device space: `x' = a×x + c×y + e`, `y' = b×x + d×y + f` (MuPDF's `fz_matrix`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Matrix {
     /// Row 1, column 1.

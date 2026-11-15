@@ -1,8 +1,8 @@
-# R.7 Links
+# Ph1: 18/60 | R.7: Links
 
-**Tag:** R.7 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.8 · **Code:** `excellent-features::read::links`,
+**Tag:** R.7; **Priority:** P0; **Phase:** 1; **Needs:** K.8; **Code:** `excellent-features::read::links`,
 `excellent-mupdf::link`, `excellent-canvas-win::links`, `excellent-app::links`
-**Plan:** §27 entry `#### R.7`, §14.2.
+**Plan:** §27 entry `Ph1: 18/60 | R.7`, §14.2.
 
 ## Problem
 
@@ -47,6 +47,7 @@ stays near, and dropped with it. Nothing is read at startup. Not measured.
 - [x] `links_are_read_and_resolved`: a PDF with an internal, a web, a launch and a JavaScript link.
 - [x] `web_links_open_and_other_protocols_ask`, `scripts_never_run_and_files_always_ask`.
 - [x] `a_link_target_shows_at_the_top`, `file_links_become_paths`, `escapes_decode_and_stray_percents_stay`.
-- [ ] Links work in EPUB and XPS: the same code reads them; no fixture yet.
+- [x] `epub_and_xps_links_are_read_and_resolved`: an EPUB's link to a chapter goes to its page, and web links in
+  EPUB and XPS are read like a PDF's.
 - [ ] Hover shows a page preview for internal links: needs thumbnails (R.5).
-- [ ] `link_protocols` in the settings UI: when it exists.
+- [x] `link_protocols` in the settings UI: Settings, Links lists the protocols that open without asking.

@@ -1,7 +1,7 @@
-# R.2 Zoom and fit modes
+# Ph1: 13/60 | R.2: Zoom and fit modes
 
-**Tag:** R.2 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.6, K.7 · **Code:** `excellent-canvas::viewport`
-**Plan:** §27 entry `#### R.2`.
+**Tag:** R.2; **Priority:** P0; **Phase:** 1; **Needs:** K.6, K.7; **Code:** `excellent-canvas::viewport`
+**Plan:** §27 entry `Ph1: 13/60 | R.2`.
 
 ## Problem
 
@@ -32,4 +32,5 @@ None measurable.
 
 - [x] `zooming_keeps_the_point_under_the_pointer` (proptest).
 - [x] `fit_modes_stay_on_through_a_resize`.
-- [ ] Fit content, presets, custom zoom dialog, pinch, per-document zoom: open.
+- [x] Per-document zoom: each tab keeps its zoom and fit mode (R.9's `a_saved_view_comes_back_as_it_was`).
+- [ ] Fit content, presets, custom zoom dialog, pinch: open.

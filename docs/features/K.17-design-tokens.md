@@ -1,7 +1,7 @@
-# K.17 Design tokens and themes
+# Ph1: 7/60 | K.17: Design tokens and themes
 
-**Tag:** K.17 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.1 · **Code:** `app/themes/`, `excellent-app::theme`
-**Plan:** §27 entry `#### K.17` and §10.3 (design system), §15 (accessibility).
+**Tag:** K.17; **Priority:** P0; **Phase:** 1; **Needs:** K.1; **Code:** `app/themes/`, `excellent-app::theme`
+**Plan:** §27 entry `Ph1: 7/60 | K.17` and §10.3 (design system), §15 (accessibility).
 
 ## Problem
 

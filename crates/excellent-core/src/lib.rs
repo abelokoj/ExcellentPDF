@@ -4,6 +4,7 @@
 
 pub mod darkmode;
 pub mod document;
+pub mod formats;
 pub mod outline;
 pub mod registry;
 pub mod render;

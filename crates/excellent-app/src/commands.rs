@@ -36,6 +36,8 @@ pub(crate) enum CommandId {
     OpenFile,
     /// The tab list (R.12): every tab, searchable.
     TabList,
+    /// Offers the app for its document types and opens the system's default-apps settings (R.11).
+    SetDefaultViewer,
     /// Something done to the shown tab (R.12).
     Tab(TabAction),
     /// Escape: out of full screen, focus mode, the reading ruler and auto-scroll (R.19).
@@ -87,6 +89,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.file",
         // Enhanced's CmdOpenFile.
         keys: &["mod+o"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::SetDefaultViewer,
+        name: "app.set_default_viewer",
+        label: "command.set_default_viewer",
+        group: "command.group.file",
+        // Enhanced's "Make default PDF reader" button (its options dialog).
+        keys: &[],
         page_keys: &[],
     },
     Command {
@@ -182,6 +193,38 @@ pub(crate) const COMMANDS: &[Command] = &[
         id: CommandId::Tab(TabAction::CloseDuplicates),
         name: "tab.close_duplicates",
         label: "command.close_duplicate_tabs",
+        group: "command.group.tabs",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Tab(TabAction::NewGroup),
+        name: "tab.group.new",
+        label: "command.new_tab_group",
+        group: "command.group.tabs",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Tab(TabAction::EditGroup),
+        name: "tab.group.edit",
+        label: "command.edit_tab_group",
+        group: "command.group.tabs",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Tab(TabAction::LeaveGroup),
+        name: "tab.group.leave",
+        label: "command.leave_tab_group",
+        group: "command.group.tabs",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Tab(TabAction::ToggleGroup),
+        name: "tab.group.toggle",
+        label: "command.toggle_tab_group",
         group: "command.group.tabs",
         keys: &[],
         page_keys: &[],
@@ -551,6 +594,23 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.read",
         keys: &[],
         page_keys: &["up", "k"],
+    },
+    Command {
+        id: CommandId::Canvas("stepLeft"),
+        name: "go.left",
+        label: "command.step_left",
+        group: "command.group.navigate",
+        // Enhanced's Left and H; the row before or after follows the reading direction (R.3).
+        keys: &[],
+        page_keys: &["left", "h"],
+    },
+    Command {
+        id: CommandId::Canvas("stepRight"),
+        name: "go.right",
+        label: "command.step_right",
+        group: "command.group.navigate",
+        keys: &[],
+        page_keys: &["right", "l"],
     },
     Command {
         id: CommandId::Canvas("toggleAutoScroll"),

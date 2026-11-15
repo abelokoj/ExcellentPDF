@@ -68,6 +68,15 @@ int ex_count_pages(fz_context *ctx, fz_document *doc, int *out, ex_error *err);
  * page to lay a document out); other formats load it. */
 int ex_page_box(fz_context *ctx, fz_document *doc, int number, int box, fz_rect *out, ex_error *err);
 
+/* 1 when the document lays its text out to a page size of the reader's choosing (EPUB, FB2, MOBI, HTML,
+ * Markdown), else 0. */
+int ex_is_reflowable(fz_context *ctx, fz_document *doc, int *out, ex_error *err);
+
+/* Lays a reflowable document out on pages of `w` x `h` points with text of `em` points (R.28). When `keep` is a page
+ * number, the text at the start of that page is found again after the layout: `out` gets the page it is on now, else
+ * -1. Loaded pages of the document must be dropped first. */
+int ex_reflow(fz_context *ctx, fz_document *doc, float w, float h, float em, int keep, int *out, ex_error *err);
+
 /* 1 when the document asks to be read right to left (a PDF's /ViewerPreferences /Direction /R2L), else 0. */
 int ex_reads_right_to_left(fz_context *ctx, fz_document *doc, int *out, ex_error *err);
 

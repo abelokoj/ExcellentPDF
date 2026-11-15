@@ -2,9 +2,12 @@
 //! last shown in, and the ones closed lately. No UI or OS types: the strip and the commands work through it.
 //!
 //! A tab holds no document while it is not shown (W.14's rule, kept from the start): only its path and the page it
-//! was left at. Pinned tabs stay together at the start of the strip.
+//! was left at. Pinned tabs stay together at the start of the strip; the others may be in named groups
+//! ([`super::groups`]), whose tabs stay together.
 
 use std::path::{Path, PathBuf};
+
+use super::groups::{Group, GroupId};
 
 /// How many closed tabs can be reopened.
 const CLOSED_KEPT: usize = 25;
@@ -23,6 +26,14 @@ pub(crate) struct Tab {
     pub(crate) dirty: bool,
     /// The page it was left at, from 0.
     pub(crate) page: usize,
+    /// The view it was left in (the canvas's `view` event: zoom, layout, place on the page; R.9). It counts only
+    /// while its page is `page`: a later page given alone (a launch's) goes to that page with the canvas's view.
+    pub(crate) view: Option<String>,
+    /// Its file wasn't there when it was last looked for (restored, or shown): it shows greyed, with "Locate…"
+    /// (R.9).
+    pub(crate) missing: bool,
+    /// The group it is in (R.13); never one for a pinned tab.
+    pub(crate) group: Option<GroupId>,
 }
 
 impl Tab {
@@ -37,9 +48,10 @@ impl Tab {
 pub(crate) struct Closed {
     pub(crate) path: PathBuf,
     pub(crate) page: usize,
+    pub(crate) view: Option<String>,
     pub(crate) pinned: bool,
     /// Its place in the strip when it was closed.
-    index: usize,
+    pub(crate) index: usize,
 }
 
 impl Closed {
@@ -79,13 +91,16 @@ pub(crate) enum Step {
 /// The tabs of a window.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Tabs {
-    tabs: Vec<Tab>,
+    pub(super) tabs: Vec<Tab>,
     active: Option<TabId>,
     /// Most recently shown first.
-    recent: Vec<TabId>,
+    pub(super) recent: Vec<TabId>,
     /// Most recently closed last.
     closed: Vec<Closed>,
     next_id: u64,
+    /// The groups that have tabs (R.13).
+    pub(super) groups: Vec<Group>,
+    pub(super) next_group: u64,
 }
 
 impl Tabs {
@@ -104,6 +119,19 @@ impl Tabs {
         self.tabs.iter().find(|tab| tab.id == id)
     }
 
+    /// The place in the strip of the tab shown.
+    pub(crate) fn active_index(&self) -> Option<usize> {
+        self.active.and_then(|id| self.index(id))
+    }
+
+    /// The first tab of the file at `path`.
+    pub(crate) fn find(&self, path: &Path) -> Option<TabId> {
+        self.tabs
+            .iter()
+            .find(|tab| same_file(&tab.path, path))
+            .map(|tab| tab.id)
+    }
+
     /// The closed tabs, most recently closed first.
     pub(crate) fn closed(&self) -> impl Iterator<Item = &Closed> {
         self.closed.iter().rev()
@@ -116,10 +144,73 @@ impl Tabs {
         self.insert(index, path, page, false)
     }
 
-    /// Shows the tab `id`.
+    /// Shows `files` (a launch, R.11): each in its tab if it has one, else in a new one, at `page` when given; the
+    /// last is shown.
+    pub(crate) fn launch(&mut self, files: &[PathBuf], page: Option<usize>) {
+        for path in files {
+            match self.find(path) {
+                Some(id) => {
+                    if let Some(page) = page {
+                        self.set_page(id, page);
+                    }
+                    self.activate(id);
+                }
+                None => {
+                    self.open(path.clone(), page.unwrap_or(0));
+                }
+            }
+        }
+    }
+
+    /// Puts back a tab of a saved session (R.9) at the end of the pinned tabs or the others, in `group` (one
+    /// [`Tabs::restore_group`] made), and shows it.
+    pub(crate) fn restore(
+        &mut self,
+        path: PathBuf,
+        page: usize,
+        pinned: bool,
+        missing: bool,
+        group: Option<GroupId>,
+    ) -> TabId {
+        let id = self.insert(self.tabs.len(), path, page, pinned);
+        if let Some(tab) = self.tab_mut(id) {
+            tab.missing = missing;
+            tab.group = group.filter(|_| !pinned);
+        }
+        id
+    }
+
+    /// Puts back a closed tab of a saved session, as the one closed last.
+    pub(crate) fn remember_closed(&mut self, closed: Closed) {
+        self.closed.push(closed);
+        if self.closed.len() > CLOSED_KEPT {
+            self.closed.remove(0);
+        }
+    }
+
+    /// Notes whether the tab `id`'s file is there.
+    pub(crate) fn set_missing(&mut self, id: TabId, missing: bool) {
+        if let Some(tab) = self.tab_mut(id) {
+            tab.missing = missing;
+        }
+    }
+
+    /// Gives the tab `id` the file at `path` ("Locate…" found where a missing file went).
+    pub(crate) fn relocate(&mut self, id: TabId, path: PathBuf) {
+        if let Some(tab) = self.tab_mut(id) {
+            tab.path = path;
+            tab.missing = false;
+        }
+    }
+
+    /// Shows the tab `id`, opening its group if it was collapsed.
     pub(crate) fn activate(&mut self, id: TabId) {
-        if self.get(id).is_none() {
+        let Some(group) = self.get(id).map(|tab| tab.group) else {
             return;
+        };
+        if let Some(group) = group.and_then(|group| self.groups.iter_mut().find(|g| g.id == group))
+        {
+            group.collapsed = false;
         }
         self.active = Some(id);
         self.recent.retain(|&other| other != id);
@@ -132,19 +223,25 @@ impl Tabs {
             return;
         };
         let tab = self.tabs.remove(index);
-        self.closed.push(Closed {
+        self.remember_closed(Closed {
             path: tab.path,
             page: tab.page,
+            view: tab.view,
             pinned: tab.pinned,
             index,
         });
-        if self.closed.len() > CLOSED_KEPT {
-            self.closed.remove(0);
-        }
         self.recent.retain(|&other| other != id);
+        self.prune_groups();
         if self.active == Some(id) {
             self.active = None;
-            if let Some(&next) = self.recent.first() {
+            // The tab shown before, unless a collapsed group hides it and another tab is in view.
+            let next = self
+                .recent
+                .iter()
+                .copied()
+                .find(|&other| !self.hidden(other))
+                .or_else(|| self.recent.first().copied());
+            if let Some(next) = next {
                 self.activate(next);
             }
         }
@@ -193,6 +290,9 @@ impl Tabs {
         let closed = self.closed.pop()?;
         let index = closed.index.min(self.tabs.len());
         let id = self.insert(index, closed.path, closed.page, closed.pinned);
+        if let Some(view) = closed.view {
+            self.set_view(id, view);
+        }
         Some(id)
     }
 
@@ -204,30 +304,50 @@ impl Tabs {
         self.reopen_closed()
     }
 
-    /// Moves the tab `id` to `index` in the strip, kept among the pinned tabs or the others, as it is.
+    /// Moves the tab `id` to `index` in the strip, kept among the pinned tabs or the others, as it is. Put between
+    /// two tabs of a group it joins the group; put away from the rest of its own group it leaves it.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "dragging a tab with the mouse (R.12) moves it to a place"
+        )
+    )]
     pub(crate) fn move_to(&mut self, id: TabId, index: usize) {
         let Some(from) = self.index(id) else {
             return;
         };
-        let tab = self.tabs.remove(from);
+        let mut tab = self.tabs.remove(from);
         let pinned = self.pinned_count();
         let index = if tab.pinned {
             index.min(pinned)
         } else {
             index.clamp(pinned, self.tabs.len())
         };
+        let beside = |group: GroupId| {
+            let before = index.checked_sub(1).and_then(|at| self.tabs.get(at));
+            let after = self.tabs.get(index);
+            [before, after]
+                .into_iter()
+                .flatten()
+                .any(|tab| tab.group == Some(group))
+        };
+        tab.group = match (self.group_at(index), tab.group) {
+            (Some(slot), _) => Some(slot),
+            (None, Some(own))
+                if self.tabs.iter().any(|other| other.group == Some(own)) && !beside(own) =>
+            {
+                None
+            }
+            (None, own) => own,
+        };
         self.tabs.insert(index, tab);
+        self.prune_groups();
     }
 
-    /// Moves the tab `id` one place along the strip.
+    /// Moves the tab `id` one place along the strip, in or out of a group at its edge ([`Tabs::step_tab`]).
     pub(crate) fn move_by(&mut self, id: TabId, step: Step) {
-        if let Some(index) = self.index(id) {
-            let to = match step {
-                Step::Next => index + 1,
-                Step::Previous => index.saturating_sub(1),
-            };
-            self.move_to(id, to);
-        }
+        self.step_tab(id, step == Step::Next);
     }
 
     /// Pins or unpins the tab `id`: pinned, it goes to the end of the pinned tabs; unpinned, to the start of the
@@ -241,8 +361,10 @@ impl Tabs {
         }
         let mut tab = self.tabs.remove(index);
         tab.pinned = pinned;
+        tab.group = None;
         let at = self.pinned_count();
         self.tabs.insert(at, tab);
+        self.prune_groups();
     }
 
     /// Notes the page the tab `id` shows.
@@ -252,12 +374,21 @@ impl Tabs {
         }
     }
 
-    /// The tab Ctrl+Tab (`Next`) or Ctrl+Shift+Tab goes to from the one shown, in `cycle` order.
+    /// Notes the view the tab `id` shows (R.9).
+    pub(crate) fn set_view(&mut self, id: TabId, view: String) {
+        if let Some(tab) = self.tab_mut(id) {
+            tab.view = Some(view);
+        }
+    }
+
+    /// The tab Ctrl+Tab (`Next`) or Ctrl+Shift+Tab goes to from the one shown, in `cycle` order, passing the tabs
+    /// collapsed groups hide.
     pub(crate) fn cycle(&self, cycle: Cycle, step: Step) -> Option<TabId> {
-        let order: Vec<TabId> = match cycle {
+        let mut order: Vec<TabId> = match cycle {
             Cycle::Recent => self.recent.clone(),
             Cycle::Strip => self.tabs.iter().map(|tab| tab.id).collect(),
         };
+        order.retain(|&id| Some(id) == self.active || !self.hidden(id));
         let len = order.len();
         if len < 2 {
             return None;
@@ -300,6 +431,7 @@ impl Tabs {
         } else {
             index.clamp(self.pinned_count(), self.tabs.len())
         };
+        let group = if pinned { None } else { self.group_at(index) };
         self.tabs.insert(
             index,
             Tab {
@@ -308,6 +440,9 @@ impl Tabs {
                 pinned,
                 dirty: false,
                 page,
+                view: None,
+                missing: false,
+                group,
             },
         );
         self.activate(id);
@@ -322,11 +457,11 @@ impl Tabs {
         self.activate(shown);
     }
 
-    fn index(&self, id: TabId) -> Option<usize> {
+    pub(super) fn index(&self, id: TabId) -> Option<usize> {
         self.tabs.iter().position(|tab| tab.id == id)
     }
 
-    fn tab_mut(&mut self, id: TabId) -> Option<&mut Tab> {
+    pub(super) fn tab_mut(&mut self, id: TabId) -> Option<&mut Tab> {
         self.tabs.iter_mut().find(|tab| tab.id == id)
     }
 
@@ -458,5 +593,22 @@ mod tests {
             tabs.close(id);
         }
         assert_eq!(tabs.closed().count(), CLOSED_KEPT);
+    }
+
+    #[test]
+    fn a_launch_shows_its_files_in_their_tabs_or_new_ones() {
+        let mut tabs = Tabs::default();
+        let a = tabs.open(PathBuf::from("a.pdf"), 5);
+        tabs.open(PathBuf::from("b.pdf"), 0);
+        tabs.launch(&[PathBuf::from("a.pdf")], None);
+        assert_eq!(tabs.active().map(|tab| (tab.id, tab.page)), Some((a, 5)));
+        tabs.launch(&[PathBuf::from("c.pdf"), PathBuf::from("a.pdf")], Some(2));
+        assert_eq!(tabs.all().len(), 3);
+        assert_eq!(tabs.active().map(|tab| (tab.id, tab.page)), Some((a, 2)));
+        assert_eq!(
+            tabs.get(tabs.find(Path::new("c.pdf")).expect("c"))
+                .map(|tab| tab.page),
+            Some(2)
+        );
     }
 }

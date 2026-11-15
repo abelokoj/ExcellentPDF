@@ -22,6 +22,8 @@ mod placement;
 #[cfg(target_os = "windows")]
 mod pointer;
 #[cfg(target_os = "windows")]
+mod saved;
+#[cfg(target_os = "windows")]
 mod window;
 
 #[cfg(target_os = "windows")]

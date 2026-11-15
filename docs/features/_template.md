@@ -1,7 +1,8 @@
-# <TAG> <Title>
+# Ph<phase>: <n>/<count> | <TAG>: <Title>
 
-**Tag:** <TAG> · **Priority:** P? · **Phase:** ? · **Needs:** <tags> · **Code:** <crates and modules>
-**Plan:** §27 entry `#### <TAG>` and the sections it cites.
+**Tag:** <TAG>; **Priority:** P?; **Phase:** ?; **Needs:** <tags>; **Code:** <crates and modules>
+**Plan:** §27 entry `#### Ph<phase>: <n>/<count> | <TAG>` and the sections it cites. The label is the
+entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
 

@@ -1,8 +1,8 @@
-# B.1 Outline (reading part)
+# Ph1: 31/60 | B.1: Outline (reading part)
 
-**Tag:** B.1 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.3, K.13 · **Code:** `excellent-features::outline`,
+**Tag:** B.1; **Priority:** P0; **Phase:** 1; **Needs:** K.3, K.13; **Code:** `excellent-features::outline`,
 `excellent-core::outline`, `excellent-app::outline`
-**Plan:** §11.14, §27 entry `#### B.1`.
+**Plan:** §11.14, §27 entry `Ph1: 31/60 | B.1`.
 
 This is the outline's reading half, which B.1–B.5 edit. Adding entries (B.1 steps 2–4) waits for the text layer
 (K.13) and the operation log and save (K.14, K.15).

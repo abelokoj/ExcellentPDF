@@ -277,6 +277,26 @@ unsafe extern "C" {
     ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn ex_is_reflowable(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        out: *mut ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_reflow(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        w: f32,
+        h: f32,
+        em: f32,
+        keep: ::core::ffi::c_int,
+        out: *mut ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn ex_reads_right_to_left(
         ctx: *mut fz_context,
         doc: *mut fz_document,

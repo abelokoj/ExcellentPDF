@@ -68,7 +68,7 @@ pub fn recolor(
     }
 }
 
-/// `a · b / 255`, rounded, as Enhanced computes it (`b` may be negative).
+/// `a × b / 255`, rounded, as Enhanced computes it (`b` may be negative).
 fn mul255(a: i32, b: i32) -> i32 {
     let n = a * b + 128;
     (n + (n >> 8)) >> 8

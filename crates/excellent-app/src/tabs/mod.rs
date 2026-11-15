@@ -2,42 +2,50 @@
 //! ([`model::Tabs`]) is plain data; [`TabState`] holds it for the window and does what the tab commands ask, the
 //! strip ([`strip`]) shows it in the title bar and the tab list ([`list`]) finds any tab by name.
 //!
-//! Only the shown tab has a document open (W.14's rule): switching gives the canvas the other file, and the page the
-//! reader left that tab at comes back once the canvas reports its pages.
+//! Only the shown tab has a document open (W.14's rule): switching gives the canvas the other file, and the view the
+//! reader left that tab in (its page and place, zoom, layout and rotation: R.1, R.2, R.9) comes back once the canvas
+//! reports its pages. The tabs start as the last session left them
+//! (R.9, [`crate::session`]); a tab whose file has gone shows greyed, and the document panel offers "Locate…".
+//!
+//! Tabs can be gathered into named, coloured groups (R.13, [`groups`]): a chip in the strip names each, collapses
+//! and expands it, and opens its edit dialog ([`group_dialog`]).
 
+mod group_dialog;
+mod groups;
 mod list;
 mod model;
 mod strip;
 
 use std::path::PathBuf;
 
+use excellent_core::formats::EXTENSIONS;
 use nsh_core::JsonValue;
 use nsh_core::file_dialog::{FileFilter, OpenDialog};
 use nsh_core::prelude::*;
 
 use crate::goto::PageState;
+use crate::open::Launch;
 use crate::settings::Live;
 
+pub(crate) use group_dialog::group_dialog;
+pub(crate) use groups::{GroupColor, GroupId};
 pub(crate) use list::tab_list;
-pub(crate) use model::{Cycle, Step, TabId};
-pub(crate) use strip::tab_strip;
-
-use model::Tabs;
+pub(crate) use model::{Closed, Cycle, Step, TabId, Tabs};
+pub(crate) use strip::{pin_mark, tab_strip};
 
 /// `settings.toml`'s key for the order Ctrl+Tab goes through the tabs in: `"recent"` (the default) or `"strip"`.
 pub(crate) const TAB_CYCLE_ORDER: &str = "tab_cycle_order";
 
-/// What the open dialog offers: the formats MuPDF opens (plan D3).
-const DOCUMENT_EXTENSIONS: [&str; 9] = [
-    "pdf", "xps", "oxps", "epub", "fb2", "mobi", "cbz", "svg", "djvu",
-];
-
-/// The window's tabs, and the page each switch brings back.
+/// The window's tabs, and the view each switch brings back.
 #[derive(Clone, Copy)]
 pub(crate) struct TabState {
     tabs: Signal<Tabs>,
-    /// The page to go to once the canvas has opened the shown tab's file.
-    restore: Stored<Option<usize>>,
+    /// Where to go once the canvas has opened the shown tab's file.
+    restore: Stored<Option<Restore>>,
+    /// The shown tab's view, as the canvas last reported it since it went there.
+    shown_view: Stored<Option<String>>,
+    /// The group whose edit dialog is open.
+    editing: Signal<Option<GroupId>>,
     pages: PageState,
     live: Live,
 }
@@ -49,29 +57,125 @@ impl std::fmt::Debug for TabState {
 }
 
 impl TabState {
-    /// The window's tabs: the file the app was started with, if any.
+    /// The window's tabs: the last session's, and the file the app was started with (shown, in a tab of its own
+    /// unless one of the session's has it).
     pub(crate) fn new(pages: PageState, live: Live) -> Self {
-        let mut tabs = Tabs::default();
-        if let Some(path) = crate::startup_file() {
-            tabs.open(path.to_path_buf(), 0);
+        let mut tabs = crate::session::restored().unwrap_or_default();
+        if let Some(launch) = crate::open::startup() {
+            tabs.launch(&launch.files, launch.page);
         }
+        // The shown tab's view comes back once its file is open.
+        let restore = tabs.active().map(Restore::of);
         Self {
             tabs: signal(tabs),
-            restore: stored(None),
+            restore: stored(restore),
+            shown_view: stored(None),
+            editing: signal(None),
             pages,
             live,
         }
     }
 
-    /// The shown tab's file.
+    /// The shown tab's file, while it is there.
     pub(crate) fn shown_path(self) -> Option<PathBuf> {
-        self.tabs
-            .with(|tabs| tabs.active().map(|tab| tab.path.clone()))
+        self.tabs.with(|tabs| {
+            tabs.active()
+                .filter(|tab| !tab.missing)
+                .map(|tab| tab.path.clone())
+        })
     }
 
-    /// Whether a tab is shown.
+    /// Whether a tab is shown whose file is there: the canvas has a document.
     pub(crate) fn has_shown(self) -> bool {
-        self.tabs.with(|tabs| tabs.active().is_some())
+        self.tabs
+            .with(|tabs| tabs.active().is_some_and(|tab| !tab.missing))
+    }
+
+    /// The shown tab, when its file has gone: the tab and where its file was.
+    pub(crate) fn shown_missing(self) -> Option<(TabId, PathBuf)> {
+        self.tabs.with(|tabs| {
+            tabs.active()
+                .filter(|tab| tab.missing)
+                .map(|tab| (tab.id, tab.path.clone()))
+        })
+    }
+
+    /// The shown tab's file, while it is there, and the page it shows: what the recent list notes (R.10).
+    pub(crate) fn shown_place(self) -> Option<(PathBuf, usize)> {
+        let path = self.shown_path()?;
+        // Until the canvas has gone to the page a switch brings back, the page it reports is the last file's.
+        let settled = self.restore.with(|restore| restore.is_none());
+        settled.then(|| (path, self.pages.current()))
+    }
+
+    /// Whether any tab is open.
+    pub(crate) fn has_tabs(self) -> bool {
+        self.tabs.with(|tabs| !tabs.all().is_empty())
+    }
+
+    /// The tabs as they are now, the shown one at the page and in the view it shows: what the session saves (R.9).
+    /// It tracks the tabs and the page (a new view on the same page is saved with the next change, or on quitting).
+    pub(crate) fn current(self) -> Tabs {
+        let page = self.pages.current();
+        let mut tabs = self.tabs.get();
+        // Until the canvas has gone to the page a switch brings back, the page it reports is the last file's.
+        let settled = self.restore.with(|restore| restore.is_none());
+        if let Some(id) = tabs.active().filter(|tab| !tab.missing).map(|tab| tab.id)
+            && settled
+        {
+            tabs.set_page(id, page);
+            if let Some(view) = self.shown_view.with(|view| view.clone()) {
+                tabs.set_view(id, view);
+            }
+        }
+        tabs
+    }
+
+    /// The group whose edit dialog is open.
+    pub(crate) fn editing(self) -> Option<GroupId> {
+        self.editing.get()
+    }
+
+    /// Closes the group edit dialog.
+    pub(crate) fn stop_editing(self) {
+        self.editing.set(None);
+    }
+
+    /// Opens the edit dialog of the group `id`.
+    fn edit(self, id: GroupId) {
+        self.editing.set(Some(id));
+    }
+
+    /// The group `id`, while it has tabs.
+    pub(crate) fn group(self, id: GroupId) -> Option<groups::Group> {
+        self.tabs.with(|tabs| tabs.group(id).cloned())
+    }
+
+    /// Names the group `id`.
+    pub(crate) fn rename_group(self, id: GroupId, name: &str) {
+        self.tabs.update(|tabs| tabs.rename_group(id, name));
+    }
+
+    /// Colours the group `id`.
+    pub(crate) fn recolor_group(self, id: GroupId, color: GroupColor) {
+        self.tabs.update(|tabs| tabs.recolor_group(id, color));
+    }
+
+    /// Collapses or expands the group `id` (which may show another tab).
+    pub(crate) fn toggle_group(self, id: GroupId) {
+        self.change(|tabs| {
+            tabs.toggle_group(id);
+        });
+    }
+
+    /// Dissolves the group `id`, keeping its tabs.
+    pub(crate) fn ungroup(self, id: GroupId) {
+        self.tabs.update(|tabs| tabs.ungroup(id));
+    }
+
+    /// Closes the group `id` with its tabs.
+    pub(crate) fn close_group(self, id: GroupId) {
+        self.change(|tabs| tabs.close_group(id));
     }
 
     /// Whether any tab is open, or one can be reopened.
@@ -85,13 +189,43 @@ impl TabState {
         let dialog = OpenDialog::files()
             .multiple(true)
             .title(t!("open.title"))
-            .filter(FileFilter::new(t!("open.filter"), DOCUMENT_EXTENSIONS));
+            .filter(FileFilter::new(
+                t!("open.filter"),
+                EXTENSIONS.iter().copied(),
+            ));
         let answer = pick_paths(dialog);
         spawn(async move {
             match answer.await {
                 Ok(Some(paths)) => self.open_paths(paths),
                 Ok(None) => {}
                 Err(err) => log::warn!("open: the dialog failed: {err}"),
+            }
+        });
+    }
+
+    /// Asks where the missing file of the tab `id` went, and shows it from there.
+    pub(crate) fn locate(self, id: TabId) {
+        let name = self
+            .tabs
+            .with(|tabs| tabs.get(id).map(model::Tab::title))
+            .unwrap_or_default();
+        let dialog = OpenDialog::files()
+            .title(t!("locate.title", name = name))
+            .filter(FileFilter::new(
+                t!("open.filter"),
+                EXTENSIONS.iter().copied(),
+            ));
+        let answer = pick_paths(dialog);
+        spawn(async move {
+            match answer.await {
+                Ok(Some(paths)) => {
+                    if let Some(path) = paths.into_iter().next() {
+                        self.tabs.update(|tabs| tabs.relocate(id, path));
+                        self.arrive();
+                    }
+                }
+                Ok(None) => {}
+                Err(err) => log::warn!("locate: the dialog failed: {err}"),
             }
         });
     }
@@ -108,6 +242,36 @@ impl TabState {
             }
         });
         self.arrive();
+    }
+
+    /// Shows a later launch's files (R.11). `true` when the tab shown stays and the launch gave a page: the canvas
+    /// isn't reopening, so the caller turns the page.
+    pub(crate) fn launch(self, launch: &Launch) -> bool {
+        let before = self.tabs.with(|tabs| tabs.active().map(|tab| tab.id));
+        self.leave_shown();
+        self.tabs
+            .update(|tabs| tabs.launch(&launch.files, launch.page));
+        let after = self.tabs.with(|tabs| tabs.active().map(|tab| tab.id));
+        self.arrive();
+        if before == after && launch.page.is_some() {
+            self.restore.with(Option::take);
+            return true;
+        }
+        false
+    }
+
+    /// Shows `path` at `page` (from the recent list): its tab if it has one, else a new one.
+    pub(crate) fn open_at(self, path: PathBuf, page: usize) {
+        match self.tabs.with(|tabs| tabs.find(&path)) {
+            Some(id) => self.show(id),
+            None => {
+                self.leave_shown();
+                self.tabs.update(|tabs| {
+                    tabs.open(path, page);
+                });
+                self.arrive();
+            }
+        }
     }
 
     /// Shows the tab `id`.
@@ -154,6 +318,32 @@ impl TabState {
                 let pinned = tabs.get(id).is_some_and(|tab| tab.pinned);
                 tabs.set_pinned(id, !pinned);
             }),
+            Action::NewGroup => self.new_group(id),
+            Action::EditGroup => match self.group_of(id) {
+                Some(group) => self.edit(group),
+                None => self.new_group(id),
+            },
+            Action::LeaveGroup => self.tabs.update(|tabs| tabs.leave_group(id)),
+            Action::ToggleGroup => {
+                if let Some(group) = self.group_of(id) {
+                    self.toggle_group(group);
+                }
+            }
+        }
+    }
+
+    /// The group of the tab `id`.
+    fn group_of(self, id: TabId) -> Option<GroupId> {
+        self.tabs
+            .with(|tabs| tabs.get(id).and_then(|tab| tab.group))
+    }
+
+    /// Puts the tab `id` in a new group and opens the group's edit dialog, to name it.
+    fn new_group(self, id: TabId) {
+        let mut group = None;
+        self.tabs.update(|tabs| group = tabs.new_group(id));
+        if let Some(group) = group {
+            self.edit(group);
         }
     }
 
@@ -164,15 +354,27 @@ impl TabState {
         });
     }
 
-    /// Takes the canvas's `pages` event: the shown tab's file is open, so its page comes back.
+    /// Takes the canvas's `pages` event (the shown tab's file is open, so its view comes back) and `view` events.
     pub(crate) fn on_canvas_event(self, event: &NativeEvent, canvas: ElementRef) {
-        if &*event.name != "pages" {
-            return;
-        }
-        if let Some(page) = self.restore.with(Option::take)
-            && page > 0
-        {
-            canvas.command("goToPage", serde_json::json!({ "index": page }));
+        match &*event.name {
+            "pages" => {
+                self.shown_view.with(Option::take);
+                match self.restore.with(Option::take) {
+                    Some(Restore {
+                        view: Some(view), ..
+                    }) => canvas.command("setView", view),
+                    Some(Restore { page, view: None }) if page > 0 => {
+                        canvas.command("goToPage", serde_json::json!({ "index": page }));
+                    }
+                    _ => {}
+                }
+            }
+            // Until the shown tab's view has come back, the views reported are the last file's.
+            "view" if self.restore.with(|restore| restore.is_none()) => {
+                let view = event.data.to_string();
+                self.shown_view.with(|shown| *shown = Some(view));
+            }
+            _ => {}
         }
     }
 
@@ -186,20 +388,30 @@ impl TabState {
         }
     }
 
-    /// Notes the page the shown tab is at, before it stops being shown (or closes, for reopening).
+    /// Notes the page and the view the shown tab is at, before it stops being shown (or closes, for reopening).
     fn leave_shown(self) {
         let page = untracked(|| self.pages.current());
+        let view = self.shown_view.with(Option::take);
         self.tabs.update(|tabs| {
             if let Some(id) = tabs.active().map(|tab| tab.id) {
                 tabs.set_page(id, page);
+                if let Some(view) = view {
+                    tabs.set_view(id, view);
+                }
             }
         });
     }
 
-    /// A tab is shown now: its page is to come back.
+    /// A tab is shown now: its page is to come back, and if its file has gone it says so.
     fn arrive(self) {
-        let page = self.tabs.with(|tabs| tabs.active().map(|tab| tab.page));
-        self.restore.with(|restore| *restore = page);
+        self.tabs.update(|tabs| {
+            if let Some((id, missing)) = tabs.active().map(|tab| (tab.id, !tab.path.is_file())) {
+                tabs.set_missing(id, missing);
+            }
+        });
+        let restore = self.tabs.with(|tabs| tabs.active().map(Restore::of));
+        self.restore.with(|slot| *slot = restore);
+        self.shown_view.with(Option::take);
     }
 
     /// The canvas's `path` property: the shown tab's file, or none.
@@ -207,6 +419,28 @@ impl TabState {
         self.shown_path().map_or(JsonValue::Null, |path| {
             JsonValue::from(path.to_string_lossy().into_owned())
         })
+    }
+}
+
+/// Where a tab shown again goes once its file is open: its view, or its page when it has no view there.
+#[derive(Debug, Clone, PartialEq)]
+struct Restore {
+    page: usize,
+    view: Option<JsonValue>,
+}
+
+impl Restore {
+    /// Where `tab` was left.
+    fn of(tab: &model::Tab) -> Self {
+        let view = tab
+            .view
+            .as_deref()
+            .filter(|view| crate::session::page_of(view) == tab.page)
+            .and_then(|view| serde_json::from_str(view).ok());
+        Self {
+            page: tab.page,
+            view,
+        }
     }
 }
 
@@ -221,4 +455,12 @@ pub(crate) enum Action {
     Cycle(Step),
     Move(Step),
     TogglePin,
+    /// Puts the tab in a new group of its own and opens the group's edit dialog (R.13).
+    NewGroup,
+    /// Opens the edit dialog of the tab's group, making one if it has none.
+    EditGroup,
+    /// Takes the tab out of its group.
+    LeaveGroup,
+    /// Collapses or expands the tab's group.
+    ToggleGroup,
 }

@@ -8,11 +8,15 @@ mod full_screen;
 mod goto;
 mod keymap;
 mod l10n;
+mod library;
 mod links;
 mod list_dialog;
+mod open;
 mod outline;
 mod reading;
 mod reading_theme_bar;
+mod recent;
+mod session;
 mod settings;
 mod settings_window;
 mod shell;
@@ -20,8 +24,7 @@ mod tabs;
 mod theme;
 mod thumbnails;
 
-use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+pub use open::{Started, start};
 
 use nsh_base::theme as current_theme;
 use nsh_core::element::Root;
@@ -54,6 +57,12 @@ pub fn load_settings() {
     settings::load_shared();
 }
 
+/// Opens the library database (K.20), for the session (R.9). The desktop binary calls it before [`root`]; tests
+/// don't, so they neither restore nor save a session.
+pub fn open_library() {
+    library::open();
+}
+
 /// The page canvas's component name (plan D5); every platform registers its own under it.
 pub(crate) const PAGE_CANVAS: &str = "excellent.page-canvas";
 
@@ -62,20 +71,6 @@ pub(crate) const PAGE_CANVAS: &str = "excellent.page-canvas";
 #[native_components(windows)]
 pub fn components(components: &nsh_platform_windows::Components) {
     excellent_canvas_win::register(components);
-}
-
-// shortcut: the command line gives the first tab, one file, until R.11 reads every argument and its flags.
-static STARTUP_FILE: OnceLock<PathBuf> = OnceLock::new();
-
-/// The document to show when the window opens (the command line's first argument). Set it before the app starts;
-/// later calls change nothing.
-pub fn set_startup_file(path: PathBuf) {
-    let _ = STARTUP_FILE.set(path);
-}
-
-/// The document to show when the window opens, if there is one.
-fn startup_file() -> Option<&'static Path> {
-    STARTUP_FILE.get().map(PathBuf::as_path)
 }
 
 /// [`App`] as the runners and tests start it, with the app's translations (U.7) and the user's theme in place before

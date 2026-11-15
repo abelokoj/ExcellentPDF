@@ -1,8 +1,8 @@
-# R.21 Auto-scroll
+# Ph1: 29/60 | R.21: Auto-scroll
 
-**Tag:** R.21 · **Priority:** P1 · **Phase:** 1 · **Needs:** K.7 · **Code:** `excellent-features::read::autoscroll`,
+**Tag:** R.21; **Priority:** P1; **Phase:** 1; **Needs:** K.7; **Code:** `excellent-features::read::autoscroll`,
 `excellent-canvas-win::canvas::reading`, `excellent-app::reading`
-**Plan:** §27 entry `#### R.21`.
+**Plan:** §27 entry `Ph1: 29/60 | R.21`.
 
 ## Problem
 

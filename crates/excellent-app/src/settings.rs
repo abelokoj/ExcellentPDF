@@ -225,14 +225,23 @@ fn write_atomically(path: &Path, text: &str) -> io::Result<()> {
     fs::rename(&temporary, path)
 }
 
-/// Where the settings file is: next to the executable when one is there (portable mode), else in the app's data
-/// folder. `None` when the system has no data folder for the app.
+/// Where the settings file is.
 fn location() -> Option<PathBuf> {
-    let portable = std::env::current_exe()
+    Some(folder()?.join(FILE_NAME))
+}
+
+/// Where the app keeps its files (settings, `library.db`): next to the executable when a settings file is there
+/// (portable mode), else the app's data folder. `None` when the system has no data folder for the app.
+pub(crate) fn folder() -> Option<PathBuf> {
+    portable_folder().or_else(|| Some(nsh_engine::data_dir()?.join(APP_ID)))
+}
+
+/// The executable's folder, when the app runs portable from it (a settings file is there).
+pub(crate) fn portable_folder() -> Option<PathBuf> {
+    std::env::current_exe()
         .ok()
-        .and_then(|exe| Some(exe.parent()?.join(FILE_NAME)))
-        .filter(|path| path.is_file());
-    portable.or_else(|| Some(nsh_engine::data_dir()?.join(APP_ID).join(FILE_NAME)))
+        .and_then(|exe| Some(exe.parent()?.to_path_buf()))
+        .filter(|dir| dir.join(FILE_NAME).is_file())
 }
 
 static SHARED: OnceLock<Mutex<Settings>> = OnceLock::new();

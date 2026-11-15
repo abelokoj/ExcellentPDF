@@ -74,6 +74,13 @@ plan §27.0:
 Tags never change. A new feature takes the next free number in its area; a dropped one keeps its tag, marked
 *(dropped)*. Do not invent features that have no tag; propose them to the maintainer.
 
+**Labels.** Write a feature as its label, `Ph<phase>: <n>/<count> | <TAG>: <Title>`, for example
+`Ph1: 22/60 | R.11: Opening files`: its phase, its place among that phase's entries in plan §27 (counted in the
+plan's order), then its tag and title. Plan headings, feature-doc titles, `docs/features.toml` (`label`), changelog
+headings and progress reports use it, and progress reports start with each phase's shipped, in-progress and planned
+counts. When an entry is added to the plan, count its phase's labels again and update them everywhere. Separate
+items with a colon or a semicolon, never a centred dot (`·`).
+
 ## 5. Rules for every change
 
 **The four product rules (plan §2.1).** Every feature must pass all four:

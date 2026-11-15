@@ -55,6 +55,15 @@ pub enum ZoomMode {
     FitHeight,
 }
 
+/// A side of the screen, for the Left and Right arrows (R.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    /// The Left arrow.
+    Left,
+    /// The Right arrow.
+    Right,
+}
+
 /// A reading position that survives a change of layout or rotation: a page, and where the viewport's top-left
 /// corner is from that page's, as a fraction of the page's size.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -189,6 +198,32 @@ impl Viewport {
             (Axis::Vertical, _) => self.scroll_by(0.0, pixels, layout),
             (Axis::Horizontal, Direction::LeftToRight) => self.scroll_by(pixels, 0.0, layout),
             (Axis::Horizontal, Direction::RightToLeft) => self.scroll_by(-pixels, 0.0, layout),
+        }
+    }
+
+    /// The Left or Right arrow (R.3): sideways by `pixels` device pixels along the horizontal strip or while the
+    /// pages are wider than the screen; otherwise to the start of the row of pages before or after, by the reading
+    /// direction: Right goes on in a left-to-right document and back in a right-to-left one.
+    pub fn step_side(&mut self, side: Side, pixels: f32, layout: &Layout) {
+        let sign = match side {
+            Side::Left => -1.0,
+            Side::Right => 1.0,
+        };
+        if layout.axis() == Axis::Horizontal || layout.width() > self.visible().width() + 0.5 {
+            self.scroll_by(sign * pixels, 0.0, layout);
+            return;
+        }
+        let forward = (side == Side::Right) == (layout.spec().direction == Direction::LeftToRight);
+        let band = if forward {
+            self.band + 1
+        } else {
+            let Some(before) = self.band.checked_sub(1) else {
+                return;
+            };
+            before
+        };
+        if let Some(first) = layout.bands().get(band).map(|band| band.pages.start) {
+            self.scroll_to_page(first, layout);
         }
     }
 
@@ -449,6 +484,41 @@ mod tests {
         let mut v = Viewport::new(96.0 / 72.0);
         v.resize(1000.0, 800.0, layout);
         v
+    }
+
+    #[test]
+    fn the_side_arrows_turn_rows_by_the_reading_direction_or_scroll_sideways() {
+        let facing = laid_out(Mode::Facing, Flow::Continuous, 10);
+        let mut shown = viewport(&facing);
+        shown.fit(ZoomMode::FitPage, &facing);
+        shown.step_side(Side::Right, 100.0, &facing);
+        assert_eq!(shown.band(), 1);
+        shown.step_side(Side::Left, 100.0, &facing);
+        assert_eq!(shown.band(), 0);
+        // At the first row, back goes nowhere.
+        shown.step_side(Side::Left, 100.0, &facing);
+        assert_eq!(shown.band(), 0);
+
+        let manga = Layout::new(
+            &[LETTER; 10],
+            Spec {
+                mode: Mode::Facing,
+                direction: Direction::RightToLeft,
+                ..Spec::default()
+            },
+        );
+        let mut shown = viewport(&manga);
+        shown.fit(ZoomMode::FitPage, &manga);
+        shown.step_side(Side::Left, 100.0, &manga);
+        assert_eq!(shown.band(), 1);
+
+        // Zoomed in past the width, the arrows scroll sideways.
+        let mut shown = viewport(&facing);
+        shown.set_zoom(4.0, &facing);
+        let x = shown.visible().x0;
+        shown.step_side(Side::Right, 100.0, &facing);
+        assert!(shown.visible().x0 > x);
+        assert_eq!(shown.band(), 0);
     }
 
     #[test]

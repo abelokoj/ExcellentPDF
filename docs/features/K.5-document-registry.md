@@ -1,7 +1,7 @@
-# K.5 Document and View model, document registry
+# Ph1: 1/60 | K.5: Document and View model, document registry
 
-**Tag:** K.5 · **Priority:** P0 · **Phase:** 1 · **Needs:** K.4 · **Code:** `excellent-core::{document, registry, view}`
-**Plan:** §27 entry `#### K.5`, §11.15 and §11.16.
+**Tag:** K.5; **Priority:** P0; **Phase:** 1; **Needs:** K.4; **Code:** `excellent-core::{document, registry, view}`
+**Plan:** §27 entry `Ph1: 1/60 | K.5`, §11.15 and §11.16.
 
 ## Problem
 
@@ -41,4 +41,5 @@ Every mode.
 - [x] `hibernates_only_without_unsaved_changes`: hibernating with and without unsaved changes.
 - [x] `a_changed_page_drops_its_list_and_refuses_stale_ones`: a changed page never shows an old list.
 - [x] `one_file_has_one_identity_and_new_content_a_new_one`: file identity.
-- [ ] Open: View serialization (R.9); annotation model and operation log (K.13, K.14); tiles shared between views.
+- [x] View serialization: R.9 (`excellent-canvas-win::saved`).
+- [ ] Open: annotation model and operation log (K.13, K.14); tiles shared between views.

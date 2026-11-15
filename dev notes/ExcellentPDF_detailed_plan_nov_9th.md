@@ -2,7 +2,7 @@
 
 **Date:** 9 November 2026
 **Status:** Working plan; supersedes the stack choices in the five source documents (see §19)
-**Stack (decided):** Rust · Native Shell (NSH, <https://nsh.dev>) · MuPDF, the engine SumatraPDF uses
+**Stack (decided):** Rust; Native Shell (NSH, <https://nsh.dev>); MuPDF, the engine SumatraPDF uses
 
 **Sources combined** (all in `private notes/`):
 
@@ -162,7 +162,7 @@ interface that makes studying feel good.
 |  tabs, sidebar, inspector, command palette, dialogs, home, settings           |
 +--------------------------------------------------------------------------------+
 |  Feature views (NSH components, one folder per feature)                        |
-|  annotations · ink tools · notebooks · study · present · search · library · AI |
+|  annotations ; ink tools ; notebooks ; study ; present ; search ; library ; AI |
 +--------------------------------------------------------------------------------+
 |  Feature models (pure Rust, no UI or OS types, unit-tested)                    |
 +--------------------------------------------------------------------------------+
@@ -173,7 +173,7 @@ interface that makes studying feel good.
 |  →  MuPDF 1.28.5 + Sumatra patches + thirdparty (freetype, harfbuzz, ...)     |
 +--------------------------------------------------------------------------------+
 |  Page canvas: shared Rust core + one thin native component per platform      |
-|  (Win32/D3D/D2D · AppKit/Metal · GTK 4 · UIKit · Android View)                |
+|  (Win32/D3D/D2D ; AppKit/Metal ; GTK 4 ; UIKit ; Android View)                |
 +--------------------------------------------------------------------------------+
 |  Platform services (traits; one implementation per OS): files, dialogs,      |
 |  print, clipboard, TTS, key store, notifications, shell, single instance      |
@@ -305,7 +305,7 @@ crates/
 
 | Keep on all platforms | Windows-only (behind `cfg`) | Only if we ship a `mutool`-style CLI |
 | --- | --- | --- |
-| 0007 thread-local contexts · 0008 uncaught throw report · 0009 CP1250 forms · 0010 / 0011 ToUnicode fixes · 0012 external file streams · 0013 / 0014 / 0015 HTML / XML / CSS robustness · 0019 freetype zlib + brotli · 0025 / 0027 WebP · 0032 / 0033 annotation appearances · 0036 OCG visibility · 0038 CSS background images · 0039 empty Markdown · 0040 / 0044 SVG · 0047 JPEG XL · upstream 0048 / 0050–0064 / 0068–0074 / 0077–0087 (compress option, crash fixes, JavaScript errors, DocMDP signing, EPUB, SVG, HTML / CSS, RTL text, password by key, speed-ups) · Enhanced's 0088 snapshot keeps undo · 0089–0093 annotation appearance polish | 0006 JPEG-XR via WIC · 0004 / 0045 console I/O | 0001 / 0002 tool usage and options · 0005 / 0076 pdfinfo to buffer · 0042 / 0043 / 0049 merge · 0046 / 0065 grep · 0066 / 0067 `run` scripts · 0075 pdfbake |
+| 0007 thread-local contexts; 0008 uncaught throw report; 0009 CP1250 forms; 0010 / 0011 ToUnicode fixes; 0012 external file streams; 0013 / 0014 / 0015 HTML / XML / CSS robustness; 0019 freetype zlib + brotli; 0025 / 0027 WebP; 0032 / 0033 annotation appearances; 0036 OCG visibility; 0038 CSS background images; 0039 empty Markdown; 0040 / 0044 SVG; 0047 JPEG XL; upstream 0048 / 0050–0064 / 0068–0074 / 0077–0087 (compress option, crash fixes, JavaScript errors, DocMDP signing, EPUB, SVG, HTML / CSS, RTL text, password by key, speed-ups); Enhanced's 0088 snapshot keeps undo; 0089–0093 annotation appearance polish | 0006 JPEG-XR via WIC; 0004 / 0045 console I/O | 0001 / 0002 tool usage and options; 0005 / 0076 pdfinfo to buffer; 0042 / 0043 / 0049 merge; 0046 / 0065 grep; 0066 / 0067 `run` scripts; 0075 pdfbake |
 
 Patch `0003` (signatures through Windows CryptoAPI) is replaced by a cross-platform signer written in Rust (§6.4).
 
@@ -457,7 +457,7 @@ falls back to the app's own frame, drawn as soon as the swap chain takes one.
    points are replaced when real samples arrive.
 4. **Smoothing:** Catmull-Rom through the samples, converted to cubic Béziers
    (B0 = P1, B1 = P1 + (P2 − P0) / 6, B2 = P2 − (P3 − P1) / 6, B3 = P2), with light input filtering per pen type.
-5. **Width:** from pressure (per-pen response curve, e.g. w = min + (max − min) · p^1.25), tilt (pencil shading,
+5. **Width:** from pressure (per-pen response curve, e.g. w = min + (max − min) × p^1.25), tilt (pencil shading,
    angle-aware calligraphy) and speed.
 6. **Commit on pen-up:** one undoable operation.
 
@@ -583,7 +583,7 @@ take the mode's accent.
 
 ## 11. Feature plan with priorities
 
-Priority: **P0** next · **P1** strong differentiator · **P2** valuable · **P3** later.
+Priority: **P0** next; **P1** strong differentiator; **P2** valuable; **P3** later.
 Every feature starts from a spec (`docs/features/_template.md`: problem, user story, UI sketch, mode, speed and size
 impact, acceptance tests).
 
@@ -596,13 +596,13 @@ vocabulary practice, read aloud, translate, Google Lens, AI chat panel, Markdown
 export, reading bar, auto-scroll, laser, screenshots, SyncTeX. The Enhanced changelog
 (`sumatrapdf/SumatraPDF_Enhanced_CHANGELOG.md`) is the checklist.
 
-Tags for these features (plans in §27): multi-format reading **R.28**, **R.29** · tabs **R.12** and tab groups
-**R.13** · command palette **K.16** · smart dark mode **R.14** · pen tools **H.1–H.9** · annotation edit **A.12**,
-**A.13**, filter and search **A.14**, transfer **A.16**, recovery **A.15** · forms **O.11** · signing **O.14** with
-EUTL trust **O.15** · merge **O.2** · CAD viewer **R.26** · citation and equation hover **R.25** · offline dictionary
-**S.6** · vocabulary practice **S.7** · read aloud **U.5** · translate **S.16** · Google Lens **R.31** · AI chat panel
-**I.3** · Markdown editing **N.14** · study export **S.8** · reading bar **R.20** · auto-scroll **R.21** · laser
-**G.2** · screenshots **O.23** · SyncTeX **R.27**.
+Tags for these features (plans in §27): multi-format reading **R.28**, **R.29**; tabs **R.12** and tab groups
+**R.13**; command palette **K.16**; smart dark mode **R.14**; pen tools **H.1–H.9**; annotation edit **A.12**,
+**A.13**, filter and search **A.14**, transfer **A.16**, recovery **A.15**; forms **O.11**; signing **O.14** with
+EUTL trust **O.15**; merge **O.2**; CAD viewer **R.26**; citation and equation hover **R.25**; offline dictionary
+**S.6**; vocabulary practice **S.7**; read aloud **U.5**; translate **S.16**; Google Lens **R.31**; AI chat panel
+**I.3**; Markdown editing **N.14**; study export **S.8**; reading bar **R.20**; auto-scroll **R.21**; laser
+**G.2**; screenshots **O.23**; SyncTeX **R.27**.
 
 ### 11.2 Reading and navigation
 
@@ -1149,7 +1149,7 @@ are opened in other readers (interop suite) before any public release (Appendix 
 ExcellentPDF/
 ├─ README.md  CHANGELOG.md  LICENSE (AGPL-3.0, see §4)  AGENTS.md
 ├─ Cargo.toml  Cargo.lock  rust-toolchain.toml  deny.toml
-├─ .github/workflows/      build (reusable) · windows · macos · linux · android · ios · budgets · fuzz · release
+├─ .github/workflows/      build (reusable); windows; macos; linux; android; ios; budgets; fuzz; release
 ├─ crates/                 see §5.4
 ├─ third_party/
 │  ├─ mupdf/               Sumatra's 1.28.5 tree
@@ -1689,7 +1689,8 @@ decisions that cost little now and a great deal later, so each one names where i
 
 Every feature in this plan has a **tag**: a letter for its area and a number, for example **A.2** (annotation feature
 2). Tags appear next to each feature in §11, §12.1 and Appendix D. Each tag has one implementation plan in this
-section; find it by searching for its heading, for example `#### A.2`.
+section; find it by searching for its tag after the bar, for example `| A.2:` (heading
+`#### Ph3: 15/49 | A.2: ...`).
 
 ### 27.0 How to use this section
 
@@ -1723,13 +1724,19 @@ Letters not used, to avoid confusion: **C** and **D** (Appendix C and D sections
 
 - A tag never changes. A new feature takes the next free number in its area. A dropped feature keeps its tag and is
   marked *(dropped)*.
-- Several tags share one heading when they share code, for example `#### G.2 · G.3 · G.4`.
+- **Labels.** Every entry's heading starts with its phase label, `Ph<phase>: <n>/<count>`: its place among its
+  phase's entries, counted in this section's order, then its tags and titles: `#### Ph1: 7/60 | R.10: Recent and
+  pinned files`. Feature docs, `docs/features.toml`, changelog headings and progress reports use the same label, so
+  the reader sees how far each phase is. Tags stay the permanent names; when an entry is added, its phase's labels are
+  counted again and updated everywhere.
+- Several tags share one heading when they share code, for example
+  `#### Ph4: 39/44 | G.2: Laser with trails; G.3: Spotlight; G.4: Magnifier`.
 - Use the tag in specs, branch names, commit and pull-request titles, test names and the feature checklist (K.27),
   for example `feat(A.2): replace-text markup`.
 
 **Entry format**
 
-- **First line:** priority · phase · **Needs** (tags that must ship first) · **Code** (where it lives).
+- **First line:** priority; phase; **Needs** (tags that must ship first); **Code** (where it lives).
 - **Steps:** in order. Each step is small enough for one agent session and ends in something testable.
 - **Done when:** the acceptance checks. A feature is not done until they pass.
 - **Links:** specifications, libraries and reference code, where useful.
@@ -1775,8 +1782,8 @@ Letters not used, to avoid confusion: **C** and **D** (Appendix C and D sections
 
 ### 27.1 Foundations (K)
 
-#### K.1 Repository and workspace skeleton
-**P0 · Phase 0 · Needs:** none · **Code:** repository root · task T1
+#### Ph0: 1/13 | K.1: Repository and workspace skeleton
+**P0; Phase 0; Needs:** none; **Code:** repository root; task T1
 1. Create the folders of §17 and the crates of §5.4 as empty libraries, each with a `//!` doc comment.
 2. Add `rust-toolchain.toml` (pinned stable), root `[workspace.dependencies]`, the workspace lints of §17, and
    `deny.toml`.
@@ -1786,8 +1793,8 @@ Letters not used, to avoid confusion: **C** and **D** (Appendix C and D sections
 **Done when:** `cargo build --workspace` and `cargo deny check` pass on a clean clone.
 **Links:** cargo-deny <https://github.com/EmbarkStudios/cargo-deny>
 
-#### K.2 MuPDF build (`excellent-mupdf-sys`)
-**P0 · Phase 0 · Needs:** K.1 · **Code:** `crates/excellent-mupdf-sys`, `third_party/` · tasks T2, T3
+#### Ph0: 2/13 | K.2: MuPDF build (`excellent-mupdf-sys`)
+**P0; Phase 0; Needs:** K.1; **Code:** `crates/excellent-mupdf-sys`, `third_party/`; tasks T2, T3
 1. Export upstream SumatraPDF's tree into `third_party/`: in `C:\dev\sumatrapdf`, `git fetch upstream master`, then
    `git archive upstream/master ext/mupdf ext/patches src/shared/mupdf` (70 patches). Record the commit and the
    MuPDF tag in `third_party/README.md`.
@@ -1806,8 +1813,8 @@ Letters not used, to avoid confusion: **C** and **D** (Appendix C and D sections
 **Links:** cc <https://docs.rs/cc>, bindgen <https://rust-lang.github.io/rust-bindgen/>, mupdf-rs's build
 <https://github.com/messense/mupdf-rs/tree/main/mupdf-sys>
 
-#### K.3 Safe Rust API (`excellent-mupdf`)
-**P0 · Phase 0 · Needs:** K.2 · **Code:** `crates/excellent-mupdf` · task T4
+#### Ph0: 3/13 | K.3: Safe Rust API (`excellent-mupdf`)
+**P0; Phase 0; Needs:** K.2; **Code:** `crates/excellent-mupdf`; task T4
 1. Types with `Drop`: `Context`, `Document`, `Page`, `DisplayList`, `Pixmap`, `StextPage`, `Annot`, `Writer`,
    `Outline`. Every call returns `Result<T, MuError>` with the message from the shim.
 2. Typed geometry: `PagePoint`, `DevicePoint`, `PageRect`, `Quad`; one `Transform` type applying rotation, crop box
@@ -1829,8 +1836,8 @@ Letters not used, to avoid confusion: **C** and **D** (Appendix C and D sections
 - The CLI test is `crates/excellent-mupdf/tests/corpus.rs`. ASan and fuzzing run in `.github/workflows/fuzz.yml`
   (Linux, weekly and by hand, DD2), not yet on a developer machine: they need the nightly toolchain.
 
-#### K.4 Render workers and threading
-**P0 · Phase 0 · Needs:** K.3 · **Code:** `excellent-core::render` · task T5
+#### Ph0: 4/13 | K.4: Render workers and threading
+**P0; Phase 0; Needs:** K.3; **Code:** `excellent-core::render`; task T5
 1. Base context with real `fz_locks_context` locks; a worker pool of `cores − 1` threads, each with
    `fz_clone_context` (§5.3).
 2. Jobs: `BuildDisplayList(page)`, `RenderTile(list, rect, zoom)`, `ExtractText(page)`. Each carries an `fz_cookie`
@@ -1846,8 +1853,8 @@ background. Tests: `crates/excellent-core/tests/render_stress.rs`. Not built yet
 user scrolls or writes (§7.4 item 5), which needs the canvas (T7), and a non-blocking way to collect results, which T7
 adds with the UI thread's wake-up.
 
-#### K.5 Document and View model, document registry
-**P0 · Phase 1 · Needs:** K.4 · **Code:** `excellent-core::{document, view, registry}`
+#### Ph1: 1/60 | K.5: Document and View model, document registry
+**P0; Phase 1; Needs:** K.4; **Code:** `excellent-core::{document, view, registry}`
 1. `Document`: one open file, holding the MuPDF document, display-list cache, annotation model, operation log, dirty
    flag and revision counter per page (§11.15, "How it works" 1).
 2. `View`: viewport, zoom, rotation, layout mode, selection, find state, history, dark-mode override. Serializable,
@@ -1873,8 +1880,8 @@ live viewport, selection and find state stay in the canvas until they exist; the
 come with K.13 and K.14; tiles are still per canvas (K.7), so two views share lists but not tiles; the registry lock is
 held while a file is parsed (shortcut: fine for one window, split the lock when tabs (R.12) open files in parallel).
 
-#### K.6 Layout and coordinate transforms
-**P0 · Phase 1 · Needs:** K.3 · **Code:** `excellent-core::layout`, `excellent-core::transform`
+#### Ph1: 2/60 | K.6: Layout and coordinate transforms
+**P0; Phase 1; Needs:** K.3; **Code:** `excellent-core::layout`, `excellent-core::transform`
 1. Page sizes and rotations only on open; never load every page.
 2. Layouts as pure functions from page sizes, viewport size and mode to page rectangles: single, continuous, facing,
    book (cover alone), horizontal, grid, right-to-left (R.1, R.3).
@@ -1897,8 +1904,8 @@ maps page points to layout points under the view rotation. Item 4: proptests `pa
 (`lays_out_ten_thousand_pages_quickly`, release, `--ignored`): 10,000 pages in 0.19 ms (grid) to 0.49 ms (single).
 Open: non-PDF formats load each page for its size.
 
-#### K.7 Tile cache and render scheduler
-**P0 · Phase 0–1 · Needs:** K.4, K.6 · **Code:** `excellent-core::tiles`
+#### Ph0: 5/13 | K.7: Tile cache and render scheduler
+**P0; Phase 0–1; Needs:** K.4, K.6; **Code:** `excellent-core::tiles`
 1. Tiles of 256 × 256 device pixels; zoom quantized to buckets; the cache key of §7.4, item 6.
 2. Display-list LRU and tile LRU, each with a byte budget; evict on OS memory-pressure events.
 3. Scheduler: visible tiles first, then the priorities of §7.4, item 5; cancel jobs for pages that leave the viewport.
@@ -1920,8 +1927,8 @@ Not built yet: the cache key's other fields (item 1), the display-list byte budg
 2; lists are kept for pages within 8 of the screen), lower priorities for the next screen (item 3), progressive
 rendering (item 4) and revisions (item 5). Unmeasured: the 60 fps, memory and stall targets wait for K.24's harness.
 
-#### K.8 Page canvas on Windows
-**P0 · Phase 0–1 · Needs:** K.7 · **Code:** `crates/excellent-canvas`, `crates/excellent-canvas-win` · task T7
+#### Ph0: 6/13 | K.8: Page canvas on Windows
+**P0; Phase 0–1; Needs:** K.7; **Code:** `crates/excellent-canvas`, `crates/excellent-canvas-win`; task T7
 1. Register `excellent.page-canvas` as an NSH native component that owns a child `HWND` (§7.1, §7.3).
 2. Present through a DXGI flip-model swap chain with a waitable object; draw tiles and overlays with Direct2D.
 3. Input: `WM_POINTER*` with `GetPointerPenInfo` and `GetPointerPenInfoHistory` (for H.1); wheel, keyboard focus.
@@ -1967,8 +1974,8 @@ to `CreateSwapChainForComposition` for the trail. Shortcuts, marked in the code:
 commit). Not measured: the "one display frame" target, which needs a pen; the reference machine for it is the
 maintainer's Surface Pro, tested by hand, not with injected input.
 
-#### K.9 Page canvas on macOS
-**P0 · Phase 2 · Needs:** K.8 · **Code:** `crates/excellent-canvas-mac`
+#### Ph2: 1/3 | K.9: Page canvas on macOS
+**P0; Phase 2; Needs:** K.8; **Code:** `crates/excellent-canvas-mac`
 1. `NSView` backed by a `CAMetalLayer`; upload tiles as Metal textures; draw overlays with Metal or Core Graphics.
 2. Tablet and trackpad events: pressure and tilt from `NSEvent`, magnify and scroll gestures.
 3. Same JSON props and events as K.8; the shared logic stays in `excellent-canvas`.
@@ -1977,8 +1984,8 @@ maintainer's Surface Pro, tested by hand, not with injected input.
 **Links:** objc2 crates <https://github.com/madsmtm/objc2>; CAMetalLayer
 <https://developer.apple.com/documentation/quartzcore/cametallayer>
 
-#### K.10 Page canvas on Linux
-**P0 · Phase 2 · Needs:** K.8 · **Code:** `crates/excellent-canvas-gtk`
+#### Ph2: 2/3 | K.10: Page canvas on Linux
+**P0; Phase 2; Needs:** K.8; **Code:** `crates/excellent-canvas-gtk`
 1. A GTK 4 widget that draws tiles as `GdkTexture`s through `GtkSnapshot`.
 2. Pen input through `GtkGestureStylus` (pressure, x and y tilt); touch through GTK gestures.
 3. Test on Wayland and X11.
@@ -1986,8 +1993,8 @@ maintainer's Surface Pro, tested by hand, not with injected input.
 **Done when:** Phase 1's reading checklist passes on GNOME (Wayland) and one X11 desktop.
 **Links:** gtk4-rs <https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/>
 
-#### K.11 Page canvas on iPad
-**P1 · Phase 0 spike, Phase 8 ship · Needs:** K.8 · **Code:** `crates/excellent-canvas-ios`
+#### Ph0: 7/13 | K.11: Page canvas on iPad
+**P1; Phase 0 spike, Phase 8 ship; Needs:** K.8; **Code:** `crates/excellent-canvas-ios`
 1. Phase 0 spike (Appendix D.2.7): a `UIView` with a `CAMetalLayer` showing tiles, plus pressure ink from
    Apple Pencil using coalesced and predicted touches. Measure latency.
 2. Phase 8: pinch, pan, double-tap zoom; Pencil hover; palm rejection by touch type; Scribble off on the canvas.
@@ -1996,8 +2003,8 @@ maintainer's Surface Pro, tested by hand, not with injected input.
 (Phase 8).
 **Links:** UITouch <https://developer.apple.com/documentation/uikit/uitouch>
 
-#### K.12 Page canvas on Android
-**P1 · Phase 8 · Needs:** K.8 · **Code:** `android/`, `crates/excellent-canvas-android`
+#### Ph8: 1/3 | K.12: Page canvas on Android
+**P1; Phase 8; Needs:** K.8; **Code:** `android/`, `crates/excellent-canvas-android`
 1. A Kotlin `View` with a `SurfaceView`, calling Rust over JNI for tiles and model updates.
 2. Input from `MotionEvent`: pressure, `AXIS_TILT`, `AXIS_ORIENTATION`, historical samples,
    `requestUnbufferedDispatch`.
@@ -2008,8 +2015,8 @@ maintainer's Surface Pro, tested by hand, not with injected input.
 androidx graphics <https://developer.android.com/jetpack/androidx/releases/graphics>; jni crate
 <https://docs.rs/jni>
 
-#### K.13 Text layer (`excellent-text`) and selection
-**P0 · Phase 1 · Needs:** K.3 · **Code:** `crates/excellent-text` (Appendix D.1.3)
+#### Ph1: 3/60 | K.13: Text layer (`excellent-text`) and selection
+**P0; Phase 1; Needs:** K.3; **Code:** `crates/excellent-text` (Appendix D.1.3)
 1. Extract with `fz_new_stext_page_from_page` and flags `FZ_STEXT_DEHYPHENATE`, `FZ_STEXT_SEGMENT`,
    `FZ_STEXT_COLLECT_STRUCTURE`, `FZ_STEXT_ACCURATE_BBOXES`; keep glyph quads.
 2. Reading order: use the PDF's structure tags when present, else column detection on block positions.
@@ -2044,8 +2051,8 @@ scrolling, select all of the document, step 5's corpus scores. Tests: `excellent
 `excellent-mupdf`'s `a_text_layout_covers_its_characters_in_order`; `excellent-canvas-win`'s
 `quick_presses_in_one_place_count_up`.
 
-#### K.14 Annotation model and operation log
-**P0 · Phase 1 design, Phase 3 build · Needs:** K.5 · **Code:** `excellent-core::{annot, oplog}` (Appendix D.1.2)
+#### Ph1: 4/60 | K.14: Annotation model and operation log
+**P0; Phase 1 design, Phase 3 build; Needs:** K.5; **Code:** `excellent-core::{annot, oplog}` (Appendix D.1.2)
 1. Annotation model: stable id (`/NM` UUID), type, page, rectangle and geometry in normalized page space, style,
    author, dates, contents, tags, text anchor (K.28). Unknown types are kept untouched.
 2. Operation log: every edit is `{op_id, author, time, target_id, kind, data}`, appended to an fsync'd file.
@@ -2058,8 +2065,8 @@ scrolling, select all of the document, step 5's corpus scores. Tests: `excellent
 **Done when:** model-based tests pass for 10,000 random sequences; undo after reopening works where MuPDF's
 `pdf_save_journal` / `pdf_load_journal` allow it.
 
-#### K.15 Saving, autosave, recovery and external changes
-**P0 · Phase 1 (read-only) and Phase 3 (edits) · Needs:** K.14 · **Code:** `excellent-core::save`
+#### Ph1: 5/60 | K.15: Saving, autosave, recovery and external changes
+**P0; Phase 1 (read-only) and Phase 3 (edits); Needs:** K.14; **Code:** `excellent-core::save`
 1. Incremental save with `pdf_save_document` and `do_incremental = 1` when `pdf_can_be_saved_incrementally` allows
    it; otherwise a full save.
 2. Atomic writes: write to a temp file in the same folder, reopen it to verify, then rename over the original.
@@ -2074,8 +2081,8 @@ scrolling, select all of the document, step 5's corpus scores. Tests: `excellent
 files pass `qpdf --check`.
 **Links:** qpdf <https://qpdf.readthedocs.io/>
 
-#### K.16 Settings, command table and shortcuts
-**P0 · Phase 1 · Needs:** K.5 · **Code:** `excellent-app::{settings, commands}`
+#### Ph1: 6/60 | K.16: Settings, command table and shortcuts
+**P0; Phase 1; Needs:** K.5; **Code:** `excellent-app::{settings, commands}`
 1. `settings.toml` with serde; write only values that differ from the default; ignore unknown keys; watch the file and
    reload. Portable mode keeps it next to the exe.
 2. One command table: id, name, label, default keys, mode, "available when" condition. Menus, toolbars, the palette
@@ -2125,8 +2132,8 @@ takes most of the rest, about 1 s from `main` to NSH's first log line. Profiling
 30 MB, with no release profile yet (LTO, strip); T10 too. *T10:* with the release profile, cold start is 632 ms and
 the exe 36.6 MB (more of MuPDF is built since DD1); see K.24's measurements.
 
-#### K.17 Design tokens and themes
-**P0 · Phase 1 · Needs:** K.1 · **Code:** `app/themes/`, `excellent-app::theme`
+#### Ph1: 7/60 | K.17: Design tokens and themes
+**P0; Phase 1; Needs:** K.1; **Code:** `app/themes/`, `excellent-app::theme`
 1. Tokens of §10.3 on top of NSH's theme; mode accents; annotation colors.
 2. Theme families as small TOML files; contrast check in CI (WCAG AA) for every theme.
 3. Density setting (compact, comfortable) and UI scaling.
@@ -2156,25 +2163,29 @@ picker previews each theme and Escape restores the one in effect.
   which bundled UI font §10.3 means (the system UI font for now). The page area changes only after the picker closes,
   because the page canvas is a window of its own and hides under dialogs.
 
-#### K.18 Modes and toolbars
-**P0 · Phase 1 · Needs:** K.16, K.17 · **Code:** `excellent-app::modes`
+#### Ph1: 8/60 | K.18: Modes and toolbars
+**P0; Phase 1; Needs:** K.16, K.17; **Code:** `excellent-app::modes`
 1. Modes Read, Annotate, Write, Study, Present (§10.2), each with a default toolbar built from command ids.
 2. Customize: drag and drop toolbar items; export and import presets as JSON.
 3. Pen contact switches to Write mode when the setting allows (§2.1, rule 3).
 
 **Done when:** each mode shows only its tools; presets round-trip.
 
-#### K.19 Platform services
-**P0 · Phase 1 (Windows), Phase 2 (macOS, Linux), Phase 8 (tablets) · Needs:** K.1 · **Code:** `crates/excellent-platform`
+#### Ph1: 9/60 | K.19: Platform services
+**P0; Phase 1 (Windows), Phase 2 (macOS, Linux), Phase 8 (tablets); Needs:** K.1; **Code:** `crates/excellent-platform`
 1. Traits: files and dialogs, print (O.22), clipboard (text, image, rich text), text-to-speech (U.5), key store,
    notifications, shell integration (file associations, "Open with"), single instance, memory-pressure events.
 2. One implementation per OS; a fake implementation for tests.
 
 **Done when:** feature code compiles against the traits only; each implementation has an integration test.
+
+In progress (2026-11-14): `excellent-platform` has single instance (`instance`: a named pipe on Windows, a Unix socket
+elsewhere, tested end to end) and file associations (`associations`), for R.11. The traits and the fake come with the
+second implementation (Phase 2), when there is something to abstract over.
 **Links:** keyring crate <https://github.com/hwchen/keyring-rs>
 
-#### K.20 Library database (`excellent-store`)
-**P0 · Phase 1 · Needs:** K.1 · **Code:** `crates/excellent-store`
+#### Ph1: 10/60 | K.20: Library database (`excellent-store`)
+**P0; Phase 1; Needs:** K.1; **Code:** `crates/excellent-store`
 1. `library.db` with `rusqlite`: documents, files, tags, collections, workspaces (§11.16), bookmarks (B.6), cards
    (S.4), notes.
 2. Numbered migrations with a test that upgrades a database from every earlier version.
@@ -2183,8 +2194,13 @@ picker previews each theme and Escape restores the one in effect.
 **Done when:** migration tests pass; a crash during a write leaves the database consistent.
 **Links:** rusqlite <https://github.com/rusqlite/rusqlite>
 
-#### K.21 Pack manager
-**P1 · Phase 4 (dictionaries need it), finished in Phase 5 · Needs:** K.20 · **Code:** `crates/excellent-packs`
+Built (2026-11-14, `docs/features/K.20-library-database.md`). Step 1 holds files, workspaces, tabs, closed tabs and
+tab groups for now: the tables of documents, tags, collections, bookmarks, cards and notes come with the features
+that use them (B.6, S.4 and the rest), each in a migration of its own, so their schemas are designed with them. The
+database sits next to `settings.toml` (the app's data folder, or the program's for a portable copy).
+
+#### Ph4: 1/44 | K.21: Pack manager
+**P1; Phase 4 (dictionaries need it), finished in Phase 5; Needs:** K.20; **Code:** `crates/excellent-packs`
 1. A signed index (Ed25519) listing packs: id, version, size, hash, URL, licence.
 2. Download over HTTPS with resume; verify size, hash and signature before install; install atomically.
 3. "Remove pack" frees the space; features ask the manager whether their pack is present and offer to download it.
@@ -2193,8 +2209,8 @@ picker previews each theme and Escape restores the one in effect.
 **Done when:** a tampered pack is rejected; interrupted downloads resume; removing a pack leaves no files.
 **Links:** ed25519-dalek <https://github.com/dalek-cryptography/curve25519-dalek>
 
-#### K.22 Out-of-process engine and sandbox
-**P0 · Phase 0 spike, Phase 1 build · Needs:** K.4 · **Code:** `excellent-core::engine`, `excellent-engine-host` (Appendix D.1.1)
+#### Ph0: 8/13 | K.22: Out-of-process engine and sandbox
+**P0; Phase 0 spike, Phase 1 build; Needs:** K.4; **Code:** `excellent-core::engine`, `excellent-engine-host` (Appendix D.1.1)
 1. Spike: render tiles in a child process into shared memory; measure the cost against the 150 ms first-page budget.
    Write the result as an ADR.
 2. Make the `Document` trait message-based (request → response), with in-process and out-of-process back ends.
@@ -2205,8 +2221,8 @@ picker previews each theme and Escape restores the one in effect.
 **Done when:** a crafted PDF that crashes MuPDF only reloads its own tab; budgets still pass.
 **Links:** Chromium's sandbox design <https://chromium.googlesource.com/chromium/src/+/main/docs/design/sandbox.md>
 
-#### K.23 Security limits and fuzzing
-**P0 · Phase 0 onward · Needs:** K.3 · **Code:** `excellent-core::limits`, `tests/fuzz/`
+#### Ph0: 9/13 | K.23: Security limits and fuzzing
+**P0; Phase 0 onward; Needs:** K.3; **Code:** `excellent-core::limits`, `tests/fuzz/`
 1. Limits on image size, object counts, recursion and decompression; enforce them in the shims or in MuPDF's
    allocator callbacks.
 2. `cargo fuzz` targets: open, render, text, save, annotation edit. Nightly in CI; each crash gets a regression test.
@@ -2214,8 +2230,8 @@ picker previews each theme and Escape restores the one in effect.
 
 **Done when:** nightly fuzzing runs; no open fuzz crash older than a week.
 
-#### K.24 Performance instrumentation and budgets
-**P0 · Phase 0 · Needs:** K.1 · **Code:** `tests/perf/`, `tests/size/`, `tracing` spans everywhere (Appendix D.3.10)
+#### Ph0: 10/13 | K.24: Performance instrumentation and budgets
+**P0; Phase 0; Needs:** K.1; **Code:** `tests/perf/`, `tests/size/`, `tracing` spans everywhere (Appendix D.3.10)
 1. Use `tracing` spans, exportable to Perfetto (Chrome trace JSON) or Tracy.
 2. Benchmarks for each §13.1 budget on the corpus; `budgets.json` files; CI fails on a regression over 10 %.
 3. A "Record performance trace" command that saves a trace with timings only, no document text.
@@ -2254,8 +2270,8 @@ the window before its first frame. Finding the rest needs a sampling profile of 
 need an administrator); it is NSH's code, so a fix goes upstream like T9's proposal. Fat LTO makes a release build
 take 6 to 11 minutes on this machine.
 
-#### K.25 Release engineering: installers, updates, crash reports
-**P0 · Phase 1 · Needs:** K.1 · **Code:** `packaging/`, `.github/workflows/release.yml` (Appendix D.3.9, C.3.6)
+#### Ph1: 11/60 | K.25: Release engineering: installers, updates, crash reports
+**P0; Phase 1; Needs:** K.1; **Code:** `packaging/`, `.github/workflows/release.yml` (Appendix D.3.9, C.3.6)
 1. Windows: per-user MSI and a portable zip; signed binaries for x64 and ARM64. macOS: signed, notarized DMG.
    Linux: AppImage, then Flatpak and deb.
 2. Updates: signed metadata with TUF (`tough`), stable / beta / nightly channels, staged rollout, rollback. First
@@ -2268,8 +2284,8 @@ take 6 to 11 minutes on this machine.
 **Links:** tough <https://github.com/awslabs/tough>; cargo-vet <https://mozilla.github.io/cargo-vet/>; minidumps
 <https://github.com/rust-minidump/rust-minidump>
 
-#### K.26 Test corpus, golden images and interop suite
-**P0 · Phase 0 onward · Needs:** K.3 · **Code:** `tests/corpus/`, `tests/golden/`, `tests/interop/`
+#### Ph0: 11/13 | K.26: Test corpus, golden images and interop suite
+**P0; Phase 0 onward; Needs:** K.3; **Code:** `tests/corpus/`, `tests/golden/`, `tests/interop/`
 1. Corpus: papers, books, scans, forms, CAD drawings, huge manuals, malformed files, CJK and right-to-left
    documents; the pdf.js test corpus.
 2. Golden images per page and theme; compare with a perceptual threshold; review diffs.
@@ -2281,8 +2297,8 @@ take 6 to 11 minutes on this machine.
 **Links:** pdf.js test corpus <https://github.com/mozilla/pdf.js/tree/master/test>; Poppler utils (pdftotext,
 pdfsig) <https://poppler.freedesktop.org>
 
-#### K.27 Feature checklist in CI
-**P0 · Phase 0 · Needs:** K.1 · **Code:** `docs/features.toml`, `xtask check-features` (Appendix C.3.2)
+#### Ph0: 12/13 | K.27: Feature checklist in CI
+**P0; Phase 0; Needs:** K.1; **Code:** `docs/features.toml`, `xtask check-features` (Appendix C.3.2)
 1. One row per tag: tag, title, priority, phase, status (`planned`, `in-progress`, `shipped`, `dropped`), test name,
    command id.
 2. CI checks that every `shipped` row's test and command exist.
@@ -2290,8 +2306,8 @@ pdfsig) <https://poppler.freedesktop.org>
 
 **Done when:** CI fails on a `shipped` row with a missing test.
 
-#### K.28 Annotation anchors
-**P0 · Phase 3 · Needs:** K.13, K.14 · **Code:** `excellent-core::anchor` (Appendix D.1.5)
+#### Ph3: 1/49 | K.28: Annotation anchors
+**P0; Phase 3; Needs:** K.13, K.14; **Code:** `excellent-core::anchor` (Appendix D.1.5)
 1. Each annotation gets a UUID in `/NM` and a text-quote anchor: prefix, exact text, suffix and approximate position
    (W3C Web Annotation style), kept in a private key and in the sidecar.
 2. Re-anchoring: find the exact text near the old position; fall back to fuzzy matching; mark annotations that can't
@@ -2304,8 +2320,8 @@ test set.
 
 ### 27.2 Reading and navigation (R)
 
-#### R.1 Page layouts
-**P0 · Phase 1 · Needs:** K.6, K.8 · **Code:** `excellent-core::layout`, `excellent-features/read/layout.rs`
+#### Ph1: 12/60 | R.1: Page layouts
+**P0; Phase 1; Needs:** K.6, K.8; **Code:** `excellent-core::layout`, `excellent-features/read/layout.rs`
 1. Expose the K.6 layouts as View state: single, continuous, facing, book (cover alone), horizontal, grid.
 2. Toolbar toggle and commands; remember per document (in the View state).
 3. Keep the reading position (page and offset) when the layout changes.
@@ -2319,8 +2335,8 @@ keep the reading position (`a_new_layout_keeps_the_reading_position`); `book_vie
 Open: the toolbar toggle (no toolbar yet) and menus (K.16); remembering per document (K.5, K.20). Enhanced's plain `c`
 is bound as a page key (K.16).
 
-#### R.2 Zoom and fit modes
-**P0 · Phase 1 · Needs:** K.6, K.7 · **Code:** `excellent-features/read/zoom.rs`
+#### Ph1: 13/60 | R.2: Zoom and fit modes
+**P0; Phase 1; Needs:** K.6, K.7; **Code:** `excellent-features/read/zoom.rs`
 1. Fit page, fit width, fit height, fit content (crop to content box from the display list bounds), actual size,
    presets from 10 % to 6400 %, custom zoom dialog.
 2. Ctrl+wheel and pinch zoom around the pointer; keyboard Ctrl+= / Ctrl+−; zoom snaps to buckets only for tile
@@ -2335,8 +2351,8 @@ and Ctrl+= / Ctrl+− zoom about the pointer, and the shown zoom is not snapped 
 test is `zooming_keeps_the_point_under_the_pointer`. Open: fit content, the preset list, the custom zoom dialog,
 pinch (U.3), remembering per document.
 
-#### R.3 Reading direction: right-to-left and manga
-**P0 · Phase 1 · Needs:** R.1 · **Code:** `excellent-core::layout`
+#### Ph1: 14/60 | R.3: Reading direction: right-to-left and manga
+**P0; Phase 1; Needs:** R.1; **Code:** `excellent-core::layout`
 1. A direction flag in the layout: pages ordered right to left in facing, book and horizontal layouts.
 2. Arrow keys and swipe follow the direction; auto-detect from `/ViewerPreferences /Direction /R2L`.
 
@@ -2349,8 +2365,8 @@ left (`page_boxes_are_read_without_loading_and_match_the_page` checks the flag).
 (manga). In the strip, the plain wheel and Page Down move toward the later pages either way. Open: arrow keys and
 swipe (with U.3); EPUB's page-progression direction.
 
-#### R.4 Rotation and crop-box view
-**P0 · Phase 1 · Needs:** K.6 · **Code:** `excellent-core::transform`
+#### Ph1: 15/60 | R.4: Rotation and crop-box view
+**P0; Phase 1; Needs:** K.6; **Code:** `excellent-core::transform`
 1. View rotation in 90° steps (View state, not saved to the file); "Rotate pages" that changes the file is O.1.
 2. Box choice: crop box (default), media box, trim box, art box, bleed box.
 
@@ -2363,8 +2379,8 @@ Tests: `page_to_device_and_back` (proptest over every rotation and offset crop b
 `a_point_comes_back_under_every_rotation`. Selection isn't built yet; it maps through the same placement. Enhanced's
 `[` and `]` wait for keys scoped to the canvas.
 
-#### R.5 Thumbnails
-**P0 · Phase 1 · Needs:** K.7 · **Code:** `excellent-features/read/thumbnails.rs`
+#### Ph1: 16/60 | R.5: Thumbnails
+**P0; Phase 1; Needs:** K.7; **Code:** `excellent-features/read/thumbnails.rs`
 1. Sidebar tab with NSH `virtual_list`; thumbnails rendered at low priority from display lists; cached on disk as
    WebP keyed by document hash, page and revision.
 2. Click to go; current page highlighted; page labels under each thumbnail.
@@ -2382,8 +2398,8 @@ the list doesn't follow the reader's page yet; the cache isn't trimmed (K.20); t
 Tests: `frames_keep_the_page_shape_and_fit_the_box`, `the_rows_shown_and_a_margin_are_wanted`,
 `names_change_with_the_file_the_page_and_its_revision`, `a_page_becomes_a_png_file_of_the_asked_width`.
 
-#### R.6 Page labels and go to page
-**P0 · Phase 1 · Needs:** K.3 · **Code:** `excellent-features/read/goto.rs`
+#### Ph1: 17/60 | R.6: Page labels and go to page
+**P0; Phase 1; Needs:** K.3; **Code:** `excellent-features/read/goto.rs`
 1. Read labels with `fz_page_label`; show "iv (4 of 210)" in the status bar.
 2. Go-to box (Ctrl+G) accepts a label or a number; first and last page, next and previous screen.
 3. Editing labels is in O.1 (`pdf_set_page_labels`, `pdf_delete_page_labels`).
@@ -2401,8 +2417,8 @@ remembered in the history (R.8). Tests: `typing_a_roman_label_finds_its_page`,
 `a_label_wins_over_a_number_and_numbers_fill_the_rest`, `page_labels_are_read_and_absent_labels_are_none`. Enhanced's
 plain `g`, Home and End wait for keys scoped to the canvas, since they would fire while typing in a field.
 
-#### R.7 Links
-**P0 · Phase 1 · Needs:** K.8 · **Code:** `excellent-features/read/links.rs`
+#### Ph1: 18/60 | R.7: Links
+**P0; Phase 1; Needs:** K.8; **Code:** `excellent-features/read/links.rs`
 1. Load with `fz_load_links`; resolve internal targets with `fz_resolve_link`; hit-test in the canvas.
 2. Internal links push history (R.8); external URLs ask for confirmation unless the protocol is allowed in settings;
    `file:` links and launch actions always ask (§14.2).
@@ -2423,8 +2439,8 @@ thumbnails (R.5); `link_protocols` is in the Settings window (K.16); EPUB and XP
 code but have no test yet. Tests: `links_are_read_and_resolved`, `web_links_open_and_other_protocols_ask`,
 `scripts_never_run_and_files_always_ask`, `a_link_target_shows_at_the_top`, `file_links_become_paths`.
 
-#### R.8 Back and forward history
-**P0 · Phase 1 · Needs:** K.5 · **Code:** `excellent-core::view::history`
+#### Ph1: 19/60 | R.8: Back and forward history
+**P0; Phase 1; Needs:** K.5; **Code:** `excellent-core::view::history`
 1. History entries (page, offset, zoom) per View, pushed on jumps (links, go to page, outline, search), not on
    scrolling.
 2. Alt+← / Alt+→ and mouse back / forward buttons.
@@ -2437,23 +2453,35 @@ Forward (Alt+→), and the mouse's back and forward buttons. Go to page, first a
 outline and search push when they are built. Tests: `three_jumps_and_three_backs_return_to_the_start`,
 `a_new_jump_forgets_the_places_ahead`, `history_is_bounded`.
 
-#### R.9 Session restore
-**P0 · Phase 1 · Needs:** K.5, K.20 · **Code:** `excellent-app::session`
+#### Ph1: 20/60 | R.9: Session restore
+**P0; Phase 1; Needs:** K.5, K.20; **Code:** `excellent-app::session`
 1. Save windows, workspaces, panes, tabs and View states to `library.db` (debounced, and on quit).
 2. On start, restore lazily: only the visible tab of each pane opens (as W.14).
 3. Missing files show greyed out with "Locate…".
 
 **Done when:** quitting and restarting restores every tab at the same place.
 
-#### R.10 Recent and pinned files
-**P0 · Phase 1 · Needs:** K.20 · **Code:** `excellent-features/library/recent.rs`
+Built (2026-11-14, `docs/features/R.9-session-restore.md`) for the one window and its default workspace: windows,
+panes and other workspaces come with W.1 and W.4. A tab's View state is saved as JSON holding the page only; zoom,
+layout and the position within the page join it later without a migration. Missing files show greyed in the strip,
+and the document panel (not the strip) offers "Locate…".
+
+#### Ph1: 21/60 | R.10: Recent and pinned files
+**P0; Phase 1; Needs:** K.20; **Code:** `excellent-features/library/recent.rs`
 1. Recent list with last page and a thumbnail; pin and unpin; remove from list; clear.
 2. Shown in the home page (F.17), the File menu, the jump list (Windows) and the Dock menu (macOS).
 
 **Done when:** the recent list survives restarts and portable-mode moves.
 
-#### R.11 Opening files: drag and drop, file associations, single instance, command line
-**P0 · Phase 1 · Needs:** K.19 · **Code:** `excellent-app::open`, `crates/excellent-platform`
+Built (2026-11-14, `docs/features/R.10-recent-files.md`), without thumbnails, the File menu, the jump list and the
+Dock menu. The code lives in `excellent-store` (`recent`, `home`) and `excellent-app::recent`, not
+`excellent-features/library/recent.rs`. Until F.17, the empty document panel shows the list, and the tab list
+(Ctrl+Shift+A) has a "Recent files" section. Portable moves: the library records the app's folder in a `meta` table.
+When the folder changes, it rewrites the paths inside the old folder, and paths on the old drive when the drive letter
+changed and the file is found under the new letter.
+
+#### Ph1: 22/60 | R.11: Opening files: drag and drop, file associations, single instance, command line
+**P0; Phase 1; Needs:** K.19; **Code:** `excellent-app::open`, `crates/excellent-platform`
 1. Drop files on the window or a pane edge (V.2). NSH v0.5.0 reports each dropped file's MIME type; accept a drop by
    type and by sniffing the file's first bytes, not by extension alone.
 2. Register file types per user on install; "Set as default viewer" opens the OS settings page.
@@ -2462,8 +2490,16 @@ outline and search push when they are built. Tests: `three_jumps_and_three_backs
 
 **Done when:** double-clicking a PDF in the file manager opens it as a tab in the running instance.
 
-#### R.12 Tabs
-**P0 · Phase 1 · Needs:** K.5 · **Code:** `excellent-app::tabs`
+Built (2026-11-14, `docs/features/R.11-opening-files.md`) on Windows. Drops open documents in new tabs. A drop is
+accepted by the file's first bytes; NSH's MIME types come from the file name, so they aren't used. Step 2 is the
+"Set as default PDF viewer" command for now: it registers the ProgID, "Open with" entries and Capabilities for the
+user, then opens Default apps, because Windows lets no app make itself the default. Registering on install waits for
+the installer. Step 3 uses a per-user named pipe. Step 4 reads files and `--page`; `--zoom`, `--search`, `--split`
+and `--forward-search` wait for their features. K.19 is built only as far as R.11 needs (`instance`,
+`associations`), without the traits and the test fake yet.
+
+#### Ph1: 23/60 | R.12: Tabs
+**P0; Phase 1; Needs:** K.5; **Code:** `excellent-app::tabs`
 1. NSH `Tabs` with reorder, pin, close, close others, close to the right, and a dirty dot.
 2. Ctrl+Tab and Ctrl+Shift+Tab (most-recent order, setting), Ctrl+W, Ctrl+Shift+T reopen closed tab (per workspace,
    W.4).
@@ -2484,16 +2520,23 @@ it (the same holds for a tab's context menu, so its commands are in the palette)
 the shown one, since only the shown tab has a document open (one canvas, given the shown tab's file). Opening files
 uses NSH's `pick_paths` (the shell's `IFileOpenDialog`), so K.19 needs no dialog of its own for this.
 
-#### R.13 Named tab groups
-**P1 · Phase 1 · Needs:** R.12 · **Code:** `excellent-app::tabs::groups`
+#### Ph1: 24/60 | R.13: Named tab groups
+**P1; Phase 1; Needs:** R.12; **Code:** `excellent-app::tabs::groups`
 1. Group tabs under a coloured, named label in the tab strip; collapse and expand; move tabs in and out (port the
    ideas of Enhanced's `src/TabGroupsManage.cpp`).
 2. Groups are saved in sessions and workspaces.
 
 **Done when:** groups survive restart; collapsing a group hides its tabs without unloading unsaved work.
 
-#### R.14 Smart dark mode
-**P0 · Phase 1 · Needs:** K.7 · **Code:** `excellent-core::darkmode`
+Built (2026-11-14, `docs/features/R.13-tab-groups.md`). Enhanced's `TabGroupsManage.cpp` saves and reopens named
+sets of tabs; here a group lives in the strip as browsers' do (a coloured chip that collapses its tabs), and saving
+sets for later waits for workspaces (W.1). The group's menu is a dialog rather than a popup (the page canvas would
+cover a popup, as with R.12's tab list), and tabs move in and out of groups with Ctrl+Shift+PageUp / PageDown until
+mouse dragging exists: beside an open group a tab joins it, at its group's edge it leaves, and it passes a collapsed
+group whole.
+
+#### Ph1: 25/60 | R.14: Smart dark mode
+**P0; Phase 1; Needs:** K.7; **Code:** `excellent-core::darkmode`
 1. Port Enhanced's `src/PdfDarkMode*.cpp`: an `fz_device` wrapper mapping text and vector colors through OKLab to
    the theme, an image classifier (photo, light-background artwork, icon or line art, full-page scan) and per-image
    preserve, adapt or recolor (§7.5).
@@ -2513,8 +2556,8 @@ not in the tile key; changing them clears the tiles, as Enhanced's epoch does. T
 pages) switches off and smart and keeps the choice, where Enhanced's Shift+I inverts for the session only. Not built
 yet: the object-level device, golden images, recoloured thumbnails.
 
-#### R.15 Reading themes
-**P0 · Phase 1 · Needs:** R.14, K.17 · **Code:** `excellent-core::darkmode::themes`
+#### Ph1: 26/60 | R.15: Reading themes
+**P0; Phase 1; Needs:** R.14, K.17; **Code:** `excellent-core::darkmode::themes`
 1. Light, dark, sepia, OLED black, high contrast, custom (paper and ink colors); per-document override.
 2. Reflowable formats get theme CSS through MuPDF's user stylesheet instead of recoloring.
 3. Live preview, as K.17's pickers: the highlighted reading theme is applied to the open page while the user moves
@@ -2530,8 +2573,8 @@ the title bar, outside the canvas; the arrow keys preview, Enter keeps, Escape g
 colours are off switches them to smart. Not built yet: the per-document override (it needs K.20) and step 2 (EPUB
 and other reflowable formats are recoloured like PDFs meanwhile).
 
-#### R.16 Reflow (Liquid Mode)
-**P1 · Phase 5 · Needs:** K.13 · **Code:** `excellent-features/reflow`
+#### Ph5: 1/45 | R.16: Reflow (Liquid Mode)
+**P1; Phase 5; Needs:** K.13; **Code:** `excellent-features/reflow`
 1. Build a reflow model per page from structured text with `FZ_STEXT_SEGMENT`, `FZ_STEXT_TABLE_HUNT`,
    `FZ_STEXT_PRESERVE_IMAGES` and `FZ_STEXT_COLLECT_STRUCTURE`: headings (from font size and weight), paragraphs,
    lists, tables, figures with captions, in reading order (K.13).
@@ -2542,23 +2585,23 @@ and other reflowable formats are recoloured like PDFs meanwhile).
 **Done when:** on a set of 50 papers, reading order is correct on 95 % of pages; a highlight made in reflow shows on
 the original page.
 
-#### R.17 Mini-map with note ticks
-**P1 · Phase 3 · Needs:** R.5, K.14 · **Code:** `excellent-features/read/minimap.rs`
+#### Ph3: 2/49 | R.17: Mini-map with note ticks
+**P1; Phase 3; Needs:** R.5, K.14; **Code:** `excellent-features/read/minimap.rs`
 1. A narrow strip beside the scrollbar: one tick per page, coloured marks for highlights, notes, bookmarks and search
    hits.
 2. Click or drag to scroll.
 
 **Done when:** marks update within one frame of an annotation change.
 
-#### R.18 Thumbnail drag reordering
-**P1 · Phase 7 · Needs:** R.5, O.1 · **Code:** uses O.1's page operations
+#### Ph7: 1/32 | R.18: Thumbnail drag reordering
+**P1; Phase 7; Needs:** R.5, O.1; **Code:** uses O.1's page operations
 1. Drag thumbnails (multi-select) to reorder; drop between pages; the move is one undoable `pdf_rearrange_pages`
    operation (O.1).
 
 **Done when:** reordering 100 pages and undoing restores the original order and the outline (§11.14, step 5).
 
-#### R.19 Full-screen reading and focus mode
-**P1 · Phase 1 · Needs:** R.1 · **Code:** `excellent-features/read/focus.rs`
+#### Ph1: 27/60 | R.19: Full-screen reading and focus mode
+**P1; Phase 1; Needs:** R.1; **Code:** `excellent-features/read/focus.rs`
 1. Full screen (F11): no chrome; controls on pointer at the edge.
 2. Focus mode: dims everything outside the current paragraph or line (using K.13 blocks).
 
@@ -2570,8 +2613,8 @@ platform's own; `Ctrl+Shift+L` (Enhanced's) toggles too, and the app follows the
 is a child window, so the revealed title bar pushes the pages down instead of lying over them. Focus mode follows the
 reading line (R.20's arrows); a text caret does not exist yet. Settings: `focus_scope` (`"paragraph"`, `"line"`).
 
-#### R.20 Reading ruler (reading bar)
-**P1 · Phase 1 · Needs:** K.8, K.13 · **Code:** `excellent-features/read/ruler.rs`
+#### Ph1: 28/60 | R.20: Reading ruler (reading bar)
+**P1; Phase 1; Needs:** K.8, K.13; **Code:** `excellent-features/read/ruler.rs`
 1. Port Enhanced's reading bar (`src/ReadingBar.cpp`): a horizontal band drawn in the canvas that follows the
    pointer or moves line by line with the keyboard, snapping to K.13 text lines.
 2. Height, colour and opacity settings.
@@ -2585,8 +2628,8 @@ view around the canvas has the keyboard focus, which it takes when a document op
 Settings: `reading_ruler_height`, `reading_ruler_color`, `reading_ruler_opacity`, `reading_ruler_invert`, in the
 Settings window's Reading section (K.16).
 
-#### R.21 Auto-scroll
-**P1 · Phase 1 · Needs:** K.7 · **Code:** `excellent-features/read/autoscroll.rs`
+#### Ph1: 29/60 | R.21: Auto-scroll
+**P1; Phase 1; Needs:** K.7; **Code:** `excellent-features/read/autoscroll.rs`
 1. Port Enhanced's `src/ReadingAutoScroll.cpp`: continuous scroll at an adjustable speed; space pauses; +/− change
    speed; middle-click auto-scroll.
 2. Drive scrolling from the display's frame clock, not a timer.
@@ -2598,26 +2641,26 @@ and the swap chain's wait paces them at the display's rate; paused, nothing runs
 `+` and `−` change the speed only while it runs. Needs K.7, which is not marked in `docs/features.toml`; the canvas's
 current tile path is what it scrolls. Setting: `auto_scroll_speed`.
 
-#### R.22 Bionic reading
-**P2 · Phase 5 · Needs:** R.16 · **Code:** `excellent-features/reflow/bionic.rs`
+#### Ph5: 2/45 | R.22: Bionic reading
+**P2; Phase 5; Needs:** R.16; **Code:** `excellent-features/reflow/bionic.rs`
 1. In reflow only: bold the first part of each word (about 40 %); toggle and strength setting.
 
 **Done when:** works for Latin, Cyrillic and Greek; turns itself off for scripts where it makes no sense.
 
-#### R.23 Paper textures
-**P2 · Phase 4 · Needs:** R.15 · **Code:** `excellent-core::darkmode::paper`
+#### Ph4: 2/44 | R.23: Paper textures
+**P2; Phase 4; Needs:** R.15; **Code:** `excellent-core::darkmode::paper`
 1. Subtle procedural textures (paper grain) drawn under the page in the canvas, not baked into tiles.
 
 **Done when:** no measurable effect on scroll frame time.
 
-#### R.24 Two-column auto-detect
-**P2 · Phase 5 · Needs:** K.13 · **Code:** `excellent-features/read/columns.rs`
+#### Ph5: 3/45 | R.24: Two-column auto-detect
+**P2; Phase 5; Needs:** K.13; **Code:** `excellent-features/read/columns.rs`
 1. Detect column layout from K.13 blocks; "column mode" scrolls down one column, then jumps to the top of the next.
 
 **Done when:** works on the two-column papers in the corpus.
 
-#### R.25 Citation and equation hover
-**P0 (parity) · Phase 3 · Needs:** K.13, R.7 · **Code:** `excellent-features/read/refhover`
+#### Ph3: 3/49 | R.25: Citation and equation hover
+**P0 (parity); Phase 3; Needs:** K.13, R.7; **Code:** `excellent-features/read/refhover`
 1. Port Enhanced's reference hover (`src/RefHover*.cpp`): detect citations (`[12]`, `(Smith et al., 2020)`), figure,
    table and equation references near the pointer.
 2. Resolve the target: the link destination at the point if there is one, otherwise search the references section,
@@ -2627,16 +2670,16 @@ current tile path is what it scrolls. Setting: `auto_scroll_speed`.
 
 **Done when:** the ported tests pass; hovering `[12]` in a paper without links shows reference 12.
 
-#### R.26 CAD drawing view
-**P1 (parity) · Phase 7 · Needs:** R.14 · **Code:** `excellent-core::cad`
+#### Ph7: 2/32 | R.26: CAD drawing view
+**P1 (parity); Phase 7; Needs:** R.14; **Code:** `excellent-core::cad`
 1. Port Enhanced's `src/PdfCad.cpp`: scoring-based detection of CAD drawings and its colour mapping (`CadMapColor`)
    as an `fz_device` wrapper, like dark mode.
 2. Options: dark background, line weights on or off, layer panel (OCGs with `pdf_count_layers`, `pdf_enable_layer`).
 
 **Done when:** CAD drawings in the corpus are detected, and none of the non-CAD files are.
 
-#### R.27 SyncTeX forward and inverse search
-**P1 (parity) · Phase 5 · Needs:** R.11 · **Code:** `excellent-features/synctex`
+#### Ph5: 4/45 | R.27: SyncTeX forward and inverse search
+**P1 (parity); Phase 5; Needs:** R.11; **Code:** `excellent-features/synctex`
 1. Parse `.synctex(.gz)` with the SyncTeX parser (C, from the SyncTeX project) behind a small shim, or port Enhanced's
    `src/PdfSync.cpp`.
 2. Forward search: `excellentpdf --forward-search file.pdf source.tex line` (via the single instance) highlights the
@@ -2648,24 +2691,30 @@ current tile path is what it scrolls. Setting: `auto_scroll_speed`.
 **Done when:** VS Code's LaTeX Workshop can use ExcellentPDF as external viewer in both directions.
 **Links:** SyncTeX <https://github.com/jlaurens/synctex>
 
-#### R.28 Other formats through MuPDF
-**P0 · Phase 1 · Needs:** K.3 · **Code:** `excellent-core::formats`
+#### Ph1: 30/60 | R.28: Other formats through MuPDF
+**P0; Phase 1; Needs:** K.3; **Code:** `excellent-core::formats`
 1. Open EPUB, MOBI, FB2, XPS, CBZ, SVG, images, HTML and Markdown with `fz_open_document`.
 2. Reflowable formats: `fz_is_document_reflowable` and `fz_layout_document` with the page size and font size from the
    View; re-layout on window resize, keeping the position by text location.
 
 **Done when:** every format in the corpus opens; font size changes keep the reading position in EPUB.
 
-#### R.29 DjVu, CHM and CBR
-**P2 · Phase 5 (if Q5 says yes) · Needs:** R.28 · **Code:** separate engine crates behind the `Document` trait
+Built (2026-11-14, `docs/features/R.28-other-formats.md`). The format list and the signatures live in
+`excellent-core::formats`, shared by the Open dialog, drops and file associations; DjVu left the list (it is R.29's,
+and MuPDF has no DjVu reader). Step 2: a book's page is the window's size at zoom 1, up to 36 ems wide, at the "Book
+text size" setting (8 to 32 pt, 12 by default); the position is kept with MuPDF's bookmarks (`fz_make_bookmark` before
+`fz_layout_document`, `fz_lookup_bookmark` after). Two views of one book share one layout until V.1.
+
+#### Ph5: 5/45 | R.29: DjVu, CHM and CBR
+**P2; Phase 5 (if Q5 says yes); Needs:** R.28; **Code:** separate engine crates behind the `Document` trait
 1. One crate per engine: DjVu (DjVuLibre), CHM (chmlib), CBR (UnRAR). Check each licence first; UnRAR forbids
    re-creating the RAR compression algorithm.
 2. Same `Document` trait as MuPDF; text where the format has it.
 
 **Done when:** the files Enhanced opens in these formats open here.
 
-#### R.30 Open from a URL with progressive loading
-**P1 · Phase 5 · Needs:** K.3, K.22 · **Code:** `excellent-core::remote` (Appendix D.4)
+#### Ph5: 6/45 | R.30: Open from a URL with progressive loading
+**P1; Phase 5; Needs:** K.3, K.22; **Code:** `excellent-core::remote` (Appendix D.4)
 1. A custom `fz_stream` (`fz_new_stream`) with `progressive = 1` over an HTTP range-request reader with a block cache.
 2. MuPDF throws `FZ_ERROR_TRYLATER` when data is missing: show a placeholder, fetch the range, retry.
    Linearized files (`pdf_doc_was_linearized`) show page 1 first.
@@ -2675,8 +2724,8 @@ current tile path is what it scrolls. Setting: `auto_scroll_speed`.
 **Done when:** an arXiv PDF shows page 1 before the download finishes.
 **Links:** HTTP range requests <https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests>
 
-#### R.31 Visual search (Google Lens)
-**P2 (parity) · Phase 6 · Needs:** O.23 · **Code:** `excellent-features/lens`
+#### Ph6: 1/13 | R.31: Visual search (Google Lens)
+**P2 (parity); Phase 6; Needs:** O.23; **Code:** `excellent-features/lens`
 1. Select a region (O.23), confirm the upload, then send the rendered PNG to Google Lens in the browser, following
    Enhanced's `src/GoogleLens.cpp`.
 2. Disabled when online features are off.
@@ -2687,8 +2736,8 @@ current tile path is what it scrolls. Setting: `auto_scroll_speed`.
 
 The design is in §11.14 ("How it works", steps 1–7). The plans below are the build order.
 
-#### B.1 Add an outline entry
-**P0 · Phase 1 · Needs:** K.3, K.13 · **Code:** `excellent-core::outline`, `excellent-features/outline`
+#### Ph1: 31/60 | B.1: Add an outline entry
+**P0; Phase 1; Needs:** K.3, K.13; **Code:** `excellent-core::outline`, `excellent-features/outline`
 1. Outline model with stable ids mapped to iterator paths (§11.14, step 4).
 2. Add at the current view: `fz_outline_iterator_insert` with a URI from `fz_format_link_uri` (page, XYZ, zoom).
 3. Add from selection: title is the selected text, destination the top of the selection.
@@ -2705,49 +2754,49 @@ Open: steps 2–4 (adding entries) need K.13, K.14 and K.15; hover preview; the 
 `ids_are_paths_and_find_their_entries`, `the_reader_is_in_the_nearest_entry_before_the_page`,
 `a_chosen_entry_stays_while_it_opens_the_page`, `an_outline_is_read_on_the_workers`.
 
-#### B.2 Rename and delete
-**P0 · Phase 1 · Needs:** B.1 · **Code:** as B.1
+#### Ph1: 32/60 | B.2: Rename and delete
+**P0; Phase 1; Needs:** B.1; **Code:** as B.1
 1. F2 inline rename through `fz_outline_iterator_update`.
 2. Delete with children (`fz_outline_iterator_delete`), or promote children one level first.
 
 **Done when:** undo restores the exact previous outline.
 
-#### B.3 Move entries
-**P0 · Phase 1 · Needs:** B.1 · **Code:** as B.1
+#### Ph1: 33/60 | B.3: Move entries
+**P0; Phase 1; Needs:** B.1; **Code:** as B.1
 1. Move = read the subtree, delete, walk to the target, insert again (§11.14, step 2), as one journal operation.
 2. Drag and drop in NSH `Tree` (before, after, into); Alt+↑ / Alt+↓, Tab / Shift+Tab.
 
 **Done when:** moving a subtree of 500 entries deep in a 10,000-entry outline keeps every child.
 
-#### B.4 Set destination to the current view
-**P0 · Phase 1 · Needs:** B.1 · **Code:** as B.1
+#### Ph1: 34/60 | B.4: Set destination to the current view
+**P0; Phase 1; Needs:** B.1; **Code:** as B.1
 1. Rewrite the entry's URI from the current View; show page and zoom in the inspector.
 
 **Done when:** the repointed entry opens at the new place after save and reopen.
 
-#### B.5 Multi-select, undo and open state
-**P0 · Phase 1 · Needs:** B.2, B.3 · **Code:** as B.1
+#### Ph1: 35/60 | B.5: Multi-select, undo and open state
+**P0; Phase 1; Needs:** B.2, B.3; **Code:** as B.1
 1. Multi-select for delete, move and restyle; each action is one operation.
 2. Save open and closed state (`is_open`) on change.
 
 **Done when:** a multi-entry move undoes in one step.
 
-#### B.6 Personal bookmarks
-**P0 · Phase 1 · Needs:** K.20, K.28 · **Code:** `excellent-features/bookmarks`
+#### Ph1: 36/60 | B.6: Personal bookmarks
+**P0; Phase 1; Needs:** K.20, K.28; **Code:** `excellent-features/bookmarks`
 1. Table `bookmark`: id, file id, anchor (page, offset, zoom, text anchor), title, note, color, tags, created.
 2. Ctrl+D adds; own sidebar tab with search; jump; edit note, color and tags.
 3. Works in every format; re-anchors by text when the file changes (K.28).
 
 **Done when:** bookmarks survive a file rename (found by file identity) and a re-typeset version (K.28).
 
-#### B.7 Bold, italic and color
-**P1 · Phase 3 · Needs:** B.1 · **Code:** as B.1
+#### Ph3: 4/49 | B.7: Bold, italic and color
+**P1; Phase 3; Needs:** B.1; **Code:** as B.1
 1. Set `flags` and `r g b` through `fz_outline_iterator_update`; draw with theme-aware colors as Enhanced does.
 
 **Done when:** styles show the same in Acrobat.
 
-#### B.8 Generate an outline
-**P1 · Phase 5 · Needs:** B.1, K.13 · **Code:** `excellent-features/outline/generate.rs`
+#### Ph5: 7/45 | B.8: Generate an outline
+**P1; Phase 5; Needs:** B.1, K.13; **Code:** `excellent-features/outline/generate.rs`
 1. From headings: font size and weight in structured text, plus Enhanced's numbering rules ("1.2.", "II.A.").
 2. From structure tags, when the PDF is tagged.
 3. One entry per file when combining (O.2).
@@ -2756,35 +2805,35 @@ Open: steps 2–4 (adding entries) need K.13, K.14 and K.15; hover preview; the 
 **Done when:** on 20 untagged books the generated outline matches the printed table of contents for 90 % of
 chapters.
 
-#### B.9 Check destinations
-**P1 · Phase 3 · Needs:** B.1 · **Code:** as B.1
+#### Ph3: 5/49 | B.9: Check destinations
+**P1; Phase 3; Needs:** B.1; **Code:** as B.1
 1. Resolve each entry (`fz_resolve_link_dest`); flag missing pages and empty targets; "fix" repoints to the nearest
    heading or removes the entry.
 
 **Done when:** every broken entry in a test file is found.
 
-#### B.10 Sort, promote and demote between outline and bookmarks
-**P1 · Phase 3 · Needs:** B.1, B.6 · **Code:** as B.1
+#### Ph3: 6/49 | B.10: Sort, promote and demote between outline and bookmarks
+**P1; Phase 3; Needs:** B.1, B.6; **Code:** as B.1
 1. Sort children by page.
 2. Promote a personal bookmark into the outline, and turn an outline entry into a personal bookmark.
 
 **Done when:** both directions keep title and destination.
 
-#### B.11 Import and export
-**P1 · Phase 5 · Needs:** B.1 · **Code:** `excellent-features/outline/io.rs`
+#### Ph5: 8/45 | B.11: Import and export
+**P1; Phase 5; Needs:** B.1; **Code:** `excellent-features/outline/io.rs`
 1. Indented text, JSON and pdftk's `BookmarkBegin` format; copy the outline as Markdown.
 
 **Done when:** export then import round-trips exactly.
 **Links:** pdftk dump_data format <https://www.pdflabs.com/docs/pdftk-man-page/>
 
-#### B.12 Other outline actions
-**P2 · Phase 7 · Needs:** B.1 · **Code:** as B.1
+#### Ph7: 3/32 | B.12: Other outline actions
+**P2; Phase 7; Needs:** B.1; **Code:** as B.1
 1. Show and edit link, file and named actions in the inspector, with an icon in the tree.
 
 **Done when:** an outline entry pointing to another file opens that file at the right page.
 
-#### B.13 Custom outline for non-PDF formats
-**P2 · Phase 5 · Needs:** B.6 · **Code:** sidecar (§9.2)
+#### Ph5: 9/45 | B.13: Custom outline for non-PDF formats
+**P2; Phase 5; Needs:** B.6; **Code:** sidecar (§9.2)
 1. Keep an editable outline in the sidecar for EPUB, CBZ and other read-only formats; shown instead of the built-in one
    when present.
 
@@ -2794,91 +2843,91 @@ chapters.
 
 The design is in §11.15 ("How it works", steps 1–8). It depends on K.5 (Document and View).
 
-#### V.1 Split the current tab
-**P0 · Phase 1 · Needs:** K.5, K.8 · **Code:** `excellent-app::panes`
+#### Ph1: 37/60 | V.1: Split the current tab
+**P0; Phase 1; Needs:** K.5, K.8; **Code:** `excellent-app::panes`
 1. Ctrl+\ (right) and Ctrl+Alt+\ (down) create a new View of the same Document in a new pane, at the same place.
 2. Each pane gets its own canvas instance; tiles are shared through the Document's cache.
 
 **Done when:** the second pane's first frame appears within 50 ms with no re-parse.
 
-#### V.2 Open another file in a pane
-**P0 · Phase 1 · Needs:** V.1, R.11 · **Code:** as V.1
+#### Ph1: 38/60 | V.2: Open another file in a pane
+**P0; Phase 1; Needs:** V.1, R.11; **Code:** as V.1
 1. "Open in split" in the file dialog, recent files and library; drop targets on the four edges of the page area.
 
 **Done when:** dropping a file on the right edge opens it in a new right pane.
 
-#### V.3 Tab groups per pane
-**P0 · Phase 1 · Needs:** V.1, R.12 · **Code:** as V.1
+#### Ph1: 39/60 | V.3: Tab groups per pane
+**P0; Phase 1; Needs:** V.1, R.12; **Code:** as V.1
 1. NSH `DockArea` groups (or `ResizablePanelGroup` plus `Tabs`); drag tabs between groups; "Move to other group".
 
 **Done when:** moving a tab keeps its View state.
 
-#### V.4 Pane layout
-**P0 · Phase 1 (2 panes), P1 (grid of 4) · Needs:** V.3 · **Code:** as V.1
+#### Ph1: 40/60 | V.4: Pane layout
+**P0; Phase 1 (2 panes), P1 (grid of 4); Needs:** V.3; **Code:** as V.1
 1. Side by side, stacked, and a grid of up to four; divider drag; double-click divider to equalize.
 
 **Done when:** layouts are plain data that round-trip through JSON.
 
-#### V.5 Active pane and focus
-**P0 · Phase 1 · Needs:** V.1 · **Code:** as V.1
+#### Ph1: 41/60 | V.5: Active pane and focus
+**P0; Phase 1; Needs:** V.1; **Code:** as V.1
 1. Focus ring in the mode accent; Ctrl+1…Ctrl+4 focus panes; every command acts on the active pane.
 
 **Done when:** keyboard-only users can reach every pane.
 
-#### V.6 Closing panes
-**P0 · Phase 1 · Needs:** V.3 · **Code:** as V.1
+#### Ph1: 42/60 | V.6: Closing panes
+**P0; Phase 1; Needs:** V.3; **Code:** as V.1
 1. Closing a pane moves its tabs to the neighbour or closes them (setting); closing the last View of a dirty
    Document prompts.
 
 **Done when:** closing panes in any order never loses unsaved work (test).
 
-#### V.7 Saving split layouts
-**P0 · Phase 1 · Needs:** V.4, R.9 · **Code:** as V.1
+#### Ph1: 43/60 | V.7: Saving split layouts
+**P0; Phase 1; Needs:** V.4, R.9; **Code:** as V.1
 1. Sessions and workspaces store the layout, each pane's tabs and each View.
 
 **Done when:** a restart restores the exact split.
 
-#### V.8 Synchronized scrolling
-**P1 · Phase 3 · Needs:** V.1 · **Code:** `excellent-app::panes::sync`
+#### Ph3: 7/49 | V.8: Synchronized scrolling
+**P1; Phase 3; Needs:** V.1; **Code:** `excellent-app::panes::sync`
 1. Modes: same page, same relative position, matched page pairs (user marks pairs); zoom sync separate.
 2. Ctrl+Alt+S toggles; off by default.
 
 **Done when:** sync stays aligned across documents with different page sizes.
 
-#### V.9 Open a link in the other pane
-**P1 · Phase 3 · Needs:** V.1, R.7 · **Code:** as V.1
+#### Ph3: 8/49 | V.9: Open a link in the other pane
+**P1; Phase 3; Needs:** V.1, R.7; **Code:** as V.1
 1. Ctrl+click or middle-click on a link, footnote, citation, outline entry or search result opens the target in the
    other pane (creating one if needed).
 
 **Done when:** the reading position in the source pane doesn't move.
 
-#### V.10 Swap, flip and maximize
-**P1 · Phase 3 · Needs:** V.4 · **Code:** as V.1
+#### Ph3: 9/49 | V.10: Swap, flip and maximize
+**P1; Phase 3; Needs:** V.4; **Code:** as V.1
 1. Swap panes; flip side-by-side ↔ stacked; maximize one pane (double-click its tab) and restore.
 
 **Done when:** all three are undoable layout changes.
 
-#### V.11 Pop out to a window
-**P1 · Phase 3 · Needs:** V.3 · **Code:** `excellent-app::windows`
+#### Ph3: 10/49 | V.11: Pop out to a window
+**P1; Phase 3; Needs:** V.3; **Code:** `excellent-app::windows`
 1. Move a tab or group into a new window opened with NSH's `open_window` (v0.5.0); keep its `WindowRef` in the
    window registry; drag the tab back to dock it. All windows share one UI thread, and NSH paces each one's frames.
 
 **Done when:** popped-out tabs keep their View state and share the Document.
 
-#### V.12 Tiling selected tabs
-**P2 · Phase 5 · Needs:** V.4 · **Code:** as V.1
+#### Ph5: 10/45 | V.12: Tiling selected tabs
+**P2; Phase 5; Needs:** V.4; **Code:** as V.1
 1. Multi-select tabs → "Tile" into a grid; "Untile" returns them to one group.
 
 **Done when:** tile and untile round-trip.
 
-#### V.13 Split from the command line
-**P1 · Phase 1 · Needs:** V.2, R.11 · **Code:** `excellent-app::open`
+#### Ph1: 44/60 | V.13: Split from the command line
+**P1; Phase 1; Needs:** V.2, R.11; **Code:** `excellent-app::open`
 1. `excellentpdf --split a.pdf b.pdf` and `--split-same a.pdf`.
 
 **Done when:** both work from a cold start and through the single instance.
 
-#### V.14 Two panes on tablets
-**P1 · Phase 8 · Needs:** V.1, K.11, K.12 · **Code:** as V.1
+#### Ph8: 2/3 | V.14: Two panes on tablets
+**P1; Phase 8; Needs:** V.1, K.11, K.12; **Code:** as V.1
 1. Landscape tablets allow two panes and V.9; phones stay single-pane.
 
 **Done when:** works on iPad and an Android tablet with stylus input going to the pane under the pen.
@@ -2887,90 +2936,90 @@ The design is in §11.15 ("How it works", steps 1–8). It depends on K.5 (Docum
 
 The design is in §11.16 ("How it stays efficient", steps 1–8, and its storage tables).
 
-#### W.1 Workspace switcher
-**P0 · Phase 1 · Needs:** W.14 · **Code:** `excellent-app::workspaces`
+#### Ph1: 45/60 | W.1: Workspace switcher
+**P0; Phase 1; Needs:** W.14; **Code:** `excellent-app::workspaces`
 1. Button at the left of the tab bar (icon and name); popover listing workspaces with color, tab count and dirty dot;
    also in the left rail and the palette.
 
 **Done when:** switching by mouse, keyboard and palette all work.
 
-#### W.2 Create a workspace
-**P0 · Phase 1 · Needs:** W.1 · **Code:** as W.1
+#### Ph1: 46/60 | W.2: Create a workspace
+**P0; Phase 1; Needs:** W.1; **Code:** as W.1
 1. Empty, from all tabs, or from selected tabs ("Move to new workspace").
 
 **Done when:** each way creates the expected tabs.
 
-#### W.3 Edit and delete workspaces
-**P0 · Phase 1 · Needs:** W.1 · **Code:** as W.1
+#### Ph1: 47/60 | W.3: Edit and delete workspaces
+**P0; Phase 1; Needs:** W.1; **Code:** as W.1
 1. Rename, recolor, change icon, reorder by drag; delete asks to close its tabs or move them.
 
 **Done when:** deleting never closes a dirty Document without a prompt.
 
-#### W.4 Move or copy tabs between workspaces
-**P0 · Phase 1 · Needs:** W.1 · **Code:** as W.1
+#### Ph1: 48/60 | W.4: Move or copy tabs between workspaces
+**P0; Phase 1; Needs:** W.1; **Code:** as W.1
 1. Tab context menu, or drag a tab onto the switcher; closed-tab lists are per workspace.
 
 **Done when:** a moved tab keeps its View state.
 
-#### W.5 Workspace shortcuts
-**P0 · Phase 1 · Needs:** W.1, K.16 · **Code:** as W.1
+#### Ph1: 49/60 | W.5: Workspace shortcuts
+**P0; Phase 1; Needs:** W.1, K.16; **Code:** as W.1
 1. Ctrl+Alt+1…9; Ctrl+Alt+PgUp / PgDn.
 
 **Done when:** shortcuts are rebindable (K.16).
 
-#### W.6 Opening a file that is open elsewhere
-**P0 · Phase 1 · Needs:** W.1, K.5 · **Code:** as W.1
+#### Ph1: 50/60 | W.6: Opening a file that is open elsewhere
+**P0; Phase 1; Needs:** W.1, K.5; **Code:** as W.1
 1. New files open in the current workspace; if already open in another, the setting picks "switch there" (default)
    or "open here as well" (shares the Document through the registry).
 
 **Done when:** both settings behave as described.
 
-#### W.7 Restore per window
-**P0 · Phase 1 · Needs:** R.9 · **Code:** as W.1
+#### Ph1: 51/60 | W.7: Restore per window
+**P0; Phase 1; Needs:** R.9; **Code:** as W.1
 1. Each window reopens on its last workspace.
 
 **Done when:** two windows restore two workspaces.
 
-#### W.8 One workspace per window
-**P1 · Phase 3 · Needs:** W.7 · **Code:** as W.1
+#### Ph3: 11/49 | W.8: One workspace per window
+**P1; Phase 3; Needs:** W.7; **Code:** as W.1
 1. "Open workspace in new window" (`open_window`, NSH v0.5.0); a workspace open in one window can't be opened in
    another (focus that window through its `WindowRef` instead).
 
 **Done when:** the rule holds under every open path (test).
 
-#### W.9 Search tabs across workspaces
-**P1 · Phase 3 · Needs:** R.12 · **Code:** as W.1
+#### Ph3: 12/49 | W.9: Search tabs across workspaces
+**P1; Phase 3; Needs:** R.12; **Code:** as W.1
 1. Ctrl+Shift+A lists tabs from every workspace, grouped; Enter switches and focuses.
 
 **Done when:** 5,000 tabs filter as you type within 16 ms.
 
-#### W.10 Workspaces and library collections
-**P1 · Phase 5 · Needs:** F.6 · **Code:** as W.1
+#### Ph5: 11/45 | W.10: Workspaces and library collections
+**P1; Phase 5; Needs:** F.6; **Code:** as W.1
 1. "Open collection as workspace" and "Save workspace as collection".
 
 **Done when:** both directions keep file order.
 
-#### W.11 Export and import
-**P1 · Phase 3 · Needs:** W.1 · **Code:** as W.1
+#### Ph3: 13/49 | W.11: Export and import
+**P1; Phase 3; Needs:** W.1; **Code:** as W.1
 1. JSON with paths relative to a chosen root where possible; missing files show greyed out with "Locate…".
 
 **Done when:** export then import round-trips exactly.
 
-#### W.12 Templates and rules
-**P2 · Phase 5 · Needs:** W.2 · **Code:** as W.1
+#### Ph5: 12/45 | W.12: Templates and rules
+**P2; Phase 5; Needs:** W.2; **Code:** as W.1
 1. Templates (for example "Course": syllabus, textbook, notebook); rules ("files from this folder open in workspace
    X").
 
 **Done when:** a rule routes a newly opened file correctly.
 
-#### W.13 Sync workspaces
-**P2 · Phase 9 · Needs:** Y.1 · **Code:** as W.1
+#### Ph9: 1/13 | W.13: Sync workspaces
+**P2; Phase 9; Needs:** Y.1; **Code:** as W.1
 1. Sync the three workspace tables through folder sync, with paths mapped per device.
 
 **Done when:** a workspace created on one device appears on another.
 
-#### W.14 Lazy restore and hibernation
-**P0 · Phase 1 · Needs:** K.5, K.20 · **Code:** `excellent-app::workspaces::engine`
+#### Ph1: 52/60 | W.14: Lazy restore and hibernation
+**P0; Phase 1; Needs:** K.5, K.20; **Code:** `excellent-app::workspaces::engine`
 1. Inactive tabs are rows of about 1 KB, no open document (§11.16, step 1).
 2. On switch, open only each pane's visible tab; thumbnails for the rest (steps 2, 7).
 3. Warm cache for the last one or two workspaces; hibernate least recently used; never hibernate unsaved work
@@ -2987,8 +3036,8 @@ operation. After changing any property, call `pdf_update_annot` to rebuild the a
 is being edited, hide it from tiles with `pdf_set_annot_hidden_for_editing` and draw it live in the canvas (K.7,
 step 5). Non-PDF formats keep the same model in the sidecar (§9.2).
 
-#### A.1 Text markup: highlight, underline, squiggly, strikeout
-**P0 · Phase 3 · Needs:** K.13, K.14 · **Code:** `excellent-features/annotate/markup.rs`
+#### Ph3: 14/49 | A.1: Text markup: highlight, underline, squiggly, strikeout
+**P0; Phase 3; Needs:** K.13, K.14; **Code:** `excellent-features/annotate/markup.rs`
 1. Selection to quads with `fz_highlight_selection` (K.13).
 2. `pdf_create_annot` with `PDF_ANNOT_HIGHLIGHT`, `UNDERLINE`, `SQUIGGLY` or `STRIKE_OUT`; then
    `pdf_set_annot_quad_points`, `pdf_set_annot_color`, `pdf_set_annot_opacity`.
@@ -2998,69 +3047,69 @@ step 5). Non-PDF formats keep the same model in the sidecar (§9.2).
 **Done when:** markups show correctly in Acrobat, PDF-XChange and pdf.js (K.26); they stay on the text under every
 rotation.
 
-#### A.2 Replace and insert text
-**P0 · Phase 3 · Needs:** A.1 · **Code:** as A.1
+#### Ph3: 15/49 | A.2: Replace and insert text
+**P0; Phase 3; Needs:** A.1; **Code:** as A.1
 1. Insert: a `Caret` annotation at the cursor with the proposed text as contents.
 2. Replace: a strikeout over the selection plus a caret, grouped with `/IRT` and `/RT /Group` (set on
    `pdf_annot_obj` with `pdf_dict_put`), as Acrobat does.
 
 **Done when:** Acrobat shows the pair as one "replace text" comment.
 
-#### A.3 Annotation colors
-**P0 · Phase 3 · Needs:** K.17 · **Code:** `excellent-features/annotate/colors.rs`
+#### Ph3: 16/49 | A.3: Annotation colors
+**P0; Phase 3; Needs:** K.17; **Code:** `excellent-features/annotate/colors.rs`
 1. A default palette per tool from the theme's annotation colors (§10.3); recent colors; NSH `ColorPicker` for custom.
 2. Opacity per tool.
 
 **Done when:** palettes include a color-blind-safe set (U.4).
 
-#### A.4 Notes on highlights
-**P0 · Phase 3 · Needs:** A.1 · **Code:** `excellent-features/annotate/notes.rs`
+#### Ph3: 17/49 | A.4: Notes on highlights
+**P0; Phase 3; Needs:** A.1; **Code:** `excellent-features/annotate/notes.rs`
 1. Contents with `pdf_set_annot_contents`; a popup with `pdf_set_annot_popup` so other readers can open it.
 2. Edit in a popover beside the page (not over it, §7.3) and in the inspector; Markdown-light text stored as plain text.
 
 **Done when:** notes open in other readers' comment panes.
 
-#### A.5 Sticky notes
-**P0 · Phase 3 · Needs:** K.14 · **Code:** as A.4
+#### Ph3: 18/49 | A.5: Sticky notes
+**P0; Phase 3; Needs:** K.14; **Code:** as A.4
 1. `PDF_ANNOT_TEXT` at the click point, `pdf_set_annot_icon_name` (Comment, Note, Help, Insert, Key, Paragraph,
    NewParagraph), `pdf_set_annot_is_open`.
 
 **Done when:** icons and open state match in Acrobat.
 
-#### A.6 Text boxes and typewriter
-**P0 · Phase 3 · Needs:** K.14 · **Code:** `excellent-features/annotate/freetext.rs`
+#### Ph3: 19/49 | A.6: Text boxes and typewriter
+**P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/freetext.rs`
 1. `PDF_ANNOT_FREE_TEXT`; font, size and color with `pdf_set_annot_default_appearance`; alignment; border.
 2. Typewriter: `pdf_set_annot_intent(PDF_ANNOT_IT_FREETEXT_TYPEWRITER)`, no border, fills forms that have no fields.
 3. Editing text in place uses the platform input path (U.8) so input methods work.
 
 **Done when:** text boxes typed in Chinese with an input method save and show in Acrobat.
 
-#### A.7 Callouts with leader lines
-**P0 · Phase 3 · Needs:** A.6 · **Code:** as A.6
+#### Ph3: 20/49 | A.7: Callouts with leader lines
+**P0; Phase 3; Needs:** A.6; **Code:** as A.6
 1. `PDF_ANNOT_IT_FREETEXT_CALLOUT`; `pdf_set_annot_callout_line`, `pdf_set_annot_callout_point`,
    `pdf_set_annot_callout_style`.
 2. Handles for the text box and the arrow tip.
 
 **Done when:** moving the box keeps the tip in place.
 
-#### A.8 Lines and arrows
-**P0 · Phase 3 · Needs:** K.14 · **Code:** `excellent-features/annotate/shapes.rs`
+#### Ph3: 21/49 | A.8: Lines and arrows
+**P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/shapes.rs`
 1. `PDF_ANNOT_LINE`; `pdf_set_annot_line`; ends with `pdf_set_annot_line_ending_styles` (open, closed, circle,
    square, diamond, slash).
 2. Shift snaps to 15° steps.
 
 **Done when:** arrow heads look the same in Acrobat.
 
-#### A.9 Rectangles and ellipses
-**P0 · Phase 3 · Needs:** K.14 · **Code:** as A.8
+#### Ph3: 22/49 | A.9: Rectangles and ellipses
+**P0; Phase 3; Needs:** K.14; **Code:** as A.8
 1. `PDF_ANNOT_SQUARE` and `PDF_ANNOT_CIRCLE`; `pdf_set_annot_rect`, `pdf_set_annot_interior_color`,
    `pdf_set_annot_border_width`, dashes with `pdf_add_annot_border_dash_item`.
 2. Shift draws squares and circles.
 
 **Done when:** fill, border and dash survive a round trip.
 
-#### A.10 Polygons, polylines and clouds
-**P0 · Phase 3 · Needs:** A.8 · **Code:** as A.8
+#### Ph3: 23/49 | A.10: Polygons, polylines and clouds
+**P0; Phase 3; Needs:** A.8; **Code:** as A.8
 1. `PDF_ANNOT_POLYGON` and `PDF_ANNOT_POLY_LINE` with `pdf_set_annot_vertices` (or `pdf_add_annot_vertex` while
    drawing); double-click finishes.
 2. Clouds: `pdf_set_annot_border_effect(PDF_BORDER_EFFECT_CLOUDY)` and `pdf_set_annot_border_effect_intensity`.
@@ -3068,8 +3117,8 @@ rotation.
 
 **Done when:** clouds render the same in Acrobat.
 
-#### A.11 Margin notes and anchored note cards
-**P0 · Phase 3 · Needs:** A.4, K.28 · **Code:** `excellent-features/annotate/margin.rs`
+#### Ph3: 24/49 | A.11: Margin notes and anchored note cards
+**P0; Phase 3; Needs:** A.4, K.28; **Code:** `excellent-features/annotate/margin.rs`
 1. A margin column beside the page (canvas overlay) showing each annotation's note as a card, aligned with its
    anchor and pushed apart when they overlap.
 2. Cards are edited in place; clicking a card selects its annotation.
@@ -3077,24 +3126,24 @@ rotation.
 
 **Done when:** 200 notes on one page lay out without overlap within one frame.
 
-#### A.12 Annotation inspector
-**P0 · Phase 3 · Needs:** K.14 · **Code:** `excellent-features/annotate/inspector.rs`
+#### Ph3: 25/49 | A.12: Annotation inspector
+**P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/inspector.rs`
 1. Right panel: type, author, dates, color, opacity, border, font, contents, category (A.17), tags (A.18), layer
    (A.22), lock.
 2. Multi-selection edits shared properties.
 
 **Done when:** every property set here is visible in the next frame and undoable.
 
-#### A.13 Select, move, resize, copy, paste and delete
-**P0 · Phase 3 · Needs:** K.14 · **Code:** `excellent-features/annotate/edit.rs`
+#### Ph3: 26/49 | A.13: Select, move, resize, copy, paste and delete
+**P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/edit.rs`
 1. Hit-test annotations in the canvas; handles for move, resize and vertices; marquee and Ctrl-click multi-select.
 2. Copy and paste within and across documents (internal clipboard format plus an image and text fallback).
 3. Arrow keys nudge; Delete removes; lock prevents changes (`pdf_set_annot_flags` with the locked flag).
 
 **Done when:** pasting into another document keeps type, style and contents.
 
-#### A.14 Annotation list with filter and search
-**P0 · Phase 3 · Needs:** K.14 · **Code:** `excellent-features/annotate/list.rs`
+#### Ph3: 27/49 | A.14: Annotation list with filter and search
+**P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/list.rs`
 1. Sidebar tab with NSH `virtual_list`: one row per annotation (type icon, color, text, page), grouped by page.
 2. Filter by type and color; search in contents and marked text (as Enhanced's `src/AnnotSearch.cpp` and
    `src/AnnotFilterToolbar.cpp`).
@@ -3102,44 +3151,44 @@ rotation.
 
 **Done when:** 10,000 annotations filter as you type within 16 ms.
 
-#### A.15 Annotation recovery
-**P0 (parity) · Phase 3 · Needs:** K.15 · **Code:** `excellent-core::save`
+#### Ph3: 28/49 | A.15: Annotation recovery
+**P0 (parity); Phase 3; Needs:** K.15; **Code:** `excellent-core::save`
 1. Enhanced's recovery (`src/AnnotRecovery.cpp`) is replaced by K.15's log replay; add a "Recovered changes" bar that
    lists what was restored and lets the user keep or discard it.
 
 **Done when:** killing the app after drawing ten annotations restores all ten on restart.
 
-#### A.16 Transfer annotations to another version
-**P1 (parity) · Phase 3 · Needs:** K.28 · **Code:** `excellent-features/annotate/transfer.rs`
+#### Ph3: 29/49 | A.16: Transfer annotations to another version
+**P1 (parity); Phase 3; Needs:** K.28; **Code:** `excellent-features/annotate/transfer.rs`
 1. Pick a source and target document; re-anchor each annotation by text (K.28); show a review list (placed, moved,
    orphaned) before applying.
 2. Port the ideas of Enhanced's `src/AnnotationTransfer.cpp`.
 
 **Done when:** transferring from a preprint to the published version places 95 % of highlights correctly.
 
-#### A.17 Semantic categories
-**P1 · Phase 3 · Needs:** A.12 · **Code:** `excellent-features/annotate/categories.rs`
+#### Ph3: 30/49 | A.17: Semantic categories
+**P1; Phase 3; Needs:** A.12; **Code:** `excellent-features/annotate/categories.rs`
 1. Categories (claim, evidence, question, definition, method, result, to-do) each with a color and icon; stored in a
    private key on the annotation and in the sidecar.
 2. Pick from the selection toolbar; filter and export by category.
 
 **Done when:** categories survive save and reopen and show in A.26 reports.
 
-#### A.18 Tags on annotations
-**P1 · Phase 3 · Needs:** A.12, K.20 · **Code:** as A.17
+#### Ph3: 31/49 | A.18: Tags on annotations
+**P1; Phase 3; Needs:** A.12, K.20; **Code:** as A.17
 1. Free-form tags stored on the annotation (private key) and indexed in `library.db` for library-wide search (F.3).
 
 **Done when:** `tag:` search (F.4) finds tagged annotations across documents.
 
-#### A.19 Filters by color, tag, author and date
-**P1 · Phase 3 · Needs:** A.14, A.18 · **Code:** as A.14
+#### Ph3: 32/49 | A.19: Filters by color, tag, author and date
+**P1; Phase 3; Needs:** A.14, A.18; **Code:** as A.14
 1. Filter chips in the list; "show only matching" also hides the others on the page (render with annotations
    filtered).
 
 **Done when:** filters combine with AND and are saved per document.
 
-#### A.20 Stamps library with dynamic fields
-**P1 · Phase 3 · Needs:** K.14 · **Code:** `excellent-features/annotate/stamps.rs`
+#### Ph3: 33/49 | A.20: Stamps library with dynamic fields
+**P1; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/stamps.rs`
 1. Standard stamps: `PDF_ANNOT_STAMP` with `pdf_set_annot_icon_name` (Approved, Draft, Confidential…).
 2. Image stamps: `pdf_set_annot_stamp_image`; custom vector stamps: appearance from a display list
    (`pdf_set_annot_appearance_from_display_list`).
@@ -3148,16 +3197,16 @@ rotation.
 
 **Done when:** stamps look the same in Acrobat; dynamic fields show the placement time.
 
-#### A.21 Comment threads with replies and resolve
-**P1 · Phase 3 · Needs:** A.4 · **Code:** `excellent-features/annotate/threads.rs`
+#### Ph3: 34/49 | A.21: Comment threads with replies and resolve
+**P1; Phase 3; Needs:** A.4; **Code:** `excellent-features/annotate/threads.rs`
 1. A reply is a `Text` annotation with `/IRT` pointing to its parent and no visible icon.
 2. Status (accepted, rejected, cancelled, completed) as a reply with `/State` and `/StateModel /Review`.
 3. Thread view in the inspector and in the list (A.14).
 
 **Done when:** threads and states show in Acrobat's comment pane, and Acrobat's replies show here.
 
-#### A.22 Annotation layers by person or purpose
-**P1 · Phase 3 · Needs:** A.12 · **Code:** `excellent-features/annotate/layers.rs`
+#### Ph3: 35/49 | A.22: Annotation layers by person or purpose
+**P1; Phase 3; Needs:** A.12; **Code:** `excellent-features/annotate/layers.rs`
 1. Create optional content groups in `/OCProperties` (MuPDF has no helper, so write the dictionaries with
    `pdf_dict_put`) and set each annotation's `/OC`.
 2. Layer panel: show, hide, lock; MuPDF reads visibility through `pdf_enable_layer` and `pdf_layer_is_enabled`.
@@ -3165,8 +3214,8 @@ rotation.
 
 **Done when:** hiding a layer here hides it in Acrobat's layers panel too.
 
-#### A.23 Measurement
-**P1 · Phase 7 · Needs:** A.8, A.10 · **Code:** `excellent-features/measure`
+#### Ph7: 4/32 | A.23: Measurement
+**P1; Phase 7; Needs:** A.8, A.10; **Code:** `excellent-features/measure`
 1. Tools: distance (`PDF_ANNOT_IT_LINE_DIMENSION`), perimeter (`PDF_ANNOT_IT_POLYLINE_DIMENSION`), area
    (`PDF_ANNOT_IT_POLYGON_DIMENSION`), angle.
 2. Scale: read the page's viewport `/VP` and `/Measure` dictionaries when present; otherwise calibrate by drawing a
@@ -3176,8 +3225,8 @@ rotation.
 
 **Done when:** measurements match Acrobat's on calibrated CAD files within 0.5 %.
 
-#### A.24 XFDF and FDF import and export
-**P1 · Phase 3 · Needs:** K.14 · **Code:** `excellent-features/annotate/xfdf.rs`
+#### Ph3: 36/49 | A.24: XFDF and FDF import and export
+**P1; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/xfdf.rs`
 1. Write and parse XFDF in Rust (`quick-xml`); consider reusing PdfCraft's XFDF code (Appendix C.5).
 2. FDF: MuPDF can open FDF files (`is_fdf`); map their `/Annots` into the document.
 3. Import merges by `/NM`: same id updates, new id adds.
@@ -3185,29 +3234,29 @@ rotation.
 **Done when:** XFDF exported here imports into Acrobat and back without loss.
 **Links:** XFDF is ISO 19444-1; quick-xml <https://github.com/tafia/quick-xml>
 
-#### A.25 Flatten on export
-**P1 · Phase 3 · Needs:** K.15 · **Code:** `excellent-features/annotate/flatten.rs`
+#### Ph3: 37/49 | A.25: Flatten on export
+**P1; Phase 3; Needs:** K.15; **Code:** `excellent-features/annotate/flatten.rs`
 1. "Export flattened copy": save a copy, then `pdf_bake_document(ctx, doc, bake_annots = 1, bake_widgets = 0 or 1)`;
    never flatten the open original.
 
 **Done when:** a flattened copy shows the same pixels and has no annotations left.
 
-#### A.26 Annotation reports
-**P2 · Phase 5 · Needs:** A.14 · **Code:** `excellent-features/annotate/report.rs`
+#### Ph5: 13/45 | A.26: Annotation reports
+**P2; Phase 5; Needs:** A.14; **Code:** `excellent-features/annotate/report.rs`
 1. Export all or filtered annotations as Markdown, HTML, CSV or PDF summary, with page, quote, note, category and a
    small page crop.
 
 **Done when:** the Markdown report links back to each page (F.13 deep links).
 
-#### A.27 Annotation history timeline
-**P2 · Phase 5 · Needs:** K.14 · **Code:** `excellent-features/annotate/history.rs`
+#### Ph5: 14/45 | A.27: Annotation history timeline
+**P2; Phase 5; Needs:** K.14; **Code:** `excellent-features/annotate/history.rs`
 1. Read the operation log (K.14): a timeline of who changed what and when; scrub to see the document at a time.
 2. Restore one annotation, or the whole document, to an earlier state as a new operation.
 
 **Done when:** restoring an annotation deleted a week ago works.
 
-#### A.28 W3C Web Annotation export
-**P1 · Phase 3 · Needs:** K.28 · **Code:** `excellent-features/annotate/w3c.rs`
+#### Ph3: 38/49 | A.28: W3C Web Annotation export
+**P1; Phase 3; Needs:** K.28; **Code:** `excellent-features/annotate/w3c.rs`
 1. Export and import annotations as W3C Web Annotation JSON-LD with text-quote and text-position selectors.
 
 **Done when:** exported JSON validates against the model's JSON-LD context.
@@ -3218,8 +3267,8 @@ rotation.
 The pipeline is in §8. Ink lives in `crates/excellent-ink` (model, smoothing, outlines) and the platform canvases
 (K.8–K.12, capture and same-frame preview).
 
-#### H.1 Ink capture and stroke pipeline
-**P0 · Phase 0 spike, Phase 3 build · Needs:** K.8 · **Code:** `excellent-ink`, canvas crates · task T8
+#### Ph0: 13/13 | H.1: Ink capture and stroke pipeline
+**P0; Phase 0 spike, Phase 3 build; Needs:** K.8; **Code:** `excellent-ink`, canvas crates; task T8
 1. Capture every sample, coalesced ones included: position, pressure, tilt, azimuth, timestamp, tool (§8.2, step 1).
 2. Same-frame preview on the canvas's own surface (step 2); prediction (step 3); Catmull-Rom smoothing to Béziers
    (step 4).
@@ -3232,58 +3281,58 @@ pen logging), `src/AnnotPlacement.cpp` (`AddInkPressure`: Enhanced keeps the str
 annotation has one width; we keep per-point widths, §8.3).
 **Links:** Windows pointer input <https://learn.microsoft.com/en-us/windows/win32/inputmsg/wm-pointerupdate>
 
-#### H.2 Pen types
-**P0 · Phase 3 · Needs:** H.1 · **Code:** `excellent-ink::pens`
+#### Ph3: 39/49 | H.2: Pen types
+**P0; Phase 3; Needs:** H.1; **Code:** `excellent-ink::pens`
 1. Fountain pen, ballpoint, pencil (grain texture, tilt shading), brush, calligraphy (nib angle), marker; each a
    preset of width curve, smoothing, texture and blend.
 2. Port nib behaviour from Enhanced's pen tools where it exists (`src/Canvas.cpp` and the `Canvas_UnitTest*` tests).
 
 **Done when:** each pen has a recorded-session golden image test.
 
-#### H.3 Highlighter pen
-**P0 · Phase 3 · Needs:** H.2 · **Code:** as H.2
+#### Ph3: 40/49 | H.3: Highlighter pen
+**P0; Phase 3; Needs:** H.2; **Code:** as H.2
 1. Wide translucent stroke with blend mode Multiply in the appearance stream; optional snap to text lines (K.13).
 
 **Done when:** text under the highlighter stays fully readable in light and dark mode.
 
-#### H.4 Tape
-**P1 · Phase 4 · Needs:** H.2 · **Code:** `excellent-ink::tape`
+#### Ph4: 3/44 | H.4: Tape
+**P1; Phase 4; Needs:** H.2; **Code:** `excellent-ink::tape`
 1. An opaque strip that hides what is under it; tap to reveal or hide (for self-testing); saved as a Square
    annotation with a private "tape" key, so other readers show a plain bar.
 
 **Done when:** tape toggles with one tap and survives save.
 
-#### H.5 Erasers
-**P0 · Phase 3 · Needs:** H.1 · **Code:** `excellent-ink::erase`
+#### Ph3: 41/49 | H.5: Erasers
+**P0; Phase 3; Needs:** H.1; **Code:** `excellent-ink::erase`
 1. Stroke eraser (removes whole strokes it touches), area eraser (splits strokes at the eraser outline),
    highlighter-only eraser.
 2. The stylus's eraser end selects the eraser automatically (pointer flags on each platform).
 
 **Done when:** area-erasing through a stroke leaves two correct strokes, both undoable in one step.
 
-#### H.6 Lasso
-**P0 · Phase 3 · Needs:** H.5, A.13 · **Code:** `excellent-ink::lasso`
+#### Ph3: 42/49 | H.6: Lasso
+**P0; Phase 3; Needs:** H.5, A.13; **Code:** `excellent-ink::lasso`
 1. Freeform or rectangle lasso (Enhanced's `LassoRectangular`) selects strokes and annotations inside the path.
 2. Move, resize, rotate, duplicate, recolor, change width, delete, copy as image, convert to text (H.24).
 3. Port Enhanced's lasso geometry tests.
 
 **Done when:** a lasso move of 1,000 strokes stays at 60 fps.
 
-#### H.7 Favourite pens bar and presets
-**P0 · Phase 3 · Needs:** H.2 · **Code:** `excellent-features/ink/favorites.rs`
+#### Ph3: 43/49 | H.7: Favourite pens bar and presets
+**P0; Phase 3; Needs:** H.2; **Code:** `excellent-features/ink/favorites.rs`
 1. A bar of saved pens (type, color, width, curve); drag to reorder; export and import as JSON.
 
 **Done when:** the bar syncs through settings (Y.2).
 
-#### H.8 Palm rejection and "finger draws"
-**P0 · Phase 3 · Needs:** H.1 · **Code:** `excellent-canvas::gestures`
+#### Ph3: 44/49 | H.8: Palm rejection and "finger draws"
+**P0; Phase 3; Needs:** H.1; **Code:** `excellent-canvas::gestures`
 1. While a pen is in range or down, ignore touches; ignore large contact areas.
 2. "Finger draws" toggle; otherwise fingers pan and zoom.
 
 **Done when:** writing with the hand resting on a touch screen leaves no stray marks in a recorded test.
 
-#### H.9 Save ink as standard PDF
-**P0 · Phase 3 · Needs:** H.1, K.14 · **Code:** `excellent-ink::pdf`
+#### Ph3: 45/49 | H.9: Save ink as standard PDF
+**P0; Phase 3; Needs:** H.1, K.14; **Code:** `excellent-ink::pdf`
 1. InkList with `pdf_add_annot_ink_list` (smoothed points) (§8.3).
 2. Constant-width pens: `pdf_update_annot`. Pressure pens: the outline as a filled Bézier path in a display list,
    attached with `pdf_set_annot_appearance_from_display_list`.
@@ -3291,8 +3340,8 @@ annotation has one width; we keep per-point widths, §8.3).
 
 **Done when:** ink looks identical in Acrobat, PDF-XChange and pdf.js (K.26).
 
-#### H.10 Shape recognition (hold to snap)
-**P1 · Phase 3 · Needs:** H.1 · **Code:** `excellent-ink::shapes`
+#### Ph3: 46/49 | H.10: Shape recognition (hold to snap)
+**P1; Phase 3; Needs:** H.1; **Code:** `excellent-ink::shapes`
 1. When the pen stays still for 500 ms at the end of a stroke, fit: line, arrow, rectangle, triangle, polygon (corner
    detection with Douglas–Peucker), circle and ellipse (least squares).
 2. Replace the stroke with the fitted shape if the error is under a threshold; keep pen style.
@@ -3300,85 +3349,85 @@ annotation has one width; we keep per-point widths, §8.3).
 **Done when:** recognition accuracy is at least 95 % on a recorded set of 500 shapes.
 **Links:** $-family recognizers <https://depts.washington.edu/acelab/proj/dollar/index.html>
 
-#### H.11 Ruler, protractor and compass
-**P1 · Phase 4 · Needs:** H.1 · **Code:** `excellent-ink::guides`
+#### Ph4: 4/44 | H.11: Ruler, protractor and compass
+**P1; Phase 4; Needs:** H.1; **Code:** `excellent-ink::guides`
 1. On-canvas guides moved with two fingers or the mouse; strokes near the ruler edge snap to it; angle and length
    readouts.
 
 **Done when:** a stroke along the ruler is exactly straight.
 
-#### H.12 Zoom writing pad
-**P1 · Phase 4 · Needs:** H.1 · **Code:** `excellent-features/ink/zoompad.rs`
+#### Ph4: 5/44 | H.12: Zoom writing pad
+**P1; Phase 4; Needs:** H.1; **Code:** `excellent-features/ink/zoompad.rs`
 1. A magnified strip at the bottom; writing in it lands small in a moving box on the page; auto-advance at the end
    of a line.
 
 **Done when:** writing a paragraph in the pad needs no manual box moves.
 
-#### H.13 Handwriting straightening
-**P1 · Phase 4 · Needs:** H.6 · **Code:** `excellent-ink::straighten`
+#### Ph4: 6/44 | H.13: Handwriting straightening
+**P1; Phase 4; Needs:** H.6; **Code:** `excellent-ink::straighten`
 1. For a selection of handwriting: find each line's baseline (regression on stroke bottoms) and rotate and shift
    strokes to level, keeping their shapes.
 
 **Done when:** a sloped paragraph becomes level without changing letter shapes.
 
-#### H.14 Layers
-**P1 · Phase 4 · Needs:** A.22 · **Code:** `excellent-features/ink/layers.rs`
+#### Ph4: 7/44 | H.14: Layers
+**P1; Phase 4; Needs:** A.22; **Code:** `excellent-features/ink/layers.rs`
 1. Fixed kinds (ink, highlights, text, images) plus user layers; show, hide, lock; implemented with A.22's optional
    content groups.
 
 **Done when:** locked layers can't be selected or erased.
 
-#### H.15 Bulk restyle
-**P1 · Phase 4 · Needs:** H.6 · **Code:** as H.6
+#### Ph4: 8/44 | H.15: Bulk restyle
+**P1; Phase 4; Needs:** H.6; **Code:** as H.6
 1. Change color, width or pen type for all selected strokes, or all strokes matching a filter (for example "all red
    ink on this page").
 
 **Done when:** one undo reverts the whole restyle.
 
-#### H.16 Fill and gradients
-**P1 · Phase 4 · Needs:** H.6 · **Code:** `excellent-ink::fill`
+#### Ph4: 9/44 | H.16: Fill and gradients
+**P1; Phase 4; Needs:** H.6; **Code:** `excellent-ink::fill`
 1. Fill a closed stroke or shape with a solid color or a linear or radial gradient, written in the appearance stream.
 
 **Done when:** fills show the same in Acrobat.
 
-#### H.17 Eyedropper
-**P1 · Phase 4 · Needs:** H.2 · **Code:** `excellent-features/ink/eyedropper.rs`
+#### Ph4: 10/44 | H.17: Eyedropper
+**P1; Phase 4; Needs:** H.2; **Code:** `excellent-features/ink/eyedropper.rs`
 1. Pick a color from the rendered page or any annotation.
 
 **Done when:** the picked color is exact (from the pixmap, before dark mode).
 
-#### H.18 Saved palettes
-**P1 · Phase 4 · Needs:** A.3 · **Code:** `excellent-features/ink/palettes.rs`
+#### Ph4: 11/44 | H.18: Saved palettes
+**P1; Phase 4; Needs:** A.3; **Code:** `excellent-features/ink/palettes.rs`
 1. Built-in palettes (pastel, neon, earth, color-blind-safe) and user palettes, shared as small files.
 
 **Done when:** palettes import and export.
 
-#### H.19 Handwriting beautify
-**P2 · Phase 5 · Needs:** H.13 · **Code:** `excellent-ink::beautify`
+#### Ph5: 15/45 | H.19: Handwriting beautify
+**P2; Phase 5; Needs:** H.13; **Code:** `excellent-ink::beautify`
 1. Smooth jitter, even out letter size and spacing within a line, with a strength slider; reversible.
 
 **Done when:** text stays recognizable to H.24 after beautifying.
 
-#### H.20 Pattern brushes
-**P2 · Phase 5 · Needs:** H.2 · **Code:** `excellent-ink::brushes`
+#### Ph5: 16/45 | H.20: Pattern brushes
+**P2; Phase 5; Needs:** H.2; **Code:** `excellent-ink::brushes`
 1. Brushes that repeat a small vector pattern along the path; appearance as repeated paths.
 
 **Done when:** pattern strokes render the same in other readers.
 
-#### H.21 Symmetry
-**P2 · Phase 5 · Needs:** H.1 · **Code:** `excellent-ink::symmetry`
+#### Ph5: 17/45 | H.21: Symmetry
+**P2; Phase 5; Needs:** H.1; **Code:** `excellent-ink::symmetry`
 1. Mirror strokes across a vertical, horizontal or radial axis while drawing.
 
 **Done when:** mirrored strokes are saved as separate ink.
 
-#### H.22 Stroke replay
-**P2 · Phase 4 · Needs:** H.9, K.14 · **Code:** `excellent-features/ink/replay.rs`
+#### Ph4: 12/44 | H.22: Stroke replay
+**P2; Phase 4; Needs:** H.9, K.14; **Code:** `excellent-features/ink/replay.rs`
 1. Replay a page's ink in the order and timing it was written (from the raw samples), with play, pause and speed.
 
 **Done when:** replay timing matches the recording.
 
-#### H.23 Searchable handwriting index
-**P0 · Phase 5 · Needs:** H.9, F.3 · **Code:** `excellent-features/handwriting/index.rs`
+#### Ph5: 18/45 | H.23: Searchable handwriting index
+**P0; Phase 5; Needs:** H.9, F.3; **Code:** `excellent-features/handwriting/index.rs`
 1. A `Recognizer` trait with back ends: Windows ink analysis (`Windows.UI.Input.Inking.Analysis.InkAnalyzer` through
    the `windows` crate), Apple Vision text recognition on rendered strokes (macOS, iPad), ML Kit Digital Ink on
    Android, and an ONNX model pack for Linux and as a fallback. Choose and measure in a spike.
@@ -3390,14 +3439,14 @@ annotation has one width; we keep per-point widths, §8.3).
 ML Kit Digital Ink <https://developers.google.com/ml-kit/vision/digital-ink-recognition>; Apple Vision
 <https://developer.apple.com/documentation/vision>
 
-#### H.24 Convert handwriting to text
-**P1 · Phase 5 · Needs:** H.23, H.6 · **Code:** `excellent-features/handwriting/convert.rs`
+#### Ph5: 19/45 | H.24: Convert handwriting to text
+**P1; Phase 5; Needs:** H.23, H.6; **Code:** `excellent-features/handwriting/convert.rs`
 1. Lasso → recognize → show candidates → replace with a FreeText annotation (A.6) or copy as text.
 
 **Done when:** conversion keeps position and line breaks.
 
-#### H.25 Math to LaTeX
-**P1 · Phase 6 · Needs:** H.6, K.21 · **Code:** `excellent-features/handwriting/math.rs`
+#### Ph6: 2/13 | H.25: Math to LaTeX
+**P1; Phase 6; Needs:** H.6, K.21; **Code:** `excellent-features/handwriting/math.rs`
 1. Lasso → render to image → an image-to-LaTeX ONNX model pack (for example pix2tex) → LaTeX shown and rendered for
    confirmation; insert as text, or copy.
 
@@ -3405,16 +3454,16 @@ ML Kit Digital Ink <https://developers.google.com/ml-kit/vision/digital-ink-reco
 **Links:** LaTeX-OCR (pix2tex) <https://github.com/lukas-blecher/LaTeX-OCR>; ort (ONNX Runtime for Rust)
 <https://github.com/pykeio/ort>
 
-#### H.26 Convert shapes to vectors
-**P1 · Phase 4 · Needs:** H.10 · **Code:** as H.10
+#### Ph4: 13/44 | H.26: Convert shapes to vectors
+**P1; Phase 4; Needs:** H.10; **Code:** as H.10
 1. Lasso → convert recognized strokes into Line, Square, Circle and Polygon annotations (A.8–A.10).
 
 **Done when:** converted shapes are editable with A.13 handles.
 
 ### 27.8 Notebooks and notes (N)
 
-#### N.1 Blank notebooks with procedural paper
-**P0 · Phase 4 · Needs:** N.4, K.8 · **Code:** `excellent-features/notebook/paper.rs`
+#### Ph4: 14/44 | N.1: Blank notebooks with procedural paper
+**P0; Phase 4; Needs:** N.4, K.8; **Code:** `excellent-features/notebook/paper.rs`
 1. Templates as small parameter sets (blank, lined, college-ruled, grid, dot, Cornell, music, graph, isometric,
    planner): spacing, margins, colors.
 2. The canvas draws the template under the page (not in tiles), so it costs no file size.
@@ -3423,24 +3472,24 @@ ML Kit Digital Ink <https://developers.google.com/ml-kit/vision/digital-ink-reco
 
 **Done when:** templates look identical on screen and in an exported PDF.
 
-#### N.2 Insert pages anywhere
-**P0 · Phase 4 · Needs:** K.14 · **Code:** `excellent-features/notebook/pages.rs`
+#### Ph4: 15/44 | N.2: Insert pages anywhere
+**P0; Phase 4; Needs:** K.14; **Code:** `excellent-features/notebook/pages.rs`
 1. "Insert page before / after" in PDFs and notebooks: blank, template (N.1), or copy of the current page size.
 2. PDF: `pdf_add_page` then `pdf_insert_page`; the page's template id goes in the sidecar. The full page organizer
    (O.1) comes later and reuses this code.
 
 **Done when:** inserted pages show in other readers, and the outline still points to the right pages (§11.14, step 5).
 
-#### N.3 Expand margins
-**P0 · Phase 4 · Needs:** K.14 · **Code:** as N.2
+#### Ph4: 16/44 | N.3: Expand margins
+**P0; Phase 4; Needs:** K.14; **Code:** as N.2
 1. Grow the page's MediaBox and CropBox on one or more sides with `pdf_set_page_box`, so annotations can sit beside
    the content; the content stays where it is.
 2. "Remove added margins" restores the original boxes (stored in a private key).
 
 **Done when:** notes written in the margin show in Acrobat; removing margins restores the original boxes exactly.
 
-#### N.4 Notebook format (`.expdf`) and export to PDF
-**P0 · Phase 4 · Needs:** K.15 · **Code:** `excellent-core::notebook`
+#### Ph4: 17/44 | N.4: Notebook format (`.expdf`) and export to PDF
+**P0; Phase 4; Needs:** K.15; **Code:** `excellent-core::notebook`
 1. A zip (`zip` crate): `document.pdf`, `notebook.json` (version, pages with template ids, sections, links, audio
    references), `assets/` (audio, images).
 2. Open by reading `document.pdf` into memory and opening it with `fz_open_document_with_stream`.
@@ -3452,8 +3501,8 @@ ML Kit Digital Ink <https://developers.google.com/ml-kit/vision/digital-ink-reco
 **Done when:** a notebook round-trips; its exported PDF opens everywhere.
 **Links:** zip crate <https://github.com/zip-rs/zip2>
 
-#### N.5 Infinite canvas pages and whiteboards
-**P1 · Phase 4 · Needs:** N.4, H.1 · **Code:** `excellent-features/notebook/infinite.rs`
+#### Ph4: 18/44 | N.5: Infinite canvas pages and whiteboards
+**P1; Phase 4; Needs:** N.4, H.1; **Code:** `excellent-features/notebook/infinite.rs`
 1. A page kind with no fixed size: content coordinates in a large space; the page box grows to the content's bounds
    on save.
 2. Pan and zoom freely; minimap (R.17) for orientation.
@@ -3461,8 +3510,8 @@ ML Kit Digital Ink <https://developers.google.com/ml-kit/vision/digital-ink-reco
 
 **Done when:** drawing far from the origin keeps full precision; export keeps every stroke.
 
-#### N.6 Typed text blocks
-**P1 · Phase 4 · Needs:** N.4, U.8 · **Code:** `excellent-features/notebook/textblocks.rs`
+#### Ph4: 19/44 | N.6: Typed text blocks
+**P1; Phase 4; Needs:** N.4, U.8; **Code:** `excellent-features/notebook/textblocks.rs`
 1. Blocks drawn and edited inside the canvas (NSH views can't sit over the canvas on Windows, §7.3): shaping, layout
    and editing with `cosmic-text`; input methods through U.8.
 2. Block kinds: paragraph, heading, list, checkbox, code, table.
@@ -3472,30 +3521,30 @@ ML Kit Digital Ink <https://developers.google.com/ml-kit/vision/digital-ink-reco
 **Done when:** blocks show readable text in other readers and full structure here.
 **Links:** cosmic-text <https://github.com/pop-os/cosmic-text>
 
-#### N.7 Images, stickers and sticky notes on pages
-**P1 · Phase 4 · Needs:** A.20 · **Code:** `excellent-features/notebook/media.rs`
+#### Ph4: 20/44 | N.7: Images, stickers and sticky notes on pages
+**P1; Phase 4; Needs:** A.20; **Code:** `excellent-features/notebook/media.rs`
 1. Insert images (file, clipboard, camera on tablets) as image stamps (`pdf_set_annot_stamp_image`); stickers come
    from a pack (K.21) and are inserted the same way.
 2. Move, resize, rotate, crop with A.13 handles.
 
 **Done when:** images show in other readers at the same size and place.
 
-#### N.8 Covers and sections
-**P1 · Phase 4 · Needs:** N.4, B.1 · **Code:** `excellent-features/notebook/sections.rs`
+#### Ph4: 21/44 | N.8: Covers and sections
+**P1; Phase 4; Needs:** N.4, B.1; **Code:** `excellent-features/notebook/sections.rs`
 1. Cover page (template or image); sections as outline entries (B.1) plus a colored tab strip beside the page.
 2. Reorder sections by drag (moves their pages with `pdf_rearrange_pages`).
 
 **Done when:** sections export as PDF bookmarks.
 
-#### N.9 Links between pages
-**P1 · Phase 4 · Needs:** R.7 · **Code:** `excellent-features/notebook/links.rs`
+#### Ph4: 22/44 | N.9: Links between pages
+**P1; Phase 4; Needs:** R.7; **Code:** `excellent-features/notebook/links.rs`
 1. Select text or a region → "Link to page…" → a Link annotation with `pdf_create_link` and an internal destination.
 2. Links to other notebooks and documents use deep links (F.13).
 
 **Done when:** links work in exported PDFs.
 
-#### N.10 Quick note from a global shortcut
-**P1 · Phase 4 · Needs:** N.4, K.19 · **Code:** `excellent-app::quicknote`
+#### Ph4: 23/44 | N.10: Quick note from a global shortcut
+**P1; Phase 4; Needs:** N.4, K.19; **Code:** `excellent-app::quicknote`
 1. A system-wide shortcut registered with NSH's `register_global_shortcut` (v0.5.0, `nsh_core::element::desktop`)
    opens a small window (`open_window`) with a new page in an "Inbox" notebook. If the shortcut is taken (the call
    answers false), say so in settings and let the user pick another.
@@ -3504,28 +3553,28 @@ ML Kit Digital Ink <https://developers.google.com/ml-kit/vision/digital-ink-reco
 **Done when:** the shortcut opens a writable page within 300 ms.
 **Links:** NSH commit "Give Rust apps the tray and global shortcuts" <https://github.com/longbridge/nsh/pull/1562>
 
-#### N.11 Planners and calendars
-**P2 · Phase 5 · Needs:** N.12, N.9 · **Code:** `excellent-features/notebook/planner.rs`
+#### Ph5: 20/45 | N.11: Planners and calendars
+**P2; Phase 5; Needs:** N.12, N.9; **Code:** `excellent-features/notebook/planner.rs`
 1. Generate a planner for a chosen year: year, month, week and day pages with links between them (N.9).
 2. Optional due dates from S.14 shown on day pages.
 
 **Done when:** a generated year planner's links all work in other readers.
 
-#### N.12 Template packs
-**P2 · Phase 5 · Needs:** K.21, N.1 · **Code:** `packs/templates/`
+#### Ph5: 21/45 | N.12: Template packs
+**P2; Phase 5; Needs:** K.21, N.1; **Code:** `packs/templates/`
 1. Packs of template parameter files and PDF backgrounds; browse, preview and install from the notebook dialog.
 
 **Done when:** installing and removing a pack updates the template list without a restart.
 
-#### N.13 Version history per notebook
-**P2 · Phase 5 · Needs:** K.14, N.4 · **Code:** `excellent-features/notebook/history.rs`
+#### Ph5: 22/45 | N.13: Version history per notebook
+**P2; Phase 5; Needs:** K.14, N.4; **Code:** `excellent-features/notebook/history.rs`
 1. Keep snapshots (incremental PDF revisions plus the operation log) inside the `.expdf`; thin them out with age.
 2. Browse versions with page previews; restore the whole notebook or copy a page from an old version.
 
 **Done when:** restoring yesterday's version works and is itself undoable.
 
-#### N.14 Markdown editing with math and Mermaid
-**P1 (parity) · Phase 4 · Needs:** K.5 · **Code:** `excellent-features/markdown`
+#### Ph4: 24/44 | N.14: Markdown editing with math and Mermaid
+**P1 (parity); Phase 4; Needs:** K.5; **Code:** `excellent-features/markdown`
 1. Source editing with NSH `Editor`; preview in NSH `web_view` (WebView2, WKWebView, WebKitGTK) using cmark-gfm HTML
    plus KaTeX and Mermaid scripts shipped as a pack (K.21), as Enhanced does with WebView2.
 2. Table of contents from headings (GitHub slug rules), as Enhanced's `src/MarkdownToc.cpp`.
@@ -3540,8 +3589,8 @@ Mermaid <https://mermaid.js.org>
 
 ### 27.9 Audio and lectures (L)
 
-#### L.1 Record audio while writing
-**P0 · Phase 4 · Needs:** H.9, N.4 · **Code:** `excellent-features/audio`
+#### Ph4: 25/44 | L.1: Record audio while writing
+**P0; Phase 4; Needs:** H.9, N.4; **Code:** `excellent-features/audio`
 1. Capture with `cpal`; encode Opus (libopus through the `opus` crate) in Ogg; store in the notebook's `assets/` or a
    sidecar next to a PDF.
 2. Every stroke and annotation already has a timestamp (H.9); store the recording's start time so each one maps to an
@@ -3552,8 +3601,8 @@ Mermaid <https://mermaid.js.org>
 **Done when:** tapping a stroke written 10 minutes into a lecture plays from that moment (±0.5 s).
 **Links:** cpal <https://github.com/RustAudio/cpal>; opus crate <https://github.com/SpaceManiac/opus-rs>
 
-#### L.2 Offline transcription
-**P1 · Phase 5 · Needs:** L.1, K.21, F.3 · **Code:** `excellent-features/audio/transcribe.rs`
+#### Ph5: 23/45 | L.2: Offline transcription
+**P1; Phase 5; Needs:** L.1, K.21, F.3; **Code:** `excellent-features/audio/transcribe.rs`
 1. whisper.cpp through `whisper-rs`; models as packs (tiny to medium, user's choice).
 2. Run at background priority after recording; store segments with timestamps; link each segment to the page that was
    open at that time.
@@ -3563,16 +3612,16 @@ Mermaid <https://mermaid.js.org>
 **Links:** whisper.cpp <https://github.com/ggml-org/whisper.cpp>; whisper-rs
 <https://github.com/tazz4843/whisper-rs>
 
-#### L.3 Import slides and condense to notes
-**P1 · Phase 4 · Needs:** N.4 · **Code:** `excellent-features/notebook/slides.rs`
+#### Ph4: 26/44 | L.3: Import slides and condense to notes
+**P1; Phase 4; Needs:** N.4; **Code:** `excellent-features/notebook/slides.rs`
 1. Pick a slide PDF; choose 1, 2 or 3 slides per page with lined note space (Cornell-style option).
 2. Build each new page with `pdf_page_write` and run the source pages into it scaled (vector, not images); add with
    `pdf_add_page` / `pdf_insert_page`.
 
 **Done when:** text in the condensed slides stays selectable and searchable.
 
-#### L.4 Screen and pen recording to video
-**P2 · Phase 7 · Needs:** L.1 · **Code:** `excellent-features/audio/video.rs`
+#### Ph7: 5/32 | L.4: Screen and pen recording to video
+**P2; Phase 7; Needs:** L.1; **Code:** `excellent-features/audio/video.rs`
 1. Record canvas frames and audio; encode with the platform encoder (Media Foundation, AVAssetWriter, GStreamer) to
    MP4.
 2. Playback with NSH `video`.
@@ -3581,8 +3630,8 @@ Mermaid <https://mermaid.js.org>
 
 ### 27.10 Study and language (S)
 
-#### S.1 Flashcards from highlights, notes and lasso selections
-**P0 · Phase 4 · Needs:** A.1, H.6, S.4 · **Code:** `excellent-features/study/cards.rs`
+#### Ph4: 27/44 | S.1: Flashcards from highlights, notes and lasso selections
+**P0; Phase 4; Needs:** A.1, H.6, S.4; **Code:** `excellent-features/study/cards.rs`
 1. Card model in `library.db`: front, back, source anchor (K.28), deck, tags, media.
 2. "Make card" from a highlight (front = text, back = note), from a note, or from a lasso selection (front = region
    image).
@@ -3590,35 +3639,35 @@ Mermaid <https://mermaid.js.org>
 
 **Done when:** a card made from a highlight opens its source page from the review screen.
 
-#### S.2 Image occlusion
-**P0 · Phase 4 · Needs:** S.1 · **Code:** as S.1
+#### Ph4: 28/44 | S.2: Image occlusion
+**P0; Phase 4; Needs:** S.1; **Code:** as S.1
 1. Draw boxes over a page region or figure; each box becomes one card hiding that box (or all boxes, "hide all,
    guess one").
 
 **Done when:** occlusion cards export to Anki (S.11) as image-occlusion notes.
 
-#### S.3 Cloze deletions
-**P0 · Phase 4 · Needs:** S.1 · **Code:** as S.1
+#### Ph4: 29/44 | S.3: Cloze deletions
+**P0; Phase 4; Needs:** S.1; **Code:** as S.1
 1. Select words inside a highlight → cloze; `{{c1::…}}` syntax compatible with Anki.
 
 **Done when:** cloze cards round-trip through Anki export and import.
 
-#### S.4 Spaced repetition (FSRS)
-**P0 · Phase 4 · Needs:** K.20 · **Code:** `excellent-features/study/srs.rs`
+#### Ph4: 30/44 | S.4: Spaced repetition (FSRS)
+**P0; Phase 4; Needs:** K.20; **Code:** `excellent-features/study/srs.rs`
 1. One scheduler for cards and vocabulary: the `fsrs` crate (FSRS-rs); review log table; optimizer run on demand.
 2. Migrate Enhanced's vocabulary scheduling state (`SumatraPDF-vocabulary.json`).
 
 **Done when:** scheduling matches the FSRS reference implementation on its test vectors.
 **Links:** fsrs-rs <https://github.com/open-spaced-repetition/fsrs-rs>
 
-#### S.5 Daily review on the home page
-**P0 · Phase 4 · Needs:** S.4, F.17 · **Code:** `excellent-features/study/review.rs`
+#### Ph4: 31/44 | S.5: Daily review on the home page
+**P0; Phase 4; Needs:** S.4, F.17; **Code:** `excellent-features/study/review.rs`
 1. Due count on the home page; review screen with keyboard grading (1–4); cards show their source crop.
 
 **Done when:** a review session of 100 cards never waits on rendering (crops cached).
 
-#### S.6 Offline dictionary
-**P0 (parity) · Phase 4 · Needs:** K.21, K.13 · **Code:** `excellent-features/dictionary`
+#### Ph4: 32/44 | S.6: Offline dictionary
+**P0 (parity); Phase 4; Needs:** K.21, K.13; **Code:** `excellent-features/dictionary`
 1. Port Enhanced's dictionary (`src/OfflineDictionary.cpp`, `src/KaikkiDictionary.cpp`): Kaikki packs with
    `manifest.json`, `index.bin` (u64 offsets, hash-collision filtering) and `records.jsonl`.
 2. Port its parsing and index tests first.
@@ -3627,72 +3676,72 @@ Mermaid <https://mermaid.js.org>
 **Done when:** the ported tests pass; lookups take under 10 ms.
 **Links:** Kaikki <https://kaikki.org>
 
-#### S.7 Vocabulary practice
-**P0 (parity) · Phase 4 · Needs:** S.4, S.6 · **Code:** `excellent-features/vocabulary`
+#### Ph4: 33/44 | S.7: Vocabulary practice
+**P0 (parity); Phase 4; Needs:** S.4, S.6; **Code:** `excellent-features/vocabulary`
 1. Port Enhanced's vocabulary library and practice dialogs (`src/Vocabulary.cpp`, `src/VocabularyDialog.cpp`) onto
    FSRS (S.4).
 2. Import the user's existing vocabulary file.
 
 **Done when:** an imported Enhanced vocabulary keeps every word and its due dates.
 
-#### S.8 Study export
-**P0 (parity) · Phase 4 · Needs:** A.14 · **Code:** `excellent-features/study/export.rs`
+#### Ph4: 34/44 | S.8: Study export
+**P0 (parity); Phase 4; Needs:** A.14; **Code:** `excellent-features/study/export.rs`
 1. Port Enhanced's study export (`src/StudyExport.cpp`): highlights, notes and vocabulary to its existing formats.
 
 **Done when:** output matches Enhanced's for the same document.
 
-#### S.9 Quizzes from a chapter
-**P1 · Phase 6 · Needs:** I.3, S.1 · **Code:** `excellent-features/study/quiz.rs`
+#### Ph6: 3/13 | S.9: Quizzes from a chapter
+**P1; Phase 6; Needs:** I.3, S.1; **Code:** `excellent-features/study/quiz.rs`
 1. Generate questions (multiple choice, short answer) from a page range with the AI pipeline; every question cites its
    source passage (I.3).
 2. The user edits and accepts questions before they become cards; nothing is added silently.
 
 **Done when:** every generated question links to a real passage (I.12 checks).
 
-#### S.10 Exam mode
-**P1 · Phase 4 · Needs:** S.1, H.4 · **Code:** `excellent-features/study/exam.rs`
+#### Ph4: 35/44 | S.10: Exam mode
+**P1; Phase 4; Needs:** S.1, H.4; **Code:** `excellent-features/study/exam.rs`
 1. Hides answers, notes and chosen annotation categories; tape (H.4) covers definitions; a timer; reveal one at a time.
 
 **Done when:** leaving exam mode restores the exact previous visibility.
 
-#### S.11 Anki import and export
-**P1 · Phase 4 · Needs:** S.1 · **Code:** `excellent-features/study/anki.rs`
+#### Ph4: 36/44 | S.11: Anki import and export
+**P1; Phase 4; Needs:** S.1; **Code:** `excellent-features/study/anki.rs`
 1. `.apkg` is a zip with a SQLite collection and media; read and write it with `rusqlite` and `zip`.
 2. Map basic, cloze and image-occlusion note types; keep source links in a field.
 
 **Done when:** an exported deck imports into Anki desktop, and Anki's export imports here.
 **Links:** Anki <https://github.com/ankitects/anki>; genanki (format reference) <https://github.com/kerrickstaley/genanki>
 
-#### S.12 Goals, timer, statistics and streaks
-**P1 · Phase 4 · Needs:** S.4 · **Code:** `excellent-features/study/stats.rs`
+#### Ph4: 37/44 | S.12: Goals, timer, statistics and streaks
+**P1; Phase 4; Needs:** S.4; **Code:** `excellent-features/study/stats.rs`
 1. Daily goals (cards, pages, minutes); focus timer; charts with NSH `Plot`; streaks with a gentle celebration
    (reduced-motion aware).
 
 **Done when:** statistics are computed from the review log and reading time, not stored twice.
 
-#### S.13 Summaries from your highlights
-**P1 · Phase 5 · Needs:** A.14 · **Code:** `excellent-features/study/summary.rs`
+#### Ph5: 24/45 | S.13: Summaries from your highlights
+**P1; Phase 5; Needs:** A.14; **Code:** `excellent-features/study/summary.rs`
 1. Without AI: collect highlights and notes in reading order into a Markdown summary grouped by heading (B.8).
 2. With AI (I.4): optional condensed version that cites each highlight.
 
 **Done when:** the non-AI summary works offline with no pack.
 
-#### S.14 Assignments with due dates
-**P2 · Phase 5 · Needs:** F.6 · **Code:** `excellent-features/study/assignments.rs`
+#### Ph5: 25/45 | S.14: Assignments with due dates
+**P2; Phase 5; Needs:** F.6; **Code:** `excellent-features/study/assignments.rs`
 1. Attach a due date and checklist to a document or page range; reminders through OS notifications (K.19); calendar
    with NSH `Calendar`.
 
 **Done when:** reminders fire at the right time after a restart.
 
-#### S.15 Language learning
-**P2 · Phase 5 · Needs:** S.6, S.7, U.5 · **Code:** `excellent-features/language`
+#### Ph5: 26/45 | S.15: Language learning
+**P2; Phase 5; Needs:** S.6, S.7, U.5; **Code:** `excellent-features/language`
 1. Tap a word: dictionary entry, pronunciation (TTS, U.5), "add to deck".
 2. Parallel translation: a second pane (V.1) showing the translated text of the current page, paragraph-aligned (S.16).
 
 **Done when:** a word goes from page to deck in two taps.
 
-#### S.16 Translate selection
-**P1 (parity) · Phase 5 · Needs:** K.13 · **Code:** `excellent-features/translate`
+#### Ph5: 27/45 | S.16: Translate selection
+**P1 (parity); Phase 5; Needs:** K.13; **Code:** `excellent-features/translate`
 1. Port Enhanced's selection translation (`src/SelectionTranslate.cpp`, `src/TranslationLangs.cpp`): online providers
    only after consent.
 2. Offline: Firefox Translations (Bergamot) models as packs.
@@ -3702,75 +3751,75 @@ Mermaid <https://mermaid.js.org>
 
 ### 27.11 Teaching and presenting (G)
 
-#### G.1 Present mode
-**P0 · Phase 4 · Needs:** R.19 · **Code:** `excellent-features/present`
+#### Ph4: 38/44 | G.1: Present mode
+**P0; Phase 4; Needs:** R.19; **Code:** `excellent-features/present`
 1. Full screen, one page per screen, fit page; arrow keys, clicker keys (PgUp / PgDn, B for black screen, W for white).
 2. Present-mode toolbar (§10.2) shown on pointer movement only.
 
 **Done when:** a USB clicker works without setup.
 
-#### G.2 Laser with trails · G.3 Spotlight · G.4 Magnifier
-**P0 · Phase 4 · Needs:** G.1, K.8 · **Code:** `excellent-features/present/pointers.rs`
+#### Ph4: 39/44 | G.2: Laser with trails; G.3: Spotlight; G.4: Magnifier
+**P0; Phase 4; Needs:** G.1, K.8; **Code:** `excellent-features/present/pointers.rs`
 1. All three are canvas overlays (no re-render): laser dot with a fading trail (port Enhanced's laser), spotlight
    (darken all but a circle or rectangle), magnifier (lens that renders the region at higher zoom from tiles).
 
 **Done when:** all three follow the pointer in the same frame.
 
-#### G.5 Pen on slides and fading ink
-**P0 · Phase 4 · Needs:** G.1, H.1 · **Code:** as G.2
+#### Ph4: 40/44 | G.5: Pen on slides and fading ink
+**P0; Phase 4; Needs:** G.1, H.1; **Code:** as G.2
 1. Draw on slides without saving to the file by default; "fading ink" disappears after a few seconds; "keep" saves
    it as ink (H.9).
 
 **Done when:** temporary ink never modifies the file unless kept.
 
-#### G.6 Whiteboard page
-**P0 · Phase 4 · Needs:** G.1, N.5 · **Code:** as G.2
+#### Ph4: 41/44 | G.6: Whiteboard page
+**P0; Phase 4; Needs:** G.1, N.5; **Code:** as G.2
 1. Insert a blank (or grid) page temporarily during a presentation; optionally save it into a notebook afterwards.
 
 **Done when:** the original file is unchanged after presenting.
 
-#### G.7 Curtain reveal
-**P0 · Phase 4 · Needs:** G.1 · **Code:** as G.2
+#### Ph4: 42/44 | G.7: Curtain reveal
+**P0; Phase 4; Needs:** G.1; **Code:** as G.2
 1. A curtain covers the page and slides down (or across) as the presenter reveals it line by line.
 
 **Done when:** keyboard and pen can move the curtain.
 
-#### G.8 Presenter view
-**P0 · Phase 4 · Needs:** G.1, K.19 · **Code:** `excellent-features/present/presenter.rs`
+#### Ph4: 43/44 | G.8: Presenter view
+**P0; Phase 4; Needs:** G.1, K.19; **Code:** `excellent-features/present/presenter.rs`
 1. A second window on the second display: current and next page, notes (page notes from annotations or a notes
    file), timer, clock.
 2. The audience window shows only the slide; both stay in sync.
 
 **Done when:** works with any two monitors and survives a display being unplugged.
 
-#### G.9 Grading stamps
-**P1 · Phase 7 · Needs:** A.20 · **Code:** `excellent-features/grading`
+#### Ph7: 6/32 | G.9: Grading stamps
+**P1; Phase 7; Needs:** A.20; **Code:** `excellent-features/grading`
 1. Quick stamps ✓ ✗ ? and score stamps (+1, −½…); each stamp carries a value in a private key.
 
 **Done when:** stamps show in other readers as normal stamps.
 
-#### G.10 Rubric panel and scores
-**P1 · Phase 7 · Needs:** G.9 · **Code:** as G.9
+#### Ph7: 7/32 | G.10: Rubric panel and scores
+**P1; Phase 7; Needs:** G.9; **Code:** as G.9
 1. Rubric editor (criteria, levels, points); per-page and total scores summed from stamps and rubric choices; final
    score stamp on page 1.
 
 **Done when:** totals recalculate when a stamp is changed or removed.
 
-#### G.11 Comment bank
-**P1 · Phase 7 · Needs:** A.4 · **Code:** as G.9
+#### Ph7: 8/32 | G.11: Comment bank
+**P1; Phase 7; Needs:** A.4; **Code:** as G.9
 1. Saved comments with shortcuts; insert as sticky notes or text boxes; usage counts.
 
 **Done when:** the bank imports and exports as JSON.
 
-#### G.12 Batch open and export
-**P1 · Phase 7 · Needs:** G.10, F.6 · **Code:** as G.9
+#### Ph7: 9/32 | G.12: Batch open and export
+**P1; Phase 7; Needs:** G.10, F.6; **Code:** as G.9
 1. Open a folder of submissions as a workspace (W.10); next / previous student; export all graded PDFs and a CSV of
    scores.
 
 **Done when:** 50 submissions export with matching CSV totals.
 
-#### G.13 Worksheet maker
-**P1 · Phase 7 · Needs:** O.11, A.22 · **Code:** `excellent-features/worksheets`
+#### Ph7: 10/32 | G.13: Worksheet maker
+**P1; Phase 7; Needs:** O.11, A.22; **Code:** `excellent-features/worksheets`
 1. Add fillable fields (text, checkbox, choice). MuPDF has a helper only for signature fields, so write the field
    dictionaries (`/FT`, `/T` from `pdf_create_field_name`, `/Rect`, `/MK`) with `pdf_dict_put`, add them to the page's
    `/Annots` and the AcroForm `/Fields`, then style with `pdf_field_set_*` and `pdf_update_annot`. PdfCraft creates
@@ -3779,37 +3828,37 @@ Mermaid <https://mermaid.js.org>
 
 **Done when:** the student copy has working fields and no answers.
 
-#### G.14 Live classroom
-**P2 · Phase 9 · Needs:** Y.4 · **Code:** `excellent-features/classroom`
+#### Ph9: 2/13 | G.14: Live classroom
+**P2; Phase 9; Needs:** Y.4; **Code:** `excellent-features/classroom`
 1. Teacher shares the current page over the LAN (mDNS discovery) or a self-hosted relay; students follow; no
    accounts; join by code.
 
 **Done when:** 30 students follow page changes within 300 ms on a LAN.
 
-#### G.15 Quick polls
-**P2 · Phase 9 · Needs:** G.14 · **Code:** as G.14
+#### Ph9: 3/13 | G.15: Quick polls
+**P2; Phase 9; Needs:** G.14; **Code:** as G.14
 1. Teacher asks a multiple-choice question; students answer; results as a chart (NSH `Plot`).
 
 **Done when:** results are anonymous by default.
 
 ### 27.12 Find: search, library and citations (F)
 
-#### F.1 Find in document
-**P0 · Phase 1 · Needs:** K.13 · **Code:** `excellent-features/search/find.rs`
+#### Ph1: 53/60 | F.1: Find in document
+**P0; Phase 1; Needs:** K.13; **Code:** `excellent-features/search/find.rs`
 1. Find bar (Ctrl+F): case, whole word, diacritics-insensitive; results stream in page order from workers using
    `fz_search_stext_page_cb` on K.13 text.
 2. Hits drawn in the canvas; result list in the sidebar with context; F3 / Shift+F3.
 
 **Done when:** first hit on a 1,000-page book shows within 100 ms when the page is near; the UI never waits.
 
-#### F.2 Search a folder or the library
-**P0 · Phase 5 · Needs:** F.3 · **Code:** `excellent-features/search/global.rs`
+#### Ph5: 28/45 | F.2: Search a folder or the library
+**P0; Phase 5; Needs:** F.3; **Code:** `excellent-features/search/global.rs`
 1. Query FTS5 for indexed files; scan unindexed files in the background; results stream while indexing continues.
 
 **Done when:** results appear within 100 ms for indexed content (§13 budget).
 
-#### F.3 Full-text index
-**P0 · Phase 5 · Needs:** K.20, K.13 · **Code:** `excellent-store::fts`
+#### Ph5: 29/45 | F.3: Full-text index
+**P0; Phase 5; Needs:** K.20, K.13; **Code:** `excellent-store::fts`
 1. FTS5 tables for page text, annotation text, handwriting (H.23), transcripts (L.2) and notes, with
    `unicode61 remove_diacritics 2`, and a trigram table for substring search.
 2. An indexer at background priority; pauses while the user scrolls or writes (§7.4).
@@ -3818,29 +3867,29 @@ Mermaid <https://mermaid.js.org>
 **Done when:** indexing 1,000 pages takes under a minute on the reference machine and never stalls the UI.
 **Links:** SQLite FTS5 <https://www.sqlite.org/fts5.html>
 
-#### F.4 Search operators
-**P1 · Phase 5 · Needs:** F.3 · **Code:** `excellent-features/search/query.rs`
+#### Ph5: 30/45 | F.4: Search operators
+**P1; Phase 5; Needs:** F.3; **Code:** `excellent-features/search/query.rs`
 1. Parser for `tag:`, `color:`, `author:`, `after:`, `page:>100`, AND / OR / NOT, phrases, wildcards, fuzzy (`~`),
    regex (`/…/`, run on candidate pages only).
 2. Translate to FTS5 plus SQL filters; property tests for the parser.
 
 **Done when:** every operator has a test; malformed queries show a helpful message.
 
-#### F.5 Saved searches and smart folders
-**P1 · Phase 5 · Needs:** F.4, F.6 · **Code:** as F.4
+#### Ph5: 31/45 | F.5: Saved searches and smart folders
+**P1; Phase 5; Needs:** F.4, F.6; **Code:** as F.4
 1. Save a query by name; smart folders are saved searches shown in the library tree; counts update live.
 
 **Done when:** smart folders update within a second of a new match.
 
-#### F.6 Library: collections, tags, read status
-**P1 · Phase 5 · Needs:** K.20 · **Code:** `excellent-features/library`
+#### Ph5: 32/45 | F.6: Library: collections, tags, read status
+**P1; Phase 5; Needs:** K.20; **Code:** `excellent-features/library`
 1. Tables for collections (nested), tags, read status (unread, reading, done) and progress.
 2. Library view with NSH `DataTable` and covers; filters; drag files into collections.
 
 **Done when:** 50,000 documents browse smoothly.
 
-#### F.7 Metadata extraction
-**P1 · Phase 5 · Needs:** F.6 · **Code:** `excellent-features/library/metadata.rs`
+#### Ph5: 33/45 | F.7: Metadata extraction
+**P1; Phase 5; Needs:** F.6; **Code:** `excellent-features/library/metadata.rs`
 1. From document info and XMP; DOI, arXiv id and ISBN found by pattern in the first pages.
 2. Optional online lookup (consent): Crossref for DOI, the arXiv API, Open Library for ISBN.
 
@@ -3848,21 +3897,21 @@ Mermaid <https://mermaid.js.org>
 **Links:** Crossref REST API <https://www.crossref.org/documentation/retrieve-metadata/rest-api/>; arXiv API
 <https://info.arxiv.org/help/api/index.html>; Open Library API <https://openlibrary.org/developers/api>
 
-#### F.8 Duplicate detection
-**P1 · Phase 5 · Needs:** F.6 · **Code:** as F.7
+#### Ph5: 34/45 | F.8: Duplicate detection
+**P1; Phase 5; Needs:** F.6; **Code:** as F.7
 1. Exact duplicates by content hash; near duplicates by DOI or by text shingles (MinHash) of the first pages.
 
 **Done when:** a preprint and its published version are flagged as related, not identical.
 
-#### F.9 Folder watching
-**P1 · Phase 5 · Needs:** F.6 · **Code:** `excellent-features/library/watch.rs`
+#### Ph5: 35/45 | F.9: Folder watching
+**P1; Phase 5; Needs:** F.6; **Code:** `excellent-features/library/watch.rs`
 1. Watch chosen folders with the `notify` crate; add, update and remove library entries; index new files at idle.
 
 **Done when:** a file saved into a watched folder appears within 2 s.
 **Links:** notify <https://github.com/notify-rs/notify>
 
-#### F.10 Citations
-**P1 · Phase 5 · Needs:** F.7 · **Code:** `excellent-features/citations`
+#### Ph5: 36/45 | F.10: Citations
+**P1; Phase 5; Needs:** F.7; **Code:** `excellent-features/citations`
 1. Detect DOI and arXiv references in a document's reference list; fetch metadata (consent).
 2. Export BibTeX and RIS for a document, a selection of references or a collection; copy a formatted citation (CSL
    styles through a CSL processor such as `hayagriva`).
@@ -3870,8 +3919,8 @@ Mermaid <https://mermaid.js.org>
 **Done when:** exported BibTeX compiles with biber for the corpus papers.
 **Links:** hayagriva <https://github.com/typst/hayagriva>; CSL styles <https://citationstyles.org>
 
-#### F.11 Zotero integration
-**P1 · Phase 5 · Needs:** F.10 · **Code:** `excellent-features/citations/zotero.rs`
+#### Ph5: 37/45 | F.11: Zotero integration
+**P1; Phase 5; Needs:** F.10; **Code:** `excellent-features/citations/zotero.rs`
 1. Read the library through Zotero 7's local API on `localhost:23119` when Zotero runs; otherwise the web API with the
    user's key (in the OS key store).
 2. Open a Zotero item's PDF here; send annotations back as notes (optional).
@@ -3879,29 +3928,29 @@ Mermaid <https://mermaid.js.org>
 **Done when:** a Zotero item opens with its metadata in the inspector.
 **Links:** Zotero web API (the local API follows it) <https://www.zotero.org/support/dev/web_api/v3/basics>
 
-#### F.12 Notes with backlinks and `[[links]]`
-**P1 · Phase 5 · Needs:** F.3, N.14 · **Code:** `excellent-features/notes`
+#### Ph5: 38/45 | F.12: Notes with backlinks and `[[links]]`
+**P1; Phase 5; Needs:** F.3, N.14; **Code:** `excellent-features/notes`
 1. Markdown notes in `library.db` (or a folder of `.md` files, user's choice); `[[note]]`, `[[doc#page]]` and
    annotation links; a backlinks panel.
 2. Edit with NSH `RichEditor` or `Editor`.
 
 **Done when:** renaming a note updates every link to it.
 
-#### F.13 Export to Markdown and Obsidian with deep links
-**P1 · Phase 5 · Needs:** F.12 · **Code:** `excellent-features/notes/export.rs`
+#### Ph5: 39/45 | F.13: Export to Markdown and Obsidian with deep links
+**P1; Phase 5; Needs:** F.12; **Code:** `excellent-features/notes/export.rs`
 1. Deep links: register `excellentpdf://open?file=…&page=…&annot=…` with the OS.
 2. Export notes and highlights to a folder (Obsidian vault) with those links.
 
 **Done when:** clicking a link in Obsidian opens the right page and annotation.
 
-#### F.14 Graph view
-**P2 · Phase 9 · Needs:** F.12 · **Code:** `excellent-features/notes/graph.rs`
+#### Ph9: 4/13 | F.14: Graph view
+**P2; Phase 9; Needs:** F.12; **Code:** `excellent-features/notes/graph.rs`
 1. Force-directed graph of notes, documents and links, drawn with NSH's canvas element.
 
 **Done when:** 5,000 nodes stay interactive.
 
-#### F.15 PDF compare
-**P2 · Phase 7 · Needs:** K.13, V.8 · **Code:** `excellent-features/compare`
+#### Ph7: 11/32 | F.15: PDF compare
+**P2; Phase 7; Needs:** K.13, V.8; **Code:** `excellent-features/compare`
 1. Text diff by page with word-level changes (`similar` crate); layout diff by rendering both and comparing pixels;
    annotation diff by `/NM` id.
 2. Show side by side with synced scrolling (V.8) and change markers; report as PDF or HTML.
@@ -3909,23 +3958,23 @@ Mermaid <https://mermaid.js.org>
 **Done when:** a one-word change in a 300-page book is found and shown.
 **Links:** similar <https://github.com/mitsuhiko/similar>
 
-#### F.16 Table and figure extraction
-**P2 · Phase 7 · Needs:** K.13 · **Code:** `excellent-features/extract`
+#### Ph7: 12/32 | F.16: Table and figure extraction
+**P2; Phase 7; Needs:** K.13; **Code:** `excellent-features/extract`
 1. Tables: `FZ_STEXT_TABLE_HUNT` and `fz_find_table_within_bounds`; export CSV (`fz_new_csv_writer`) or Markdown.
 2. Figures: image blocks plus vector regions with their captions; export PNG or SVG.
 
 **Done when:** tables in the corpus papers export with the right rows and columns in 90 % of cases.
 
-#### F.17 Home page
-**P0 · Phase 1 · Needs:** R.10 · **Code:** `excellent-features/home`
+#### Ph1: 54/60 | F.17: Home page
+**P0; Phase 1; Needs:** R.10; **Code:** `excellent-features/home`
 1. Recent and pinned files with thumbnails, continue reading, workspaces, daily review (S.5) and a search box.
 
 **Done when:** the home page paints within the cold-start budget.
 
 ### 27.13 Excerpt (research) canvas (X)
 
-#### X.1 Excerpts on an infinite canvas
-**P1 · Phase 9 · Needs:** K.28, N.5 · **Code:** `excellent-features/research-canvas`
+#### Ph9: 5/13 | X.1: Excerpts on an infinite canvas
+**P1; Phase 9; Needs:** K.28, N.5; **Code:** `excellent-features/research-canvas`
 1. A board document (`.exboard`, JSON plus assets) holding items: text excerpts, region crops, notes, images.
 2. Drag a selection or region from a page onto the board (V.1 puts them side by side); each item stores its anchor
    (K.28) and jumps back on click.
@@ -3933,29 +3982,29 @@ Mermaid <https://mermaid.js.org>
 
 **Done when:** an excerpt still jumps to the right place after the source is re-typeset.
 
-#### X.2 Connect, group and label
-**P1 · Phase 9 · Needs:** X.1 · **Code:** as X.1
+#### Ph9: 6/13 | X.2: Connect, group and label
+**P1; Phase 9; Needs:** X.1; **Code:** as X.1
 1. Arrows between items with labels; groups with titles and colors; argument-map item kinds (claim, support,
    objection).
 
 **Done when:** moving a group moves its items and keeps arrows attached.
 
-#### X.3 Evidence chains across documents
-**P1 · Phase 9 · Needs:** X.2 · **Code:** as X.1
+#### Ph9: 7/13 | X.3: Evidence chains across documents
+**P1; Phase 9; Needs:** X.2; **Code:** as X.1
 1. A "chain" view lists connected items in order with their sources, across documents.
 
 **Done when:** a chain exports with every source cited.
 
-#### X.4 Export a board
-**P2 · Phase 9 · Needs:** X.1 · **Code:** as X.1
+#### Ph9: 8/13 | X.4: Export a board
+**P2; Phase 9; Needs:** X.1; **Code:** as X.1
 1. Export as Markdown (with deep links, F.13), PNG or SVG, PDF appendix, or an outline.
 
 **Done when:** each export opens correctly in its target app.
 
 ### 27.14 PDF tools (O)
 
-#### O.1 Page organizer
-**P0 · Phase 7 · Needs:** R.5, K.14 · **Code:** `excellent-features/pages`
+#### Ph7: 13/32 | O.1: Page organizer
+**P0; Phase 7; Needs:** R.5, K.14; **Code:** `excellent-features/pages`
 1. A grid of thumbnails (multi-select) with insert, delete, rotate, reorder, extract and duplicate.
 2. Reorder and delete with `pdf_rearrange_pages`; delete ranges with `pdf_delete_page_range`; rotate by setting the
    page's `/Rotate`; insert with `pdf_add_page` / `pdf_insert_page`; extract by copying pages into a new document
@@ -3967,8 +4016,8 @@ Mermaid <https://mermaid.js.org>
 **Done when:** every operation is one undo step; links, outline, form fields and annotations survive extraction
 (compare with PdfCraft's checklist, Appendix C.1).
 
-#### O.2 Split and merge
-**P0 · Phase 7 · Needs:** O.1 · **Code:** `excellent-features/pages/combine.rs`
+#### Ph7: 14/32 | O.2: Split and merge
+**P0; Phase 7; Needs:** O.1; **Code:** `excellent-features/pages/combine.rs`
 1. Merge files (and page ranges) in a chosen order with `pdf_graft_mapped_page`; one outline entry per file (B.8);
    port Enhanced's merge dialog ideas (`src/MergePdf.cpp`).
 2. Split by page count, by outline level, by size, or at chosen pages.
@@ -3976,15 +4025,15 @@ Mermaid <https://mermaid.js.org>
 
 **Done when:** merging 100 files keeps every file's outline and links.
 
-#### O.3 Crop pages
-**P0 · Phase 7 · Needs:** O.1 · **Code:** `excellent-features/pages/crop.rs`
+#### Ph7: 15/32 | O.3: Crop pages
+**P0; Phase 7; Needs:** O.1; **Code:** `excellent-features/pages/crop.rs`
 1. Draw a crop rectangle; apply to this page, all pages, odd or even pages; "auto-crop to content" from display-list
    bounds; write with `pdf_set_page_box`.
 
 **Done when:** cropped pages show the same in Acrobat; uncrop restores the original box.
 
-#### O.4 OCR to searchable PDF
-**P1 · Phase 5 · Needs:** K.21, K.22 · **Code:** `excellent-features/ocr`, `excellent-ocr` helper
+#### Ph5: 40/45 | O.4: OCR to searchable PDF
+**P1; Phase 5; Needs:** K.21, K.22; **Code:** `excellent-features/ocr`, `excellent-ocr` helper
 1. Fast path, no download: the OS OCR (Windows `Windows.Media.Ocr`, Apple Vision) on rendered pages.
 2. Full path, as a pack: a helper process built with MuPDF plus Tesseract and Leptonica that writes a text layer with
    `fz_new_ocr_device` or `fz_new_pdfocr_writer`; language data as packs. *Open (2026-11-13):* Tesseract and
@@ -3998,8 +4047,8 @@ Mermaid <https://mermaid.js.org>
 **Links:** Tesseract <https://github.com/tesseract-ocr/tesseract>; tessdata <https://github.com/tesseract-ocr/tessdata_fast>;
 Windows OCR <https://learn.microsoft.com/en-us/uwp/api/windows.media.ocr>
 
-#### O.5 Edit text runs
-**P1 · Phase 7 · Needs:** K.13, O.7 · **Code:** `excellent-features/edit-text`
+#### Ph7: 16/32 | O.5: Edit text runs
+**P1; Phase 7; Needs:** K.13, O.7; **Code:** `excellent-features/edit-text`
 1. Click a text line → edit box drawn in the canvas with the line's text and font.
 2. On commit: remove the old run with a text-only redaction of its quads (`pdf_redact_page` with images and line art
    kept), then write the new text into the page contents (`pdf_page_write`) with the same font if its embedded subset
@@ -4008,16 +4057,16 @@ Windows OCR <https://learn.microsoft.com/en-us/uwp/api/windows.media.ocr>
 
 **Done when:** editing a word in a Latin and a CJK document keeps position, size and color.
 
-#### O.6 Replace images
-**P1 · Phase 7 · Needs:** K.13 · **Code:** `excellent-features/edit-image`
+#### Ph7: 17/32 | O.6: Replace images
+**P1; Phase 7; Needs:** K.13; **Code:** `excellent-features/edit-image`
 1. Hit-test image blocks (`FZ_STEXT_PRESERVE_IMAGES`); find the image XObject in the page resources; replace its
    stream with a new image from `pdf_add_image`, keeping the placement matrix.
 2. Export an image at native resolution.
 
 **Done when:** a replaced image sits in the same box in other readers.
 
-#### O.7 True redaction
-**P1 · Phase 7 · Needs:** A.9, F.4 · **Code:** `excellent-features/redact` (§14.3)
+#### Ph7: 18/32 | O.7: True redaction
+**P1; Phase 7; Needs:** A.9, F.4; **Code:** `excellent-features/redact` (§14.3)
 1. Mark areas, or search and mark patterns (names, numbers, regex, word lists); review list.
 2. Apply with `pdf_apply_redaction` and `pdf_redact_options` (text, images, line art; black boxes on or off).
 3. Scrub metadata, XMP, attachments, hidden layers, thumbnails, comments and form values in the areas.
@@ -4027,8 +4076,8 @@ Windows OCR <https://learn.microsoft.com/en-us/uwp/api/windows.media.ocr>
 **Done when:** the redaction corpus with known secrets passes verification; PdfCraft's verification approach is
 checked for ideas (Appendix C.5).
 
-#### O.8 Compress
-**P1 · Phase 7 · Needs:** K.15 · **Code:** `excellent-features/compress`
+#### Ph7: 19/32 | O.8: Compress
+**P1; Phase 7; Needs:** K.15; **Code:** `excellent-features/compress`
 1. Presets (screen, ebook, print): downsample and recompress images with `pdf_rewrite_images`; subset fonts with
    `pdf_subset_fonts`; save with `do_garbage`, `do_compress`, `do_use_objstms`, `compression_effort`; optional
    linearize (`do_linear`) for the web.
@@ -4036,23 +4085,23 @@ checked for ideas (Appendix C.5).
 
 **Done when:** the output passes `qpdf --check` and renders the same as the input at the preset's resolution.
 
-#### O.9 Images to PDF and PDF to images
-**P1 · Phase 7 · Needs:** K.3 · **Code:** `excellent-features/convert/images.rs`
+#### Ph7: 20/32 | O.9: Images to PDF and PDF to images
+**P1; Phase 7; Needs:** K.3; **Code:** `excellent-features/convert/images.rs`
 1. Images to PDF: open each image with `fz_open_document`, write pages with `fz_new_document_writer` (PDF), page size
    from image DPI or a chosen paper size.
 2. PDF to images: `fz_new_pixmap_from_page` at a chosen DPI to PNG or JPEG; pages or ranges; in the CLI too.
 
 **Done when:** a folder of 200 photos becomes one PDF in the right order (natural sort).
 
-#### O.10 PDF to Markdown and DOCX
-**P1 · Phase 7 · Needs:** R.16 · **Code:** `excellent-features/convert/text.rs`
+#### Ph7: 21/32 | O.10: PDF to Markdown and DOCX
+**P1; Phase 7; Needs:** R.16; **Code:** `excellent-features/convert/text.rs`
 1. DOCX and ODT with MuPDF's writers (`fz_new_docx_writer`, `fz_new_odt_writer`, using Artifex extract).
 2. Markdown from the reflow model (R.16): headings, lists, tables, images as files, math where recoverable.
 
 **Done when:** headings and tables of the paper corpus survive into Markdown.
 
-#### O.11 Forms: fill, validate and calculate
-**P1 · Phase 7 · Needs:** K.14, U.8 · **Code:** `excellent-features/forms`
+#### Ph7: 22/32 | O.11: Forms: fill, validate and calculate
+**P1; Phase 7; Needs:** K.14, U.8; **Code:** `excellent-features/forms`
 1. Enable form JavaScript with `pdf_enable_js` (MuJS, MuPDF's restricted API); show alerts from
    `pdf_set_doc_event_callback` as app dialogs.
 2. Walk widgets (`pdf_first_widget`, `pdf_next_widget`); edit text in the canvas (as N.6), set values with
@@ -4063,21 +4112,21 @@ checked for ideas (Appendix C.5).
 
 **Done when:** the forms corpus fills, calculates and saves; filled values show in Acrobat.
 
-#### O.12 Save and reuse form values
-**P1 · Phase 7 · Needs:** O.11 · **Code:** `excellent-features/forms/profiles.rs`
+#### Ph7: 23/32 | O.12: Save and reuse form values
+**P1; Phase 7; Needs:** O.11; **Code:** `excellent-features/forms/profiles.rs`
 1. Save values by field name to a profile (encrypted in `library.db`, key in the OS key store); suggest them in
    other forms with matching names; export and import FDF / XFDF values (A.24).
 
 **Done when:** a profile fills a second form with matching field names.
 
-#### O.13 Flatten forms
-**P1 · Phase 7 · Needs:** O.11 · **Code:** as A.25
+#### Ph7: 24/32 | O.13: Flatten forms
+**P1; Phase 7; Needs:** O.11; **Code:** as A.25
 1. `pdf_bake_document` with `bake_widgets = 1` on a copy.
 
 **Done when:** the flattened copy looks the same and has no fields.
 
-#### O.14 Sign documents
-**P1 · Phase 7 · Needs:** O.11, K.19 · **Code:** `crates/excellent-sign`
+#### Ph7: 25/32 | O.14: Sign documents
+**P1; Phase 7; Needs:** O.11, K.19; **Code:** `crates/excellent-sign`
 1. A Rust signer behind MuPDF's `pdf_pkcs7_signer` callbacks: CMS SignedData with the RustCrypto `cms` crate,
    PAdES baseline B-B (`ETSI.CAdES.detached`, signing-certificate-v2 attribute).
 2. Keys: PKCS #12 files, and OS stores (Windows CNG through the `windows` crate, macOS Keychain, PKCS #11 tokens
@@ -4093,8 +4142,8 @@ signature in the UI.
 <https://github.com/parallaxsecond/rust-cryptoki>; RFC 5652 <https://www.rfc-editor.org/rfc/rfc5652>; RFC 3161
 <https://www.rfc-editor.org/rfc/rfc3161>; ETSI EN 319 142 (PAdES) <https://www.etsi.org/standards>
 
-#### O.15 Validate signatures and trust
-**P1 · Phase 7 · Needs:** O.14 · **Code:** `crates/excellent-sign::verify`
+#### Ph7: 26/32 | O.15: Validate signatures and trust
+**P1; Phase 7; Needs:** O.14; **Code:** `crates/excellent-sign::verify`
 1. A Rust `pdf_pkcs7_verifier`; check with `pdf_check_digest` and `pdf_check_certificate`; read signer details with
    `pdf_signature_get_signatory`.
 2. Chain building with `x509-cert`; trust from the OS store and the EU Trusted List (port Enhanced's
@@ -4105,44 +4154,44 @@ signature in the UI.
 **Done when:** results match Acrobat's on the reference signed files (§16).
 **Links:** EU Trusted List browser <https://eidas.ec.europa.eu/efda/tl-browser/>
 
-#### O.16 Signature-safe editing
-**P1 · Phase 7 · Needs:** O.15 · **Code:** `excellent-core::save`
+#### Ph7: 27/32 | O.16: Signature-safe editing
+**P1; Phase 7; Needs:** O.15; **Code:** `excellent-core::save`
 1. Before any edit to a signed document, warn which signatures the change would break; allowed changes (per `/DocMDP`
    and `/FieldMDP`) pass without a warning.
 2. Always save signed documents incrementally, keeping signed revisions intact.
 
 **Done when:** adding a comment to a document certified for comments keeps the certification valid.
 
-#### O.17 Bates numbering
-**P2 · Phase 7 · Needs:** O.18 · **Code:** `excellent-features/stamp-pages/bates.rs`
+#### Ph7: 28/32 | O.17: Bates numbering
+**P2; Phase 7; Needs:** O.18; **Code:** `excellent-features/stamp-pages/bates.rs`
 1. Prefix, start number, digits, suffix, position; across a set of files in order; written as page content (O.18).
 
 **Done when:** numbering continues correctly across 20 files.
 
-#### O.18 Headers, footers and watermarks
-**P2 · Phase 7 · Needs:** O.1 · **Code:** `excellent-features/stamp-pages`
+#### Ph7: 29/32 | O.18: Headers, footers and watermarks
+**P2; Phase 7; Needs:** O.1; **Code:** `excellent-features/stamp-pages`
 1. Build the new content with `pdf_page_write` (text, image or page as a watermark, opacity, rotation); wrap the old
    contents in `q … Q`; append the new stream to `/Contents`; merge `/Resources`.
 2. Mark added content as an optional content group named for the tool, so it can be found and removed later.
 
 **Done when:** adding then removing a watermark returns the original rendering.
 
-#### O.19 Permissions and encryption
-**P2 · Phase 7 · Needs:** K.15 · **Code:** `excellent-features/security`
+#### Ph7: 30/32 | O.19: Permissions and encryption
+**P2; Phase 7; Needs:** K.15; **Code:** `excellent-features/security`
 1. Save with `do_encrypt` (AES-256), user and owner passwords, `permissions` bits; remove security with the password.
 2. Honour permissions when opening other files (copy, print, edit), with a clear message.
 
 **Done when:** encrypted files open in Acrobat with the same permissions (Appendix C.4).
 
-#### O.20 PAdES long-term validation
-**P2 · Phase 7 · Needs:** O.15 · **Code:** `crates/excellent-sign::ltv`
+#### Ph7: 31/32 | O.20: PAdES long-term validation
+**P2; Phase 7; Needs:** O.15; **Code:** `crates/excellent-sign::ltv`
 1. Add a `/DSS` dictionary with certificates, OCSP responses and CRLs (plus `/VRI`), incrementally; then a document
    timestamp for B-LTA.
 
 **Done when:** Acrobat shows "LTV enabled" for the signatures.
 
-#### O.21 Camera scan on tablets
-**P2 · Phase 8 · Needs:** O.9, O.4 · **Code:** `excellent-features/scan`
+#### Ph8: 3/3 | O.21: Camera scan on tablets
+**P2; Phase 8; Needs:** O.9, O.4; **Code:** `excellent-features/scan`
 1. iPad: VisionKit document camera; Android: ML Kit document scanner; both return cropped, de-skewed page images.
 2. Images to PDF (O.9), then OCR (O.4).
 
@@ -4150,8 +4199,8 @@ signature in the UI.
 **Links:** ML Kit document scanner <https://developers.google.com/ml-kit/vision/doc-scanner>; VisionKit
 <https://developer.apple.com/documentation/visionkit>
 
-#### O.22 Print
-**P0 · Phase 1 (Windows), Phase 2 (macOS, Linux) · Needs:** K.19 · **Code:** `crates/excellent-platform::print`
+#### Ph1: 55/60 | O.22: Print
+**P0; Phase 1 (Windows), Phase 2 (macOS, Linux); Needs:** K.19; **Code:** `crates/excellent-platform::print`
 1. Print dialog with range, copies, scaling (fit, shrink, actual), duplex, color, "print annotations", "print as
    image".
 2. Windows: render pages in bands at printer resolution to the printer DC (as SumatraPDF does). macOS:
@@ -4160,15 +4209,15 @@ signature in the UI.
 
 **Done when:** printing works on all three desktops before the first public build (Appendix C.4).
 
-#### O.23 Screenshots and region snapshots
-**P1 (parity) · Phase 3 · Needs:** K.8 · **Code:** `excellent-features/snapshot`
+#### Ph3: 47/49 | O.23: Screenshots and region snapshots
+**P1 (parity); Phase 3; Needs:** K.8; **Code:** `excellent-features/snapshot`
 1. Drag a region; render it from the display list at a chosen DPI (not a screen grab); copy, save as PNG, or make a
    card (S.1); port the ideas of Enhanced's `src/Screenshot*.cpp`.
 
 **Done when:** a 600 DPI snapshot of a vector figure is sharp.
 
-#### O.24 Color-accurate and print-production view
-**P2 · Phase 7 · Needs:** K.7 · **Code:** `excellent-features/prepress` (Appendix D.4)
+#### Ph7: 32/32 | O.24: Color-accurate and print-production view
+**P2; Phase 7; Needs:** K.7; **Code:** `excellent-features/prepress` (Appendix D.4)
 1. Color management with lcms2 (`fz_enable_icc`); the display's ICC profile from the OS; output intents from
    `pdf_document_output_intent` and `fz_set_default_output_intent` for soft-proofing.
 2. Overprint preview through `fz_color_params` (`op`, `opm`) and separations (`fz_page_separations`,
@@ -4179,8 +4228,8 @@ signature in the UI.
 **Done when:** overprint and separations match Acrobat's Output Preview on the Ghent Workgroup test suite.
 **Links:** Ghent Output Suite <https://gwg.org/ghent-output-suite/>
 
-#### O.25 Attachments
-**P1 · Phase 3 · Needs:** K.3, K.23 · **Code:** `excellent-features/attachments`
+#### Ph3: 48/49 | O.25: Attachments
+**P1; Phase 3; Needs:** K.3, K.23; **Code:** `excellent-features/attachments`
 1. List embedded files (the `/EmbeddedFiles` name tree via `pdf_load_name_tree`) and file-attachment annotations; open
    after confirmation (never run them, §14.2); save as; add with `pdf_add_embedded_file` or as an annotation with
    `pdf_set_annot_filespec`.
@@ -4189,8 +4238,8 @@ signature in the UI.
 
 ### 27.15 Sync and sharing (Y)
 
-#### Y.1 Folder sync with CRDT merge
-**P1 · Phase 9 · Needs:** K.14, K.28 · **Code:** `crates/excellent-sync`
+#### Ph9: 9/13 | Y.1: Folder sync with CRDT merge
+**P1; Phase 9; Needs:** K.14, K.28; **Code:** `crates/excellent-sync`
 1. Each device appends its own operation log file in the sync folder (`.excellent/<doc-id>/<device-id>.oplog`), so
    Dropbox, OneDrive, iCloud and Syncthing never see two writers on one file.
 2. Merge: the union of all devices' operations, ordered by Lamport clock and device id. Annotation properties are
@@ -4204,20 +4253,20 @@ random interleavings).
 **Links:** Automerge <https://automerge.org>; yrs <https://github.com/y-crdt/y-crdt>; age
 <https://github.com/str4d/rage>
 
-#### Y.2 Same settings on every OS
-**P1 · Phase 9 · Needs:** K.16, Y.1 · **Code:** `excellent-app::settings::sync`
+#### Ph9: 10/13 | Y.2: Same settings on every OS
+**P1; Phase 9; Needs:** K.16, Y.1; **Code:** `excellent-app::settings::sync`
 1. Settings, keymap, pens, palettes, stamps and templates in the sync folder; per-OS overrides in their own table.
 
 **Done when:** a pen added on Windows appears on macOS.
 
-#### Y.3 Share bundles
-**P2 · Phase 9 · Needs:** N.4 · **Code:** `excellent-features/share`
+#### Ph9: 11/13 | Y.3: Share bundles
+**P2; Phase 9; Needs:** N.4; **Code:** `excellent-features/share`
 1. `.exbundle`: a zip of the PDF with annotations, notes, audio and boards; import merges by ids (K.14).
 
 **Done when:** a bundle round-trips between two users without duplicates.
 
-#### Y.4 Live co-editing through a relay
-**P2 · Phase 9 · Needs:** Y.1 · **Code:** `crates/excellent-relay`
+#### Ph9: 12/13 | Y.4: Live co-editing through a relay
+**P2; Phase 9; Needs:** Y.1; **Code:** `crates/excellent-relay`
 1. A small self-hostable relay (WebSocket) that forwards encrypted operation-log messages; invite links carry the
    key; presence and cursors.
 2. Publish the relay's source, as AGPL §13 requires for network use (§4).
@@ -4226,8 +4275,8 @@ random interleavings).
 
 ### 27.16 Extensibility and automation (E)
 
-#### E.1 Command-line batch tools
-**P1 · Phase 5 · Needs:** K.3 · **Code:** `crates/excellent-cli`
+#### Ph5: 41/45 | E.1: Command-line batch tools
+**P1; Phase 5; Needs:** K.3; **Code:** `crates/excellent-cli`
 1. Subcommands on the same core: `merge`, `split`, `convert`, `ocr`, `redact`, `compress`, `extract-text`, `render`,
    `info`, with `clap`.
 2. JSON output option for scripts.
@@ -4235,8 +4284,8 @@ random interleavings).
 **Done when:** each subcommand has an integration test on the corpus.
 **Links:** clap <https://github.com/clap-rs/clap>
 
-#### E.2 Agent tool table and `excellent-cli run`
-**P1 · Phase 5 · Needs:** E.1 · **Code:** `excellent-core::tools` (Appendix C.3.1)
+#### Ph5: 42/45 | E.2: Agent tool table and `excellent-cli run`
+**P1; Phase 5; Needs:** E.1; **Code:** `excellent-core::tools` (Appendix C.3.1)
 1. One table of tools, each with a JSON Schema for input and output (`schemars`): open, render, find text, list and
    add annotations, fill forms, organize pages, save.
 2. `excellent-cli run tool.json` runs one call or a script of calls.
@@ -4244,24 +4293,24 @@ random interleavings).
 **Done when:** every tool has a schema test and an example.
 **Links:** JSON Schema <https://json-schema.org>; schemars <https://github.com/GREsau/schemars>
 
-#### E.3 MCP server
-**P1 · Phase 5 · Needs:** E.2 · **Code:** `excellent-cli mcp`
+#### Ph5: 43/45 | E.3: MCP server
+**P1; Phase 5; Needs:** E.2; **Code:** `excellent-cli mcp`
 1. Serve the tool table over stdio as an MCP server, opt-in, confined to a `--root` folder (paths checked against
    it).
 
 **Done when:** an MCP client can open a file under the root and can't open one outside it.
 **Links:** Model Context Protocol <https://modelcontextprotocol.io>
 
-#### E.4 UI control channel
-**P1 · Phase 5 · Needs:** E.2 · **Code:** `excellent-app::control`
+#### Ph5: 44/45 | E.4: UI control channel
+**P1; Phase 5; Needs:** E.2; **Code:** `excellent-app::control`
 1. Opt-in loopback channel; a random token in a file only the user can read; commands from the command table plus
    state queries and screenshots (like Enhanced's `-dbg-control`).
 2. Used by UI tests and agents.
 
 **Done when:** the UI test suite drives the app through it.
 
-#### E.5 Plugins
-**P2 · Phase 9 · Needs:** E.2, K.21 · **Code:** `crates/excellent-plugins`
+#### Ph9: 13/13 | E.5: Plugins
+**P2; Phase 9; Needs:** E.2, K.21; **Code:** `crates/excellent-plugins`
 1. Signed TSX packages running in NSH's sandbox with capabilities the user grants (read document, add annotations,
    network); they call the tool table.
 2. Plugin manager (install, update, disable) using the pack manager's signing.
@@ -4275,8 +4324,8 @@ random interleavings).
 All AI follows §12.3. Document text is untrusted data: it goes into prompts as quoted material, and models that read
 it get no tools that act without the user's confirmation.
 
-#### I.1 Providers
-**P1 · Phase 6 · Needs:** K.21, K.19 · **Code:** `crates/excellent-ai::providers`
+#### Ph6: 4/13 | I.1: Providers
+**P1; Phase 6; Needs:** K.21, K.19; **Code:** `crates/excellent-ai::providers`
 1. A `Provider` trait (chat, streaming, embeddings). Local: llama.cpp (pack) or a running Ollama; cloud: any provider
    the user configures (OpenAI-compatible endpoints and vendor APIs), keys in the OS key store.
 2. Consent per provider and per workspace; a visible local or cloud badge; off switch per document and workspace.
@@ -4286,8 +4335,8 @@ it get no tools that act without the user's confirmation.
 **Links:** llama.cpp <https://github.com/ggml-org/llama.cpp>; Ollama API
 <https://github.com/ollama/ollama/blob/main/docs/api.md>
 
-#### I.2 Document index for AI
-**P1 · Phase 6 · Needs:** F.3, I.1 · **Code:** `crates/excellent-ai::index`
+#### Ph6: 5/13 | I.2: Document index for AI
+**P1; Phase 6; Needs:** F.3, I.1; **Code:** `crates/excellent-ai::index`
 1. Chunk K.13 text into paragraph windows of about 512 tokens with overlap; keep page and quads (§12.2).
 2. Embeddings with a local ONNX model pack (`ort`); vectors in `usearch`; rebuildable from text.
 3. Hybrid retrieval: FTS5 score plus vector similarity plus metadata filters.
@@ -4295,8 +4344,8 @@ it get no tools that act without the user's confirmation.
 **Done when:** retrieval recall@10 is measured on a question set and tracked in CI.
 **Links:** ort <https://github.com/pykeio/ort>; usearch <https://github.com/unum-cloud/usearch>
 
-#### I.3 Ask with cited answers
-**P1 (parity: AI chat panel) · Phase 6 · Needs:** I.2 · **Code:** `excellent-features/ai/chat.rs`
+#### Ph6: 6/13 | I.3: Ask with cited answers
+**P1 (parity: AI chat panel); Phase 6; Needs:** I.2; **Code:** `excellent-features/ai/chat.rs`
 1. Chat panel (NSH `TextView` for Markdown answers) scoped to selection, page, document, workspace or library.
 2. The model must cite chunk ids; every quote is checked to appear verbatim (after normalization) in its chunk;
    unverified claims are marked, never shown as cited.
@@ -4304,48 +4353,48 @@ it get no tools that act without the user's confirmation.
 
 **Done when:** citation accuracy on the evaluation set (I.12) meets its target.
 
-#### I.4 Summaries · I.5 Plain-language rewrite and explanation · I.7 Define terms in context
-**P1 · Phase 6 · Needs:** I.3 · **Code:** `excellent-features/ai/actions.rs`
+#### Ph6: 7/13 | I.4: Summaries; I.5: Plain-language rewrite and explanation; I.7: Define terms in context
+**P1; Phase 6; Needs:** I.3; **Code:** `excellent-features/ai/actions.rs`
 1. Selection-toolbar and palette actions with fixed prompt templates; output in the chat panel with citations;
    "insert as note" only on request.
 
 **Done when:** each action has prompt tests with expected properties (length, citations present).
 
-#### I.6 Explain equations step by step
-**P1 · Phase 6 · Needs:** I.3 · **Code:** as I.4
+#### Ph6: 8/13 | I.6: Explain equations step by step
+**P1; Phase 6; Needs:** I.3; **Code:** as I.4
 1. Take the equation as LaTeX (from the text layer, or H.25 / image-to-LaTeX for images); render steps with KaTeX in
    the panel.
 
 **Done when:** equations from the corpus papers are recognized and explained with their page cited.
 
-#### I.8 Glossary, study guide and flashcard generation
-**P1 · Phase 6 · Needs:** I.3, S.1 · **Code:** `excellent-features/ai/study.rs`
+#### Ph6: 9/13 | I.8: Glossary, study guide and flashcard generation
+**P1; Phase 6; Needs:** I.3, S.1; **Code:** `excellent-features/ai/study.rs`
 1. Generate drafts; the user reviews and accepts each item before it becomes a card or note (§12.3).
 
 **Done when:** nothing is added without acceptance.
 
-#### I.9 Claim, method, finding and limitation extraction
-**P1 · Phase 6 · Needs:** I.3, A.17 · **Code:** `excellent-features/ai/extract.rs`
+#### Ph6: 10/13 | I.9: Claim, method, finding and limitation extraction
+**P1; Phase 6; Needs:** I.3, A.17; **Code:** `excellent-features/ai/extract.rs`
 1. Structured output (JSON Schema) with a quote and page for each item; offered as suggested annotations with semantic
    categories (A.17).
 
 **Done when:** every extracted item has a verified quote.
 
-#### I.10 Cross-document comparison and evidence tables
-**P1 · Phase 6 · Needs:** I.9 · **Code:** as I.9
+#### Ph6: 11/13 | I.10: Cross-document comparison and evidence tables
+**P1; Phase 6; Needs:** I.9; **Code:** as I.9
 1. Run I.9 over chosen documents; build a table (rows: documents; columns: method, sample, result, limitation) with
    citations in each cell; export as CSV or Markdown.
 
 **Done when:** each cell links to its source passage.
 
-#### I.11 Suggested highlights and tags
-**P2 · Phase 6 · Needs:** I.9 · **Code:** as I.9
+#### Ph6: 12/13 | I.11: Suggested highlights and tags
+**P2; Phase 6; Needs:** I.9; **Code:** as I.9
 1. Suggestions shown as ghost highlights; accept or dismiss each; never applied silently.
 
 **Done when:** dismissing leaves the document unchanged.
 
-#### I.12 Evaluation and safety suite
-**P1 · Phase 6 · Needs:** I.3 · **Code:** `tests/ai-eval/`
+#### Ph6: 13/13 | I.12: Evaluation and safety suite
+**P1; Phase 6; Needs:** I.3; **Code:** `tests/ai-eval/`
 1. Question sets with known answers and pages; adversarial documents with injected instructions; measure citation
    accuracy, hallucination rate and injection resistance per provider.
 
@@ -4353,15 +4402,15 @@ it get no tools that act without the user's confirmation.
 
 ### 27.18 Universal access: accessibility, read aloud and languages (U)
 
-#### U.1 Keyboard access and focus
-**P0 · Phase 1 · Needs:** K.16 · **Code:** everywhere
+#### Ph1: 56/60 | U.1: Keyboard access and focus
+**P0; Phase 1; Needs:** K.16; **Code:** everywhere
 1. Logical focus order and visible focus in every view; every command reachable by keyboard; a keyboard test per
    feature (`nsh test`).
 
 **Done when:** the core tasks of each mode can be done without a mouse.
 
-#### U.2 Canvas accessibility on Windows
-**P0 · Phase 1 · Needs:** K.8, K.13 · **Code:** `crates/excellent-canvas-win::uia`
+#### Ph1: 57/60 | U.2: Canvas accessibility on Windows
+**P0; Phase 1; Needs:** K.8, K.13; **Code:** `crates/excellent-canvas-win::uia`
 1. Answer `WM_GETOBJECT` with a UI Automation provider (`UiaReturnRawElementProvider`): fragments for pages, links,
    annotations and form fields.
 2. Text pattern (`ITextProvider`, `ITextRangeProvider`) over K.13 text in reading order, so Narrator and NVDA can read
@@ -4372,23 +4421,23 @@ it get no tools that act without the user's confirmation.
 <https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-implementingtextandtextrange>; NSH accessibility
 `C:\dev\nsh-src\website\docs\accessibility.md`
 
-#### U.3 Canvas accessibility on macOS, Linux and tablets
-**P0 · Phase 2 (desktop), Phase 8 (tablets) · Needs:** U.2 · **Code:** canvas crates
+#### Ph2: 3/3 | U.3: Canvas accessibility on macOS, Linux and tablets
+**P0; Phase 2 (desktop), Phase 8 (tablets); Needs:** U.2; **Code:** canvas crates
 1. macOS NSAccessibility (text area with ranges); Linux AT-SPI; iPad UIAccessibility; Android accessibility nodes.
 2. Evaluate AccessKit for the desktop providers before writing three by hand.
 
 **Done when:** VoiceOver and Orca read pages in order.
 **Links:** AccessKit <https://github.com/AccessKit/accesskit>
 
-#### U.4 High contrast, color-blind-safe colors, scaling and reduced motion
-**P0 · Phase 1 · Needs:** K.17 · **Code:** `excellent-app::theme`
+#### Ph1: 58/60 | U.4: High contrast, color-blind-safe colors, scaling and reduced motion
+**P0; Phase 1; Needs:** K.17; **Code:** `excellent-app::theme`
 1. Follow the OS high-contrast, scaling and reduced-motion settings; color-blind-safe annotation palettes; never
    use color alone to carry meaning.
 
 **Done when:** every screen passes the contrast check at 200 % scaling.
 
-#### U.5 Read aloud
-**P0 (parity) · Phase 4 · Needs:** K.13, K.19 · **Code:** `excellent-features/read-aloud`
+#### Ph4: 44/44 | U.5: Read aloud
+**P0 (parity); Phase 4; Needs:** K.13, K.19; **Code:** `excellent-features/read-aloud`
 1. Port Enhanced's read aloud (`src/ReadAloud.cpp`): speak from the cursor in reading order; sentence and word
    highlighting from TTS word-boundary events mapped to K.13 quads.
 2. TTS per platform (OneCore / SAPI, AVSpeechSynthesizer, speech-dispatcher, Android TTS) behind K.19; the `tts`
@@ -4398,15 +4447,15 @@ it get no tools that act without the user's confirmation.
 **Done when:** highlighting stays on the spoken word for a full chapter.
 **Links:** tts-rs <https://github.com/ndarilek/tts-rs>
 
-#### U.6 Neural offline voices
-**P1 · Phase 5 · Needs:** U.5, K.21 · **Code:** `packs/voices/`
+#### Ph5: 45/45 | U.6: Neural offline voices
+**P1; Phase 5; Needs:** U.5, K.21; **Code:** `packs/voices/`
 1. Piper-style ONNX voices as packs, run with `ort`; check each voice's licence.
 
 **Done when:** a pack voice reads with word highlighting, offline.
 **Links:** Piper <https://github.com/rhasspy/piper>
 
-#### U.7 Localization
-**P0 infrastructure, P1 languages · Phase 1 · Needs:** K.1 · **Code:** `app/locales/*`, `excellent-app::l10n` (Appendix D.4)
+#### Ph1: 59/60 | U.7: Localization
+**P0 infrastructure, P1 languages; Phase 1; Needs:** K.1; **Code:** `app/locales/*`, `excellent-app::l10n` (Appendix D.4)
 1. NSH's translations (`nsh-i18n`, which reads the app's translations with rust-i18n, v0.5.0), so our strings and
    NSH's own components share one locale and one set of number and date formats. English is the source; a
    pseudo-locale test catches hard-coded text. If rust-i18n's plural handling is too weak for a language, keep
@@ -4418,8 +4467,8 @@ it get no tools that act without the user's confirmation.
 **Links:** NSH i18n `C:\dev\nsh-src\crates\nsh-i18n`; rust-i18n
 <https://github.com/longbridge/rust-i18n>; Fluent (fallback) <https://projectfluent.org>
 
-#### U.8 Input methods on the canvas
-**P0 · Phase 3 · Needs:** K.8 · **Code:** canvas crates (Appendix D.1.4)
+#### Ph3: 49/49 | U.8: Input methods on the canvas
+**P0; Phase 3; Needs:** K.8; **Code:** canvas crates (Appendix D.1.4)
 1. Windows: IMM32 composition messages first (`WM_IME_STARTCOMPOSITION`, `WM_IME_COMPOSITION`, candidate window placed
    at the caret); move to TSF if needed.
 2. macOS `NSTextInputClient`; GTK `GtkIMContext`; iPad `UITextInput`; Android `InputConnection`.
@@ -4429,8 +4478,8 @@ it get no tools that act without the user's confirmation.
 **Links:** IME on Windows <https://learn.microsoft.com/en-us/windows/win32/intl/input-method-manager>;
 NSTextInputClient <https://developer.apple.com/documentation/appkit/nstextinputclient>
 
-#### U.9 First-run guide and tips
-**P1 · Phase 1 · Needs:** K.18 · **Code:** `excellent-features/onboarding`
+#### Ph1: 60/60 | U.9: First-run guide and tips
+**P1; Phase 1; Needs:** K.18; **Code:** `excellent-features/onboarding`
 1. A short skippable guide (open, modes, palette); contextual tips shown once; "replay guide" in Help.
 
 **Done when:** the guide never blocks opening a file passed on the command line.

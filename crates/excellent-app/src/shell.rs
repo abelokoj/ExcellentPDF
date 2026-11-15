@@ -28,6 +28,7 @@ use crate::list_dialog::{list_dialog, style};
 use crate::outline::{self, OutlineState};
 use crate::reading::Reading;
 use crate::reading_theme_bar::reading_theme_bar;
+use crate::recent::RecentState;
 use crate::settings;
 use crate::settings_window::settings_window;
 use crate::tabs::{self, TabState};
@@ -124,6 +125,7 @@ struct Document {
     reading: Reading,
     full_screen: FullScreen,
     tabs: TabState,
+    recent: RecentState,
 }
 
 /// Opens a closed dock and closes an open one.
@@ -146,6 +148,9 @@ pub(crate) fn shell() -> impl IntoElement {
     let live = settings::Live::new();
     let pages = PageState::new();
     let tabs = TabState::new(pages, live);
+    crate::session::keep(tabs);
+    let recent = RecentState::new();
+    crate::recent::keep(recent, tabs);
     let outline_state = OutlineState::new(tabs);
     let document = Document {
         canvas: element_ref(),
@@ -156,6 +161,7 @@ pub(crate) fn shell() -> impl IntoElement {
         reading: Reading::new(live),
         full_screen: FullScreen::new(layout),
         tabs,
+        recent,
     };
     let Document {
         canvas,
@@ -182,6 +188,7 @@ pub(crate) fn shell() -> impl IntoElement {
             || goto_open.get()
             || settings_open.get()
             || tab_list_open.get()
+            || tabs.editing().is_some()
             || link_state.is_asking()
     };
     // Nothing has the focus at first, and then the pages take it (`page_canvas`).
@@ -203,6 +210,7 @@ pub(crate) fn shell() -> impl IntoElement {
         CommandId::ChooseReadingTheme => reading_theme_open.set(true),
         CommandId::OpenFile => tabs.open_dialog(),
         CommandId::TabList => tab_list_open.set(true),
+        CommandId::SetDefaultViewer => crate::open::set_as_default_viewer(),
         CommandId::Tab(action) => tabs.run(action),
         CommandId::LeaveModes => {
             to_canvas("leaveModes");
@@ -210,6 +218,18 @@ pub(crate) fn shell() -> impl IntoElement {
         }
         CommandId::Canvas(name) => to_canvas(name),
     };
+    // Later launches' files (R.11), until the window closes.
+    spawn(async move {
+        loop {
+            let launch = crate::open::next().await;
+            current_window().focus();
+            if tabs.launch(&launch)
+                && let Some(page) = launch.page
+            {
+                canvas.command("goToPage", serde_json::json!({ "index": page }));
+            }
+        }
+    });
     // Bound again when the settings change: the user's keys may have.
     effect(move || {
         live.read(|_| ());
@@ -220,6 +240,10 @@ pub(crate) fn shell() -> impl IntoElement {
 
     view()
         .flex_1()
+        // Documents dropped anywhere on the window open in new tabs (R.11); other files are left alone.
+        .on_file_drop(move |event: &FileDropEvent| {
+            tabs.open_paths(crate::open::dropped_documents(&event.uris));
+        })
         .child(window_bar(run, document, reading_theme_open))
         .child(
             view()
@@ -230,8 +254,12 @@ pub(crate) fn shell() -> impl IntoElement {
             palette(palette_open, pages, run)
         }))
         .child(when(tab_list_open, move || {
-            tabs::tab_list(tab_list_open, tabs)
+            tabs::tab_list(tab_list_open, tabs, recent)
         }))
+        .child(when(
+            move || tabs.editing().is_some(),
+            move || tabs::group_dialog(tabs),
+        ))
         .child(when(settings_open, move || {
             settings_window(settings_open, live, theme_choice, run)
         }))
@@ -491,47 +519,78 @@ fn document_panel(
     view()
         .flex_1()
         .child(when(mounted, move || page_canvas(dialog_open, document)))
-        .child(when(move || !tabs.has_shown(), move || document_empty(run)))
+        .child(when(
+            move || tabs.shown_missing().is_some(),
+            move || document_missing(tabs),
+        ))
+        .child(when(
+            move || !tabs.has_tabs(),
+            move || document_empty(run, document.tabs, document.recent),
+        ))
 }
 
 /// The document panel with no tab open: what to do, and a button that does it.
-fn document_empty(run: impl Fn(CommandId) + Copy + 'static) -> impl IntoElement {
-    view()
-        .flex_1()
+fn document_empty(
+    run: impl Fn(CommandId) + Copy + 'static,
+    tabs: TabState,
+    recent: RecentState,
+) -> impl IntoElement {
+    empty_message(
+        move || Panel::Document.heading(),
+        move || Panel::Document.hint(),
+    )
+    .child(primary_button("document.open", move || {
+        run(CommandId::OpenFile);
+    }))
+    .child(crate::recent::recent_panel(recent, tabs))
+}
+
+/// The document panel while the shown tab's file has gone (R.9): where it was, and "Locate…".
+fn document_missing(tabs: TabState) -> impl IntoElement {
+    let missing = move || tabs.shown_missing();
+    let name = move || {
+        missing()
+            .and_then(|(_, path)| {
+                path.file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+            })
+            .unwrap_or_default()
+    };
+    let place = move || {
+        missing()
+            .and_then(|(_, path)| path.parent().map(|dir| dir.display().to_string()))
+            .unwrap_or_default()
+    };
+    empty_message(
+        move || t!("document.missing.title", name = name()),
+        move || t!("document.missing.hint", place = place()),
+    )
+    .child(primary_button("document.locate", move || {
+        if let Some((id, _)) = untracked(missing) {
+            tabs.locate(id);
+        }
+    }))
+}
+
+/// The one button of a panel's message, in the primary colour, labelled by the translation `key`.
+fn primary_button(key: &'static str, on_press: impl Fn() + 'static) -> impl IntoElement {
+    button()
+        .accessibility_label(t!(key))
+        .on_press(on_press)
+        .h(px(32.0))
+        .px_4()
+        .rounded(px(8.0))
         .items_center()
         .justify_center()
-        .gap_3()
-        .p_6()
+        .bg(move || theme().primary)
+        .hover(|s| s.opacity(0.9))
+        .active(|s| s.opacity(0.7))
+        .focus_visible(|s| s.border_2().border_color(move || theme().ring))
         .child(
-            text(move || Panel::Document.heading())
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(move || theme().foreground),
-        )
-        .child(
-            text(move || Panel::Document.hint())
+            text(move || t!(key))
                 .text_size(px(13.0))
-                .text_center()
-                .text_color(move || theme().muted_foreground),
-        )
-        .child(
-            button()
-                .accessibility_label(t!("document.open"))
-                .on_press(move || run(CommandId::OpenFile))
-                .h(px(32.0))
-                .px_4()
-                .rounded(px(8.0))
-                .items_center()
-                .justify_center()
-                .bg(move || theme().primary)
-                .hover(|s| s.opacity(0.9))
-                .active(|s| s.opacity(0.7))
-                .focus_visible(|s| s.border_2().border_color(move || theme().ring))
-                .child(
-                    text(move || t!("document.open"))
-                        .text_size(px(13.0))
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(move || theme().primary_foreground),
-                ),
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(move || theme().primary_foreground),
         )
 }
 
@@ -552,6 +611,7 @@ fn page_canvas(
         reading,
         full_screen,
         tabs,
+        recent: _,
     } = document;
     let canvas_ref = canvas;
     let label = move || {
@@ -566,6 +626,8 @@ fn page_canvas(
     };
     let canvas = native(crate::PAGE_CANVAS)
         .element_ref(&canvas)
+        // Before `path`, so a book opens laid out at the reader's size, not laid out twice.
+        .prop("reflowFontSize", move || reading.reflow_font_size_prop())
         .prop("path", move || tabs.path_prop())
         .prop("label", move || JsonValue::from(label()))
         .prop("background", move || {
@@ -623,7 +685,7 @@ fn empty_state(panel: Option<Panel>) -> impl IntoElement {
 pub(crate) fn empty_message(
     heading: impl Fn() -> String + 'static,
     hint: impl Fn() -> String + 'static,
-) -> impl IntoElement {
+) -> View {
     view()
         .flex_1()
         .items_center()
