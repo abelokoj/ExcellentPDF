@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 11:25; Ph1: 4/60 | K.14: Annotation model
+
+- `excellent-core::annot`: the annotation model (step 1). Each annotation has its `/NM` id, page, shape (text
+  markup, a boxed kind, ink, a line, a polygon or polyline), style, author, dates, contents, tags and K.28 anchor;
+  tags and the anchor are kept in a private `/ExcellentPDF` key that other readers ignore.
+- Creating, changing and deleting an annotation are operations in the log, undone and redone like outline edits.
+- Done when met: a model test of 10,000 random edit sequences, each saved, reopened and compared with the model, then
+  undone back to the start. Still open: undo after reopening.
+
 ### 2026-11-15 10:50; Ph3: 1/49 | K.28: Annotation anchors
 
 - `excellent-core::anchor`: W3C text-quote anchors (prefix, exact text, suffix, start) and `locate`, which places a

@@ -48,7 +48,7 @@ impl Fingerprint {
 }
 
 /// A line of the log.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Record {
     /// The first line: the file the log applies to.
     Start {
@@ -139,7 +139,7 @@ impl History {
 }
 
 /// A log read back: its records up to the first that is torn, unreadable or doesn't follow, and what they say.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Read {
     pub(crate) records: Vec<Record>,
     /// The bytes those records take.

@@ -840,6 +840,246 @@ void ex_drop_annot(fz_context *ctx, pdf_annot *annot)
 	pdf_drop_annot(ctx, annot);
 }
 
+/* The annotation model's private key: a text string the app owns (anchor and tags). */
+#define EX_APP_KEY "ExcellentPDF"
+
+/* Ink strokes, line ends or vertices: whichever of them the annotation's type has. */
+static int ex_annot_point_count(fz_context *ctx, pdf_annot *annot, int *strokes)
+{
+	int i, n = 0;
+	*strokes = 0;
+	if (pdf_annot_has_ink_list(ctx, annot))
+	{
+		*strokes = pdf_annot_ink_list_count(ctx, annot);
+		for (i = 0; i < *strokes; i++)
+			n += pdf_annot_ink_list_stroke_count(ctx, annot, i);
+		return n;
+	}
+	if (pdf_annot_has_line(ctx, annot))
+		return 2;
+	if (pdf_annot_has_vertices(ctx, annot))
+		return pdf_annot_vertex_count(ctx, annot);
+	return 0;
+}
+
+int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex_error *err)
+{
+	ex_annot_props props;
+	memset(&props, 0, sizeof props);
+	fz_try(ctx)
+	{
+		props.type = (int)pdf_annot_type(ctx, annot);
+		props.rect = pdf_annot_has_rect(ctx, annot) ? pdf_annot_rect(ctx, annot) : pdf_bound_annot(ctx, annot);
+		pdf_annot_color(ctx, annot, &props.color_n, props.color);
+		props.opacity = pdf_annot_opacity(ctx, annot);
+		props.border = pdf_annot_has_border(ctx, annot) ? pdf_annot_border_width(ctx, annot) : 0;
+		if (pdf_annot_has_author(ctx, annot))
+		{
+			props.created = pdf_annot_creation_date(ctx, annot);
+			props.modified = pdf_annot_modification_date(ctx, annot);
+		}
+		props.quad_count = pdf_annot_has_quad_points(ctx, annot) ? pdf_annot_quad_point_count(ctx, annot) : 0;
+		props.point_count = ex_annot_point_count(ctx, annot, &props.stroke_count);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	*out = props;
+	return 0;
+}
+
+int ex_annot_arrays(fz_context *ctx, pdf_annot *annot, fz_quad *quads, int *stroke_lengths, fz_point *points,
+	ex_error *err)
+{
+	fz_try(ctx)
+	{
+		int i, k, n = 0;
+		if (quads && pdf_annot_has_quad_points(ctx, annot))
+			for (i = 0; i < pdf_annot_quad_point_count(ctx, annot); i++)
+				quads[i] = pdf_annot_quad_point(ctx, annot, i);
+		if (pdf_annot_has_ink_list(ctx, annot))
+		{
+			for (i = 0; i < pdf_annot_ink_list_count(ctx, annot); i++)
+			{
+				int length = pdf_annot_ink_list_stroke_count(ctx, annot, i);
+				if (stroke_lengths)
+					stroke_lengths[i] = length;
+				for (k = 0; k < length; k++, n++)
+					if (points)
+						points[n] = pdf_annot_ink_list_stroke_vertex(ctx, annot, i, k);
+			}
+		}
+		else if (points && pdf_annot_has_line(ctx, annot))
+			pdf_annot_line(ctx, annot, &points[0], &points[1]);
+		else if (points && pdf_annot_has_vertices(ctx, annot))
+			for (i = 0; i < pdf_annot_vertex_count(ctx, annot); i++)
+				points[i] = pdf_annot_vertex(ctx, annot, i);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out, ex_error *err)
+{
+	fz_buffer *buf = NULL;
+	fz_try(ctx)
+	{
+		const char *text = NULL;
+		switch (which)
+		{
+		case EX_ANNOT_CONTENTS:
+			text = pdf_annot_contents(ctx, annot);
+			break;
+		case EX_ANNOT_ID:
+			text = pdf_annot_name(ctx, annot);
+			break;
+		case EX_ANNOT_AUTHOR:
+			if (pdf_annot_has_author(ctx, annot))
+				text = pdf_annot_author(ctx, annot);
+			break;
+		case EX_ANNOT_APP_DATA:
+			text = pdf_to_text_string(ctx, pdf_dict_gets(ctx, pdf_annot_obj(ctx, annot), EX_APP_KEY));
+			break;
+		default:
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no annotation text %d", which);
+		}
+		if (!text)
+			text = "";
+		buf = fz_new_buffer_from_copied_data(ctx, (const unsigned char *)text, strlen(text));
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	*out = buf;
+	return 0;
+}
+
+/* Writes every property of `w` to `annot`, then rebuilds its appearance. */
+static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_write *w)
+{
+	const ex_annot_props *p = &w->props;
+	pdf_set_annot_name(ctx, annot, w->id);
+	/* Before the rect: MuPDF's width setter grows /Rect by half the change in width. */
+	if (pdf_annot_has_border(ctx, annot))
+		pdf_set_annot_border_width(ctx, annot, p->border);
+	if (pdf_annot_has_rect(ctx, annot))
+		pdf_set_annot_rect(ctx, annot, p->rect);
+	pdf_set_annot_contents(ctx, annot, w->contents ? w->contents : "");
+	if (pdf_annot_has_author(ctx, annot))
+	{
+		if (w->author)
+			pdf_set_annot_author(ctx, annot, w->author);
+		pdf_set_annot_creation_date(ctx, annot, p->created);
+	}
+	if (w->app_data && *w->app_data)
+		pdf_dict_puts_drop(ctx, pdf_annot_obj(ctx, annot), EX_APP_KEY, pdf_new_text_string(ctx, w->app_data));
+	else
+		pdf_dict_dels(ctx, pdf_annot_obj(ctx, annot), EX_APP_KEY);
+	pdf_set_annot_color(ctx, annot, p->color_n, p->color);
+	pdf_set_annot_opacity(ctx, annot, p->opacity);
+	if (pdf_annot_has_quad_points(ctx, annot))
+		pdf_set_annot_quad_points(ctx, annot, p->quad_count, w->quads);
+	if (pdf_annot_has_ink_list(ctx, annot))
+		pdf_set_annot_ink_list(ctx, annot, p->stroke_count, w->stroke_lengths, w->points);
+	else if (pdf_annot_has_line(ctx, annot))
+	{
+		if (p->point_count != 2)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "a line has two points, not %d", p->point_count);
+		pdf_set_annot_line(ctx, annot, w->points[0], w->points[1]);
+	}
+	else if (pdf_annot_has_vertices(ctx, annot))
+		pdf_set_annot_vertices(ctx, annot, p->point_count, w->points);
+	/* Last: every setter above stamps the modification date with the time now. */
+	if (pdf_annot_has_author(ctx, annot))
+		pdf_set_annot_modification_date(ctx, annot, p->modified);
+	pdf_update_annot(ctx, annot);
+}
+
+/* Page `page` of the PDF behind `doc`, a new reference. */
+static pdf_page *ex_pdf_page(fz_context *ctx, fz_document *doc, int page)
+{
+	pdf_document *pdf = pdf_specifics(ctx, doc);
+	if (!pdf)
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "only a PDF has annotations to edit");
+	if (page < 0 || page >= pdf_count_pages(ctx, pdf))
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "no page %d", page);
+	return pdf_load_page(ctx, pdf, page);
+}
+
+/* The annotation of `page` whose /NM is `id`, borrowed from the page. */
+static pdf_annot *ex_find_annot(fz_context *ctx, pdf_page *page, const char *id)
+{
+	pdf_annot *annot;
+	if (!id || !*id)
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "an annotation is named by its id");
+	for (annot = pdf_first_annot(ctx, page); annot; annot = pdf_next_annot(ctx, annot))
+	{
+		const char *name = pdf_annot_name(ctx, annot);
+		if (name && !strcmp(name, id))
+			return annot;
+	}
+	fz_throw(ctx, FZ_ERROR_ARGUMENT, "no annotation %s on the page", id);
+}
+
+int ex_annot_create(fz_context *ctx, fz_document *doc, int page, const ex_annot_write *w, ex_error *err)
+{
+	pdf_page *p = NULL;
+	pdf_annot *annot = NULL;
+	fz_var(p);
+	fz_var(annot);
+	fz_try(ctx)
+	{
+		if (!w->id || !*w->id)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "a new annotation needs an id");
+		p = ex_pdf_page(ctx, doc, page);
+		annot = pdf_create_annot(ctx, p, (enum pdf_annot_type)w->props.type);
+		ex_annot_write_to(ctx, annot, w);
+	}
+	fz_always(ctx)
+	{
+		pdf_drop_annot(ctx, annot);
+		fz_drop_page(ctx, (fz_page *)p);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_annot_update(fz_context *ctx, fz_document *doc, int page, const ex_annot_write *w, ex_error *err)
+{
+	pdf_page *p = NULL;
+	fz_var(p);
+	fz_try(ctx)
+	{
+		pdf_annot *annot;
+		p = ex_pdf_page(ctx, doc, page);
+		annot = ex_find_annot(ctx, p, w->id);
+		if ((int)pdf_annot_type(ctx, annot) != w->props.type)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "annotation %s is of another type", w->id);
+		ex_annot_write_to(ctx, annot, w);
+	}
+	fz_always(ctx)
+		fz_drop_page(ctx, (fz_page *)p);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_annot_delete(fz_context *ctx, fz_document *doc, int page, const char *id, ex_error *err)
+{
+	pdf_page *p = NULL;
+	fz_var(p);
+	fz_try(ctx)
+	{
+		p = ex_pdf_page(ctx, doc, page);
+		pdf_delete_annot(ctx, p, ex_find_annot(ctx, p, id));
+	}
+	fz_always(ctx)
+		fz_drop_page(ctx, (fz_page *)p);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
 int ex_new_document_writer(fz_context *ctx, const char *path, const char *format, const char *options,
 	fz_document_writer **out, ex_error *err)
 {

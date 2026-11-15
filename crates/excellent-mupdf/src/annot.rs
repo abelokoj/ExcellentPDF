@@ -3,17 +3,24 @@
 use core::ffi::c_int;
 use core::marker::PhantomData;
 use core::ptr::{self, NonNull};
+use std::ffi::CString;
 
 use excellent_mupdf_sys::{
-    self as sys, PDF_ANNOT_UNKNOWN, ex_annot_contents, ex_annot_info, ex_drop_annot,
-    ex_first_annot, ex_next_annot, fz_rect, pdf_annot,
+    self as sys, PDF_ANNOT_UNKNOWN, ex_annot_arrays, ex_annot_contents, ex_annot_info,
+    ex_annot_props, ex_annot_props_of, ex_annot_text, ex_drop_annot, ex_first_annot, ex_next_annot,
+    fz_point, fz_quad, fz_rect, pdf_annot,
 };
 
 use crate::buffer;
 use crate::context::{check, drop_with_context, with_context};
-use crate::error::Result;
-use crate::geometry::PageRect;
+use crate::error::{MuError, Result};
+use crate::geometry::{PagePoint, PageRect, Quad};
 use crate::page::Page;
+
+/// The shim's annotation texts (`EX_ANNOT_*` in `shim.h`).
+const ID: c_int = 1;
+const AUTHOR: c_int = 2;
+const APP_DATA: c_int = 3;
 
 /// The subtype of a PDF annotation (PDF 2.0, table 171).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -80,6 +87,41 @@ pub enum AnnotKind {
 }
 
 impl AnnotKind {
+    /// MuPDF's `enum pdf_annot_type` for it; `None` for [`AnnotKind::Unknown`].
+    pub(crate) fn raw(self) -> Option<c_int> {
+        Some(match self {
+            Self::Text => sys::PDF_ANNOT_TEXT,
+            Self::Link => sys::PDF_ANNOT_LINK,
+            Self::FreeText => sys::PDF_ANNOT_FREE_TEXT,
+            Self::Line => sys::PDF_ANNOT_LINE,
+            Self::Square => sys::PDF_ANNOT_SQUARE,
+            Self::Circle => sys::PDF_ANNOT_CIRCLE,
+            Self::Polygon => sys::PDF_ANNOT_POLYGON,
+            Self::PolyLine => sys::PDF_ANNOT_POLY_LINE,
+            Self::Highlight => sys::PDF_ANNOT_HIGHLIGHT,
+            Self::Underline => sys::PDF_ANNOT_UNDERLINE,
+            Self::Squiggly => sys::PDF_ANNOT_SQUIGGLY,
+            Self::StrikeOut => sys::PDF_ANNOT_STRIKE_OUT,
+            Self::Redact => sys::PDF_ANNOT_REDACT,
+            Self::Stamp => sys::PDF_ANNOT_STAMP,
+            Self::Caret => sys::PDF_ANNOT_CARET,
+            Self::Ink => sys::PDF_ANNOT_INK,
+            Self::Popup => sys::PDF_ANNOT_POPUP,
+            Self::FileAttachment => sys::PDF_ANNOT_FILE_ATTACHMENT,
+            Self::Sound => sys::PDF_ANNOT_SOUND,
+            Self::Movie => sys::PDF_ANNOT_MOVIE,
+            Self::RichMedia => sys::PDF_ANNOT_RICH_MEDIA,
+            Self::Widget => sys::PDF_ANNOT_WIDGET,
+            Self::Screen => sys::PDF_ANNOT_SCREEN,
+            Self::PrinterMark => sys::PDF_ANNOT_PRINTER_MARK,
+            Self::TrapNet => sys::PDF_ANNOT_TRAP_NET,
+            Self::Watermark => sys::PDF_ANNOT_WATERMARK,
+            Self::ThreeD => sys::PDF_ANNOT_3D,
+            Self::Projection => sys::PDF_ANNOT_PROJECTION,
+            Self::Unknown => return None,
+        })
+    }
+
     fn from_raw(raw: c_int) -> Self {
         match raw {
             sys::PDF_ANNOT_TEXT => Self::Text,
@@ -163,6 +205,188 @@ impl Annot<'_> {
             // SAFETY: `buf` is a new buffer we own.
             Ok(unsafe { buffer::into_string(ctx, buf) })
         })
+    }
+
+    /// The annotation's id (`/NM`), empty when it has none.
+    ///
+    /// # Errors
+    ///
+    /// MuPDF can't read the annotation's dictionary.
+    pub fn id(&self) -> Result<String> {
+        self.text(ID)
+    }
+
+    /// Everything the annotation model (K.14) keeps of the annotation.
+    ///
+    /// # Errors
+    ///
+    /// MuPDF can't read the annotation's dictionary.
+    pub fn data(&self) -> Result<AnnotData> {
+        let mut props = ex_annot_props::default();
+        with_context(|ctx| {
+            // SAFETY: the annotation is live and on its page's thread; `props` is ours.
+            check(|err| unsafe { ex_annot_props_of(ctx, self.raw.as_ptr(), &mut props, err) })
+        })?;
+        let count = |n: c_int| usize::try_from(n).unwrap_or(0);
+        let mut quads = vec![fz_quad::default(); count(props.quad_count)];
+        let mut lengths: Vec<c_int> = vec![0; count(props.stroke_count)];
+        let mut points = vec![fz_point::default(); count(props.point_count)];
+        with_context(|ctx| {
+            // SAFETY: as above; each array holds as many items as the props counted, which is what the shim writes.
+            check(|err| unsafe {
+                ex_annot_arrays(
+                    ctx,
+                    self.raw.as_ptr(),
+                    quads.as_mut_ptr(),
+                    lengths.as_mut_ptr(),
+                    points.as_mut_ptr(),
+                    err,
+                )
+            })
+        })?;
+        let points: Vec<PagePoint> = points.into_iter().map(PagePoint::from).collect();
+        let kind = AnnotKind::from_raw(props.type_);
+        let (strokes, points) = if kind == AnnotKind::Ink {
+            let mut rest = points.as_slice();
+            let strokes = lengths
+                .iter()
+                .map(|&length| {
+                    let (stroke, after) = rest.split_at(count(length).min(rest.len()));
+                    rest = after;
+                    stroke.to_vec()
+                })
+                .collect();
+            (strokes, Vec::new())
+        } else {
+            (Vec::new(), points)
+        };
+        let color_n = count(props.color_n).min(props.color.len());
+        Ok(AnnotData {
+            kind,
+            id: self.id()?,
+            author: self.text(AUTHOR)?,
+            contents: self.contents()?,
+            app_data: self.text(APP_DATA)?,
+            rect: props.rect.into(),
+            color: props.color[..color_n].to_vec(),
+            opacity: props.opacity,
+            border: props.border,
+            created: props.created,
+            modified: props.modified,
+            quads: quads.into_iter().map(Quad::from).collect(),
+            strokes,
+            points,
+        })
+    }
+
+    fn text(&self, which: c_int) -> Result<String> {
+        with_context(|ctx| {
+            let mut buf = ptr::null_mut();
+            // SAFETY: the annotation is live and on its page's thread.
+            check(|err| unsafe { ex_annot_text(ctx, self.raw.as_ptr(), which, &mut buf, err) })?;
+            // SAFETY: `buf` is a new buffer we own.
+            Ok(unsafe { buffer::into_string(ctx, buf) })
+        })
+    }
+}
+
+/// An annotation as the annotation model (K.14) reads and writes it, in page space (points, y down). The arrays
+/// that don't apply to its kind are empty.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AnnotData {
+    /// Its subtype.
+    pub kind: AnnotKind,
+    /// Its id (`/NM`), which names it in edits.
+    pub id: String,
+    /// Who made it (`/T`); markup annotations only.
+    pub author: String,
+    /// Its text (`/Contents`).
+    pub contents: String,
+    /// The app's private key (its anchor and tags, K.28) as text; empty for none.
+    pub app_data: String,
+    /// Where it is: written for the kinds placed by a rectangle (notes, text boxes, shapes, stamps); read for all,
+    /// as the area it covers.
+    pub rect: PageRect,
+    /// Its colour: no components (none), 1 (gray), 3 (RGB) or 4 (CMYK), each 0 to 1.
+    pub color: Vec<f32>,
+    /// 0 (clear) to 1.
+    pub opacity: f32,
+    /// Its border or stroke width in points, for the kinds that have one.
+    pub border: f32,
+    /// When it was made, in seconds since 1970 (UTC); markup annotations only.
+    pub created: i64,
+    /// When it last changed, as `created`.
+    pub modified: i64,
+    /// The text it marks (highlight, underline, squiggly, strikeout).
+    pub quads: Vec<Quad>,
+    /// Ink strokes.
+    pub strokes: Vec<Vec<PagePoint>>,
+    /// A line's two ends, or a polygon's or polyline's vertices.
+    pub points: Vec<PagePoint>,
+}
+
+impl AnnotData {
+    /// Runs `write` with the shim's view of the annotation, which borrows from it.
+    pub(crate) fn with_raw<T>(
+        &self,
+        write: impl FnOnce(&sys::ex_annot_write) -> Result<T>,
+    ) -> Result<T> {
+        let kind = self
+            .kind
+            .raw()
+            .ok_or_else(|| MuError::argument("an annotation of unknown kind can't be written"))?;
+        let text = |s: &str| {
+            CString::new(s).map_err(|_| MuError::argument("annotation text contains a NUL"))
+        };
+        let (id, author, contents, app_data) = (
+            text(&self.id)?,
+            text(&self.author)?,
+            text(&self.contents)?,
+            text(&self.app_data)?,
+        );
+        let count = |n: usize| c_int::try_from(n).map_err(|_| MuError::argument("too many points"));
+        if self.color.len() > 4 {
+            return Err(MuError::argument("a colour has at most four components"));
+        }
+        let mut color = [0.0; 4];
+        color[..self.color.len()].copy_from_slice(&self.color);
+        let quads: Vec<fz_quad> = self.quads.iter().copied().map(fz_quad::from).collect();
+        let lengths = self
+            .strokes
+            .iter()
+            .map(|stroke| count(stroke.len()))
+            .collect::<Result<Vec<c_int>>>()?;
+        let points: Vec<fz_point> = self
+            .strokes
+            .iter()
+            .flatten()
+            .chain(&self.points)
+            .copied()
+            .map(fz_point::from)
+            .collect();
+        let raw = sys::ex_annot_write {
+            id: id.as_ptr(),
+            author: author.as_ptr(),
+            contents: contents.as_ptr(),
+            app_data: app_data.as_ptr(),
+            props: ex_annot_props {
+                type_: kind,
+                rect: self.rect.into(),
+                color_n: count(self.color.len())?,
+                color,
+                opacity: self.opacity,
+                border: self.border,
+                created: self.created,
+                modified: self.modified,
+                quad_count: count(quads.len())?,
+                stroke_count: count(lengths.len())?,
+                point_count: count(points.len())?,
+            },
+            quads: quads.as_ptr(),
+            stroke_lengths: lengths.as_ptr(),
+            points: points.as_ptr(),
+        };
+        write(&raw)
     }
 }
 

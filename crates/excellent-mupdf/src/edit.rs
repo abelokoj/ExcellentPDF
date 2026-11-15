@@ -9,11 +9,13 @@ use std::ffi::CString;
 use std::path::Path;
 
 use excellent_mupdf_sys::{
-    ex_abandon_operation, ex_begin_operation, ex_end_operation, ex_is_pdf, ex_link_uri,
-    ex_outline_delete, ex_outline_edit, ex_outline_insert, ex_outline_move, ex_outline_update,
-    ex_redo, ex_save_pdf, ex_undo, ex_undo_state,
+    ex_abandon_operation, ex_annot_create, ex_annot_delete, ex_annot_update, ex_begin_operation,
+    ex_end_operation, ex_is_pdf, ex_link_uri, ex_outline_delete, ex_outline_edit,
+    ex_outline_insert, ex_outline_move, ex_outline_update, ex_redo, ex_save_pdf, ex_undo,
+    ex_undo_state,
 };
 
+use crate::annot::AnnotData;
 use crate::context::{check, with_context};
 use crate::document::{Document, c_path};
 use crate::error::{MuError, Result};
@@ -250,6 +252,10 @@ fn c_ints(path: &[usize]) -> Result<(Vec<c_int>, c_int)> {
     Ok((ints, depth))
 }
 
+fn c_page(page: usize) -> Result<c_int> {
+    c_int::try_from(page).map_err(|_| MuError::argument("page out of range"))
+}
+
 fn c_text(text: &str) -> Result<CString> {
     CString::new(text).map_err(|_| MuError::argument("the text contains a NUL character"))
 }
@@ -342,6 +348,57 @@ impl Edit<'_> {
             // SAFETY: as for `insert_outline_entry`.
             check(|err| unsafe {
                 ex_outline_delete(ctx, self.doc.raw().as_ptr(), path.as_ptr(), depth, err)
+            })
+        })
+    }
+
+    /// Adds `annot` to page `page` (counting from zero), named by its id, which must be new on the page.
+    ///
+    /// # Errors
+    ///
+    /// The page isn't in the document, the id is empty, the kind is unknown, or MuPDF can't write the annotation.
+    pub fn create_annot(&mut self, page: usize, annot: &AnnotData) -> Result<()> {
+        let page = c_page(page)?;
+        annot.with_raw(|raw| {
+            with_context(|ctx| {
+                // SAFETY: the document is live, used by this thread only, and inside an operation; `raw` and what
+                // it points at outlive the call, and the shim copies them.
+                check(|err| unsafe {
+                    ex_annot_create(ctx, self.doc.raw().as_ptr(), page, raw, err)
+                })
+            })
+        })
+    }
+
+    /// Writes every property of `annot` to the annotation of page `page` with its id and kind.
+    ///
+    /// # Errors
+    ///
+    /// No annotation of that kind has the id on the page, or MuPDF can't write it.
+    pub fn update_annot(&mut self, page: usize, annot: &AnnotData) -> Result<()> {
+        let page = c_page(page)?;
+        annot.with_raw(|raw| {
+            with_context(|ctx| {
+                // SAFETY: as for `create_annot`.
+                check(|err| unsafe {
+                    ex_annot_update(ctx, self.doc.raw().as_ptr(), page, raw, err)
+                })
+            })
+        })
+    }
+
+    /// Deletes the annotation of page `page` whose id is `id`.
+    ///
+    /// # Errors
+    ///
+    /// No annotation has the id on the page, or MuPDF can't delete it.
+    pub fn delete_annot(&mut self, page: usize, id: &str) -> Result<()> {
+        let page = c_page(page)?;
+        let id = c_text(id)?;
+        with_context(|ctx| {
+            // SAFETY: as for `create_annot`; `id` is NUL-terminated.
+            check(|err| unsafe {
+                ex_annot_delete(ctx, self.doc.raw().as_ptr(), page, id.as_ptr(), err)
             })
         })
     }

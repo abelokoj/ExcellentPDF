@@ -2,7 +2,7 @@
 //! so one can't be passed for the other. Building the page-to-device [`Matrix`] from zoom and rotation happens in one
 //! place, `excellent-core::transform`.
 
-use excellent_mupdf_sys::{fz_irect, fz_matrix, fz_rect};
+use excellent_mupdf_sys::{fz_irect, fz_matrix, fz_point, fz_quad, fz_rect};
 
 /// A point on a page, in points (1/72 inch).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -258,6 +258,51 @@ impl From<fz_rect> for PageRect {
             y0: r.y0,
             x1: r.x1,
             y1: r.y1,
+        }
+    }
+}
+
+impl From<PageRect> for fz_rect {
+    fn from(r: PageRect) -> Self {
+        Self {
+            x0: r.x0,
+            y0: r.y0,
+            x1: r.x1,
+            y1: r.y1,
+        }
+    }
+}
+
+impl From<fz_point> for PagePoint {
+    fn from(p: fz_point) -> Self {
+        Self { x: p.x, y: p.y }
+    }
+}
+
+impl From<PagePoint> for fz_point {
+    fn from(p: PagePoint) -> Self {
+        Self { x: p.x, y: p.y }
+    }
+}
+
+impl From<fz_quad> for Quad {
+    fn from(q: fz_quad) -> Self {
+        Self {
+            ul: q.ul.into(),
+            ur: q.ur.into(),
+            ll: q.ll.into(),
+            lr: q.lr.into(),
+        }
+    }
+}
+
+impl From<Quad> for fz_quad {
+    fn from(q: Quad) -> Self {
+        Self {
+            ul: q.ul.into(),
+            ur: q.ur.into(),
+            ll: q.ll.into(),
+            lr: q.lr.into(),
         }
     }
 }

@@ -76,8 +76,8 @@ open = "page preview on hover (needs R.5)"
 ["K.14"]
 label = "Ph1: 4/60"
 status = "in-progress"
-tests = ["changes_read_back_as_they_were_written", "an_unknown_change_is_not_read", "nothing_is_written_until_the_first_record", "a_log_from_an_earlier_run_is_kept_for_recovery", "a_log_cut_anywhere_keeps_every_whole_record", "saving_marks_the_history_saved_until_it_moves", "outline_edits_are_undone_and_redone_one_operation_at_a_time", "a_failed_operation_changes_nothing", "edits_are_logged_undone_and_saved_over_the_file", "a_failed_edit_changes_nothing_and_is_not_logged"]
-open = "annotation model (step 1, Phase 3) and its 10,000-sequence model tests; author in records; undo after reopening"
+tests = ["changes_read_back_as_they_were_written", "an_unknown_change_is_not_read", "nothing_is_written_until_the_first_record", "a_log_from_an_earlier_run_is_kept_for_recovery", "a_log_cut_anywhere_keeps_every_whole_record", "saving_marks_the_history_saved_until_it_moves", "outline_edits_are_undone_and_redone_one_operation_at_a_time", "a_failed_operation_changes_nothing", "edits_are_logged_undone_and_saved_over_the_file", "a_failed_edit_changes_nothing_and_is_not_logged", "random_annotation_edits_survive_save_and_reopen", "annotation_changes_read_back_from_the_log_as_written", "the_anchor_and_tags_travel_in_the_private_key"]
+open = "undo after reopening; author in records; unknown annotation types are left alone but not yet modelled"
 
 ["K.15"]
 label = "Ph1: 5/60"
@@ -383,4 +383,4 @@ open = "not tried with VoiceOver or Orca; pages, links and notes as elements; se
 label = "Ph3: 1/49"
 status = "in-progress"
 tests = ["quotes_survive_a_re_typeset_version_95_percent", "re_typesetting_keeps_the_quote_exact", "context_chooses_between_repeats_of_the_exact_text", "a_corrected_typo_is_placed_approximately", "a_long_quote_with_edits_is_placed_by_its_ends", "text_that_is_gone_is_orphaned", "ids_are_version_4_uuids_and_differ"]
-open = "anchors in /NM, the private key and the sidecar, and re-anchoring on open, wait for the annotation model (K.14 step 1)"
+open = "anchors are stored with each annotation (K.14 step 1); still open: the sidecar for non-PDF formats, and re-anchoring on open"

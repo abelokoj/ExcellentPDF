@@ -2070,8 +2070,12 @@ scrolling, select all of the document, step 5's corpus scores. Tests: `excellent
 `pdf_begin_operation` / `pdf_end_operation`, and a failed one is taken back. The log is one JSON line per operation,
 undo, redo and save, synced before the edit counts, and starts with the file's fingerprint; it lives in the app
 folder's `oplog/`. Deviation from step 2: no `author` in records yet (one local user; it comes with sync, Y.1).
-Undo is Ctrl+Z and redo Ctrl+Shift+Z (Ctrl+Y is Enhanced's zoom). Open: the annotation model (step 1) and its
-10,000-sequence model tests, undo after reopening. Doc: `docs/features/K.14-operation-log.md`.
+Undo is Ctrl+Z and redo Ctrl+Shift+Z (Ctrl+Y is Enhanced's zoom). Doc: `docs/features/K.14-operation-log.md`.
+
+**Built (2026-11-15), step 1, the annotation model:** `excellent-core::annot` (shape as an enum of markup, boxed,
+ink, line and path kinds; style; `/NM` id; tags and the K.28 anchor in a private `/ExcellentPDF` key) and the
+changes `annot.create`, `annot.update` and `annot.delete`. Step 5's model test passes for 10,000 random sequences.
+Open: undo after reopening; author in records.
 
 #### Ph1: 5/60 | K.15: Saving, autosave, recovery and external changes
 **P0; Phase 1 (read-only) and Phase 3 (edits); Needs:** K.14; **Code:** `excellent-core::save`

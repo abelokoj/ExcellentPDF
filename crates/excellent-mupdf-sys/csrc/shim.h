@@ -223,6 +223,60 @@ int ex_annot_info(fz_context *ctx, pdf_annot *annot, int *type, fz_rect *rect, e
 int ex_annot_contents(fz_context *ctx, pdf_annot *annot, fz_buffer **out, ex_error *err);
 void ex_drop_annot(fz_context *ctx, pdf_annot *annot);
 
+/* An annotation's properties as the annotation model (K.14) reads and writes them, in page space (that of
+ * ex_page_bounds). The arrays are counted: `quads` for text markup, `stroke_lengths` (points per stroke) and `points`
+ * for ink, `points` for a line (two) and a polygon's or polyline's vertices. Dates are seconds since 1970 (UTC). */
+typedef struct ex_annot_props {
+	/* enum pdf_annot_type */
+	int type;
+	fz_rect rect;
+	/* 0 for none (transparent), 1 gray, 3 RGB, 4 CMYK. */
+	int color_n;
+	float color[4];
+	float opacity;
+	float border;
+	int64_t created;
+	int64_t modified;
+	int quad_count;
+	int stroke_count;
+	int point_count;
+} ex_annot_props;
+
+/* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author) and the app's private key
+ * (/ExcellentPDF, a text string holding the anchor and tags). */
+#define EX_ANNOT_CONTENTS 0
+#define EX_ANNOT_ID 1
+#define EX_ANNOT_AUTHOR 2
+#define EX_ANNOT_APP_DATA 3
+
+/* Reads `annot`: its properties, then its arrays into caller memory sized from them (any may be NULL to skip). */
+int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex_error *err);
+int ex_annot_arrays(fz_context *ctx, pdf_annot *annot, fz_quad *quads, int *stroke_lengths, fz_point *points,
+	ex_error *err);
+/* One of the EX_ANNOT_* texts, copied into a new buffer; empty when the annotation has none. */
+int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out, ex_error *err);
+
+/* An annotation as it is written: `props` (its type is used only to create; the arrays come from the pointers
+ * here, sized by its counts) and its texts, UTF-8. `id` names it. A NULL text writes none; an empty app data
+ * removes the key. Writing every property keeps the dictionary's other keys (an appearance's own, another app's). */
+typedef struct ex_annot_write {
+	const char *id;
+	const char *author;
+	const char *contents;
+	const char *app_data;
+	ex_annot_props props;
+	const fz_quad *quads;
+	const int *stroke_lengths;
+	const fz_point *points;
+} ex_annot_write;
+
+/* Annotation edits (K.14), inside an operation, on page `page` (zero-based) of a PDF. ex_annot_create adds one;
+ * ex_annot_update writes every property of the one whose /NM is `id`; ex_annot_delete removes it. The appearance is
+ * rebuilt after each change. Fails with FZ_ERROR_ARGUMENT when no annotation on the page has the id. */
+int ex_annot_create(fz_context *ctx, fz_document *doc, int page, const ex_annot_write *annot, ex_error *err);
+int ex_annot_update(fz_context *ctx, fz_document *doc, int page, const ex_annot_write *annot, ex_error *err);
+int ex_annot_delete(fz_context *ctx, fz_document *doc, int page, const char *id, ex_error *err);
+
 /* Document writers: `format` is a MuPDF output format ("pdf", "png", "cbz", "svg", "text", ...), or NULL to pick one
  * from the extension of `path`; `options` are MuPDF's writer options, or NULL. Each page is written at its own size.
  * Close the writer to finish the file; dropping it without closing abandons the output. */

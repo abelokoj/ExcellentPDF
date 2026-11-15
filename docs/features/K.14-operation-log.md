@@ -1,11 +1,11 @@
 # Ph1: 4/60 | K.14: Annotation model and operation log
 
-**Tag:** K.14; **Priority:** P0; **Phase:** 1 (design), 3 (build); **Needs:** K.5; **Code:** `excellent-core::{edit,
-oplog}`, `excellent-mupdf::edit`, `excellent-app::editing`
+**Tag:** K.14; **Priority:** P0; **Phase:** 1 (design), 3 (build); **Needs:** K.5; **Code:** `excellent-core::{annot,
+edit, oplog}`, `excellent-mupdf::{annot, edit}`, `excellent-app::editing`
 **Plan:** §27 entry `Ph1: 4/60 | K.14`, Appendix D.1.2.
 
 This is the operation log and the undo it carries, built now because outline editing (B.1 to B.5) is the first thing
-that changes a document. The annotation model (step 1) comes with the annotation tags in Phase 3.
+that changes a document. The annotation model (step 1) was added at the start of Phase 3, for the annotation tags.
 
 ## Problem
 
@@ -42,6 +42,18 @@ small write); not measured.
   Logs live in the app folder's `oplog/`, named by the file's path key.
 - Deviation from step 2: records carry no author yet (one local user); it comes with sync (Y.1).
 - `excellent-app::editing`: applies operations to the shown document, undo and redo, and reports failures.
+- `excellent-core::annot` (step 1): `Annotation { id, page, shape, style, author, created, modified, contents, tags,
+  anchor }`. The shape is an enum (text markup with quads; a boxed kind with a rectangle; ink strokes; a line;
+  a polygon or polyline), so a kind can't carry the wrong geometry. Geometry is in page points, y down, as MuPDF
+  gives it. The id is the `/NM` (a UUID from K.28); tags and the K.28 anchor travel in a private `/ExcellentPDF`
+  text string (JSON), which other readers ignore. `page_annotations` reads a page's annotations; kinds the model
+  doesn't know are skipped and left untouched in the file.
+- Changes `annot.create`, `annot.update` (every property written again; the kind stays) and `annot.delete`, found by
+  page and `/NM`. The shim (`ex_annot_create`, `ex_annot_update`, `ex_annot_delete`) writes them in one place; it
+  sets the border width before the rectangle, because MuPDF's width setter moves `/Rect`.
+- MuPDF draws some kinds at its own size, and the model test reads them back that way: a stamp's artwork is fitted
+  and centred in its rectangle, a caret is 20 by 14 points about its centre, a note icon is a square of side 10 to
+  20 at its top left.
 
 ## Acceptance tests
 
@@ -52,5 +64,9 @@ small write); not measured.
 - [x] `outline_edits_are_undone_and_redone_one_operation_at_a_time`, `a_failed_operation_changes_nothing`
   (`excellent-mupdf`); `edits_are_logged_undone_and_saved_over_the_file`,
   `a_failed_edit_changes_nothing_and_is_not_logged`.
-- [ ] Model-based tests pass for 10,000 random sequences (needs the annotation model, step 1).
+- [x] Model-based tests pass for 10,000 random sequences: `random_annotation_edits_survive_save_and_reopen`
+  (create, update and delete annotations on two pages, save, reopen, compare with the model and with the other
+  annotations; then undo everything and compare with the start). Run with `PROPTEST_CASES=10000` (199 s, debug);
+  the default run is 48 cases.
+- [x] `annotation_changes_read_back_from_the_log_as_written`, `the_anchor_and_tags_travel_in_the_private_key`.
 - [ ] Undo after reopening, where `pdf_save_journal` / `pdf_load_journal` allow it.

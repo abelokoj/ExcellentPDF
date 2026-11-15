@@ -701,6 +701,134 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn ex_drop_annot(ctx: *mut fz_context, annot: *mut pdf_annot);
 }
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct ex_annot_props {
+    pub type_: ::core::ffi::c_int,
+    pub rect: fz_rect,
+    pub color_n: ::core::ffi::c_int,
+    pub color: [f32; 4usize],
+    pub opacity: f32,
+    pub border: f32,
+    pub created: i64,
+    pub modified: i64,
+    pub quad_count: ::core::ffi::c_int,
+    pub stroke_count: ::core::ffi::c_int,
+    pub point_count: ::core::ffi::c_int,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of ex_annot_props"][::core::mem::size_of::<ex_annot_props>() - 80usize];
+    ["Alignment of ex_annot_props"][::core::mem::align_of::<ex_annot_props>() - 8usize];
+    ["Offset of field: ex_annot_props::type_"]
+        [::core::mem::offset_of!(ex_annot_props, type_) - 0usize];
+    ["Offset of field: ex_annot_props::rect"]
+        [::core::mem::offset_of!(ex_annot_props, rect) - 4usize];
+    ["Offset of field: ex_annot_props::color_n"]
+        [::core::mem::offset_of!(ex_annot_props, color_n) - 20usize];
+    ["Offset of field: ex_annot_props::color"]
+        [::core::mem::offset_of!(ex_annot_props, color) - 24usize];
+    ["Offset of field: ex_annot_props::opacity"]
+        [::core::mem::offset_of!(ex_annot_props, opacity) - 40usize];
+    ["Offset of field: ex_annot_props::border"]
+        [::core::mem::offset_of!(ex_annot_props, border) - 44usize];
+    ["Offset of field: ex_annot_props::created"]
+        [::core::mem::offset_of!(ex_annot_props, created) - 48usize];
+    ["Offset of field: ex_annot_props::modified"]
+        [::core::mem::offset_of!(ex_annot_props, modified) - 56usize];
+    ["Offset of field: ex_annot_props::quad_count"]
+        [::core::mem::offset_of!(ex_annot_props, quad_count) - 64usize];
+    ["Offset of field: ex_annot_props::stroke_count"]
+        [::core::mem::offset_of!(ex_annot_props, stroke_count) - 68usize];
+    ["Offset of field: ex_annot_props::point_count"]
+        [::core::mem::offset_of!(ex_annot_props, point_count) - 72usize];
+};
+unsafe extern "C" {
+    pub fn ex_annot_props_of(
+        ctx: *mut fz_context,
+        annot: *mut pdf_annot,
+        out: *mut ex_annot_props,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_annot_arrays(
+        ctx: *mut fz_context,
+        annot: *mut pdf_annot,
+        quads: *mut fz_quad,
+        stroke_lengths: *mut ::core::ffi::c_int,
+        points: *mut fz_point,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_annot_text(
+        ctx: *mut fz_context,
+        annot: *mut pdf_annot,
+        which: ::core::ffi::c_int,
+        out: *mut *mut fz_buffer,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ex_annot_write {
+    pub id: *const ::core::ffi::c_char,
+    pub author: *const ::core::ffi::c_char,
+    pub contents: *const ::core::ffi::c_char,
+    pub app_data: *const ::core::ffi::c_char,
+    pub props: ex_annot_props,
+    pub quads: *const fz_quad,
+    pub stroke_lengths: *const ::core::ffi::c_int,
+    pub points: *const fz_point,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 136usize];
+    ["Alignment of ex_annot_write"][::core::mem::align_of::<ex_annot_write>() - 8usize];
+    ["Offset of field: ex_annot_write::props"]
+        [::core::mem::offset_of!(ex_annot_write, props) - 32usize];
+    ["Offset of field: ex_annot_write::quads"]
+        [::core::mem::offset_of!(ex_annot_write, quads) - 112usize];
+    ["Offset of field: ex_annot_write::points"]
+        [::core::mem::offset_of!(ex_annot_write, points) - 128usize];
+};
+impl Default for ex_annot_write {
+    fn default() -> Self {
+        let mut s = ::core::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::core::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+unsafe extern "C" {
+    pub fn ex_annot_create(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        page: ::core::ffi::c_int,
+        annot: *const ex_annot_write,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_annot_update(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        page: ::core::ffi::c_int,
+        annot: *const ex_annot_write,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_annot_delete(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        page: ::core::ffi::c_int,
+        id: *const ::core::ffi::c_char,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
 unsafe extern "C" {
     pub fn ex_new_document_writer(
         ctx: *mut fz_context,

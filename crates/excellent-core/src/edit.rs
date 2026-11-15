@@ -5,9 +5,11 @@
 use excellent_mupdf::{Edit, NewOutlineEntry, OutlineChange};
 use serde_json::{Map, Value, json};
 
+use crate::annot::Annotation;
+
 /// One change to a document. Outline entries are named by their path: their index on each level from the top, as
-/// the outline is when the change is applied.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// the outline is when the change is applied; annotations by their page and id.
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Change {
     /// A new outline entry before the entry at `at`, or one past the last entry of its level (B.1).
@@ -43,10 +45,21 @@ pub enum Change {
         /// Where it goes.
         to: Vec<usize>,
     },
+    /// A new annotation (A.1 to A.28).
+    CreateAnnotation(Annotation),
+    /// Every property of an annotation written again; it is found by its page and id, and its kind stays.
+    UpdateAnnotation(Annotation),
+    /// The annotation with id `id` on page `page` deleted.
+    DeleteAnnotation {
+        /// Its page, counting from zero.
+        page: usize,
+        /// Its id.
+        id: String,
+    },
 }
 
 /// Changes made, and undone, together: one step of the undo history.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Operation {
     /// What the user did, as undo names it ("Rename outline entry").
     pub name: String,
@@ -76,6 +89,13 @@ impl Change {
             ),
             Self::DeleteOutlineEntry { at } => edit.delete_outline_entry(at),
             Self::MoveOutlineEntry { from, to } => edit.move_outline_entry(from, to),
+            Self::CreateAnnotation(annotation) => {
+                edit.create_annot(annotation.page, &annotation.to_data())
+            }
+            Self::UpdateAnnotation(annotation) => {
+                edit.update_annot(annotation.page, &annotation.to_data())
+            }
+            Self::DeleteAnnotation { page, id } => edit.delete_annot(*page, id),
         }
     }
 
@@ -97,30 +117,46 @@ impl Change {
             Self::MoveOutlineEntry { from, to } => {
                 json!({"kind": "outline.move", "target": from, "to": to})
             }
+            Self::CreateAnnotation(annotation) => {
+                json!({"kind": "annot.create", "target": annotation.id, "annotation": annotation.to_json()})
+            }
+            Self::UpdateAnnotation(annotation) => {
+                json!({"kind": "annot.update", "target": annotation.id, "annotation": annotation.to_json()})
+            }
+            Self::DeleteAnnotation { page, id } => {
+                json!({"kind": "annot.delete", "target": id, "page": page})
+            }
         }
     }
 
     /// The change the operation log wrote as `value`; `None` when it isn't one.
     pub(crate) fn from_json(value: &Value) -> Option<Self> {
         let object = value.as_object()?;
-        let target = path(object.get("target")?)?;
+        let target = || path(object.get("target")?);
         let text = |key: &str| object.get(key).and_then(Value::as_str).map(str::to_owned);
+        let annotation = || Annotation::from_json(object.get("annotation")?);
         Some(match object.get("kind")?.as_str()? {
             "outline.insert" => Self::InsertOutlineEntry {
-                at: target,
+                at: target()?,
                 title: text("title")?,
                 uri: text("uri")?,
             },
             "outline.update" => Self::UpdateOutlineEntry {
-                at: target,
+                at: target()?,
                 title: text("title"),
                 uri: text("uri"),
                 open: object.get("open")?.as_bool()?,
             },
-            "outline.delete" => Self::DeleteOutlineEntry { at: target },
+            "outline.delete" => Self::DeleteOutlineEntry { at: target()? },
             "outline.move" => Self::MoveOutlineEntry {
-                from: target,
+                from: target()?,
                 to: path(object.get("to")?)?,
+            },
+            "annot.create" => Self::CreateAnnotation(annotation()?),
+            "annot.update" => Self::UpdateAnnotation(annotation()?),
+            "annot.delete" => Self::DeleteAnnotation {
+                page: usize::try_from(object.get("page")?.as_u64()?).ok()?,
+                id: text("target")?,
             },
             _ => return None,
         })
