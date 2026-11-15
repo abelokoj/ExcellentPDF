@@ -2298,6 +2298,8 @@ take 6 to 11 minutes on this machine.
 4. Supply chain: reproducible builds, an SBOM per release, `cargo vet` and `cargo deny`.
 
 **Done when:** a tagged commit produces signed installers for every desktop, and an older build updates itself.
+**Progress (2026-11-14):** `packaging/windows/build-msi.ps1` builds the per-user x64 MSI (unsigned, no dialogs).
+It uses only the Windows Installer API and makecab, and puts the Visual C++ runtime next to the exe (app-local).
 **Links:** tough <https://github.com/awslabs/tough>; cargo-vet <https://mozilla.github.io/cargo-vet/>; minidumps
 <https://github.com/rust-minidump/rust-minidump>
 

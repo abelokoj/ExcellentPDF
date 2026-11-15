@@ -6,6 +6,31 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-14 23:09; Ph1: 11/60 | K.25: Release engineering (first test installer)
+
+#### Added
+
+- `packaging/windows/build-msi.ps1` builds a per-user Windows installer from a release build:
+  `ExcellentPDF-vYY-MM-DD.N-v0.1.0-windows-x64.msi` (DD3). It installs into `%LOCALAPPDATA%\Programs\ExcellentPDF`
+  without administrator rights. It adds a Start menu shortcut and an entry in Settings > Apps, from where it
+  uninstalls, keeping the reader's settings and library. It replaces an installed build of the same or an older
+  version and refuses to replace a newer one. It ships the Visual C++ runtime next to the app, because the exe needs
+  `msvcp140.dll` and `vcruntime140*.dll`. It opens the app when an install run from its window finishes.
+- The script uses only what comes with Windows (the Windows Installer API and makecab, LZX:21), so nothing has to be
+  installed to build it. Installers go to `dist/`, which git ignores.
+- First test installer: `ExcellentPDF-v26-11-14.1-v0.1.0-windows-x64.msi`, 13.78 MB (budget 15 MB).
+
+#### Checked
+
+- An administrative install (`msiexec /a`) unpacked the four files, and the exe matched the build byte for byte.
+- Not checked: a real install, upgrade and uninstall on this machine, the shortcut, and the launch at the end. These
+  are left to the maintainer's test.
+
+#### Not done (K.25 stays in progress)
+
+- The installer is unsigned, has no dialogs (Windows shows only its progress window) and has no ARM64 build.
+- Also still to do: the portable zip, updates, crash reports, and the release workflow.
+
 ### 2026-11-14 22:35; Ph1: 36/60 | B.6: Personal bookmarks
 
 #### Added

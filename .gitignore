@@ -7,3 +7,6 @@
 /tests/fuzz/artifacts/
 /tests/fuzz/coverage/
 /tests/fuzz/Cargo.lock
+
+# Installers built by packaging/
+/dist/
