@@ -9,8 +9,7 @@ fn start() -> Headless {
     // A desktop window: below 600 points the dock area turns its docks into drawers.
     config.viewport = size(px(1280.0), px(800.0));
     let mut app = Headless::start(config).expect("the app starts");
-    app.wait_for("No document open")
-        .expect("the document panel shows");
+    app.wait_for("Home").expect("the home page shows");
     app
 }
 
@@ -18,7 +17,7 @@ fn start() -> Headless {
 fn starts_with_the_document_between_pages_and_inspector() {
     let app = start();
     let screen = app.screen();
-    for panel in ["Document", "Pages", "Outline", "Inspector"] {
+    for panel in ["Document", "Pages", "Outline", "Inspector", "Results"] {
         assert!(screen.shows(panel), "{panel} tab");
     }
 }

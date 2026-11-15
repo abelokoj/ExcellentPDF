@@ -274,10 +274,15 @@ impl RenderPool {
         })
     }
 
-    /// Reads the text of page `page` of `document` with its layout, for the text layer (K.13).
-    pub fn read_text(&self, document: &Arc<Mutex<Document>>, page: usize) -> Job<TextLayout> {
+    /// Reads the text of page `page` of `document` with its layout, for the text layer (K.13) and find (F.1).
+    pub fn read_text(
+        &self,
+        document: &Arc<Mutex<Document>>,
+        page: usize,
+        priority: Priority,
+    ) -> Job<TextLayout> {
         let document = Arc::clone(document);
-        self.submit(Priority::PageText, move |cookie| {
+        self.submit(priority, move |cookie| {
             let document = document.lock().expect("document lock poisoned");
             Ok(document.load_page(page)?.text(Some(cookie))?.layout())
         })

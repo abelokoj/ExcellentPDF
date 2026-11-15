@@ -3930,6 +3930,10 @@ Mermaid <https://mermaid.js.org>
    `fz_search_stext_page_cb` on K.13 text.
 2. Hits drawn in the canvas; result list in the sidebar with context; F3 / Shift+F3.
 
+*Built (2026-11-15):* steps 1 and 2, with matching done in Rust over K.13's text instead of
+`fz_search_stext_page_cb`, so whole words and accent folding are options (DD5). The result list shows the first 500
+hits; the count and F3 reach all of them.
+
 **Done when:** first hit on a 1,000-page book shows within 100 ms when the page is near; the UI never waits.
 
 #### Ph5: 28/45 | F.2: Search a folder or the library
@@ -4049,6 +4053,9 @@ Mermaid <https://mermaid.js.org>
 #### Ph1: 54/60 | F.17: Home page
 **P0; Phase 1; Needs:** R.10; **Code:** `excellent-features/home`
 1. Recent and pinned files with thumbnails, continue reading, workspaces, daily review (S.5) and a search box.
+
+*Built (2026-11-15):* everything but the daily review, which comes with S.5. It is what a pane with no tab shows; the
+thumbnails are the files' first pages, rendered in the background and cached by path, size and date.
 
 **Done when:** the home page paints within the cold-start budget.
 

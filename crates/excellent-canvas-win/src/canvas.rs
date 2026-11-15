@@ -39,6 +39,7 @@ use crate::placement::Placement;
 use crate::pointer::Sample;
 use crate::saved::SavedView;
 
+mod find;
 mod reading;
 
 /// Posted to the canvas window when a background job is done.
@@ -191,6 +192,8 @@ pub(crate) struct Canvas {
     reflowing: Option<Receiver<document::Result<Reflowed>>>,
     /// The size or the text changed again while the book was being laid out.
     reflow_again: bool,
+    /// Find in document (F.1).
+    finder: find::Finder,
 }
 
 /// A stroke on a page, in that page's points: it stays on the page through any layout, zoom or rotation.
@@ -291,6 +294,7 @@ impl Canvas {
             reflow: None,
             reflowing: None,
             reflow_again: false,
+            finder: find::Finder::default(),
         }
     }
 
@@ -755,6 +759,7 @@ impl Canvas {
         self.bounds.clear();
         self.layout = Layout::default();
         self.forget_pages();
+        self.finder.forget(false);
         self.pen = None;
         self.trail.clear();
         self.report_pages(None);
@@ -776,6 +781,7 @@ impl Canvas {
         self.copy_pending = false;
         self.hovered = None;
         self.pressed = None;
+        self.finder.forget(true);
     }
 
     /// The window is `width` × `height` pixels on a screen of `dpi`.
@@ -1070,6 +1076,8 @@ impl Canvas {
         let mut changed = self.take_opened();
         changed |= self.take_measured();
         changed |= self.take_reflowed();
+        self.find_again();
+        changed |= self.take_found();
         self.links.take_done();
         if self.texts.take_done() {
             changed |= self.selection.is_some();
@@ -1293,7 +1301,7 @@ impl Canvas {
             .map_or(near_first, |pages| pages.start.min(near_first));
         let text_last = selected.map_or(near_last, |pages| (pages.end - 1).max(near_last));
         self.texts.request(text_first..=text_last, |page| {
-            let job = pool().read_text(&mupdf, page);
+            let job = pool().read_text(&mupdf, page, Priority::PageText);
             let waker = Arc::clone(waker);
             job.when_done(move || waker.wake());
             job
@@ -1352,6 +1360,7 @@ impl Canvas {
     /// Draws the pages: paper first, then any older zoom's tiles while this zoom's render, then this zoom's.
     fn draw(&mut self, needed: &[TileKey]) -> windows::core::Result<()> {
         let aids = self.aids();
+        let found = self.found_on_screen();
         let (paper, wash) = (self.paper(), self.wash());
         let gfx = self.gfx.as_mut().expect("paint made the device");
         let context = gfx.begin()?.clone();
@@ -1421,6 +1430,7 @@ impl Canvas {
             }
             gfx.highlight(&quads, SELECTION, wash)?;
         }
+        found.draw(gfx, wash)?;
         aids.draw_under(gfx)?;
         let scale = self.viewport.scale();
         let strokes = self

@@ -73,7 +73,7 @@ pub(crate) fn switcher_button(
 }
 
 /// A workspace's colour as a small dot; the muted colour when it has none.
-fn color_dot(color: impl Fn() -> Option<String> + 'static) -> impl IntoElement {
+pub(crate) fn color_dot(color: impl Fn() -> Option<String> + 'static) -> impl IntoElement {
     view()
         .size(px(8.0))
         .flex_shrink(0.0)

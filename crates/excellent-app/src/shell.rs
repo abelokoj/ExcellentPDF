@@ -52,15 +52,18 @@ enum Panel {
     Outline,
     /// The reader's own bookmarks in the document (B.6).
     Bookmarks,
+    /// What the find bar found, with the words round each hit (F.1).
+    Results,
     Inspector,
 }
 
 impl Panel {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 6] = [
         Self::Document,
         Self::Pages,
         Self::Outline,
         Self::Bookmarks,
+        Self::Results,
         Self::Inspector,
     ];
 
@@ -70,6 +73,7 @@ impl Panel {
             Self::Pages => "pages",
             Self::Outline => "outline",
             Self::Bookmarks => "bookmarks",
+            Self::Results => "results",
             Self::Inspector => "inspector",
         }
     }
@@ -85,6 +89,7 @@ impl Panel {
             Self::Pages => t!("panel.pages"),
             Self::Outline => t!("panel.outline"),
             Self::Bookmarks => t!("panel.bookmarks"),
+            Self::Results => t!("panel.results"),
             Self::Inspector => t!("panel.inspector"),
         }
     }
@@ -93,7 +98,9 @@ impl Panel {
     fn heading(self) -> String {
         match self {
             Self::Document => t!("document.empty.title"),
-            Self::Pages | Self::Outline | Self::Bookmarks | Self::Inspector => self.title(),
+            Self::Pages | Self::Outline | Self::Bookmarks | Self::Results | Self::Inspector => {
+                self.title()
+            }
         }
     }
 
@@ -108,6 +115,7 @@ impl Panel {
             Self::Pages => t!("pages.empty"),
             Self::Outline => t!("outline.empty"),
             Self::Bookmarks => t!("bookmark.empty"),
+            Self::Results => t!("find.no_document"),
             Self::Inspector => t!("inspector.empty"),
         }
     }
@@ -122,7 +130,12 @@ fn default_layout() -> DockAreaLayout {
             .panel(Panel::Bookmarks.key()),
     );
     sidebar.size = Some(px(260.0));
-    let mut inspector = DockRegion::new(DockLayout::tabs().panel(Panel::Inspector.key()));
+    // The find results sit beside the inspector: a fourth tab would not fit the sidebar's width.
+    let mut inspector = DockRegion::new(
+        DockLayout::tabs()
+            .panel(Panel::Inspector.key())
+            .panel(Panel::Results.key()),
+    );
     inspector.size = Some(px(300.0));
     DockAreaLayout::new(DockLayout::tabs().panel(Panel::Document.key()))
         .with_dock(DockPlacement::Left, sidebar)
@@ -156,6 +169,8 @@ pub(crate) fn shell() -> impl IntoElement {
         full_screen: FullScreen::new(layout),
         recent,
         file_drag: FileDrag::new(),
+        covers: crate::home::Covers::new(),
+        workspaces,
     };
     let Shared {
         full_screen,
@@ -220,6 +235,7 @@ pub(crate) fn shell() -> impl IntoElement {
             CommandId::Canvas(name) => to_canvas(name),
             CommandId::Outline(action) => pane.outline.run(action, pane.canvas),
             CommandId::Bookmark(action) => pane.bookmarks.run(action, pane.canvas),
+            CommandId::Find(action) => pane.find.run(action),
             CommandId::Undo => pane.editing.undo(),
             CommandId::Redo => pane.editing.redo(),
             // Every pane's edits.
@@ -496,9 +512,9 @@ fn docks(
                 Some(Panel::Document) => {
                     panes::pane_grid(panes, shared, dialog_open, run).into_element()
                 }
-                Some(side @ (Panel::Pages | Panel::Outline | Panel::Bookmarks)) => {
-                    of_active(panes, move |pane| side_panel(side, pane, run))
-                }
+                Some(
+                    side @ (Panel::Pages | Panel::Outline | Panel::Bookmarks | Panel::Results),
+                ) => of_active(panes, move |pane| side_panel(side, pane, run)),
                 _ => empty_state(panel).into_element(),
             }
         })
@@ -560,17 +576,10 @@ fn side_panel(
         Panel::Bookmarks => {
             bookmarks::bookmark_panel(pane.bookmarks, pane.canvas, run, pane.focus).into_element()
         }
+        Panel::Results => crate::find::results_panel(pane.find, pane.pages).into_element(),
         Panel::Document | Panel::Inspector => empty_state(Some(panel)).into_element(),
     })
     .otherwise(move || empty_state(Some(panel)))
-}
-
-/// The document panel's message with no tab open: what to do, and the shortcuts that do it.
-pub(crate) fn document_message() -> View {
-    empty_message(
-        move || Panel::Document.heading(),
-        move || Panel::Document.hint(),
-    )
 }
 
 /// What a panel shows until its feature fills it: a heading and the next step.

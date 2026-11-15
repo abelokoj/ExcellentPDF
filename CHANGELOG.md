@@ -6,6 +6,36 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 02:54; Ph1: 54/60 | F.17: Home page
+
+#### Added
+
+- **Home page**: what a pane with no file shows. **Continue reading** offers the file you read last, at its page;
+  **Search recent files** finds pinned and recent files by name or folder; with more than one workspace, a chip per
+  workspace switches to it.
+- Pinned and recent files show each file's **cover** (its first page), drawn in the background and kept on disk, so
+  the page appears at once and the covers fill in.
+
+#### Not done
+
+- Daily review comes with S.5. Paint time is not measured (K.24). Not tried by hand yet.
+
+### 2026-11-15 02:48; Ph1: 53/60 | F.1: Find in document
+
+#### Added
+
+- **Find in document** (Ctrl+F): a bar above the pages that searches as you type, from your page on round the
+  document, with **Match case**, **Whole words only** and **Match accents**. It counts the hits ("3 of 120").
+- **Next / Previous result** (F3 / Shift+F3, Enter / Shift+Enter in the bar), round the ends. Every hit is
+  highlighted on the pages, the current one in a stronger colour. Escape closes the bar and clears them.
+- The **Results** tab, beside the Inspector, lists every hit with the words round it, in document order; pressing one goes there.
+- A word split across lines by a hyphen is found whole; ligatures and Latin accents fold unless Match accents is on.
+
+#### Not done
+
+- Time to the first hit is not measured (K.24). The result list shows the first 500 hits. Jumps to hits are not in
+  the back/forward history. Not tried by hand yet.
+
 ### 2026-11-15 02:26; Ph1: 45/60 to 52/60 | W.1 to W.7, W.14: Workspaces
 
 #### Added

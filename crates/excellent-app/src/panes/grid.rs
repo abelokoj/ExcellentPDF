@@ -19,8 +19,7 @@ use nsh_core::prelude::*;
 
 use super::{Pane, Panes, Shared, Side};
 use crate::commands::CommandId;
-use crate::recent::RecentState;
-use crate::shell::{document_message, empty_message, primary_button};
+use crate::shell::{empty_message, primary_button};
 use crate::tabs::TabState;
 use crate::theme as themes;
 
@@ -327,8 +326,21 @@ fn document_panel(
             mounted.set(true);
         }
     });
+    // The find bar (F.1) is a row above the pages, not over them: the canvas is a window of its own. Using it makes
+    // its pane the active one, as a press on the pages does.
+    let bar = element_ref();
+    bar.on_focus_in(move || panes.focus(pane.cell));
+    let full_screen = shared.full_screen;
     view()
         .flex_1()
+        .child(when(
+            move || pane.find.is_open() && tabs.has_shown() && !full_screen.is_on(),
+            move || {
+                view()
+                    .element_ref(&bar)
+                    .child(crate::find::find_bar(pane.find))
+            },
+        ))
         .child(when(mounted, move || {
             page_canvas(panes, pane, shared, dialog_open)
         }))
@@ -338,21 +350,8 @@ fn document_panel(
         ))
         .child(when(
             move || !tabs.has_tabs(),
-            move || document_empty(run, tabs, shared.recent),
+            move || crate::home::home_page(shared, tabs, run),
         ))
-}
-
-/// A document panel with no tab open: what to do, and a button that does it.
-fn document_empty(
-    run: impl Fn(CommandId) + Copy + 'static,
-    tabs: TabState,
-    recent: RecentState,
-) -> impl IntoElement {
-    document_message()
-        .child(primary_button("document.open", move || {
-            run(CommandId::OpenFile);
-        }))
-        .child(crate::recent::recent_panel(recent, tabs))
 }
 
 /// A document panel while its shown tab's file has gone (R.9): where it was, and "Locate…".
@@ -402,6 +401,7 @@ fn page_canvas(
         tabs,
         outline,
         bookmarks,
+        find,
         ..
     } = pane;
     let Shared {
@@ -443,6 +443,7 @@ fn page_canvas(
             full_screen.on_canvas_event(event);
             outline.on_canvas_event(event);
             bookmarks.on_canvas_event(event);
+            find.on_canvas_event(event);
             copy_selection(event);
         })
         .flex_1()

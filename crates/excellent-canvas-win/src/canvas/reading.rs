@@ -166,7 +166,7 @@ impl Canvas {
     }
 
     /// The screen.
-    fn screen(&self) -> Rect {
+    pub(super) fn screen(&self) -> Rect {
         Rect {
             x0: 0.0,
             y0: 0.0,
@@ -176,7 +176,7 @@ impl Canvas {
     }
 
     /// The box around `rect` of page `page` on screen, in client pixels.
-    fn screen_box(&self, page: usize, rect: &PageRect) -> Option<Rect> {
+    pub(super) fn screen_box(&self, page: usize, rect: &PageRect) -> Option<Rect> {
         let placement = Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page)?;
         let corners = [
             (rect.x0, rect.y0),

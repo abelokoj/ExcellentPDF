@@ -102,3 +102,15 @@ go to tabs as in SumatraPDF Enhanced and the browsers. Panes take **Alt+1 to Alt
 - Built this way in the V group; the plan's V.5 entry carries a note pointing here.
 - Every key can be changed in `settings.toml` (K.16), so a reader who prefers Ctrl+1 to 4 for panes can swap them.
 - If the maintainer prefers the plan's keys, the tabs' Ctrl+1 to 4 move instead; one line each in the command table.
+
+## DD5. Find matches in Rust, not with `fz_search_stext_page_cb` (2026-11-15; agent's call, flagged)
+
+**Decision (agent):** F.1 says to search "using `fz_search_stext_page_cb` on K.13 text". MuPDF's search folds case
+only; it has no whole-word option and does not fold accents, which F.1 asks for. F.1 reads each page's text with
+K.13's `TextLayout` (the same call, on the render workers) and matches in Rust (`excellent-features::search::find`),
+so the options are ours and the hits' quads come from K.13's `PageText::highlight`, as a selection's do.
+
+**What it means:**
+
+- No new MuPDF call or shim; matching is pure Rust and unit-tested.
+- If the maintainer prefers MuPDF's search, only `find_on_page` changes; whole words and accents then go.

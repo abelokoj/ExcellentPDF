@@ -19,6 +19,7 @@ use excellent_core::view::ViewCommand;
 use excellent_features::read::autoscroll::Change;
 use excellent_features::read::focus::Scope;
 use excellent_features::read::ruler::{Step, Style};
+use excellent_features::search::find::{Case, Direction, HitId, Marks, Options, Words};
 use excellent_mupdf::PagePoint;
 
 /// The component's name, as the app's `native(...)` element uses it.
@@ -105,14 +106,17 @@ impl NativeComponent for PageCanvas {
     /// reader's page), `readerPlace` (B.1, B.4, B.6: answered by the event of that name), and the view
     /// commands [`ViewCommand::parse`] knows (layouts, rotation, page box, fit modes). The reading aids (R.19-R.21):
     /// `toggleRuler`, `toggleFocus`, `lineDown`, `lineUp`, `toggleAutoScroll`, `autoScrollPause` (without
-    /// auto-scroll: a screen down), `autoScrollFaster`, `autoScrollSlower`, `leaveModes`.
+    /// auto-scroll: a screen down), `autoScrollFaster`, `autoScrollSlower`, `leaveModes`. Find (F.1): `find`
+    /// (`{id, text, matchCase, wholeWord, matchMarks}`; blank text clears it), `findNext`, `findPrevious`,
+    /// `findShow` (`{page, nth}`), `findClear`.
     ///
     /// Events: `pages` (`{count, labels}`, labels `null` when the pages go by number) when a document opens or
     /// closes, `page` (`{index}`) when the reader's page changes, `copy` (`{text}`) with the selected text,
     /// `autoScrollSpeed` (`{speed}`) when the reader changes it, `edge` (`{at}`) when the mouse reaches or
     /// leaves the canvas's top edge, `press` when the reader presses on the pages, `view` (the place, zoom,
     /// layout and rotation; see [`crate::saved`]) when the view settles somewhere new, and `readerPlace`
-    /// (`{page, x, y, zoom, title}`, see [`Canvas::reader_place`]) when the app asked for it.
+    /// (`{page, x, y, zoom, title}`, see [`Canvas::reader_place`]) when the app asked for it, and `found`
+    /// (`{id, searched, pages, total, current, hits}`) as a search finds hits and moves between them.
     fn command(&mut self, name: &str, args: &JsonValue) {
         let mut canvas = self.canvas.borrow_mut();
         match name {
@@ -139,6 +143,18 @@ impl NativeComponent for PageCanvas {
             "autoScrollFaster" => canvas.change_auto_scroll_speed(Change::Faster),
             "autoScrollSlower" => canvas.change_auto_scroll_speed(Change::Slower),
             "leaveModes" => canvas.leave_modes(),
+            "find" => {
+                let id = args.get("id").and_then(JsonValue::as_u64).unwrap_or(0);
+                let text = args.get("text").and_then(JsonValue::as_str).unwrap_or("");
+                canvas.find(id, text, find_options(args));
+            }
+            "findNext" => canvas.find_step(Direction::Next),
+            "findPrevious" => canvas.find_step(Direction::Previous),
+            "findClear" => canvas.find_clear(),
+            "findShow" => match hit_id(args) {
+                Some(id) => canvas.find_show(id),
+                None => log::warn!("page canvas: findShow without a page and nth: {args}"),
+            },
             "goToPage" => match args.get("index").and_then(JsonValue::as_u64) {
                 Some(index) => canvas.go_to_page(usize::try_from(index).unwrap_or(usize::MAX)),
                 None => log::warn!("page canvas: goToPage without an index: {args}"),
@@ -181,6 +197,37 @@ fn go_to_point_args(args: &JsonValue) -> Option<(usize, PagePoint, Option<f32>)>
     };
     let zoom = number("zoom").map(|zoom| zoom as f32);
     Some((page, point, zoom))
+}
+
+/// How a `find` command matches: each flag missing or not `true` is off.
+fn find_options(args: &JsonValue) -> Options {
+    let on = |key: &str| args.get(key).and_then(JsonValue::as_bool) == Some(true);
+    Options {
+        case: if on("matchCase") {
+            Case::Match
+        } else {
+            Case::Ignore
+        },
+        words: if on("wholeWord") {
+            Words::Whole
+        } else {
+            Words::Anywhere
+        },
+        marks: if on("matchMarks") {
+            Marks::Match
+        } else {
+            Marks::Ignore
+        },
+    }
+}
+
+/// The hit of a `findShow` command.
+fn hit_id(args: &JsonValue) -> Option<HitId> {
+    let index = |key: &str| usize::try_from(args.get(key)?.as_u64()?).ok();
+    Some(HitId {
+        page: index("page")?,
+        nth: index("nth")?,
+    })
 }
 
 /// The ruler's look from the `readingRuler` prop: each value missing or of the wrong kind is its default.
@@ -242,7 +289,28 @@ fn parse_rgb(text: &str) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::{PageColors, Pictures, Style, page_colors, parse_rgb, ruler_style};
+    use super::{
+        Case, HitId, Marks, Options, PageColors, Pictures, Style, Words, find_options, hit_id,
+        page_colors, parse_rgb, ruler_style,
+    };
+
+    #[test]
+    fn reads_find_options_and_hits() {
+        let options = find_options(&serde_json::json!({ "matchCase": true, "wholeWord": "yes" }));
+        assert_eq!(
+            options,
+            Options {
+                case: Case::Match,
+                words: Words::Anywhere,
+                marks: Marks::Ignore
+            }
+        );
+        assert_eq!(
+            hit_id(&serde_json::json!({ "page": 3, "nth": 1 })),
+            Some(HitId { page: 3, nth: 1 })
+        );
+        assert_eq!(hit_id(&serde_json::json!({ "page": 3 })), None);
+    }
 
     #[test]
     fn reads_page_colours_and_falls_back_to_the_document_own() {

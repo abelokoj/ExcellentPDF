@@ -1,6 +1,6 @@
 //! Recent and pinned files (plan R.10): every file shown, with the page it was left at, kept in the library (K.20).
-//! The empty document panel lists the pinned files and the latest ones, each with "Pin" and "Remove", and "Clear";
-//! the tab list (Ctrl+Shift+A) searches all of them.
+//! The home page (F.17) lists the pinned files and the latest ones, each with its cover, "Pin" and "Remove", and
+//! "Clear", and its search box finds any of them; the tab list (Ctrl+Shift+A) searches all of them too.
 //!
 //! The window keeps the list in a signal and changes it at once, and the library's writer saves each change behind
 //! it, so a click never waits on the disk. The list is read from the library the first time a view shows it.
@@ -8,18 +8,22 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
+use excellent_features::home;
 use excellent_store::recent::{self, RECENT_KEPT, RecentFile};
 use nsh_base::{button, theme, toggle};
 use nsh_core::element::desktop::on_app_quit;
 use nsh_core::prelude::*;
 
+use crate::home::{Covers, cover};
 use crate::tabs::{TabState, pin_mark};
 
 /// How long the shown page must stay put before it is saved: the reader is turning pages meanwhile.
 const SAVE_DELAY: Duration = Duration::from_secs(1);
 
-/// How many files of each kind the empty panel lists; the tab list has the rest.
+/// How many files of each kind the home page lists; the tab list has the rest.
 const PANEL_ROWS: usize = 8;
+/// How many the home page lists of each kind while its search box holds something.
+const FOUND_ROWS: usize = 50;
 
 /// The window's recent list.
 #[derive(Clone, Copy)]
@@ -190,42 +194,61 @@ fn sort(files: &mut [RecentFile]) {
     files.sort_by(|a, b| b.pinned.cmp(&a.pinned).then(b.seen.cmp(&a.seen)));
 }
 
-/// The empty document panel's lists: "Pinned" and "Recent", each a few rows; nothing while both are empty.
-pub(crate) fn recent_panel(state: RecentState, tabs: TabState) -> impl IntoElement {
+/// The home page's lists: "Pinned" and "Recent", each a few rows, or the files `query` finds; nothing while both
+/// are empty, and a line saying so when the search finds nothing.
+pub(crate) fn recent_panel(
+    state: RecentState,
+    tabs: TabState,
+    covers: Covers,
+    query: Signal<String>,
+) -> impl IntoElement {
     state.load();
-    let section = move |pinned: bool| {
-        move || {
-            state
-                .files()
-                .into_iter()
-                .filter(|file| file.pinned == pinned)
-                .take(PANEL_ROWS)
+    let found = move |pinned: bool| {
+        let query = query.get();
+        let rows = if query.trim().is_empty() {
+            PANEL_ROWS
+        } else {
+            FOUND_ROWS
+        };
+        state.files.with(|files| {
+            files
+                .iter()
+                .flatten()
+                .filter(|file| file.pinned == pinned && home::matches(&query, &file.path))
+                .take(rows)
+                .cloned()
                 .collect::<Vec<_>>()
-        }
+        })
     };
-    let has = move |pinned: bool| {
-        move || {
-            state
-                .files
-                .with(|files| files.iter().flatten().any(|file| file.pinned == pinned))
-        }
+    let has = move |pinned: bool| move || !found(pinned).is_empty();
+    let none_found = move || {
+        !query.with(|q| q.trim().is_empty()) && found(true).is_empty() && found(false).is_empty()
     };
     view()
         .w_full()
-        .max_w(px(560.0))
         .gap_4()
-        .pt_4()
         .child(when(has(true), move || {
             view()
                 .gap_1()
                 .child(heading("recent.pinned", None))
-                .child(rows(state, tabs, section(true)))
+                .child(rows(state, tabs, covers, move || found(true)))
         }))
         .child(when(has(false), move || {
             view()
                 .gap_1()
                 .child(heading("recent.title", Some(state)))
-                .child(rows(state, tabs, section(false)))
+                .child(rows(state, tabs, covers, move || found(false)))
+        }))
+        .child(when(none_found, move || {
+            text(move || {
+                t!(
+                    "home.no_match",
+                    keys = crate::commands::shortcut_label(crate::commands::CommandId::TabList)
+                )
+            })
+            .px_3()
+            .text_size(px(13.0))
+            .text_color(move || theme().muted_foreground)
         }))
 }
 
@@ -265,18 +288,24 @@ fn heading(key: &'static str, clear: Option<RecentState>) -> impl IntoElement {
 fn rows(
     state: RecentState,
     tabs: TabState,
+    covers: Covers,
     files: impl Fn() -> Vec<RecentFile> + 'static,
 ) -> impl IntoElement {
     view().gap(px(2.0)).child(each(
         files,
         |file: &RecentFile| file.path.clone(),
-        move |file, _| file_row(state, tabs, file),
+        move |file, _| file_row(state, tabs, covers, file),
     ))
 }
 
-/// One file: its name, folder and page (pressing it opens the file there), then "Pin" and "Remove". A file that
-/// isn't there any more is greyed; opening it offers "Locate…" (R.9).
-fn file_row(state: RecentState, tabs: TabState, file: ReadSignal<RecentFile>) -> impl IntoElement {
+/// One file: its cover, name, folder and page (pressing it opens the file there), then "Pin" and "Remove". A file
+/// that isn't there any more is greyed; opening it offers "Locate…" (R.9).
+fn file_row(
+    state: RecentState,
+    tabs: TabState,
+    covers: Covers,
+    file: ReadSignal<RecentFile>,
+) -> impl IntoElement {
     let path = file.with_untracked(|file| file.path.clone());
     let missing = !path.is_file();
     let name = path
@@ -289,6 +318,7 @@ fn file_row(state: RecentState, tabs: TabState, file: ReadSignal<RecentFile>) ->
         .unwrap_or_default();
     let pinned = move || file.with(|file| file.pinned);
     let page = move || file.with(|file| file.page) + 1;
+    let face = cover(covers, path.clone(), 30.0, 40.0);
     let open = {
         let (path, label_name) = (path.clone(), name.clone());
         button()
@@ -302,7 +332,7 @@ fn file_row(state: RecentState, tabs: TabState, file: ReadSignal<RecentFile>) ->
             .on_press(move || tabs.open_at(path.clone(), file.with(|file| file.page)))
             .flex_1()
             .min_w(px(0.0))
-            .h(px(40.0))
+            .h(px(52.0))
             .px_3()
             .gap_3()
             .flex_row()
@@ -311,6 +341,7 @@ fn file_row(state: RecentState, tabs: TabState, file: ReadSignal<RecentFile>) ->
             .hover(|s| s.bg(move || theme().muted))
             .active(|s| s.opacity(0.7))
             .focus_visible(|s| s.border_2().border_color(move || theme().ring))
+            .child(face)
             .child(
                 text(name.clone())
                     .flex_shrink(0.0)

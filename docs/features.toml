@@ -161,7 +161,7 @@ open = "per-document override (needs K.20); reflowable formats through MuPDF's u
 label = "Ph1: 21/60"
 status = "in-progress"
 tests = ["the_list_puts_pinned_files_first_then_the_newest", "only_the_newest_unpinned_files_are_kept", "files_inside_the_portable_folder_move_with_it", "files_beside_it_follow_a_new_drive_letter_only_when_found_there", "the_library_finds_its_files_after_the_app_moves", "the_window_keeps_the_list_in_the_library_order", "the_window_keeps_as_many_files_as_the_library"]
-open = "tried by hand; thumbnails on the rows; File menu, jump list and Dock menu (with R.11); the home page F.17 (the empty document panel stands in)"
+open = "tried by hand; File menu, jump list and Dock menu (with R.11)"
 
 ["R.11"]
 label = "Ph1: 22/60"
@@ -300,3 +300,15 @@ label = "Ph1: 52/60"
 status = "in-progress"
 tests = ["a_session_comes_back_with_every_tab_at_its_page"]
 open = "warm cache and hibernation; tab thumbnails; budgets and the leak test (K.24)"
+
+["F.1"]
+label = "Ph1: 53/60"
+status = "in-progress"
+tests = ["case_whole_words_and_accents_match_as_chosen", "a_line_break_is_a_space_and_a_hyphenated_word_is_whole", "a_snippet_cuts_at_words_round_the_hit", "pages_are_searched_from_the_reader_s_page_round_the_end", "hits_step_round_the_ends_in_document_order", "reads_find_options_and_hits", "hits_arriving_out_of_order_are_kept_in_document_order"]
+open = "time to first hit not measured (K.24); result list capped at 500; hits not in history; accent folding Latin only; not tried by hand"
+
+["F.17"]
+label = "Ph1: 54/60"
+status = "in-progress"
+tests = ["continue_reading_offers_the_file_shown_last_that_is_still_there", "the_search_keeps_files_with_every_word_in_their_name_or_folder", "a_cover_is_named_by_its_file_and_changes_when_the_file_does"]
+open = "daily review (S.5); cold-start paint not measured (K.24); cover folder not trimmed; not tried by hand"

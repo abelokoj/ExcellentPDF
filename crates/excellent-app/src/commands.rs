@@ -11,6 +11,7 @@ use nsh_base::CommandItem;
 use nsh_core::prelude::*;
 
 use crate::bookmarks::BookmarkAction;
+use crate::find::FindAction;
 use crate::keymap::{self, Keymap, Scope};
 use crate::outline::OutlineAction;
 use crate::panes::{PaneAction, Side};
@@ -57,6 +58,8 @@ pub(crate) enum CommandId {
     Outline(OutlineAction),
     /// Something done to the shown document's personal bookmarks (B.6).
     Bookmark(BookmarkAction),
+    /// Find in the shown document (F.1).
+    Find(FindAction),
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -75,6 +78,7 @@ impl CommandId {
                     | Self::GoToPage
                     | Self::Outline(_)
                     | Self::Bookmark(_)
+                    | Self::Find(_)
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -682,6 +686,42 @@ pub(crate) const COMMANDS: &[Command] = &[
         label: "command.bookmark_delete",
         group: "command.group.bookmarks",
         // Delete while the bookmarks have the keyboard.
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Find(FindAction::Open),
+        name: "find.open",
+        label: "command.find_open",
+        group: "command.group.find",
+        // Enhanced's CmdFindFirst.
+        keys: &["mod+f"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Find(FindAction::Next),
+        name: "find.next",
+        label: "command.find_next",
+        group: "command.group.find",
+        // Enhanced's CmdFindNext; anywhere, so it works while the find bar has the keyboard.
+        keys: &["f3"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Find(FindAction::Previous),
+        name: "find.previous",
+        label: "command.find_previous",
+        group: "command.group.find",
+        // Enhanced's CmdFindPrev.
+        keys: &["shift+f3"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Find(FindAction::Close),
+        name: "find.close",
+        label: "command.find_close",
+        group: "command.group.find",
+        // Escape while the find bar has the keyboard (the bar binds it).
         keys: &[],
         page_keys: &[],
     },

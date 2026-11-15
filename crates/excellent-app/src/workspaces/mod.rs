@@ -21,7 +21,7 @@ use crate::session::{self, Keeper, Restored};
 use crate::settings::Live;
 use crate::tabs::{Closed, GroupColor, Step};
 
-pub(crate) use view::{switcher_button, workspace_dialogs};
+pub(crate) use view::{color_dot, switcher_button, workspace_dialogs};
 
 /// `settings.toml`'s key for what opening a file open in another workspace does (W.6): `"switch"` (the default) or
 /// `"here"`.

@@ -21,8 +21,10 @@ use nsh_core::prelude::*;
 
 use crate::bookmarks::BookmarkState;
 use crate::editing::Editing;
+use crate::find::FindState;
 use crate::full_screen::FullScreen;
 use crate::goto::PageState;
+use crate::home::Covers;
 use crate::links::LinkState;
 use crate::open::{Launch, Split as LaunchSplit};
 use crate::outline::OutlineState;
@@ -32,6 +34,7 @@ use crate::session::Restored;
 use crate::settings::Live;
 use crate::tabs::{self, Closed, Step, TabState, Tabs};
 use crate::thumbnails::Thumbnails;
+use crate::workspaces::Workspaces;
 
 pub(crate) use grid::pane_grid;
 pub(crate) use layout::{CELLS, Layout, Side};
@@ -99,6 +102,8 @@ pub(crate) struct Pane {
     pub(crate) outline: OutlineState,
     /// The personal bookmarks (B.6): the pages report the places new ones open.
     pub(crate) bookmarks: BookmarkState,
+    /// Find in document (F.1): the bar over the pages and the hits they report.
+    pub(crate) find: FindState,
 }
 
 impl Pane {
@@ -114,10 +119,11 @@ impl Pane {
         let tabs = TabState::new(tabs, pages, live);
         crate::recent::keep(recent, tabs);
         let editing = Editing::new(tabs, revision);
+        let (canvas, focus) = (element_ref(), element_ref());
         Self {
             cell,
-            canvas: element_ref(),
-            focus: element_ref(),
+            canvas,
+            focus,
             pages,
             tabs,
             link_state: LinkState::new(tabs),
@@ -125,6 +131,7 @@ impl Pane {
             editing,
             outline: OutlineState::new(tabs, pages, editing),
             bookmarks: BookmarkState::new(tabs, pages),
+            find: FindState::new(canvas, focus),
         }
     }
 
@@ -532,6 +539,10 @@ pub(crate) struct Shared {
     pub(crate) full_screen: FullScreen,
     pub(crate) recent: RecentState,
     pub(crate) file_drag: FileDrag,
+    /// The recent files' covers, for the home page (F.17).
+    pub(crate) covers: Covers,
+    /// The workspaces, for the home page.
+    pub(crate) workspaces: Workspaces,
 }
 
 /// The files of a launch, one pane's worth each: all of them without `--split`, one each with it, and

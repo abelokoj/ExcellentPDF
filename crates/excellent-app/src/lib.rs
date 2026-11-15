@@ -6,8 +6,10 @@
 mod bookmarks;
 mod commands;
 mod editing;
+mod find;
 mod full_screen;
 mod goto;
+mod home;
 mod keymap;
 mod l10n;
 mod library;
