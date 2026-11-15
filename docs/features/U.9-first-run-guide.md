@@ -17,8 +17,8 @@ command, and then a tip at the moment it helps, so I learn the app without a man
 ## UI sketch
 
 - **Guide** (a dialog card, the quick dialogs' look): "Step 1 of 3", a title, two lines of text with the reader's own
-  keys (from the keymap, so a rebound key shows as bound). Steps: **Open a document** (Ctrl+O, drop files), **Make
-  reading yours** (layouts, page colours, the ruler and focus mode, in Settings), **Every command, one key away**
+  keys (from the keymap, so a rebound key shows as bound). Steps: **Open a document** (Ctrl+O, drop files), **Pick a mode, make
+  reading yours** (the modes bar and its Customize button, then layouts, page colours and the ruler in Settings), **Every command, one key away**
   (Ctrl+K). Buttons: **Skip** (first, so Enter on the first focus doesn't move on unseen), **Open a document** (first
   step only: closes the guide and opens the file dialog), **Back**, **Next** / **Start reading** (primary). Escape
   skips.
@@ -27,7 +27,7 @@ command, and then a tip at the moment it helps, so I learn the app without a man
   first time two tabs are open. Buttons **Turn off tips** and **Got it**. One tip at a time; never while the guide is
   open.
 - **Getting the guide back:** the palette's **Show the getting-started guide**; Settings, **Getting started**, **Show
-  the guide**. No toolbar yet (K.18), and no Help menu: the plan's "replay guide in Help" is the palette and the
+  the guide**. No Help menu yet: the plan's "replay guide in Help" is the palette and the
   settings section until a menu exists.
 - **Settings, Getting started:** **Show tips** (on by default).
 

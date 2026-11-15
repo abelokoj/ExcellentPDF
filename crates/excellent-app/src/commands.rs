@@ -6,6 +6,7 @@
 //! letters belong to whatever has the keyboard focus, so they reach the pages only while the pages have it (Enhanced's
 //! rule for its canvas). A command that needs a document is left out of the palette while none is open.
 
+use excellent_features::modes::Mode;
 use excellent_features::outline::Shift;
 use nsh_base::CommandItem;
 use nsh_core::prelude::*;
@@ -70,6 +71,16 @@ pub(crate) enum CommandId {
     Print,
     /// Shows the first-run guide again (U.9).
     ReplayGuide,
+    /// Switches to a mode and its toolbar (K.18).
+    Mode(Mode),
+    /// Switches to the next offered mode, or with `true` the previous one (K.18).
+    StepMode(bool),
+    /// Opens the toolbar's customize dialog (K.18).
+    CustomizeToolbar,
+    /// Saves every mode's toolbar as a preset file (K.18).
+    ExportToolbars,
+    /// Reads toolbars from a preset file (K.18).
+    ImportToolbars,
 }
 
 impl CommandId {
@@ -1144,6 +1155,87 @@ pub(crate) const COMMANDS: &[Command] = &[
         label: "command.previous_workspace",
         group: "command.group.workspaces",
         keys: &["mod+alt+pageup"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Mode(Mode::Read),
+        name: "mode.read",
+        label: "command.mode.read",
+        group: "command.group.mode",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Mode(Mode::Annotate),
+        name: "mode.annotate",
+        label: "command.mode.annotate",
+        group: "command.group.mode",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Mode(Mode::Write),
+        name: "mode.write",
+        label: "command.mode.write",
+        group: "command.group.mode",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Mode(Mode::Study),
+        name: "mode.study",
+        label: "command.mode.study",
+        group: "command.group.mode",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Mode(Mode::Present),
+        name: "mode.present",
+        label: "command.mode.present",
+        group: "command.group.mode",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::StepMode(false),
+        name: "mode.next",
+        label: "command.mode.next",
+        group: "command.group.mode",
+        // Enhanced has no modes; Ctrl+M is the window's minimize on macOS, so Shift joins it.
+        keys: &["mod+shift+m"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::StepMode(true),
+        name: "mode.previous",
+        label: "command.mode.previous",
+        group: "command.group.mode",
+        keys: &["mod+alt+shift+m"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::CustomizeToolbar,
+        name: "toolbar.customize",
+        label: "command.toolbar.customize",
+        group: "command.group.mode",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExportToolbars,
+        name: "toolbar.export",
+        label: "command.toolbar.export",
+        group: "command.group.mode",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ImportToolbars,
+        name: "toolbar.import",
+        label: "command.toolbar.import",
+        group: "command.group.mode",
+        keys: &[],
         page_keys: &[],
     },
 ];

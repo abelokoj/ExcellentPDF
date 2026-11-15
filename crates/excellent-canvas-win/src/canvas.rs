@@ -403,6 +403,11 @@ impl Canvas {
         self.emit("press", JsonValue::Null);
     }
 
+    /// A pen touched the canvas (`penContact`), wherever it landed.
+    pub(crate) fn pen_contact(&self) {
+        self.emit("penContact", JsonValue::Null);
+    }
+
     fn emit(&self, name: &str, data: JsonValue) {
         if let Some(events) = &self.events {
             events.emit(name, data);

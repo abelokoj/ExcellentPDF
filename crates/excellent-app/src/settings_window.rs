@@ -16,6 +16,7 @@ use crate::commands::{COMMANDS, CommandId};
 use crate::keymap::{self, Scope};
 use crate::links::PROTOCOLS_KEY;
 use crate::list_dialog::{card, list_dialog};
+use crate::modes::PEN_TO_WRITE;
 use crate::onboarding::SHOW_TIPS;
 use crate::panes::{CLOSE_PANE_TABS, ClosingTabs};
 use crate::print::{PRINT_ANNOTATIONS, PRINT_SCALING};
@@ -96,6 +97,7 @@ pub(crate) fn settings_window(
             .child(tabs_section(live))
             .child(links_section(live))
             .child(print_section(live))
+            .child(modes_section(live, hand_over))
             .child(help_section(live, hand_over))
             .child(shortcuts_section(live)),
     );
@@ -153,6 +155,27 @@ fn appearance_section(
 }
 
 /// U.9: the tips on or off, and the guide again.
+fn modes_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -> View {
+    section("settings.section.modes")
+        .child(row(
+            "settings.pen_to_write",
+            "settings.pen_to_write_hint",
+            on_off(
+                "settings.pen_to_write",
+                move || live.read(|s| s.flag(PEN_TO_WRITE).unwrap_or(true)),
+                move |on| live.change(|s| s.set_flag(PEN_TO_WRITE, (!on).then_some(false))),
+            ),
+        ))
+        .child(row(
+            "settings.toolbar",
+            "settings.toolbar_hint",
+            picker_button(
+                move || t!("settings.toolbar_customize"),
+                move || hand_over(CommandId::CustomizeToolbar),
+            ),
+        ))
+}
+
 fn help_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -> View {
     section("settings.section.help")
         .child(row(

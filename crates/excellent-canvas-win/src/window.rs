@@ -308,9 +308,16 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
                 canvas.pressed();
             }
             let taken = match msg {
-                WM_POINTERDOWN => pointer::read(id)
-                    .filter(|s| s.device == Device::Pen && s.contact)
-                    .is_some_and(|s| canvas.pen_down(&s)),
+                WM_POINTERDOWN => {
+                    match pointer::read(id).filter(|s| s.device == Device::Pen && s.contact) {
+                        Some(sample) => {
+                            // K.18: the app may switch to Write mode.
+                            canvas.pen_contact();
+                            canvas.pen_down(&sample)
+                        }
+                        None => false,
+                    }
+                }
                 WM_POINTERUPDATE if canvas.is_drawing(id) => {
                     canvas.pen_moved(&pointer::pen_history(id));
                     true

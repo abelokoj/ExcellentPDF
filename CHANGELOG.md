@@ -6,6 +6,25 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 05:37; Ph1: 8/60 | K.18: Modes and toolbars
+
+#### Added
+
+- **Modes**: a bar under the tabs switches between Read, Annotate and Present (Write and Study join once they have
+  tools), and shows only the chosen mode's tools. The mode's colour runs along the bar and the shown tab.
+  Ctrl+Shift+M and Ctrl+Alt+Shift+M step through the modes; each mode is also in the palette.
+- **Customize toolbar**: add, remove, drag or arrow-move each mode's tools and separators; **Reset** brings back the
+  defaults. **Export…** and **Import…** share every mode's toolbar as a JSON preset; a preset from a newer version, or
+  a file that isn't one, is refused with a reason.
+- **Pen switches to Write** (Settings, Modes and toolbars; on by default): a pen's touch on a page switches to Write
+  once Write has tools.
+- The getting-started guide's second step now names the modes (DD7).
+
+#### Not done
+
+- Write and Study have no tools yet; tools are text, not icons (DD8). Ink still draws in any mode until H.1. Not tried
+  by hand.
+
 ### 2026-11-15 05:18; Ph1: 58/60 | U.4: High contrast, scaling and reduced motion (fixes)
 
 #### Fixed

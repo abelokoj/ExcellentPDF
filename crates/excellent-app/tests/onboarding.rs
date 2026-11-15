@@ -21,7 +21,8 @@ fn the_guide_opens_at_first_start_steps_and_comes_back_from_the_palette() {
         .expect("the guide opens with the window");
     assert!(app.screen().shows("Step 1 of 3"));
     app.press("label:Next").expect("Next");
-    app.wait_for("Make reading yours").expect("the second step");
+    app.wait_for("Pick a mode, make reading yours")
+        .expect("the second step");
     app.press("label:Back").expect("Back");
     app.wait_for("Step 1 of 3").expect("back at the first step");
     app.press("label:Skip").expect("Skip");

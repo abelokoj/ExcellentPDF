@@ -2188,6 +2188,10 @@ picker previews each theme and Escape restores the one in effect.
 
 **Done when:** each mode shows only its tools; presets round-trip.
 
+Built (2026-11-15): `excellent-features::modes` (modes, toolbars, JSON presets) and `excellent-app::modes` (the mode
+bar under the tabs, the customize dialog, the pen switch). Write and Study join the switcher once they have tools;
+tools are text until an icon set exists (DD8).
+
 #### Ph1: 9/60 | K.19: Platform services
 **P0; Phase 1 (Windows), Phase 2 (macOS, Linux), Phase 8 (tablets); Needs:** K.1; **Code:** `crates/excellent-platform`
 1. Traits: files and dialogs, print (O.22), clipboard (text, image, rich text), text-to-speech (U.5), key store,

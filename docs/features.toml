@@ -37,6 +37,12 @@ status = "shipped"
 tests = ["page_to_device_and_back", "a_point_comes_back_under_every_rotation"]
 open = "selection uses the same placement when it is built"
 
+["K.18"]
+label = "Ph1: 8/60"
+status = "shipped"
+tests = ["each_mode_shows_only_its_tools_and_the_toolbar_can_be_customized", "read_and_present_show_only_their_own_tools", "default_toolbars_name_only_commands_that_exist", "presets_round_trip_and_leave_out_what_this_version_lacks", "files_that_are_not_presets_are_refused", "toolbars_keep_known_commands_once_and_tidy_separators", "edits_move_add_and_remove_items", "modes_step_around_those_offered_and_the_pen_asks_for_write"]
+open = "Write and Study have no tools until the H.* and S.* tags; text labels, no icons yet (DD8); ink is not gated by mode until H.1; not tried by hand"
+
 ["K.17"]
 label = "Ph1: 7/60"
 status = "in-progress"
@@ -215,7 +221,7 @@ open = "tried by hand; the 50 ms first frame is not measured (K.24); a split of 
 label = "Ph1: 38/60"
 status = "in-progress"
 tests = []
-open = "tried by hand; "Open in split" in the recent-files panel and the library (F.1)"
+open = "tried by hand; “Open in split” in the recent-files panel and the library (F.1)"
 
 ["V.3"]
 label = "Ph1: 39/60"
@@ -329,7 +335,7 @@ open = "the per-user x64 MSI builds (unsigned, no dialogs); signing, ARM64, the 
 label = "Ph1: 56/60"
 status = "shipped"
 tests = ["a_document_is_read_from_the_keyboard_alone", "the_palette_lists_every_command_and_runs_one", "shortcuts_toggle_the_docks", "the_window_works_at_double_scaling"]
-open = "Read mode only (the other modes come with K.18); not tried by hand with a screen reader"
+open = "not tried by hand with a screen reader"
 
 ["U.2"]
 label = "Ph1: 57/60"
@@ -353,4 +359,4 @@ open = "Arabic not reviewed by a native speaker; vertical CJK text in ebooks"
 label = "Ph1: 60/60"
 status = "shipped"
 tests = ["the_guide_never_opens_over_files_from_the_command_line", "the_guide_steps_forward_and_back_within_its_steps", "each_tip_shows_once_and_the_seen_list_survives_the_settings_file", "the_guide_opens_at_first_start_steps_and_comes_back_from_the_palette"]
-open = "the modes step waits for K.18 (DD7); no Help menu yet; not tried by hand"
+open = "no Help menu yet; not tried by hand"

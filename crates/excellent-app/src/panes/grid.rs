@@ -431,6 +431,11 @@ fn page_canvas(
         .on_native_event(move |event: &NativeEvent| {
             match &*event.name {
                 "press" => focus.focus(),
+                "penContact" => {
+                    if let Some(modes) = use_context::<crate::modes::Modes>() {
+                        modes.pen_contact();
+                    }
+                }
                 // A file opening in a pane beside the active one leaves the keyboard where it is.
                 "pages" if untracked(|| panes.active_cell()) == cell => focus.focus(),
                 _ => {}

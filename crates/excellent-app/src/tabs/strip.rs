@@ -215,6 +215,13 @@ fn tab_view(state: TabState, id: TabId) -> impl IntoElement {
         .pl_3()
         .pr_1()
         .rounded_t(px(8.0))
+        .border_t(px(2.0))
+        .border_t_color(
+            move || match use_context::<crate::modes::Modes>().filter(|_| shown()) {
+                Some(modes) => crate::modes::accent(modes.current()),
+                None => Hsla::transparent_black().into(),
+            },
+        )
         .border_b(px(2.0))
         .border_b_color(underline)
         .hover(|s| s.bg(move || theme().sidebar_accent))

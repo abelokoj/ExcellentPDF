@@ -141,5 +141,28 @@ Settings, Getting started, because there is no Help menu or toolbar yet.
 
 - When K.18 lands, the second step names the modes and their toolbars, and the guide gets a toolbar or menu entry.
   `excellent-features::onboarding::Step` changes in one place; the settings keys stay.
+  (2026-11-15: K.18 landed; the step now names the modes. The guide is still reached from the palette and Settings.)
 - If the maintainer prefers U.9 to wait for K.18, the guide can stay off (the desktop binary's
   `offer_first_run_guide` call) without removing anything.
+
+## DD8. K.18's modes before their tools (2026-11-15; agent's call, flagged)
+
+**Decision (agent):** K.18 ships the five modes of §10.2 while most of their tools are later tags. So that the bar
+never offers an empty mode:
+
+- Write and Study are left out of the switcher until their toolbar has a tool (the H.* and S.* tags, or the reader's
+  own customizing) or one of them is the current mode. Pen contact switches to Write only once Write is offered.
+- Annotate's default tools are the ones that exist: add a bookmark, add an outline entry, undo, redo.
+- Tools are text buttons with short labels (the full label and shortcut are their accessible names): there is no icon
+  set yet. A narrow window scrolls the tools sideways.
+- Next and previous mode are Ctrl+Shift+M and Ctrl+Alt+Shift+M (Ctrl+M minimizes on macOS).
+- The mode is one app-wide setting, not per workspace or per tab.
+- The pen still draws ink in every mode; H.1 decides what a pen does outside Write.
+
+**What it means:**
+
+- When a tag adds tools, it adds its command names to `excellent-app::modes::default_words`; the mode then appears.
+- Icons replace the short labels in one function (`tool_button`) when an icon set is chosen.
+- If the maintainer wants the mode per workspace, `Modes` reads and writes it through the workspace instead of
+  `settings.toml`; the toolbars stay app-wide.
+

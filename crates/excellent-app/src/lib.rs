@@ -15,6 +15,7 @@ mod l10n;
 mod library;
 mod links;
 mod list_dialog;
+mod modes;
 mod onboarding;
 mod open;
 mod outline;

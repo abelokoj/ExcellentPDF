@@ -27,6 +27,7 @@ use crate::full_screen::FullScreen;
 use crate::goto::{self, PageState};
 use crate::links;
 use crate::list_dialog::{list_dialog, style};
+use crate::modes::{self, Modes};
 use crate::onboarding::{self, Onboarding};
 use crate::outline;
 use crate::panes::{self, CELLS, FileDrag, Pane, Panes, Shared};
@@ -192,6 +193,9 @@ pub(crate) fn shell() -> impl IntoElement {
     let theme_choice = signal(themes::saved());
     // U.9: the guide opens now when this start is its moment; tips come at theirs.
     let onboarding = Onboarding::new(live);
+    // K.18: the mode and its toolbar; the tab strip and the panes find it in the context (the accent, the pen).
+    let modes = Modes::new(live);
+    provide_context(modes);
     effect(move || {
         let tabs = panes.active().tabs;
         if tabs.count() >= 2 {
@@ -229,6 +233,7 @@ pub(crate) fn shell() -> impl IntoElement {
             || settings_open.get()
             || tab_list_open.get()
             || onboarding.is_open()
+            || modes.is_customizing()
             || workspaces.dialog().is_some()
             || panes.slots().into_iter().any(Pane::covers_pages)
     };
@@ -247,6 +252,11 @@ pub(crate) fn shell() -> impl IntoElement {
             CommandId::OpenPalette => palette_open.set(true),
             CommandId::OpenSettings => settings_open.set(true),
             CommandId::ReplayGuide => onboarding.replay(),
+            CommandId::Mode(mode) => modes.set(mode),
+            CommandId::StepMode(back) => modes.step(back),
+            CommandId::CustomizeToolbar => modes.customize(),
+            CommandId::ExportToolbars => modes.export(),
+            CommandId::ImportToolbars => modes.import(),
             CommandId::ChooseTheme => theme_open.set(true),
             CommandId::ChooseAppearance => appearance_open.set(true),
             CommandId::ToggleSidebar => layout.update(|layout| toggle(&mut layout.left)),
@@ -337,6 +347,12 @@ pub(crate) fn shell() -> impl IntoElement {
             shared,
             reading_theme_open,
         ))
+        .child(modes::mode_bar(
+            modes,
+            move || panes.active().pages.count() > 0,
+            move || full_screen.is_on(),
+            run,
+        ))
         .child(
             view()
                 .flex_1()
@@ -367,6 +383,7 @@ pub(crate) fn shell() -> impl IntoElement {
             let pane = panes.active();
             goto::goto_dialog(goto_open, pane.pages, move |index| pane.go_to(index))
         }))
+        .child(modes::customize_dialog(modes))
         .child(onboarding::guide_dialog(onboarding, run))
 }
 

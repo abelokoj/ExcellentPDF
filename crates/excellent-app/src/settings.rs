@@ -216,7 +216,7 @@ fn modified_time(path: &Path) -> Option<SystemTime> {
 }
 
 /// Writes `text` to a temporary file beside `path`, then renames it over `path`, so a crash never leaves half a file.
-fn write_atomically(path: &Path, text: &str) -> io::Result<()> {
+pub(crate) fn write_atomically(path: &Path, text: &str) -> io::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
