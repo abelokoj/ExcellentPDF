@@ -12,3 +12,4 @@ workspace = true
 
 [dependencies]
 rusqlite.workspace = true
+serde_json.workspace = true

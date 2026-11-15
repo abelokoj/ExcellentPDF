@@ -337,6 +337,12 @@ status = "in-progress"
 tests = ["the_other_workspaces_tabs_are_listed_in_order", "other_workspaces_tabs_are_listed_by_workspace"]
 open = "not tried by hand; 5,000 tabs filtering within 16 ms not measured (NSH's command list does the filtering); another window's own workspace is listed as saved, up to a second behind"
 
+["W.11"]
+label = "Ph3: 13/49"
+status = "in-progress"
+tests = ["export_then_import_round_trips_exactly", "the_file_moves_with_its_papers", "a_file_that_is_not_a_workspace_is_refused", "places_past_the_end_are_dropped", "a_workspace_name_makes_a_file_name"]
+open = "not tried by hand; the chosen root is the folder the file is saved in; closed tabs are not exported"
+
 ["W.14"]
 label = "Ph1: 52/60"
 status = "in-progress"

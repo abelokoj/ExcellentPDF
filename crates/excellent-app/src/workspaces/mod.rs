@@ -8,6 +8,7 @@
 //! and the shown one, and does what the workspace commands ask.
 
 mod claims;
+mod file;
 mod view;
 mod windows;
 
@@ -89,6 +90,10 @@ pub(crate) enum WorkspaceAction {
     Cycle(Step),
     /// Lists the workspaces, to open the one picked in a window of its own (W.8).
     OpenWindow,
+    /// Saves the shown workspace as a file (W.11).
+    Export,
+    /// Makes a workspace from a file (W.11).
+    Import,
 }
 
 /// Which of the workspace dialogs is open.
@@ -104,6 +109,8 @@ pub(crate) enum Dialog {
     Delete,
     /// The list, to open the one picked in a new window (W.8).
     Window,
+    /// What came of an export or an import (W.11).
+    Notice,
 }
 
 /// A window's workspaces: the list, which every window shares, and the one it shows.
@@ -115,6 +122,8 @@ pub(crate) struct Workspaces {
     keeper: Keeper,
     live: Live,
     dialog: Signal<Option<Dialog>>,
+    /// The notice's text, while [`Dialog::Notice`] is open (W.11).
+    notice: Signal<String>,
     /// The window's number (W.8).
     window: WindowNo,
     /// What every window shares, to open another.
@@ -162,6 +171,7 @@ impl Workspaces {
             keeper: Keeper::new(panes, shown),
             live: app.live,
             dialog: signal(None),
+            notice: signal(String::new()),
             window,
             app,
         };
@@ -237,6 +247,11 @@ impl Workspaces {
         self.dialog.get()
     }
 
+    /// The notice's text (W.11).
+    pub(crate) fn notice(self) -> String {
+        self.notice.get()
+    }
+
     /// Opens `dialog`, or closes the one open.
     pub(crate) fn set_dialog(self, dialog: Option<Dialog>) {
         self.dialog.set(dialog);
@@ -272,6 +287,8 @@ impl Workspaces {
                     self.set_dialog(Some(Dialog::Window));
                 }
             }
+            WorkspaceAction::Export => self.export(),
+            WorkspaceAction::Import => self.import(),
         }
     }
 
@@ -605,10 +622,15 @@ fn shifted<T: Copy + PartialEq>(ids: &[T], shown: T, step: Step) -> Vec<T> {
 
 /// The name a workspace shows: its own, or the first workspace's default.
 pub(crate) fn display_name(workspace: &Workspace) -> String {
-    if workspace.name.trim().is_empty() {
+    name_or_default(&workspace.name)
+}
+
+/// `name`, or the default name when it is blank.
+pub(crate) fn name_or_default(name: &str) -> String {
+    if name.trim().is_empty() {
         t!("workspace.default_name")
     } else {
-        workspace.name.clone()
+        name.to_owned()
     }
 }
 

@@ -14,6 +14,7 @@ mod migrations;
 pub mod recent;
 mod store;
 pub mod workspace;
+pub mod workspace_file;
 pub mod workspaces;
 
 pub use error::Error;

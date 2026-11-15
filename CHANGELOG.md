@@ -6,6 +6,18 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 02:20; Ph3: 13/49 | W.11: Export and import
+
+- "Export workspace…" (the palette; the workspace list's actions) saves the shown workspace as a small JSON file:
+  its name, icon and colour, its panes' layout, and each pane's tabs with their views, pins and groups. A tab's file
+  under the folder the workspace file is saved in is written relative to it, with `/`, so the two can move together
+  or go to another computer; any other path stays as it is. Closed tabs stay behind.
+- "Import workspace…" makes a new workspace from such a file and shows it. Tabs whose files aren't where the file
+  says come in greyed out with "Locate…" (R.9), and a notice says how many.
+- A file that isn't a workspace, is larger than 8 MB, or comes from a newer version is refused with a notice; a
+  file's places that point past its lists are dropped rather than trusted.
+- `excellent-store::workspace_file` is the format, a pure module; the app's side is `workspaces::file`.
+
 ### 2026-11-16 01:30; Ph3: 12/49 | W.9: Search tabs across workspaces
 
 - The tab list (Ctrl+Shift+A, the palette, the strip's list button) has a section for each other workspace with

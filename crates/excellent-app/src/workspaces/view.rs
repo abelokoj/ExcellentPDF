@@ -100,6 +100,7 @@ pub(crate) fn workspace_dialogs(
             }
             Some(Dialog::Edit) => edit_dialog(workspaces).into_element(),
             Some(Dialog::Delete) => delete_dialog(workspaces).into_element(),
+            Some(Dialog::Notice) => notice_dialog(workspaces).into_element(),
             None => view().into_element(),
         })
     })
@@ -131,7 +132,7 @@ fn workspace_list(
         Dialog::Send(Transfer::Move) => t!("workspace.move_to"),
         Dialog::Send(Transfer::Copy) => t!("workspace.copy_to"),
         Dialog::Window => t!("workspace.window_title"),
-        Dialog::Switch | Dialog::Edit | Dialog::Delete => t!("workspace.list"),
+        Dialog::Switch | Dialog::Edit | Dialog::Delete | Dialog::Notice => t!("workspace.list"),
     };
     list_dialog(
         title.clone(),
@@ -200,6 +201,8 @@ fn rows(workspaces: Workspaces, list_of: Dialog) -> Vec<(CommandItem, Row)> {
             WorkspaceAction::SendTab(Transfer::Move),
             WorkspaceAction::Edit,
             WorkspaceAction::OpenWindow,
+            WorkspaceAction::Export,
+            WorkspaceAction::Import,
         ] {
             let id = CommandId::Workspace(action);
             let available = workspaces.panes.active().tabs.has_shown();
@@ -384,6 +387,28 @@ fn delete_dialog(workspaces: Workspaces) -> impl IntoElement {
                 )),
         );
     list_dialog(t!("workspace.delete_title", name = name), close, card(form))
+}
+
+/// What came of an export or an import (W.11), until the reader closes it.
+fn notice_dialog(workspaces: Workspaces) -> impl IntoElement {
+    let close = move || workspaces.set_dialog(None);
+    let message = untracked(|| workspaces.notice());
+    let form = view()
+        .w(px(400.0))
+        .p_4()
+        .gap_3()
+        .child(heading(t!("workspace.file_title")))
+        .child(
+            text(message)
+                .text_size(px(13.0))
+                .text_color(move || theme().popover_foreground),
+        )
+        .child(view().flex_row().justify_end().child(action_button(
+            "workspace.done",
+            Tone::Plain,
+            close,
+        )));
+    list_dialog(t!("workspace.file_title"), close, card(form))
 }
 
 /// A dialog's heading.

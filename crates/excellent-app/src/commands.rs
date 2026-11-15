@@ -1266,6 +1266,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &[],
     },
     Command {
+        id: CommandId::Workspace(WorkspaceAction::Export),
+        name: "workspace.export",
+        label: "command.export_workspace",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Workspace(WorkspaceAction::Import),
+        name: "workspace.import",
+        label: "command.import_workspace",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
         id: CommandId::Workspace(WorkspaceAction::Shift(Step::Previous)),
         name: "workspace.move_earlier",
         label: "command.move_workspace_earlier",

@@ -94,6 +94,11 @@ impl Keeper {
         keeper
     }
 
+    /// The panes and tabs as they are now, as the library keeps them (W.11: what an export writes).
+    pub(crate) fn current(self) -> workspace::Panes {
+        untracked(|| to_saved_panes(&self.panes.layout(), &self.panes.current()))
+    }
+
     /// Saves the panes as they are now, instead of in a second.
     pub(crate) fn save_now(self) {
         let Some(store) = self.store else {

@@ -3104,6 +3104,10 @@ W.8's rule, so a workspace another window shows brings that window forward.
 
 **Done when:** export then import round-trips exactly.
 
+*Built (2026-11-16):* the chosen root is the folder the workspace file is saved in (picking where to save is picking
+the root); paths under it are relative, others absolute. Closed tabs aren't exported. Missing files use R.9's greyed
+tab and "Locate…".
+
 #### Ph5: 12/45 | W.12: Templates and rules
 **P2; Phase 5; Needs:** W.2; **Code:** as W.1
 1. Templates (for example "Course": syllabus, textbook, notebook); rules ("files from this folder open in workspace
