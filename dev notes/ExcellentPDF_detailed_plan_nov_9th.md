@@ -3194,6 +3194,13 @@ alpha, at least 10 %. The command is `annotate.colors` (`Shift+C`); it opens on 
 
 **Done when:** notes open in other readers' comment panes.
 
+*Built (2026-11-15):* the shim adds the `/Popup` (200 by 120 points, right of the markup, kept on the page) when a
+markup with contents is written and has none. The canvas sends a plain click on the page as `pagePress`; the app
+finds the markup under it (`notes::markup_at`, top one first) and opens its note in the inspector, which the window
+reveals. The markup bar's Note tool (`annotate.note`, `Shift+N`) highlights and opens the new highlight's note
+(`notes::marked`). The note is saved on Done, or when another opens, as one undoable change (`notes::write`). The
+editor is the inspector only; the separate popover waits for A.12's inspector.
+
 #### Ph3: 18/49 | A.5: Sticky notes
 **P0; Phase 3; Needs:** K.14; **Code:** as A.4
 1. `PDF_ANNOT_TEXT` at the click point, `pdf_set_annot_icon_name` (Comment, Note, Help, Insert, Key, Paragraph,

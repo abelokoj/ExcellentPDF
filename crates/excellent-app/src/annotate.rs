@@ -1,14 +1,20 @@
 //! Annotating from the pages (plan A): the canvas's `markup` event (A.1) made into one undoable edit of the shown
 //! document, and its `textEdit` event (A.2) into a proposed replacement or insertion, once the reader types the text
-//! in a small dialog. Every tool's colour and opacity (A.3) are the settings' and the colour dialog's: `colors`.
-//! The models are `excellent-features`' `annotate::markup`, `annotate::replace` and `annotate::colors`.
+//! in a small dialog. Every tool's colour and opacity (A.3) are the settings' and the colour dialog's: `colors`. A
+//! click on a markup (`pagePress`), or a markup made with the note tool, opens its note in the inspector (A.4):
+//! `note`. The models are `excellent-features`' `annotate::markup`, `annotate::replace`, `annotate::colors` and
+//! `annotate::notes`.
 
 pub(crate) mod colors;
+mod note;
 
-use excellent_core::annot::{Markup, Style, page_annotations};
+pub(crate) use note::note_panel;
+
+use excellent_core::annot::{Annotation, Markup, Style, page_annotations};
 use excellent_core::edit::Operation;
 use excellent_features::annotate::colors::Tool as ColorTool;
 use excellent_features::annotate::markup::{self, Marking};
+use excellent_features::annotate::notes::{self, Target};
 use excellent_features::annotate::replace::{self, Mode, Proposal};
 use nsh_base::{input, theme};
 use nsh_core::JsonValue;
@@ -20,8 +26,8 @@ use crate::list_dialog::{card, list_dialog};
 use crate::settings::Live;
 use crate::tabs::{Tone, action_button};
 
-/// A pane's annotating: its document's edits, the replacement or insertion waiting for its text, and the tool whose
-/// colour is being chosen.
+/// A pane's annotating: its document's edits, the replacement or insertion waiting for its text, the tool whose
+/// colour is being chosen, and the note open in the inspector.
 #[derive(Clone, Copy)]
 pub(crate) struct AnnotateState {
     editing: Editing,
@@ -30,6 +36,12 @@ pub(crate) struct AnnotateState {
     asking: Signal<Option<replace::Request>>,
     /// The tool the colour dialog opened on (A.3).
     picking: Signal<Option<ColorTool>>,
+    /// The note open in the inspector (A.4).
+    noting: Signal<Option<note::Noting>>,
+    /// Its text as typed, saved when the reader is done.
+    draft: Signal<String>,
+    /// Counts the notes opened, so the window shows the inspector for each one.
+    reveals: Signal<u64>,
 }
 
 impl AnnotateState {
@@ -39,6 +51,90 @@ impl AnnotateState {
             live,
             asking: signal(None),
             picking: signal(None),
+            noting: signal(None),
+            draft: signal(String::new()),
+            reveals: signal(0),
+        }
+    }
+
+    /// How many notes have been opened: the window shows the inspector when it changes.
+    pub(crate) fn reveals(self) -> u64 {
+        self.reveals.get()
+    }
+
+    /// Opens the note of the markup `target` (A.4), keeping the one open first.
+    fn open_note(self, target: &Target) {
+        self.save_note();
+        let Some(annotation) = self.annotation(target) else {
+            return;
+        };
+        self.draft.set(annotation.contents.clone());
+        self.noting.set(Some(note::Noting::of(&annotation)));
+        self.reveals.update(|count| *count += 1);
+    }
+
+    /// Saves the open note's text into its markup, as one step of undo, when it changed.
+    fn save_note(self) {
+        let Some(noting) = untracked(|| self.noting.get()) else {
+            return;
+        };
+        let Some(annotation) = self.annotation(&noting.target) else {
+            // Undone, or the document changed: there is nothing to write it to.
+            return;
+        };
+        if let Some(change) = notes::write(&annotation, &untracked(|| self.draft.get())) {
+            self.editing
+                .apply(&Operation::new(t!("note.edit"), vec![change]));
+        }
+    }
+
+    /// Saves the open note and closes it.
+    fn close_note(self) {
+        self.save_note();
+        self.noting.set(None);
+    }
+
+    /// The annotation `target` names, as the shown document has it now.
+    fn annotation(self, target: &Target) -> Option<Annotation> {
+        let document = self.editing.document()?;
+        let shared = document
+            .mupdf()
+            .map_err(|err| log::warn!("note: cannot read the document: {err}"))
+            .ok()?;
+        let mupdf = shared.lock().expect("document lock poisoned");
+        page_annotations(&mupdf, target.page)
+            .map_err(|err| {
+                log::warn!(
+                    "note: cannot read page {}'s annotations: {err}",
+                    target.page
+                )
+            })
+            .ok()?
+            .into_iter()
+            .find(|annotation| annotation.id == target.id)
+    }
+
+    /// A plain click on the page (`pagePress`): the note of the markup under it opens.
+    fn press(self, data: &JsonValue) {
+        let Some((page, point)) = notes::parse_press(data) else {
+            return;
+        };
+        let Some(document) = self.editing.document() else {
+            return;
+        };
+        let target = {
+            let Ok(shared) = document.mupdf() else {
+                return;
+            };
+            let mupdf = shared.lock().expect("document lock poisoned");
+            let annotations = page_annotations(&mupdf, page).unwrap_or_default();
+            notes::markup_at(&annotations, point).map(|annotation| Target {
+                page,
+                id: annotation.id.clone(),
+            })
+        };
+        if let Some(target) = target {
+            self.open_note(&target);
         }
     }
 
@@ -64,10 +160,12 @@ impl AnnotateState {
 
     /// The canvas asked for a markup over the selected text (`markup`), made as one step of undo merged with the
     /// markups it touches; or to propose a replacement or insertion (`textEdit`), whose text the dialog asks for; or
-    /// gave a tool a swatch's colour (`toolColor`), or asked for a custom one (`pickColor`).
+    /// gave a tool a swatch's colour (`toolColor`), or asked for a custom one (`pickColor`); or was clicked
+    /// (`pagePress`), which opens the note of the markup there.
     pub(crate) fn on_canvas_event(self, event: &NativeEvent) {
         match &*event.name {
             "markup" => self.mark(&event.data),
+            "pagePress" => self.press(&event.data),
             "toolColor" => colors::on_tool_color(self.live, &event.data),
             "pickColor" => {
                 let tool = event
@@ -108,6 +206,7 @@ impl AnnotateState {
             author: &author,
         };
         let mut changes = Vec::new();
+        let noted = data.get("note").and_then(JsonValue::as_bool) == Some(true);
         {
             // Let go of the document before the edit, which takes it again.
             let mupdf = shared.lock().expect("document lock poisoned");
@@ -124,8 +223,13 @@ impl AnnotateState {
                 ));
             }
         }
-        self.editing
+        let target = notes::marked(&changes);
+        let made = self
+            .editing
             .apply(&Operation::new(name(request.kind), changes));
+        if let (true, true, Some(target)) = (made, noted, target) {
+            self.open_note(&target);
+        }
     }
 
     /// Proposes `text` for the request being asked about, as one step of undo; blank text proposes nothing.

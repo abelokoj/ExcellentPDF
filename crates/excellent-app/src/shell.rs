@@ -17,7 +17,8 @@
 use excellent_store::workspace::WorkspaceId;
 use excellent_store::workspaces::Workspace;
 use nsh_base::dock::{
-    DockAreaLayout, DockLayout, DockPanel, DockPanelOptions, DockPlacement, DockRegion, DockTab,
+    DockAreaLayout, DockLayout, DockNode, DockPanel, DockPanelOptions, DockPlacement, DockRegion,
+    DockTab,
 };
 use nsh_base::{CommandEntry, button, command, dock_area, theme};
 use nsh_core::desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes};
@@ -160,6 +161,36 @@ fn default_layout() -> DockAreaLayout {
     DockAreaLayout::new(DockLayout::tabs().panel(Panel::Document.key()))
         .with_dock(DockPlacement::Left, sidebar)
         .with_dock(DockPlacement::Right, inspector)
+}
+
+/// Shows the panel `key` wherever the reader put it: its tab is chosen, and its dock opened.
+fn show_panel(layout: &mut DockAreaLayout, key: &str) {
+    fn choose(node: &mut DockNode, key: &str) -> bool {
+        match node {
+            DockNode::Tabs {
+                panels,
+                active_index,
+                ..
+            } => panels
+                .iter()
+                .position(|panel| panel.as_str() == key)
+                .map(|index| *active_index = index)
+                .is_some(),
+            DockNode::Split { children, .. } => children.iter_mut().any(|child| choose(child, key)),
+        }
+    }
+    if choose(&mut layout.center, key) {
+        return;
+    }
+    for dock in [&mut layout.left, &mut layout.right, &mut layout.bottom]
+        .into_iter()
+        .flatten()
+    {
+        if choose(&mut dock.layout, key) {
+            dock.open = Some(true);
+            return;
+        }
+    }
 }
 
 /// Opens a closed dock and closes an open one.
@@ -440,6 +471,16 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             on_page() && !dialog_open() && !reading_theme_open.get()
         });
     });
+    // A note opened on the pages shows in the inspector (A.4).
+    for pane in panes.slots() {
+        effect(move || {
+            if pane.annotate.reveals() > 0 {
+                untracked(|| {
+                    layout.update(|layout| show_panel(layout, Panel::Inspector.key()));
+                });
+            }
+        });
+    }
     // Each pane's own dialogs: the group being edited, the bookmark being written, the link being asked about, the
     // text of a proposed edit (A.2), the markup tools' colours (A.3).
     let pane_dialogs = panes.slots().into_iter().fold(view(), |dialogs, pane| {
@@ -721,7 +762,11 @@ fn docks(
                     panes::pane_grid(panes, shared, dialog_open, run).into_element()
                 }
                 Some(
-                    side @ (Panel::Pages | Panel::Outline | Panel::Bookmarks | Panel::Results),
+                    side @ (Panel::Pages
+                    | Panel::Outline
+                    | Panel::Bookmarks
+                    | Panel::Results
+                    | Panel::Inspector),
                 ) => of_active(panes, move |pane| side_panel(side, pane, panes, run)),
                 _ => empty_state(panel).into_element(),
             }
@@ -791,7 +836,8 @@ fn side_panel(
         Panel::Results => {
             crate::find::results_panel(pane.find, pane.pages, elsewhere).into_element()
         }
-        Panel::Document | Panel::Inspector => empty_state(Some(panel)).into_element(),
+        Panel::Inspector => crate::annotate::note_panel(pane.annotate).into_element(),
+        Panel::Document => empty_state(Some(panel)).into_element(),
     })
     .otherwise(move || empty_state(Some(panel)))
 }

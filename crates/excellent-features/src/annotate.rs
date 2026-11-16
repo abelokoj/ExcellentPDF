@@ -2,4 +2,5 @@
 
 pub mod colors;
 pub mod markup;
+pub mod notes;
 pub mod replace;

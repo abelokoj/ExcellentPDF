@@ -426,6 +426,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &["insert"],
     },
     Command {
+        id: CommandId::Canvas("noteSelection"),
+        name: "annotate.note",
+        label: "command.note",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+n"],
+    },
+    Command {
         id: CommandId::AnnotationColors,
         name: "annotate.colors",
         label: "command.annotation_colors",

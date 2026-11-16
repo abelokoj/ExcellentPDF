@@ -184,6 +184,9 @@ pub struct PageCanvas<H: Host> {
     hovered: Option<Link>,
     /// The link the left button went down on: releasing over it follows it.
     pressed: Option<Link>,
+    /// Whether the left button went down on the pages themselves, not on the bar, a popover, the minimap or a link:
+    /// releasing it is a press on the page (A.4).
+    on_page: bool,
     /// When the document was asked for, until its first page is drawn complete (logged for the open budget, §13.1).
     opened_at: Option<Instant>,
     /// Behind the pages, `0xRRGGBB`.
@@ -282,6 +285,7 @@ impl<H: Host> PageCanvas<H> {
             copy_pending: false,
             hovered: None,
             pressed: None,
+            on_page: false,
             opened_at: None,
             background: BACKGROUND,
             page_colors: None,
@@ -674,6 +678,7 @@ impl<H: Host> PageCanvas<H> {
     /// second, third or fourth click. Anywhere else it clears the selection. Returns whether a selection started,
     /// when the window should capture the mouse until the button comes up.
     pub fn mouse_down(&mut self, x: i32, y: i32, time: u32, limits: ClickLimits) -> bool {
+        self.on_page = false;
         if self.markbar_down(x, y) || self.popover_down(x, y) {
             return false;
         }
@@ -685,6 +690,7 @@ impl<H: Host> PageCanvas<H> {
         if self.pressed.is_some() {
             return false;
         }
+        self.on_page = true;
         let granularity = Granularity::from_clicks(clicks);
         let start = (clicks > 1 || self.is_over_text(x, y))
             .then(|| self.text_pos(x, y, granularity))
@@ -701,7 +707,8 @@ impl<H: Host> PageCanvas<H> {
 
     /// The left button came up at client pixel (`x`, `y`): a selection ends there; over the link it went down on,
     /// the link is followed. A link inside the document jumps; any other goes to the app (`openLink`: `{uri}`),
-    /// which decides whether to open it. Returns whether a selection ended, when the window lets the mouse go.
+    /// which decides whether to open it. A plain click that did neither goes to the app as `pagePress` (A.4).
+    /// Returns whether a selection ended, when the window lets the mouse go.
     pub fn mouse_up(&mut self, x: i32, y: i32) -> bool {
         if self.minimap_up() {
             return true;
@@ -711,11 +718,17 @@ impl<H: Host> PageCanvas<H> {
             if let Some(click) = self.selection.filter(|s| s.is_collapsed()) {
                 self.selection = None;
                 self.markbar_click(click);
+                if std::mem::take(&mut self.on_page) {
+                    self.page_press(x, y);
+                }
             }
             self.host.selection_changed();
             return true;
         }
         let Some(pressed) = self.pressed.take() else {
+            if std::mem::take(&mut self.on_page) {
+                self.page_press(x, y);
+            }
             return false;
         };
         if self.link_at(x, y) != Some(&pressed) {
@@ -868,6 +881,7 @@ impl<H: Host> PageCanvas<H> {
         self.markbar.caret = None;
         self.hovered = None;
         self.pressed = None;
+        self.on_page = false;
         self.finder.forget(true);
         self.minimap.forget();
         self.refhover.forget();

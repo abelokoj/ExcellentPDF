@@ -1038,6 +1038,29 @@ static void ex_annot_group(fz_context *ctx, pdf_annot *annot, const char *group)
 	}
 }
 
+/* A note's popup (A.4): 200 x 120 pt beside the annotation's right edge, its top at the annotation's, moved inside the
+ * page when it would leave it. Other readers open the note there. */
+static fz_rect ex_popup_rect(fz_context *ctx, pdf_annot *annot, const ex_annot_write *w)
+{
+	fz_rect page = pdf_bound_page(ctx, pdf_annot_page(ctx, annot), FZ_CROP_BOX);
+	fz_rect at = w->props.rect;
+	float width = fz_min(200, page.x1 - page.x0);
+	float height = fz_min(120, page.y1 - page.y0);
+	fz_rect popup;
+	int i;
+	if (w->props.quad_count > 0)
+	{
+		at = fz_rect_from_quad(w->quads[0]);
+		for (i = 1; i < w->props.quad_count; i++)
+			at = fz_union_rect(at, fz_rect_from_quad(w->quads[i]));
+	}
+	popup.x0 = fz_clamp(at.x1 + 8, page.x0, page.x1 - width);
+	popup.y0 = fz_clamp(at.y0, page.y0, page.y1 - height);
+	popup.x1 = popup.x0 + width;
+	popup.y1 = popup.y0 + height;
+	return popup;
+}
+
 /* Writes every property of `w` to `annot`, then rebuilds its appearance. */
 static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_write *w)
 {
@@ -1073,6 +1096,10 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 	}
 	else if (pdf_annot_has_vertices(ctx, annot))
 		pdf_set_annot_vertices(ctx, annot, p->point_count, w->points);
+	/* A note gets a popup to open in other readers (A.4); one already there keeps its place. */
+	if (w->contents && *w->contents && pdf_annot_has_popup(ctx, annot)
+		&& !pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(Popup)))
+		pdf_set_annot_popup(ctx, annot, ex_popup_rect(ctx, annot, w));
 	ex_annot_group(ctx, annot, w->group);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))

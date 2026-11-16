@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 23:48; Ph3: 17/49 | A.4: Notes on highlights
+
+- A markup's note is its PDF `/Contents`; the shim gives a noted markup a `/Popup` beside it, so Acrobat and other
+  readers list it in their comment panes. Saved, reopened and read back by a test.
+- A click on a highlight, underline, squiggly or strikeout opens its note in the inspector, beside the pages: the
+  markup's kind, page and colour, the text it marks, and the note. Done saves it as one undoable "Note" edit; Delete
+  note clears it. Opening another note saves the first.
+- The markup bar has a Note tool (a speech bubble) after the proposed edits: it highlights the selection and opens
+  the new highlight's note. Also in the palette, the Annotate toolbar and `Shift+N` on the pages.
+- The model is `excellent-features::annotate::notes`.
+
 ### 2026-11-15 23:19; Ph3: 16/49 | A.3: Annotation colors
 
 - Each markup tool (highlight, underline, squiggly, strikeout, and the replace and insert proposals) has a colour and

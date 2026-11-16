@@ -1,8 +1,10 @@
 //! The markup bar (plan A.1, A.2): once text is selected in a document that can be edited, a small bar floats under
 //! the selection with the four text markups (highlight, underline, squiggly, strikeout), the two proposed edits
-//! (replace and insert text), then the current tool's colours (A.3). A tool button, or its command, uses the tool in
-//! its own colour: a markup sends the selection to the app as `markup`, which makes it one undoable edit; an edit
-//! sends `textEdit`, and the app asks for the text. A colour gives the current tool (the last one pressed) that
+//! (replace and insert text), the note (A.4), then the current tool's colours (A.3). A tool button, or its command,
+//! uses the tool in its own colour: a markup sends the selection to the app as `markup`, which makes it one undoable
+//! edit; a note highlights it the same way, marked `note`, and the app opens the highlight's note; an edit sends
+//! `textEdit`, and the app asks for the text. A plain click on the page is sent as `pagePress`, so the app can open
+//! the note of the markup under it. A colour gives the current tool (the last one pressed) that
 //! colour and uses it; the last cell asks the app for a custom colour. The models are `excellent-features`'
 //! `annotate::markup`, `annotate::replace` and `annotate::colors`.
 
@@ -32,16 +34,19 @@ pub(super) enum Tool {
     Replace,
     /// Proposes inserting text at the click, or after the selection: a caret (A.2).
     Insert,
+    /// Highlights the selection and opens the highlight's note (A.4).
+    Note,
 }
 
-/// The bar's buttons, in its order: the markups, a rule, then the proposed edits.
-const TOOLS: [Tool; 6] = [
+/// The bar's buttons, in its order: the markups, a rule, then the proposed edits and the note.
+const TOOLS: [Tool; 7] = [
     Tool::Mark(Markup::Highlight),
     Tool::Mark(Markup::Underline),
     Tool::Mark(Markup::Squiggly),
     Tool::Mark(Markup::StrikeOut),
     Tool::Replace,
     Tool::Insert,
+    Tool::Note,
 ];
 
 /// How many of [`TOOLS`] are markups, before the rule.
@@ -51,7 +56,7 @@ impl Tool {
     /// The tool whose colour it draws in.
     fn color_tool(self) -> ColorTool {
         match self {
-            Self::Mark(Markup::Highlight) => ColorTool::Highlight,
+            Self::Mark(Markup::Highlight) | Self::Note => ColorTool::Highlight,
             Self::Mark(Markup::Underline) => ColorTool::Underline,
             Self::Mark(Markup::Squiggly) => ColorTool::Squiggly,
             Self::Mark(Markup::StrikeOut) => ColorTool::StrikeOut,
@@ -122,6 +127,12 @@ impl<H: Host> PageCanvas<H> {
         self.use_tool(Tool::Insert);
     }
 
+    /// Highlights the selected text and asks for its note (A.4): the `markup` event (see [`Self::mark`]) carries
+    /// `note: true`, and the app opens the new highlight's note.
+    pub fn note_selection(&mut self) {
+        self.use_tool(Tool::Note);
+    }
+
     /// Uses `tool` on the selection, or an insert at the click's caret; waits for unread pages' text first.
     pub(super) fn use_tool(&mut self, tool: Tool) {
         if !self.can_mark() {
@@ -140,6 +151,13 @@ impl<H: Host> PageCanvas<H> {
         self.markbar.pending = None;
         let event = match (tool, selection) {
             (Tool::Mark(kind), Some(selection)) => self.markup_event(kind, selection),
+            (Tool::Note, Some(selection)) => {
+                self.markup_event(Markup::Highlight, selection)
+                    .map(|(name, mut data)| {
+                        data["note"] = serde_json::Value::Bool(true);
+                        (name, data)
+                    })
+            }
             (Tool::Replace, Some(selection)) => self.replace_event(selection),
             (Tool::Insert, selection) => self.insert_event(selection),
             _ => None,
@@ -177,6 +195,7 @@ impl<H: Host> PageCanvas<H> {
         }
         let style = self.tool_style(Tool::Mark(kind));
         let data = serde_json::json!({
+            "note": false,
             "kind": kind_name(kind),
             "color": style.rgb(),
             "opacity": style.opacity,
@@ -263,6 +282,21 @@ impl<H: Host> PageCanvas<H> {
     /// A click in the text ended where it began, at `click`: a plain click keeps its caret for an insert.
     pub(super) fn markbar_click(&mut self, click: Selection) {
         self.markbar.caret = (click.granularity == Granularity::Char).then_some(click.focus);
+    }
+
+    /// A plain click at client pixel (`x`, `y`) that selected nothing and followed no link: in a document that can
+    /// be edited, the app is told where it landed (`pagePress`: `{page, x, y}`, page points), to open the note of the
+    /// markup there (A.4).
+    pub(super) fn page_press(&self, x: i32, y: i32) {
+        if !self.can_mark() {
+            return;
+        }
+        if let Some((page, point)) = self.page_point(x, y) {
+            self.emit(
+                "pagePress",
+                serde_json::json!({ "page": page, "x": point.x, "y": point.y }),
+            );
+        }
     }
 
     /// Whether the document shown can take markups: a PDF, which edits save into.
@@ -574,6 +608,22 @@ fn glyph<H: Host>(
             host.fill(&word(-9.0), ink)?;
             host.fill(&word(2.0), ink)?;
             return caret(host, cy - s);
+        }
+        Tool::Note => {
+            // A speech bubble in the colour, two lines of text in it, its tail at the lower left.
+            let bubble = Rect::new(cx - 9.0 * s, cy - 8.0 * s, 18.0 * s, 13.0 * s);
+            host.band(&bubble, 3.0 * s, color, Wash::Darkest)?;
+            let at = |dx: f32, dy: f32| (cx + dx * s, cy + dy * s, 2.4 * s);
+            host.polyline(&[at(-5.0, 4.0), at(-6.5, 9.0), at(-1.0, 4.0)], color)?;
+            host.fill(
+                &Rect::new(cx - 6.0 * s, cy - 4.5 * s, 12.0 * s, 2.0 * s),
+                ink,
+            )?;
+            host.fill(
+                &Rect::new(cx - 6.0 * s, cy - 0.5 * s, 8.0 * s, 2.0 * s),
+                ink,
+            )?;
+            return Ok(());
         }
     };
     match kind {

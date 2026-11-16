@@ -109,6 +109,12 @@ status = "in-progress"
 tests = ["every_palette_reads_on_paper", "the_color_blind_safe_set_is_okabe_and_ito_s", "a_tool_starts_from_its_palette_and_keeps_what_it_is_given", "custom_colors_are_remembered_newest_first", "opacity_and_hex_stay_in_range", "colors_go_through_json_and_back", "colors_are_kept_in_the_settings_and_read_back", "the_picker_s_alpha_is_the_opacity", "the_theme_s_annotation_colors_are_the_highlighter_s"]
 open = "not tried by hand; needs K.17 (in progress); the dialog opens on the highlighter from the command, on the bar's current tool from the bar"
 
+["A.4"]
+label = "Ph3: 17/49"
+status = "in-progress"
+tests = ["a_note_on_a_highlight_gets_a_popup_and_survives_save_and_reopen", "a_click_opens_the_markup_under_it_the_top_one_first", "a_note_is_written_as_one_change_only_when_it_changes", "the_markup_just_made_is_the_one_noted", "the_first_line_is_cut_at_a_whole_character", "a_press_is_read", "the_panel_shows_the_markup_s_colour_and_text", "the_bar_s_cells_sit_side_by_side_inside_it"]
+open = "not tried by hand; not opened in Acrobat or another reader yet; the editor is the inspector (the separate popover is not built); an undo while a note is open is not shown in it until it is opened again"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

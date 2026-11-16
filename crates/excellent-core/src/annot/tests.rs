@@ -490,3 +490,54 @@ fn a_grouped_pair_survives_save_and_reopen() {
         None
     );
 }
+
+/// A.4: a highlight's note is saved as its `/Contents` with a `/Popup`, so other readers open it in their comment
+/// panes; a note written again keeps the one popup.
+#[test]
+fn a_note_on_a_highlight_gets_a_popup_and_survives_save_and_reopen() {
+    let popups = |bytes: &[u8]| bytes.windows(14).filter(|w| w == b"/Subtype/Popup").count();
+    let before = popups(&std::fs::read(corpus()).expect("read the corpus"));
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let annotations = page_annotations(&doc, 0).expect("read").len();
+    let mut highlight = Annotation::new(
+        0,
+        Shape::Markup(
+            Markup::Highlight,
+            vec![Quad {
+                ul: PagePoint { x: 40.0, y: 100.0 },
+                ur: PagePoint { x: 100.0, y: 100.0 },
+                ll: PagePoint { x: 40.0, y: 112.0 },
+                lr: PagePoint { x: 100.0, y: 112.0 },
+            }],
+        ),
+        Style::default(),
+        "Ada",
+    );
+    Operation::new(
+        "Highlight",
+        vec![Change::CreateAnnotation(highlight.clone())],
+    )
+    .apply(&mut doc)
+    .expect("apply");
+    highlight.contents = "Check the figure.".into();
+    Operation::new("Note", vec![Change::UpdateAnnotation(highlight.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    highlight.contents = "Check the figure, then the table.".into();
+    Operation::new("Note", vec![Change::UpdateAnnotation(highlight.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let bytes = std::fs::read(&scratch.0).expect("read the file");
+    assert_eq!(popups(&bytes), before + 1, "one popup, written once");
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0).expect("read");
+    assert_eq!(
+        read.len(),
+        annotations + 1,
+        "the popup is no annotation of its own"
+    );
+    let noted = read.iter().find(|a| a.id == highlight.id).expect("kept");
+    assert_eq!(noted.contents, "Check the figure, then the table.");
+}
