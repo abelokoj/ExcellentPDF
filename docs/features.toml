@@ -169,6 +169,12 @@ status = "in-progress"
 tests = ["a_move_a_corner_and_a_vertex_drag_reshape_the_annotation", "ink_and_callouts_scale_with_their_box", "text_markup_and_locked_annotations_keep_still", "a_marquee_takes_what_lies_wholly_inside_it_and_ctrl_click_toggles", "the_canvas_s_drags_and_marquees_parse_and_a_move_takes_the_selection_along", "pasting_into_another_document_keeps_type_style_and_contents", "the_selected_prop_reads_its_items_and_grips", "a_drag_s_outline_follows_the_grip"]
 open = "not tried by hand; the annotation clipboard is the app's own (no image fallback, not shared between two running copies; DD12); Ctrl-click and Ctrl-marquee read Ctrl on Windows only; inspector edits on several selected at once (A.12 item 2) not built"
 
+["A.14"]
+label = "Ph3: 27/49"
+status = "in-progress"
+tests = ["rows_read_the_note_else_the_marked_text_and_group_by_page", "the_filter_takes_kinds_a_colour_and_every_word_of_the_search_in_any_case", "ten_thousand_annotations_filter_as_you_type_within_a_frame"]
+open = "not tried by hand; the list is a tab of the right dock beside the inspector, not of the left sidebar, and rows show a colour bar instead of a type icon (DD13); the whole document is read again after every edit"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

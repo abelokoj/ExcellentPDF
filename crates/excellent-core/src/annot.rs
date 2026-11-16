@@ -612,6 +612,25 @@ pub fn page_annotations(
     Ok(found)
 }
 
+/// Every page's annotations of the document `mupdf`, in page order, for the annotation list (A.14). Runs at
+/// background priority, taking the document's lock one page at a time so the pages on screen still draw, and can be
+/// cancelled.
+pub fn load_all(
+    pool: &crate::render::RenderPool,
+    mupdf: crate::document::SharedMupdf,
+) -> crate::render::Job<Vec<Annotation>> {
+    pool.submit(crate::render::Priority::Background, move |cookie| {
+        let count = mupdf.lock().expect("document lock poisoned").page_count()?;
+        let mut all = Vec::new();
+        for page in 0..count {
+            cookie.check()?;
+            let document = mupdf.lock().expect("document lock poisoned");
+            all.extend(page_annotations(&document, page)?);
+        }
+        Ok(all)
+    })
+}
+
 /// Where an annotation is and how it looks, as the mini-map (R.17) marks it: read without the rest of the
 /// annotation, so marking a whole document stays quick.
 #[derive(Debug, Clone, Copy, PartialEq)]

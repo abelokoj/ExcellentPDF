@@ -246,3 +246,18 @@ UI thread, which is a render job of its own.
 
 - Pasting between two running copies of the app, or into another app as a picture, doesn't work yet.
 - When NSH or the hosts take custom formats, `Clip::to_json` is the payload and paste reads it back with `from_json`.
+
+## DD13. The annotation list is a tab beside the inspector, with a colour bar for its rows (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.14 item 1 asks for a sidebar tab whose rows show a type icon. The list is a tab of the right
+dock, next to the inspector and the find results, and each row starts with a bar in the annotation's colour, its
+kind's name under its text.
+
+**Why:** the left sidebar is 260 px wide and holds three tabs already; a fourth doesn't fit its tab strip. In the
+right dock, a row pressed in the list opens its note in the inspector one tab over. The app has no icon set for the
+annotation kinds yet, and the kind named in words is clearer than a small glyph.
+
+**What it means:**
+
+- The tab can be dragged to the left sidebar like any dock panel.
+- When the annotation kinds get icons, the row shows the icon in the bar's place.

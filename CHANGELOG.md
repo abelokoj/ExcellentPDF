@@ -6,6 +6,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 04:47; Ph3: 27/49 | A.14: Annotation list with filter and search
+
+- An Annotations tab beside the inspector lists every annotation of the shown document under a heading per page:
+  a bar in its colour, its note or the text it marks, and its kind. It is read in the background and again after
+  every edit, and scrolls smoothly however long it is.
+- A search field finds words in the notes and the marked text as you type (every word, any case); chips show only
+  some kinds or one colour.
+- Pressing a row shows its page, selects the annotation and opens its note.
+- Open it from the Annotate toolbar (List), the palette (`annotate.list`) or Shift+O on the page.
+
 ### 2026-11-16 04:39; Ph3: 26/49 | A.13: Select, move, resize, copy, paste and delete
 
 - A click on an annotation selects it (outlined in blue, its note open); Ctrl-click adds or removes one, and a drag on

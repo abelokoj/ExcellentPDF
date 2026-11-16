@@ -78,16 +78,19 @@ enum Panel {
     /// What the find bar found, with the words round each hit (F.1).
     Results,
     Inspector,
+    /// Every annotation of the document, filtered and searched (A.14).
+    Annotations,
 }
 
 impl Panel {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 7] = [
         Self::Document,
         Self::Pages,
         Self::Outline,
         Self::Bookmarks,
         Self::Results,
         Self::Inspector,
+        Self::Annotations,
     ];
 
     fn key(self) -> &'static str {
@@ -98,6 +101,7 @@ impl Panel {
             Self::Bookmarks => "bookmarks",
             Self::Results => "results",
             Self::Inspector => "inspector",
+            Self::Annotations => "annotations",
         }
     }
 
@@ -114,6 +118,7 @@ impl Panel {
             Self::Bookmarks => t!("panel.bookmarks"),
             Self::Results => t!("panel.results"),
             Self::Inspector => t!("panel.inspector"),
+            Self::Annotations => t!("panel.annotations"),
         }
     }
 
@@ -121,9 +126,12 @@ impl Panel {
     fn heading(self) -> String {
         match self {
             Self::Document => t!("document.empty.title"),
-            Self::Pages | Self::Outline | Self::Bookmarks | Self::Results | Self::Inspector => {
-                self.title()
-            }
+            Self::Pages
+            | Self::Outline
+            | Self::Bookmarks
+            | Self::Results
+            | Self::Inspector
+            | Self::Annotations => self.title(),
         }
     }
 
@@ -140,6 +148,7 @@ impl Panel {
             Self::Bookmarks => t!("bookmark.empty"),
             Self::Results => t!("find.no_document"),
             Self::Inspector => t!("inspector.empty"),
+            Self::Annotations => t!("annotations.no_document"),
         }
     }
 }
@@ -153,10 +162,12 @@ fn default_layout() -> DockAreaLayout {
             .panel(Panel::Bookmarks.key()),
     );
     sidebar.size = Some(px(260.0));
-    // The find results sit beside the inspector: a fourth tab would not fit the sidebar's width.
+    // The find results and the annotation list (A.14) sit beside the inspector: a fourth tab would not fit the
+    // sidebar's width, and a row chosen in the list opens in the inspector next to it.
     let mut inspector = DockRegion::new(
         DockLayout::tabs()
             .panel(Panel::Inspector.key())
+            .panel(Panel::Annotations.key())
             .panel(Panel::Results.key()),
     );
     inspector.size = Some(px(300.0));
@@ -461,6 +472,9 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
                 .place(Placing::Shape(pane.annotate.regular_polygon())),
             CommandId::Star => pane.annotate.place(Placing::Shape(pane.annotate.star())),
             CommandId::MarginNotes => pane.annotate.toggle_margin(),
+            CommandId::AnnotationList => {
+                layout.update(|layout| show_panel(layout, Panel::Annotations.key()));
+            }
             CommandId::AnnotationColors => pane
                 .annotate
                 .pick(excellent_features::annotate::colors::Tool::Highlight),
@@ -793,7 +807,8 @@ fn docks(
                     | Panel::Outline
                     | Panel::Bookmarks
                     | Panel::Results
-                    | Panel::Inspector),
+                    | Panel::Inspector
+                    | Panel::Annotations),
                 ) => of_active(panes, move |pane| side_panel(side, pane, panes, run)),
                 _ => empty_state(panel).into_element(),
             }
@@ -864,6 +879,9 @@ fn side_panel(
             crate::find::results_panel(pane.find, pane.pages, elsewhere).into_element()
         }
         Panel::Inspector => crate::annotate::note_panel(pane.annotate).into_element(),
+        Panel::Annotations => {
+            crate::annotate::annotation_list(pane.annotate, pane.pages, go).into_element()
+        }
         Panel::Document => empty_state(Some(panel)).into_element(),
     })
     .otherwise(move || empty_state(Some(panel)))

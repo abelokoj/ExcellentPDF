@@ -3339,6 +3339,11 @@ clipboard is the app's own, with the notes as text on the system clipboard; the 
 
 **Done when:** 10,000 annotations filter as you type within 16 ms.
 
+*Built (2026-11-16):* `annotate::list`: `Kind`, `Row` (text folded to lower case once), `Filter::apply`, `offered`
+and `entries` (page headings and rows). `excellent-core::annot::load_all` reads every page's annotations at
+background priority, cancellable. The app's `annotate/list.rs` is the panel, a tab of the right dock beside the
+inspector (DD13), with `annotate.list` (Shift+O on the page) to show it.
+
 #### Ph3: 28/49 | A.15: Annotation recovery
 **P0 (parity); Phase 3; Needs:** K.15; **Code:** `excellent-core::save`
 1. Enhanced's recovery (`src/AnnotRecovery.cpp`) is replaced by K.15's log replay; add a "Recovered changes" bar that

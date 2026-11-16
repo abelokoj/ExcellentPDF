@@ -67,6 +67,8 @@ pub(crate) enum CommandId {
     AnnotationColors,
     /// Shows the notes in a column beside the pages, or hides it (A.11).
     MarginNotes,
+    /// Shows the list of the document's annotations (A.14).
+    AnnotationList,
     /// Places a sticky note where the page is clicked next (A.5).
     StickyNote,
     /// Places a text box where the page is clicked next (A.6).
@@ -619,6 +621,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+c"],
+    },
+    Command {
+        id: CommandId::AnnotationList,
+        name: "annotate.list",
+        label: "command.annotation_list",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+o"],
     },
     Command {
         id: CommandId::MarginNotes,

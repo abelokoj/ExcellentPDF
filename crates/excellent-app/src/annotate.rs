@@ -11,11 +11,13 @@
 
 pub(crate) mod colors;
 mod inspector;
+mod list;
 pub(crate) mod margin;
 mod note;
 mod select;
 
 pub(crate) use excellent_features::annotate::freetext::Kind;
+pub(crate) use list::annotation_list;
 pub(crate) use note::note_panel;
 
 use excellent_core::annot::{Annotation, Markup, Style, TextStyle, page_annotations};
@@ -90,6 +92,8 @@ pub(crate) struct AnnotateState {
     page_maps: Signal<Vec<(usize, ToScreen)>>,
     /// The annotations selected on the pages (A.13), all on one page.
     selected: Signal<Vec<Target>>,
+    /// The annotation list (A.14).
+    listing: list::Listing,
 }
 
 impl AnnotateState {
@@ -106,6 +110,7 @@ impl AnnotateState {
             shown_pages: signal(Vec::new()),
             page_maps: signal(Vec::new()),
             selected: signal(Vec::new()),
+            listing: list::Listing::new(),
         }
     }
 

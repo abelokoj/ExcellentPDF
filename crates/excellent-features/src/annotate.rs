@@ -4,6 +4,7 @@ pub mod colors;
 pub mod edit;
 pub mod freetext;
 pub mod inspector;
+pub mod list;
 pub mod margin;
 pub mod markup;
 pub mod notes;
