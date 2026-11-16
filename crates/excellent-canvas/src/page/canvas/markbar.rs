@@ -286,7 +286,8 @@ impl<H: Host> PageCanvas<H> {
 
     /// A plain click at client pixel (`x`, `y`) that selected nothing and followed no link: in a document that can
     /// be edited, the app is told where it landed (`pagePress`: `{page, x, y}`, page points), to open the note of the
-    /// markup there (A.4).
+    /// markup there (A.4); `add` is whether Ctrl was down, to add the annotation there to the selection or take it
+    /// out (A.13).
     pub(super) fn page_press(&self, x: i32, y: i32) {
         if !self.can_mark() {
             return;
@@ -294,7 +295,12 @@ impl<H: Host> PageCanvas<H> {
         if let Some((page, point)) = self.page_point(x, y) {
             self.emit(
                 "pagePress",
-                serde_json::json!({ "page": page, "x": point.x, "y": point.y }),
+                serde_json::json!({
+                    "page": page,
+                    "x": point.x,
+                    "y": point.y,
+                    "add": self.host.ctrl_down(),
+                }),
             );
         }
     }

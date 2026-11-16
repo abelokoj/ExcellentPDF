@@ -6,6 +6,18 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 04:39; Ph3: 26/49 | A.13: Select, move, resize, copy, paste and delete
+
+- A click on an annotation selects it (outlined in blue, its note open); Ctrl-click adds or removes one, and a drag on
+  an empty part of the page draws a marquee that selects what lies wholly inside it.
+- Drag a selected annotation to move it (with the rest of the selection), a corner to resize a box, an ink drawing
+  or a callout, or a grip on a line's end or a polygon's corner to move that point. Highlights and other text markup
+  stay with their text; locked annotations are outlined but don't move.
+- The arrow keys nudge the selection by a point; Delete removes it (Annotate toolbar, `annotate.delete`); Ctrl+C,
+  Ctrl+X and Ctrl+V copy, cut and paste it, in the same document or another, keeping kind, look and note. Each is
+  one step of undo. The notes go on the system clipboard as text for other apps.
+- Escape clears the selection.
+
 ### 2026-11-16 04:08; Ph3: 25/49 | A.12: Annotation inspector
 
 - The inspector now shows every annotation's author (editable), colour (the palette's swatches), opacity (25 to

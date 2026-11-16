@@ -231,3 +231,18 @@ move), and the column places the cards with `excellent-features`' `annotate::mar
 - If the maintainer wants the cards drawn on the canvas itself, the canvas needs text drawing in all three hosts, and
   an input path for writing in place (U.8); the layout model stays.
 
+## DD12. The annotation clipboard is the app's own, without the image fallback (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.13 item 2 asks for "internal clipboard format plus an image and text fallback". Copied
+annotations are kept whole inside the running app (`excellent-features`' `annotate::edit::Clip`, serialized as
+`excellentpdf.annotations/1`), shared by its documents, panes and windows; their notes go on the system clipboard as
+text. No image is put on the clipboard, and the format is not registered with the system.
+
+**Why:** NSH 0.5.0's clipboard takes text and images only (`set_clipboard`, `set_clipboard_image`); a format of the
+app's own needs a registered clipboard format in each host. An image needs the annotations rendered alone, off the
+UI thread, which is a render job of its own.
+
+**What it means:**
+
+- Pasting between two running copies of the app, or into another app as a picture, doesn't work yet.
+- When NSH or the hosts take custom formats, `Clip::to_json` is the payload and paste reads it back with `from_json`.

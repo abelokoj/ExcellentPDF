@@ -406,10 +406,19 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Pane(action) => panes.run(action),
             CommandId::Workspace(action) => workspaces.run(action),
             CommandId::LeaveModes => {
+                pane.annotate.clear_selection();
                 to_canvas("leaveModes");
                 full_screen.leave();
             }
-            CommandId::Canvas(name) => to_canvas(name),
+            // A.13: with annotations selected, copy and the arrow keys are theirs.
+            CommandId::Canvas(name) => {
+                if !pane.annotate.selection_command(name) {
+                    to_canvas(name);
+                }
+            }
+            CommandId::CutAnnotations => pane.annotate.cut(),
+            CommandId::PasteAnnotations => pane.annotate.paste(pane.pages.current()),
+            CommandId::DeleteAnnotations => pane.annotate.delete_selected(),
             // B.10: the outline and the bookmarks hand each other an entry.
             CommandId::Outline(OutlineAction::ToBookmark) => {
                 if let Some((title, page, spot)) = pane.outline.selected_place() {

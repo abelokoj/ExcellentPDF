@@ -93,6 +93,12 @@ pub(crate) enum CommandId {
     PolyLine,
     /// Draws a cloud by the next clicks on the pages (A.10).
     Cloud,
+    /// Copies the selected annotations and deletes them (A.13).
+    CutAnnotations,
+    /// Pastes the copied annotations onto the page shown (A.13).
+    PasteAnnotations,
+    /// Deletes the selected annotations (A.13).
+    DeleteAnnotations,
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -139,6 +145,9 @@ impl CommandId {
                     | Self::Polygon
                     | Self::PolyLine
                     | Self::Cloud
+                    | Self::CutAnnotations
+                    | Self::PasteAnnotations
+                    | Self::DeleteAnnotations
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -577,6 +586,31 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+x"],
+    },
+    Command {
+        id: CommandId::CutAnnotations,
+        name: "annotate.cut",
+        label: "command.cut_annotations",
+        group: "command.group.annotate",
+        // Copy (mod+c) copies the selected annotations instead of text while some are selected.
+        keys: &["mod+x"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::PasteAnnotations,
+        name: "annotate.paste",
+        label: "command.paste_annotations",
+        group: "command.group.annotate",
+        keys: &["mod+v"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::DeleteAnnotations,
+        name: "annotate.delete",
+        label: "command.delete_annotations",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["delete"],
     },
     Command {
         id: CommandId::AnnotationColors,

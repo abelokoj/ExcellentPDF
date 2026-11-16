@@ -437,8 +437,9 @@ impl Annotation {
         }
     }
 
-    /// The annotation as the operation log writes it.
-    pub(crate) fn to_json(&self) -> Value {
+    /// The annotation as the operation log writes it, and the annotation clipboard (A.13).
+    #[must_use]
+    pub fn to_json(&self) -> Value {
         let (shape, geometry) = match &self.shape {
             Shape::Markup(kind, quads) => (
                 format!("{kind:?}"),
@@ -487,8 +488,9 @@ impl Annotation {
         })
     }
 
-    /// The annotation the log wrote as `value`.
-    pub(crate) fn from_json(value: &Value) -> Option<Self> {
+    /// The annotation the log, or the annotation clipboard, wrote as `value`.
+    #[must_use]
+    pub fn from_json(value: &Value) -> Option<Self> {
         let object = value.as_object()?;
         let text = |key: &str| Some(object.get(key)?.as_str()?.to_owned());
         let number = |key: &str| object.get(key)?.as_f64().map(|n| n as f32);

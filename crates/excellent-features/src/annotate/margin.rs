@@ -74,6 +74,26 @@ impl Outline {
     pub fn top(&self, to_screen: ToScreen) -> Option<f32> {
         top(&self.0, to_screen)
     }
+
+    /// The smallest rectangle holding it; `None` for an empty outline.
+    #[must_use]
+    pub fn bounds(&self) -> Option<PageRect> {
+        let first = self.0.first()?;
+        Some(self.0.iter().fold(
+            PageRect {
+                x0: first.x,
+                y0: first.y,
+                x1: first.x,
+                y1: first.y,
+            },
+            |r, p| PageRect {
+                x0: r.x0.min(p.x),
+                y0: r.y0.min(p.y),
+                x1: r.x1.max(p.x),
+                y1: r.y1.max(p.y),
+            },
+        ))
+    }
 }
 
 /// The outline of `shape`.

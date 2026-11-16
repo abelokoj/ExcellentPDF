@@ -143,8 +143,18 @@ fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoEl
     pane.focus.on_focus_out(move || on_pages.set(false));
     let run = move |command: CommandId| match command {
         CommandId::Tab(action) => pane.tabs.run(action),
-        CommandId::Canvas(name) => pane.canvas.command(name, JsonValue::Null),
-        CommandId::LeaveModes => pane.canvas.command("leaveModes", JsonValue::Null),
+        CommandId::Canvas(name) => {
+            if !pane.annotate.selection_command(name) {
+                pane.canvas.command(name, JsonValue::Null);
+            }
+        }
+        CommandId::LeaveModes => {
+            pane.annotate.clear_selection();
+            pane.canvas.command("leaveModes", JsonValue::Null);
+        }
+        CommandId::CutAnnotations => pane.annotate.cut(),
+        CommandId::PasteAnnotations => pane.annotate.paste(pane.pages.current()),
+        CommandId::DeleteAnnotations => pane.annotate.delete_selected(),
         CommandId::OpenFile => tabs::pick_documents(move |paths| pane.tabs.open_paths(paths)),
         CommandId::Undo => pane.editing.undo(),
         CommandId::Redo => pane.editing.redo(),

@@ -13,7 +13,7 @@ use windows::Win32::Foundation::{HWND, LPARAM, RECT, WPARAM};
 use windows::Win32::Graphics::Direct2D::ID2D1Bitmap1;
 use windows::Win32::Graphics::Gdi::InvalidateRect;
 use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_SHIFT};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CONTROL, VK_SHIFT};
 use windows::Win32::UI::WindowsAndMessaging::{GetClientRect, PostMessageW, WM_APP};
 
 use crate::gfx::{self, Gfx};
@@ -220,6 +220,11 @@ impl Host for WinHost {
     fn shift_down(&self) -> bool {
         // SAFETY: plain call; it reads the key's state as of the message being handled.
         unsafe { GetKeyState(i32::from(VK_SHIFT.0)) < 0 }
+    }
+
+    fn ctrl_down(&self) -> bool {
+        // SAFETY: plain call; it reads the key's state as of the message being handled.
+        unsafe { GetKeyState(i32::from(VK_CONTROL.0)) < 0 }
     }
 
     fn since_input_ms(&self, input: u64) -> Option<f64> {

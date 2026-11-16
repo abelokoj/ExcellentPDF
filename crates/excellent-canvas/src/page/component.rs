@@ -36,7 +36,8 @@ impl<H: Host> PageCanvas<H> {
     /// moves with every edit, undo or redo (A.1), so the pages they changed are drawn again. `annotationColors`: the
     /// tools' colours (A.3), as `excellent-features`' `Colors::to_json` writes them; `null`: the defaults. `drawing`: the
     /// drawing tool on (A.8, A.9, A.10), a `shapes::Kind`'s name; anything else: none. `margin`: `true` while the app
-    /// shows its margin column (A.11), when the canvas reports where its pages are (`margin` events).
+    /// shows its margin column (A.11), when the canvas reports where its pages are (`margin` events). `selected`: the
+    /// annotations selected (A.13), `{page, items: [{id, bounds, grips, locked}]}`; anything else: none.
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -57,6 +58,7 @@ impl<H: Host> PageCanvas<H> {
             }
             "drawing" => self.set_drawing(text.and_then(Kind::parse)),
             "margin" => self.set_margin(value.and_then(JsonValue::as_bool).unwrap_or(false)),
+            "selected" => self.set_selected(value),
             "bookmarks" => self.set_bookmarks(value.map(bookmarks).unwrap_or_default()),
             "hoverDelay" => self.set_hover_delay(match value {
                 Some(JsonValue::Bool(false)) => None,

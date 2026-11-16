@@ -156,6 +156,11 @@ pub trait Host {
         false
     }
 
+    /// Whether Ctrl (Command on macOS) is held down now, for adding to the selection of annotations (A.13).
+    fn ctrl_down(&self) -> bool {
+        false
+    }
+
     /// The system draws a stroke's newest points ahead of the app's frames (Windows' ink trail), in `rgb`.
     fn trail_start(&mut self, _rgb: u32) {}
 

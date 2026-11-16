@@ -185,14 +185,14 @@ impl<H: Host> PageCanvas<H> {
     }
 
     /// Client pixel (`x`, `y`) in page `page`'s points, on the page or off it.
-    fn point_on(&self, page: usize, x: i32, y: i32) -> Option<PagePoint> {
+    pub(super) fn point_on(&self, page: usize, x: i32, y: i32) -> Option<PagePoint> {
         let (lx, ly) = self.viewport.to_layout_point(x as f32, y as f32);
         let placement = Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page)?;
         Some(placement.to_page(lx, ly))
     }
 
     /// How far client pixel (`x`, `y`) is from `point` on page `page`, in pixels.
-    fn screen_distance(&self, page: usize, point: PagePoint, x: i32, y: i32) -> f32 {
+    pub(super) fn screen_distance(&self, page: usize, point: PagePoint, x: i32, y: i32) -> f32 {
         let Some(placement) =
             Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page)
         else {

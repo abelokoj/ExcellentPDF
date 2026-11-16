@@ -3323,6 +3323,13 @@ already. Category, tags and layer wait for A.17, A.18 and A.22; item 2 waits for
 
 **Done when:** pasting into another document keeps type, style and contents.
 
+*Built (2026-11-16):* `annotate::edit`: `grips`, `dragged`, `moved`, `change` (honours A.12's lock), `delete`,
+`in_marquee`, `toggled`, `hit`, the canvas's `Drag` and `Marquee`, and `Clip` (JSON format
+`excellentpdf.annotations/1`; a paste gets new ids and dates, unlocked, offset on its own page). The canvas
+(`page/canvas/select.rs`) draws the app's `selected` prop and reports `annotDrag` and `annotMarquee`; `pagePress`
+carries `add` (Ctrl). The app's `annotate/select.rs` keeps the selection and makes each edit one operation. The
+clipboard is the app's own, with the notes as text on the system clipboard; the image fallback waits (DD12).
+
 #### Ph3: 27/49 | A.14: Annotation list with filter and search
 **P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/list.rs`
 1. Sidebar tab with NSH `virtual_list`: one row per annotation (type icon, color, text, page), grouped by page.

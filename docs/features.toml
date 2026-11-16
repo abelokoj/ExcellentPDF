@@ -163,6 +163,12 @@ status = "in-progress"
 tests = ["each_property_set_here_is_one_change_and_none_when_it_is_the_same", "a_locked_annotation_takes_only_its_note_and_its_lock", "a_text_box_s_colour_is_not_the_inspector_s", "dates_read_as_utc_and_a_missing_one_is_empty", "a_lock_and_an_author_keep_through_save_and_reopen_and_other_flags_stay"]
 open = "not tried by hand; category, tags and layer rows wait for A.17, A.18 and A.22; multi-selection waits for A.13's selection; dates show in UTC"
 
+["A.13"]
+label = "Ph3: 26/49"
+status = "in-progress"
+tests = ["a_move_a_corner_and_a_vertex_drag_reshape_the_annotation", "ink_and_callouts_scale_with_their_box", "text_markup_and_locked_annotations_keep_still", "a_marquee_takes_what_lies_wholly_inside_it_and_ctrl_click_toggles", "the_canvas_s_drags_and_marquees_parse_and_a_move_takes_the_selection_along", "pasting_into_another_document_keeps_type_style_and_contents", "the_selected_prop_reads_its_items_and_grips", "a_drag_s_outline_follows_the_grip"]
+open = "not tried by hand; the annotation clipboard is the app's own (no image fallback, not shared between two running copies; DD12); Ctrl-click and Ctrl-marquee read Ctrl on Windows only; inspector edits on several selected at once (A.12 item 2) not built"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

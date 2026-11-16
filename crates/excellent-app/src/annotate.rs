@@ -13,6 +13,7 @@ pub(crate) mod colors;
 mod inspector;
 pub(crate) mod margin;
 mod note;
+mod select;
 
 pub(crate) use excellent_features::annotate::freetext::Kind;
 pub(crate) use note::note_panel;
@@ -20,6 +21,7 @@ pub(crate) use note::note_panel;
 use excellent_core::annot::{Annotation, Markup, Style, TextStyle, page_annotations};
 use excellent_core::edit::{Change, Operation};
 use excellent_features::annotate::colors::Tool as ColorTool;
+use excellent_features::annotate::edit;
 use excellent_features::annotate::freetext;
 use excellent_features::annotate::inspector as rules;
 use excellent_features::annotate::margin::ToScreen;
@@ -86,6 +88,8 @@ pub(crate) struct AnnotateState {
     /// The pages in view, whose notes the margin column shows (A.11), and how each one's points map to the screen.
     shown_pages: Signal<Vec<usize>>,
     page_maps: Signal<Vec<(usize, ToScreen)>>,
+    /// The annotations selected on the pages (A.13), all on one page.
+    selected: Signal<Vec<Target>>,
 }
 
 impl AnnotateState {
@@ -101,6 +105,7 @@ impl AnnotateState {
             placing: signal(None),
             shown_pages: signal(Vec::new()),
             page_maps: signal(Vec::new()),
+            selected: signal(Vec::new()),
         }
     }
 
@@ -315,7 +320,8 @@ impl AnnotateState {
     }
 
     /// A plain click on the page (`pagePress`): a sticky note or text box goes there when one is being placed; else
-    /// the note of the markup or sticky note under it, or the text box's text, opens.
+    /// the annotation under it is selected (A.13), and its note, or the text box's text, opens. With Ctrl it joins
+    /// the selection, or leaves it, and no note opens.
     fn press(self, data: &JsonValue) {
         if let Some(what) = untracked(|| self.placing.get())
             && !matches!(what, Placing::Shape(_))
@@ -335,11 +341,18 @@ impl AnnotateState {
             };
             let mupdf = shared.lock().expect("document lock poisoned");
             let annotations = page_annotations(&mupdf, page).unwrap_or_default();
-            notes::note_at(&annotations, point).map(|annotation| Target {
+            edit::hit(&annotations, point).map(|annotation| Target {
                 page,
                 id: annotation.id.clone(),
             })
         };
+        let add = data
+            .get("add")
+            .and_then(JsonValue::as_bool)
+            .unwrap_or(false);
+        if self.select_press(target.clone(), add) {
+            return;
+        }
         if let Some(target) = target {
             self.open_note(&target);
         }
@@ -374,6 +387,8 @@ impl AnnotateState {
             "markup" => self.mark(&event.data),
             "pagePress" => self.press(&event.data),
             "pageDraw" => self.drawn(&event.data),
+            "annotDrag" => self.selection_dragged(&event.data),
+            "annotMarquee" => self.marquee(&event.data),
             "margin" => self.margin_moved(&event.data),
             "toolColor" => colors::on_tool_color(self.live, &event.data),
             "pickColor" => {

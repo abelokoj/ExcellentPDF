@@ -40,6 +40,7 @@ mod markbar;
 mod minimap;
 mod reading;
 mod refhover;
+mod select;
 
 pub(super) use refhover::DEFAULT_DELAY as DEFAULT_HOVER_DELAY;
 
@@ -219,6 +220,8 @@ pub struct PageCanvas<H: Host> {
     markbar: markbar::MarkBar,
     /// The drawing tool and the shape being drawn (A.8).
     drawing: draw::Drawing,
+    /// The annotations the app has selected (A.13), and a drag on them.
+    selected: select::Selected,
     /// The document's edit count the pages were drawn at: an edit draws the pages it changed again (A.1).
     edits: u64,
 }
@@ -308,6 +311,7 @@ impl<H: Host> PageCanvas<H> {
             refhover: refhover::RefHover::default(),
             markbar: markbar::MarkBar::default(),
             drawing: draw::Drawing::default(),
+            selected: select::Selected::default(),
             edits: 0,
         }
     }
@@ -629,6 +633,8 @@ impl<H: Host> PageCanvas<H> {
             Cursor::Pan
         } else if self.is_drawing_tool() {
             Cursor::Cross
+        } else if self.over_selected() {
+            Cursor::Pan
         } else if self.selecting || (self.over_text && self.hovered.is_none()) {
             Cursor::Text
         } else if self.hovered.is_some() {
@@ -643,7 +649,7 @@ impl<H: Host> PageCanvas<H> {
     /// for a link out of the document; `null` for no link).
     pub fn mouse_moved(&mut self, at: Option<(i32, i32)>) {
         self.reading_mouse(at);
-        if self.draw_moved(at) {
+        if self.draw_moved(at) || self.select_moved(at) {
             return;
         }
         self.markbar_hover(at);
@@ -697,7 +703,7 @@ impl<H: Host> PageCanvas<H> {
         if self.markbar_down(x, y) || self.popover_down(x, y) {
             return false;
         }
-        if self.minimap_down(x, y) || self.draw_down(x, y, time, limits) {
+        if self.minimap_down(x, y) || self.draw_down(x, y, time, limits) || self.select_down(x, y) {
             return true;
         }
         let clicks = self.clicks.press(time, x, y, limits);
@@ -711,6 +717,16 @@ impl<H: Host> PageCanvas<H> {
             .then(|| self.text_pos(x, y, granularity))
             .flatten();
         let had = self.selection.is_some();
+        if start.is_none() && clicks == 1 && self.marquee_down(x, y) {
+            // Away from text, a drag draws a marquee round annotations (A.13); a short one is still a click.
+            self.on_page = false;
+            self.markbar.caret = None;
+            self.selection = None;
+            if had {
+                self.invalidate();
+            }
+            return true;
+        }
         self.markbar.caret = None;
         self.selection = start.map(|at| Selection::new(at, granularity));
         self.selecting = start.is_some();
@@ -725,7 +741,7 @@ impl<H: Host> PageCanvas<H> {
     /// which decides whether to open it. A plain click that did neither goes to the app as `pagePress` (A.4).
     /// Returns whether a selection ended, when the window lets the mouse go.
     pub fn mouse_up(&mut self, x: i32, y: i32) -> bool {
-        if self.minimap_up() || self.draw_up(x, y) {
+        if self.minimap_up() || self.draw_up(x, y) || self.select_up(x, y) {
             return true;
         }
         if self.selecting {
@@ -757,6 +773,7 @@ impl<H: Host> PageCanvas<H> {
     pub fn capture_lost(&mut self) {
         self.minimap_up();
         self.draw_cancel();
+        self.select_cancel();
         self.selecting = false;
         self.stop_pan();
     }
@@ -1351,6 +1368,7 @@ impl<H: Host> PageCanvas<H> {
         let drawn = self
             .draw(&needed)
             .and_then(|()| self.draw_shape_preview())
+            .and_then(|()| self.draw_selected())
             .and_then(|()| self.draw_minimap())
             .and_then(|()| self.draw_markbar())
             .and_then(|()| self.draw_popover())
