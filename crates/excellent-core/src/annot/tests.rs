@@ -1421,3 +1421,73 @@ fn annotations_go_out_and_back_as_fdf() {
     );
     assert!(fdf_annotations(&fresh, b"not an fdf file").is_err());
 }
+
+/// A.25: a flattened copy shows the same pixels and has no annotations left; the open document keeps its own.
+#[test]
+fn a_flattened_copy_looks_the_same_and_holds_no_annotations() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let square = Annotation::new(
+        0,
+        Shape::Boxed(
+            Boxed::Square,
+            PageRect {
+                x0: 50.0,
+                y0: 60.0,
+                x1: 150.0,
+                y1: 120.0,
+            },
+        ),
+        Style {
+            color: Some([1.0, 0.0, 0.0]),
+            opacity: 1.0,
+            width: 3.0,
+        },
+        "Ada",
+    );
+    Operation::new("Square", vec![Change::CreateAnnotation(square.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_flattened(&scratch.0, excellent_mupdf::Forms::Keep)
+        .expect("flatten");
+
+    let flat = Document::open_pdf(&scratch.0).expect("open the copy");
+    for page in 0..PAGES {
+        assert!(
+            page_annotations(&flat, page).expect("read").is_empty(),
+            "page {page} keeps no annotations"
+        );
+    }
+    let render = |document: &Document| {
+        document
+            .load_page(0)
+            .expect("page")
+            .render(
+                &excellent_mupdf::Matrix::IDENTITY,
+                excellent_mupdf::Background::White,
+            )
+            .expect("render")
+            .samples()
+            .to_vec()
+    };
+    let (before, after) = (render(&doc), render(&flat));
+    assert_eq!(before.len(), after.len(), "the same page size");
+    // Baking may round an edge's antialiasing; the drawing itself must match.
+    let differing = before
+        .iter()
+        .zip(&after)
+        .filter(|(a, b)| a.abs_diff(**b) > 8)
+        .count();
+    assert!(
+        differing * 1000 < before.len(),
+        "{differing} of {} samples differ",
+        before.len()
+    );
+    assert!(
+        page_annotations(&doc, 0)
+            .expect("read")
+            .iter()
+            .any(|a| a.id == square.id),
+        "the open document keeps its annotation"
+    );
+}

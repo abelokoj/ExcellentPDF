@@ -3481,6 +3481,11 @@ one undo step per import (DD21).
 
 **Done when:** a flattened copy shows the same pixels and has no annotations left.
 
+*Built (2026-11-16):* the shim's `ex_save_flattened` writes the document (edits included) to memory, reopens it and
+bakes that copy, so the open original is never touched; `Document::save_flattened(path, Forms)`. No
+`excellent-features` module: there is no model beyond the engine call, so the command lives in the app's
+`annotate::flatten` (Ctrl+Shift+E). Form fields stay fillable (DD22).
+
 #### Ph5: 13/45 | A.26: Annotation reports
 **P2; Phase 5; Needs:** A.14; **Code:** `excellent-features/annotate/report.rs`
 1. Export all or filtered annotations as Markdown, HTML, CSV or PDF summary, with page, quote, note, category and a

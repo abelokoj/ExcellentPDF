@@ -435,6 +435,10 @@ int ex_fdf_write(fz_context *ctx, fz_document *doc, fz_buffer **out, ex_error *e
  * out. */
 int ex_fdf_read(fz_context *ctx, fz_document *doc, fz_document *fdf, fz_document **out, ex_error *err);
 
+/* Writes a copy of the PDF, its edits included, to `path` with its annotations drawn into the page content and taken
+ * out (A.25); its form fields too when `forms` is nonzero. The open document is left as it is. */
+int ex_save_flattened(fz_context *ctx, fz_document *doc, const char *path, int forms, ex_error *err);
+
 /* Buffers: `*data` points into the buffer and is valid until it is dropped. */
 /* A.20: the stamp of page `page` whose /NM is `id` drawn as the `len` bytes of `art`: with `kind` 0 the first page
  * of a PDF (its appearance, kept by MuPDF because the stamp's name is not a standard one), with 1 an image

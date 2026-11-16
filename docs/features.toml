@@ -229,6 +229,12 @@ status = "in-progress"
 tests = ["every_kind_comes_back_as_it_went_out", "positions_are_written_in_pdf_space", "acrobat_s_xfdf_reads", "dates_go_both_ways", "importing_merges_by_id", "annotations_go_out_and_back_as_fdf", "the_format_is_told_by_extension_or_header"]
 open = "not tried by hand and not opened in Acrobat; XFDF loses a note's open state and custom stamp art (DD21)"
 
+["A.25"]
+label = "Ph3: 37/49"
+status = "in-progress"
+tests = ["a_flattened_copy_looks_the_same_and_holds_no_annotations"]
+open = "not tried by hand; form fields stay fillable (DD22)"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

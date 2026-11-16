@@ -2520,3 +2520,44 @@ int ex_fdf_read(fz_context *ctx, fz_document *doc, fz_document *fdf_doc, fz_docu
 		return ex_fail(ctx, err);
 	return 0;
 }
+
+/* ---- Flatten on export (A.25) ---- */
+
+int ex_save_flattened(fz_context *ctx, fz_document *doc, const char *path, int forms, ex_error *err)
+{
+	fz_buffer *buf = NULL;
+	fz_output *output = NULL;
+	fz_stream *stream = NULL;
+	pdf_document *copy = NULL;
+	fz_var(buf);
+	fz_var(output);
+	fz_var(stream);
+	fz_var(copy);
+	fz_try(ctx)
+	{
+		pdf_document *pdf = ex_pdf(ctx, doc);
+		/* The document as it is now, edits and all, written to memory and opened again: the copy is baked, never the
+		 * open original. */
+		buf = fz_new_buffer(ctx, 64 * 1024);
+		output = fz_new_output_with_buffer(ctx, buf);
+		pdf_write_options opts = pdf_default_write_options;
+		pdf_write_document(ctx, pdf, output, &opts);
+		fz_close_output(ctx, output);
+		stream = fz_open_buffer(ctx, buf);
+		copy = pdf_open_document_with_stream(ctx, stream);
+		pdf_bake_document(ctx, copy, 1, forms);
+		pdf_write_options save = pdf_default_write_options;
+		save.do_garbage = 1;
+		pdf_save_document(ctx, copy, path, &save);
+	}
+	fz_always(ctx)
+	{
+		pdf_drop_document(ctx, copy);
+		fz_drop_stream(ctx, stream);
+		fz_drop_output(ctx, output);
+		fz_drop_buffer(ctx, buf);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}

@@ -11,6 +11,7 @@
 
 pub(crate) mod colors;
 mod exchange;
+mod flatten;
 mod inspector;
 mod layers;
 mod list;

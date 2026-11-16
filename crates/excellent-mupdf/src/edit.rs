@@ -12,7 +12,7 @@ use excellent_mupdf_sys::{
     ex_abandon_operation, ex_annot_create, ex_annot_delete, ex_annot_set_stamp_art,
     ex_annot_update, ex_begin_operation, ex_end_operation, ex_is_pdf, ex_layer_set, ex_link_uri,
     ex_outline_delete, ex_outline_edit, ex_outline_insert, ex_outline_move, ex_outline_style,
-    ex_outline_update, ex_redo, ex_save_pdf, ex_undo, ex_undo_state,
+    ex_outline_update, ex_redo, ex_save_flattened, ex_save_pdf, ex_undo, ex_undo_state,
 };
 
 use crate::annot::AnnotData;
@@ -53,6 +53,16 @@ impl UndoState {
     pub fn can_redo(self) -> bool {
         self.position < self.steps
     }
+}
+
+/// What a flattened copy does with the form fields (A.25).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Forms {
+    /// They stay fillable.
+    #[default]
+    Keep,
+    /// They are drawn into the page with their values, like the annotations.
+    Flatten,
 }
 
 /// How [`Document::save_pdf`] wrote the file.
@@ -213,6 +223,30 @@ impl Document {
         // SAFETY: the shim NUL-terminated `buf`.
         let uri = unsafe { CStr::from_ptr(buf.as_ptr()) };
         Ok(uri.to_string_lossy().into_owned())
+    }
+
+    /// Writes a flattened copy of the PDF, its edits included, to `path` (A.25): its annotations drawn into the page
+    /// content and taken out, so every reader shows them and none can change them; its form fields too when `forms`
+    /// says so. The open document, its edits and their undo history are left as they are. `path` must not be the
+    /// file it was opened from.
+    ///
+    /// # Errors
+    ///
+    /// The document is not a PDF, the path isn't valid, or MuPDF can't write the file.
+    pub fn save_flattened(&self, path: &Path, forms: Forms) -> Result<()> {
+        let path = c_path(path)?;
+        with_context(|ctx| {
+            // SAFETY: the document is live and used by this thread only; `path` is NUL-terminated UTF-8.
+            check(|err| unsafe {
+                ex_save_flattened(
+                    ctx,
+                    self.raw().as_ptr(),
+                    path.as_ptr(),
+                    c_int::from(forms == Forms::Flatten),
+                    err,
+                )
+            })
+        })
     }
 
     /// Writes the PDF with its edits to `path`, which must not be the file it was opened from: the opened bytes and

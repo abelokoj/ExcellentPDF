@@ -40,7 +40,7 @@ pub use annot::{Align, Annot, AnnotData, AnnotKind, Intent, LineEnd};
 pub use cookie::Cookie;
 pub use display_list::DisplayList;
 pub use document::{Document, Reflow};
-pub use edit::{Edit, NewOutlineEntry, OutlineChange, Save, StampArt, UndoState};
+pub use edit::{Edit, Forms, NewOutlineEntry, OutlineChange, Save, StampArt, UndoState};
 pub use error::{MuError, Result};
 pub use geometry::{DevicePoint, DeviceRect, Matrix, PageBox, PagePoint, PageRect, Quad};
 pub use html::html_to_pdf;

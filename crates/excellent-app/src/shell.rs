@@ -476,6 +476,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::TransferAnnotations => pane.annotate.transfer(),
             CommandId::ExportAnnotations => pane.annotate.export_annotations(),
             CommandId::ImportAnnotations => pane.annotate.import_annotations(),
+            CommandId::ExportFlattened => pane.annotate.export_flattened(),
             // The layers sit at the top of the annotation list (A.22).
             CommandId::AnnotationList | CommandId::Layers => {
                 layout.update(|layout| show_panel(layout, Panel::Annotations.key()));

@@ -6,6 +6,12 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 11:08; Ph3: 37/49 | A.25: Flatten on export
+
+- "Export flattened copy" (Ctrl+Shift+E, the Annotate toolbar's Flatten, or the palette) saves a copy of the document
+  with its annotations drawn into the pages: every reader shows them, and nobody can move or delete them. The open
+  document keeps its annotations, edits and undo history; the copy can't replace it.
+
 ### 2026-11-16 10:39; Ph3: 36/49 | A.24: XFDF and FDF import and export
 
 - Annotations can be exported as XFDF or FDF (Ctrl+Alt+E, the Annotate toolbar's Export, or the palette), the files

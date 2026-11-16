@@ -403,3 +403,17 @@ which XFDF carries only as Acrobat's own base64 blob; FDF keeps both, so it is t
   tags and layers.
 - A reader who wants to replace a locked annotation must unlock it first.
 - Not checked in Acrobat: the Done-when stays open until someone with Acrobat tries it.
+
+## DD22. Flatten keeps form fields fillable, and lives in the app (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.25's flattened copy bakes the annotations only (`bake_widgets = 0`); form fields stay
+fillable, and there is no switch for them yet. The plan's `excellent-features/annotate/flatten.rs` isn't made: the
+feature has no model beyond one engine call, so the command is in `excellent-app::annotate::flatten`. Ctrl+Shift+E
+is its shortcut.
+
+**Why:** a flattened copy is for sharing reviewed comments; flattening a form too would throw away what a recipient
+still has to fill in, and asking every time adds a dialog most documents (with no form) don't need. A features module
+holding nothing would only be ceremony.
+
+**What it means:** to flatten a filled form, the forms switch (`Forms::Flatten`, already in the engine) needs a place
+in the UI; that is a small follow-up if the maintainer wants it.

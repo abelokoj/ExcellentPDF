@@ -1181,6 +1181,15 @@ unsafe extern "C" {
     ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn ex_save_flattened(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        path: *const ::core::ffi::c_char,
+        forms: ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn ex_save_pdf(
         ctx: *mut fz_context,
         doc: *mut fz_document,

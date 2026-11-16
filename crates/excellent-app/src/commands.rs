@@ -75,6 +75,8 @@ pub(crate) enum CommandId {
     ExportAnnotations,
     /// Merges an XFDF or FDF file's annotations into the shown PDF (A.24).
     ImportAnnotations,
+    /// Saves a copy of the shown PDF with its annotations drawn into the pages (A.25).
+    ExportFlattened,
     /// Shows the document's layers, at the top of the annotation list (A.22).
     Layers,
     /// Puts every annotation on no layer on its author's (A.22).
@@ -164,6 +166,7 @@ impl CommandId {
                     | Self::TransferAnnotations
                     | Self::ExportAnnotations
                     | Self::ImportAnnotations
+                    | Self::ExportFlattened
                     | Self::LayersByAuthor
                     | Self::PasteAnnotations
                     | Self::DeleteAnnotations
@@ -669,6 +672,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         label: "command.import_annotations",
         group: "command.group.annotate",
         keys: &["mod+alt+i"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExportFlattened,
+        name: "annotate.flatten",
+        label: "command.export_flattened",
+        group: "command.group.annotate",
+        keys: &["mod+shift+e"],
         page_keys: &[],
     },
     Command {
