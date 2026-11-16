@@ -262,6 +262,12 @@ typedef struct ex_annot_props {
 	 * the rest from the box. */
 	int callout_count;
 	fz_point callout[3];
+	/* A shape's fill (/IC; components as `color`, 0 for none) and its border's dash pattern (/BS /D, used when /S
+	 * is /D; 0 items for a solid border), A.9. */
+	int fill_n;
+	float fill[4];
+	int dash_count;
+	float dash[8];
 } ex_annot_props;
 
 /* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author), the app's private key

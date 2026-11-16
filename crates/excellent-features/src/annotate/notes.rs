@@ -48,8 +48,8 @@ pub fn note_at(annotations: &[Annotation], point: PagePoint) -> Option<&Annotati
             Shape::Markup(_, quads) => quads.iter().any(|quad| near(quad.bounds())),
             Shape::Boxed(Boxed::Note | Boxed::FreeText | Boxed::Typewriter, rect) => near(*rect),
             Shape::Callout(rect, _) => near(*rect),
-            Shape::Line(from, to) => {
-                super::shapes::distance(*from, *to, point) <= SLOP + annotation.style.width
+            Shape::Line(..) | Shape::Boxed(Boxed::Square | Boxed::Circle, _) => {
+                super::shapes::hits(annotation, point, SLOP)
             }
             _ => false,
         })
@@ -176,18 +176,18 @@ mod tests {
             Style::default(),
             "me",
         );
-        let square = Annotation {
-            shape: Shape::Boxed(Boxed::Square, Default::default()),
+        let stamp = Annotation {
+            shape: Shape::Boxed(Boxed::Stamp, Default::default()),
             ..sticky.clone()
         };
-        let annotations = [sticky.clone(), square];
+        let annotations = [sticky.clone(), stamp];
         assert_eq!(
             note_at(&annotations, point(310.0, 10.0)).map(|a| &a.id),
             Some(&sticky.id)
         );
         assert!(
             note_at(&annotations, point(0.0, 0.0)).is_none(),
-            "no note on a shape"
+            "no note on a stamp"
         );
     }
 

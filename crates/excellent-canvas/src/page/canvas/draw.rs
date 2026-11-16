@@ -1,7 +1,8 @@
-//! Drawing shapes on the pages (A.8): while the app has a drawing tool on (the `drawing` prop), a drag on a page
-//! draws a line there, shown as it goes in the shapes' colour (A.3), Shift snapping it to steps of 15°. When the
-//! button comes up the canvas sends it to the app (`pageDraw`: `{page, kind, points: [[x, y], [x, y]], color: [r, g,
-//! b], opacity}`, page points), which makes it an annotation. The model is `excellent-features`' `annotate::shapes`.
+//! Drawing shapes on the pages (A.8, A.9): while the app has a drawing tool on (the `drawing` prop), a drag on a page
+//! draws a line, an arrow, a rectangle or an ellipse there, shown as it goes in the shapes' colour (A.3). Shift snaps
+//! a line to steps of 15° and makes a box a square or a circle. When the button comes up the canvas sends it to the
+//! app (`pageDraw`: `{page, kind, points: [[x, y], [x, y]], color: [r, g, b], opacity}`, page points, where the drag
+//! started and ended), which makes it an annotation. The model is `excellent-features`' `annotate::shapes`.
 
 use excellent_features::annotate::colors::Tool as ColorTool;
 use excellent_features::annotate::shapes::{self, Kind};
@@ -87,7 +88,7 @@ impl<H: Host> PageCanvas<H> {
         let Some(kind) = self.drawing.tool else {
             return true;
         };
-        if (to.x - drag.from.x).hypot(to.y - drag.from.y) >= shapes::MIN_LENGTH {
+        if shapes::big_enough(kind, drag.from, to) {
             let style = self.markbar_style(ColorTool::Shape);
             self.emit(
                 "pageDraw",
@@ -110,21 +111,20 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
-    /// Where the drag ends with the mouse at client pixel (`x`, `y`), in its page's points, snapped while Shift is
-    /// down.
+    /// Where the drag ends with the mouse at client pixel (`x`, `y`), in its page's points: while Shift is down, a
+    /// line snapped and a box made square.
     fn drag_end(&self, drag: Drag, x: i32, y: i32) -> Option<PagePoint> {
         let (lx, ly) = self.viewport.to_layout_point(x as f32, y as f32);
         let placement =
             Placement::of_page(&self.layout, &self.bounds, self.view.rotation, drag.page)?;
         let to = placement.to_page(lx, ly);
-        Some(if self.host.shift_down() {
-            shapes::snap(drag.from, to)
-        } else {
-            to
+        Some(match self.drawing.tool {
+            Some(kind) if self.host.shift_down() => shapes::constrain(kind, drag.from, to),
+            _ => to,
         })
     }
 
-    /// Draws the shape being dragged, with its arrowhead.
+    /// Draws the shape being dragged: its outline, and an arrow's head.
     pub(super) fn draw_shape_preview(&mut self) -> Result<(), H::Error> {
         let (Some(drag), Some(kind)) = (self.drawing.drag, self.drawing.tool) else {
             return Ok(());
@@ -140,8 +140,15 @@ impl<H: Host> PageCanvas<H> {
         };
         let width = shapes::WIDTH * self.viewport.scale();
         let (from, to) = (screen(drag.from), screen(drag.to));
-        let mut strokes: Vec<Vec<InkPixel>> =
-            vec![vec![(from.0, from.1, width), (to.0, to.1, width)]];
+        let mut strokes: Vec<Vec<InkPixel>> = vec![
+            shapes::outline(kind, drag.from, drag.to)
+                .into_iter()
+                .map(|point| {
+                    let (x, y) = screen(point);
+                    (x, y, width)
+                })
+                .collect(),
+        ];
         let (dx, dy) = (to.0 - from.0, to.1 - from.1);
         let length = dx.hypot(dy);
         if kind.ends()[1] == LineEnd::OpenArrow && length > 0.0 {

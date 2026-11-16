@@ -3263,6 +3263,12 @@ GTK and macOS answer no until their hosts do). Shapes take their colour from a n
 
 **Done when:** fill, border and dash survive a round trip.
 
+*Built (2026-11-16):* `Annotation::fill` (`/IC`) and `Annotation::dash` (`/BS /D`, empty for solid); the shim reads
+and writes them with `pdf_set_annot_interior_color`, `pdf_clear_annot_border_dash`, `pdf_add_annot_border_dash_item`
+and `pdf_set_annot_border_style`, and leaves a border it didn't change as it was. A.8's drawing tool draws the boxes
+(`shapes::Kind::Rectangle` and `Ellipse`); Shift goes through `shapes::constrain`. Width and line style are offered
+for lines too.
+
 #### Ph3: 23/49 | A.10: Polygons, polylines and clouds
 **P0; Phase 3; Needs:** A.8; **Code:** as A.8
 1. `PDF_ANNOT_POLYGON` and `PDF_ANNOT_POLY_LINE` with `pdf_set_annot_vertices` (or `pdf_add_annot_vertex` while

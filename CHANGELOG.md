@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 01:27; Ph3: 22/49 | A.9: Rectangles and ellipses
+
+- Rectangles and ellipses: two commands (palette, Annotate toolbar, `R` and `Shift+E` on the pages) turn on the
+  drawing tool; a drag on a page draws the box from corner to corner, shown as it goes, and Shift makes it a square
+  or a circle. Each is one undoable edit in the shapes' colour, and its inspector opens.
+- In the inspector, for every shape (lines and arrows too): line width (1, 2 or 4 pt) and line style (solid, dashed,
+  dotted); for a rectangle or ellipse, a fill (none, white, yellow, blue, red). Each change is one step of undo.
+- Saved as standard `/Square` and `/Circle` annotations: the fill as `/IC`, the dashes as `/BS` with `/S/D`. Another
+  app's beveled or inset border is left alone unless its dashes are changed here.
+- A click on a shape's border, or inside a filled box, opens it again.
+
 ### 2026-11-16 01:01; Ph3: 21/49 | A.8: Lines and arrows
 
 - Lines and arrows: two commands (palette, Annotate toolbar, `Shift+L` and `Shift+A` on the pages) turn on a drawing

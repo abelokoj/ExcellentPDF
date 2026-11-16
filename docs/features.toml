@@ -139,6 +139,12 @@ status = "in-progress"
 tests = ["an_arrow_keeps_its_ends_through_save_and_reopen", "random_annotation_edits_survive_save_and_reopen", "shift_snaps_to_fifteen_degree_steps_at_the_same_length", "a_drag_makes_a_line_or_an_arrow_and_a_click_makes_nothing", "changing_the_ends_is_one_change_only_when_they_change", "distance_is_measured_to_the_nearest_point_of_the_line", "the_canvas_s_drawn_shape_parses_into_an_annotation"]
 open = "not tried by hand; not opened in Acrobat; Shift snapping reads the key on Windows only (GTK and macOS draw unsnapped until their hosts read it); no width control yet (A.12's inspector); lines can't be moved or their ends dragged until A.13"
 
+["A.9"]
+label = "Ph3: 22/49"
+status = "in-progress"
+tests = ["rectangles_and_ellipses_keep_fill_border_and_dash_through_save_and_reopen", "random_annotation_edits_survive_save_and_reopen", "shift_makes_a_box_square_whichever_way_it_is_dragged", "a_drag_makes_a_box_from_corner_to_corner_and_a_thin_one_makes_nothing", "the_preview_outlines_a_closed_box_and_ellipse", "width_dash_and_fill_are_one_change_each_and_a_line_takes_no_fill", "a_click_hits_a_box_s_border_and_a_filled_box_s_inside"]
+open = "not tried by hand; not opened in Acrobat; Shift makes squares and circles on Windows only (GTK and macOS until their hosts read the key); shapes can't be moved or resized until A.13"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

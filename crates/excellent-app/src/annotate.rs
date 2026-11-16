@@ -3,8 +3,9 @@
 //! in a small dialog. Every tool's colour and opacity (A.3) are the settings' and the colour dialog's: `colors`. A
 //! click on a markup (`pagePress`), or a markup made with the note tool, opens its note in the inspector (A.4):
 //! `note`. The sticky-note, text-box and typewriter commands wait for a click on the page and put a sticky note (A.5)
-//! or a text box (A.6) there, its note or text open in the inspector; the line and arrow commands turn on the canvas's
-//! drawing tool (its `drawing` prop), and the line it draws (`pageDraw`) becomes one (A.8). The models are `excellent-features`'
+//! or a text box (A.6) there, its note or text open in the inspector; the line, arrow, rectangle and ellipse commands
+//! turn on the canvas's drawing tool (its `drawing` prop), and the shape it draws (`pageDraw`) becomes one (A.8, A.9).
+//! The models are `excellent-features`'
 //! `annotate::markup`, `annotate::replace`, `annotate::colors`, `annotate::notes`, `annotate::sticky` and
 //! `annotate::freetext` and `annotate::shapes`.
 
@@ -40,7 +41,7 @@ pub(crate) enum Placing {
     Sticky,
     /// A text box, typewriter text or a callout (A.6, A.7).
     Text(Kind),
-    /// A line or an arrow, dragged out on the page (A.8).
+    /// A line, an arrow (A.8), a rectangle or an ellipse (A.9), dragged out on the page.
     Shape(shapes::Kind),
 }
 
@@ -166,7 +167,7 @@ impl AnnotateState {
     }
 
     /// The canvas drew a shape (`pageDraw`): it becomes an annotation, one step of undo, and the tool goes off, its
-    /// inspector open on the new line.
+    /// inspector open on the new shape.
     fn drawn(self, data: &JsonValue) {
         self.placing.set(None);
         let Some(drawn) = Drawn::parse(data) else {
@@ -500,17 +501,22 @@ fn form(
         )
 }
 
-/// The edit's name, as undo shows it.
-/// A text box's name, or typewriter text's, for its heading and its undo step.
-/// A line's name: an arrow when it has an arrowhead.
+/// A shape's name, for its heading and its undo step: a line with an arrowhead is an arrow.
 fn shape_name(annotation: &Annotation) -> String {
-    t!(if shapes::is_arrow(annotation) {
-        "arrow.name"
-    } else {
-        "line.name"
+    shape_kind_name(shapes::kind_of(annotation).unwrap_or(shapes::Kind::Line))
+}
+
+/// The name of a kind of shape.
+fn shape_kind_name(kind: shapes::Kind) -> String {
+    t!(match kind {
+        shapes::Kind::Line => "line.name",
+        shapes::Kind::Arrow => "arrow.name",
+        shapes::Kind::Rectangle => "rectangle.name",
+        shapes::Kind::Ellipse => "ellipse.name",
     })
 }
 
+/// A text box's name, or typewriter text's or a callout's, for its heading and its undo step.
 fn text_name(kind: Kind) -> String {
     t!(match kind {
         Kind::Box => "text.box_name",

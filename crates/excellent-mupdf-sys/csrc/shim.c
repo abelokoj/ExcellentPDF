@@ -918,6 +918,47 @@ static int ex_annot_point_count(fz_context *ctx, pdf_annot *annot, int *strokes)
 	return 0;
 }
 
+/* Reads `annot`'s fill and dash pattern into `props` (A.9). */
+static void ex_annot_shape_props(fz_context *ctx, pdf_annot *annot, ex_annot_props *props)
+{
+	int i;
+	if (pdf_annot_has_interior_color(ctx, annot))
+		pdf_annot_interior_color(ctx, annot, &props->fill_n, props->fill);
+	if (pdf_annot_has_border(ctx, annot) && pdf_annot_border_style(ctx, annot) == PDF_BORDER_STYLE_DASHED)
+	{
+		props->dash_count = fz_mini(pdf_annot_border_dash_count(ctx, annot), 8);
+		for (i = 0; i < props->dash_count; i++)
+			props->dash[i] = pdf_annot_border_dash_item(ctx, annot, i);
+	}
+}
+
+/* Writes `p`'s fill and dash pattern (A.9). The border is touched only when its dashes change, so another app's
+ * beveled or inset border stays as it is. */
+static void ex_annot_write_shape(fz_context *ctx, pdf_annot *annot, const ex_annot_props *p)
+{
+	int i, same;
+	/* No fill writes no /IC, rather than an empty one, unless there was one to clear. */
+	if (pdf_annot_has_interior_color(ctx, annot)
+		&& (p->fill_n > 0 || pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(IC))))
+		pdf_set_annot_interior_color(ctx, annot, p->fill_n, p->fill);
+	if (!pdf_annot_has_border(ctx, annot))
+		return;
+	if (pdf_annot_border_style(ctx, annot) == PDF_BORDER_STYLE_DASHED)
+	{
+		same = pdf_annot_border_dash_count(ctx, annot) == p->dash_count;
+		for (i = 0; same && i < p->dash_count; i++)
+			same = pdf_annot_border_dash_item(ctx, annot, i) == p->dash[i];
+	}
+	else
+		same = p->dash_count == 0;
+	if (same)
+		return;
+	pdf_clear_annot_border_dash(ctx, annot);
+	for (i = 0; i < p->dash_count; i++)
+		pdf_add_annot_border_dash_item(ctx, annot, p->dash[i]);
+	pdf_set_annot_border_style(ctx, annot, p->dash_count > 0 ? PDF_BORDER_STYLE_DASHED : PDF_BORDER_STYLE_SOLID);
+}
+
 int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex_error *err)
 {
 	ex_annot_props props;
@@ -961,6 +1002,7 @@ int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex
 			props.line_start = (int)start;
 			props.line_end = (int)end;
 		}
+		ex_annot_shape_props(ctx, annot, &props);
 	}
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
@@ -1182,6 +1224,7 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 	else if (pdf_annot_has_line_ending_styles(ctx, annot))
 		pdf_set_annot_line_ending_styles(ctx, annot, (enum pdf_line_ending)p->line_start,
 			(enum pdf_line_ending)p->line_end);
+	ex_annot_write_shape(ctx, annot, p);
 	ex_annot_group(ctx, annot, w->group);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))

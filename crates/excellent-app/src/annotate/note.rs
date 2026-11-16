@@ -3,7 +3,8 @@
 //! the markup's `/Contents`, one step of undo, when the reader is done or opens another note. A sticky note's (A.5)
 //! also has its icon and whether other readers show it open. A text box's (A.6) is its text, typed here so input
 //! methods work (in place on the page once U.8 gives the canvas the platform's input path), with its font, size,
-//! alignment, colour and border. A line's (A.8) has its endings. The models are `excellent-features`'
+//! alignment, colour and border. A line's (A.8) has its endings; every shape's its border's width and style, and a
+//! rectangle's or ellipse's its fill (A.9). The models are `excellent-features`'
 //! `annotate::notes`, `annotate::sticky`, `annotate::freetext` and `annotate::shapes`.
 
 use excellent_core::annot::{Align, Annotation, Font, LineEnd, Markup, Shape, TextStyle};
@@ -32,8 +33,8 @@ pub(crate) struct Noting {
     /// A text box's kind, text style, whether it has a border and a callout's ending at its tip; `None` for the
     /// others.
     text: Option<(Kind, TextStyle, bool, LineEnd)>,
-    /// A line's endings, start first, and whether it is an arrow; `None` for the others.
-    line: Option<([LineEnd; 2], bool)>,
+    /// A shape's kind, its endings (a line's, start first) and its border and fill; `None` for the others.
+    shape: Option<(shapes::Kind, [LineEnd; 2], shapes::Look)>,
     /// Whether it was just placed: a text box left empty is then taken away.
     pub(super) fresh: bool,
 }
@@ -71,8 +72,9 @@ impl Noting {
                     annotation.ends[0],
                 )
             }),
-            line: shapes::is_line(annotation)
-                .then(|| (annotation.ends, shapes::is_arrow(annotation))),
+            shape: shapes::kind_of(annotation)
+                .zip(shapes::look_of(annotation))
+                .map(|(kind, look)| (kind, annotation.ends, look)),
             fresh: false,
         }
     }
@@ -115,6 +117,14 @@ fn placing(what: Placing) -> View {
         Placing::Shape(shapes::Kind::Arrow) => {
             ("line.placing", "line.placing_hint", CommandId::Arrow)
         }
+        Placing::Shape(shapes::Kind::Rectangle) => (
+            "line.placing",
+            "rectangle.placing_hint",
+            CommandId::Rectangle,
+        ),
+        Placing::Shape(shapes::Kind::Ellipse) => {
+            ("line.placing", "ellipse.placing_hint", CommandId::Ellipse)
+        }
         Placing::Text(Kind::Callout) => (
             "callout.placing",
             "callout.placing_hint",
@@ -129,11 +139,10 @@ fn placing(what: Placing) -> View {
 
 fn editor(state: AnnotateState, noting: Noting) -> View {
     let color = Hsla::from(rgb(noting.color));
-    let kind = match (noting.kind, noting.text, noting.line) {
+    let kind = match (noting.kind, noting.text, noting.shape) {
         (Some(kind), ..) => super::name(kind),
         (None, Some((kind, ..)), _) => super::text_name(kind),
-        (None, None, Some((_, true))) => t!("arrow.name"),
-        (None, None, Some((_, false))) => t!("line.name"),
+        (None, None, Some((kind, ..))) => super::shape_kind_name(kind),
         (None, None, None) => t!("sticky.name"),
     };
     let heading = t!("note.heading", kind = kind, page = noting.target.page + 1);
@@ -194,9 +203,14 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
         buttons = buttons.child(action_button("text.delete", Tone::Destructive, move || {
             state.delete_open(t!("text.delete"));
         }));
-    } else if noting.line.is_some() {
-        buttons = buttons.child(action_button("line.delete", Tone::Destructive, move || {
-            state.delete_open(t!("line.delete"));
+    } else if let Some((kind, ..)) = noting.shape {
+        let delete = if kind.is_box() {
+            "shape.delete"
+        } else {
+            "line.delete"
+        };
+        buttons = buttons.child(action_button(delete, Tone::Destructive, move || {
+            state.delete_open(t!(delete));
         }));
     } else if had_note {
         buttons = buttons.child(action_button("note.delete", Tone::Destructive, move || {
@@ -211,8 +225,11 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
     if let Some((kind, style, border, end)) = noting.text {
         panel = panel.child(text_controls(state, kind, style, border, end));
     }
-    if let Some((ends, _)) = noting.line {
-        panel = panel.child(line_controls(state, ends));
+    if let Some((kind, ends, look)) = noting.shape {
+        if !kind.is_box() {
+            panel = panel.child(line_controls(state, ends));
+        }
+        panel = panel.child(shape_controls(state, kind, look));
     }
     panel
         .child(buttons.child(view().flex_1()).child(action_button(
@@ -379,6 +396,87 @@ fn line_controls(state: AnnotateState, ends: [LineEnd; 2]) -> View {
         .child(row(0))
         .child(caption("line.end"))
         .child(row(1))
+}
+
+/// The fills' names, in the order of `shapes::FILLS`.
+const FILL_NAMES: [&str; 5] = [
+    "shape.fill.none",
+    "shape.fill.white",
+    "shape.fill.yellow",
+    "shape.fill.blue",
+    "shape.fill.red",
+];
+
+/// A shape's border width and style, and a rectangle's or ellipse's fill (A.9); each change is one step of undo.
+fn shape_controls(state: AnnotateState, kind: shapes::Kind, look: shapes::Look) -> View {
+    let look = signal(look);
+    let restyle = move |change: &dyn Fn(&mut shapes::Look)| {
+        let mut new = untracked(|| look.get());
+        change(&mut new);
+        look.set(new);
+        new
+    };
+    let widths = shapes::WIDTHS
+        .into_iter()
+        .fold(segmented(), |group, width| {
+            group.child(segment_of(
+                move || t!("shape.width_pt", size = width),
+                move || look.get().width == width,
+                move || {
+                    restyle(&|look| look.width = width);
+                    state.change_note(t!("shape.width_edit"), |shape| {
+                        shapes::set_width(shape, width)
+                    });
+                },
+            ))
+        });
+    let dashes = shapes::Dash::ALL
+        .into_iter()
+        .fold(segmented(), |group, dash| {
+            group.child(segment(
+                dash_label(dash),
+                move || look.get().dash == dash,
+                move || {
+                    restyle(&|look| look.dash = dash);
+                    state.change_note(t!("shape.dash_edit"), |shape| shapes::set_dash(shape, dash));
+                },
+            ))
+        });
+    let mut controls = view()
+        .gap_2()
+        .child(caption("shape.width"))
+        .child(widths)
+        .child(caption("shape.dash"))
+        .child(dashes);
+    if kind.is_box() {
+        let fills =
+            shapes::FILLS
+                .into_iter()
+                .zip(FILL_NAMES)
+                .fold(segmented(), |group, (fill, name)| {
+                    group.child(segment(
+                        name,
+                        move || look.get().fill == fill,
+                        move || {
+                            restyle(&|look| look.fill = fill);
+                            state.change_note(t!("shape.fill_edit"), |shape| {
+                                shapes::set_fill(shape, fill)
+                            });
+                        },
+                    ))
+                });
+        controls = controls.child(caption("shape.fill")).child(fills);
+    }
+    controls
+}
+
+/// The translation key of a border style's name.
+fn dash_label(dash: shapes::Dash) -> &'static str {
+    match dash {
+        shapes::Dash::Solid => "shape.dash.solid",
+        shapes::Dash::Dashed => "shape.dash.dashed",
+        shapes::Dash::Dotted => "shape.dash.dotted",
+    }
 }
 
 /// The translation key of a line ending's name.

@@ -77,6 +77,10 @@ pub(crate) enum CommandId {
     Line,
     /// Draws an arrow by the next drag on the pages (A.8).
     Arrow,
+    /// Draws a rectangle by the next drag on the pages (A.9).
+    Rectangle,
+    /// Draws an ellipse by the next drag on the pages (A.9).
+    Ellipse,
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -116,6 +120,8 @@ impl CommandId {
                     | Self::Callout
                     | Self::Line
                     | Self::Arrow
+                    | Self::Rectangle
+                    | Self::Ellipse
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -498,6 +504,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+a"],
+    },
+    Command {
+        id: CommandId::Rectangle,
+        name: "annotate.rectangle",
+        label: "command.rectangle",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["r"],
+    },
+    Command {
+        id: CommandId::Ellipse,
+        name: "annotate.ellipse",
+        label: "command.ellipse",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+e"],
     },
     Command {
         id: CommandId::AnnotationColors,

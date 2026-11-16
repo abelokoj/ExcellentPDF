@@ -406,6 +406,8 @@ impl Annot<'_> {
                 .copied()
                 .map(PagePoint::from)
                 .collect(),
+            fill: props.fill[..count(props.fill_n).min(4)].to_vec(),
+            dash: props.dash[..count(props.dash_count).min(8)].to_vec(),
             rect: props.rect.into(),
             color: props.color[..color_n].to_vec(),
             opacity: props.opacity,
@@ -461,6 +463,10 @@ pub struct AnnotData {
     pub font_size: f32,
     /// A text box's text colour, as `color`.
     pub text_color: Vec<f32>,
+    /// A shape's fill (`/IC`), as `color`; empty for none (A.9).
+    pub fill: Vec<f32>,
+    /// Its border's dash pattern, dash and gap lengths in points (`/BS /D`); empty for a solid border (A.9).
+    pub dash: Vec<f32>,
     /// A line's, polyline's or polygon's start and end (`/LE`); a callout's arrow at its tip first (A.7, A.8).
     pub ends: [LineEnd; 2],
     /// A callout's leader line, its tip first (`/CL`): read whole, written from its tip alone (MuPDF draws the rest
@@ -524,6 +530,15 @@ impl AnnotData {
         for (slot, point) in callout.iter_mut().zip(&self.callout) {
             *slot = fz_point::from(*point);
         }
+        if self.fill.len() > 4 || self.dash.len() > 8 {
+            return Err(MuError::argument(
+                "a fill has at most four components and a dash pattern at most eight lengths",
+            ));
+        }
+        let mut fill = [0.0; 4];
+        fill[..self.fill.len()].copy_from_slice(&self.fill);
+        let mut dash = [0.0; 8];
+        dash[..self.dash.len()].copy_from_slice(&self.dash);
         let quads: Vec<fz_quad> = self.quads.iter().copied().map(fz_quad::from).collect();
         let lengths = self
             .strokes
@@ -568,6 +583,10 @@ impl AnnotData {
                 line_end: self.ends[1].raw(),
                 callout_count: count(self.callout.len())?,
                 callout,
+                fill_n: count(self.fill.len())?,
+                fill,
+                dash_count: count(self.dash.len())?,
+                dash,
             },
             quads: quads.as_ptr(),
             stroke_lengths: lengths.as_ptr(),

@@ -442,6 +442,8 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Callout => pane.annotate.place(Placing::Text(Kind::Callout)),
             CommandId::Line => pane.annotate.place(Placing::Shape(ShapeKind::Line)),
             CommandId::Arrow => pane.annotate.place(Placing::Shape(ShapeKind::Arrow)),
+            CommandId::Rectangle => pane.annotate.place(Placing::Shape(ShapeKind::Rectangle)),
+            CommandId::Ellipse => pane.annotate.place(Placing::Shape(ShapeKind::Ellipse)),
             CommandId::AnnotationColors => pane
                 .annotate
                 .pick(excellent_features::annotate::colors::Tool::Highlight),

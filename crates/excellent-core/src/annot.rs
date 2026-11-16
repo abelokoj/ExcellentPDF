@@ -234,6 +234,10 @@ pub struct Annotation {
     /// How a line, polyline or polygon starts and ends (A.8), or a callout's leader line ends at its tip (the first,
     /// A.7); none for the other kinds.
     pub ends: [LineEnd; 2],
+    /// A rectangle's, ellipse's or polygon's fill, RGB from 0 to 1; `None` for none (A.9).
+    pub fill: Option<[f32; 3]>,
+    /// Its border's dash pattern, dash and gap lengths in points; empty for a solid border (A.9).
+    pub dash: Vec<f32>,
 }
 
 impl Annotation {
@@ -257,6 +261,8 @@ impl Annotation {
             open: false,
             text: TextStyle::default(),
             ends: [LineEnd::None; 2],
+            fill: None,
+            dash: Vec::new(),
         }
     }
 
@@ -346,6 +352,8 @@ impl Annotation {
             open: data.open,
             text,
             ends: data.ends,
+            fill: rgb(&data.fill),
+            dash: data.dash.clone(),
         })
     }
 
@@ -388,6 +396,8 @@ impl Annotation {
                 .unwrap_or_default(),
             font_size: text.map_or(0.0, |text| text.size),
             text_color: text.map(|text| Vec::from(text.color)).unwrap_or_default(),
+            fill: self.fill.map(Vec::from).unwrap_or_default(),
+            dash: self.dash.clone(),
             rect,
             color: self.style.color.map(Vec::from).unwrap_or_default(),
             opacity: self.style.opacity,
@@ -453,6 +463,8 @@ impl Annotation {
             "icon": self.icon,
             "open": self.open,
             "ends": self.ends.map(|end| format!("{end:?}")),
+            "fill": self.fill,
+            "dash": self.dash,
             "text": self.is_text_box().then(|| json!({
                 "font": self.text.font.name(),
                 "size": self.text.size,
@@ -545,6 +557,12 @@ impl Annotation {
                 .get("ends")
                 .and_then(ends_from_json)
                 .unwrap_or_default(),
+            // Before A.9 none kept a fill or dashes.
+            fill: object
+                .get("fill")
+                .and_then(floats)
+                .and_then(|fill| <[f32; 3]>::try_from(fill).ok()),
+            dash: object.get("dash").and_then(floats).unwrap_or_default(),
         })
     }
 }

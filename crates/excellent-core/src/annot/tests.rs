@@ -221,6 +221,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     shape,
                     Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _) | Shape::Callout(..)
                 );
+                let shaped = matches!(shape, Shape::Boxed(Boxed::Square | Boxed::Circle, _));
                 // Lines, polylines and polygons keep both ends; a callout its tip's.
                 let ends = match shape {
                     Shape::Line(..) | Shape::Path(..) => [start, end],
@@ -243,6 +244,15 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     open: note && open,
                     text: if text_box { text } else { TextStyle::default() },
                     ends,
+                    // Rectangles and ellipses keep a fill and dashes (A.9).
+                    fill: shaped
+                        .then_some([0.25, 0.5, 1.0])
+                        .filter(|_| start != LineEnd::None),
+                    dash: if shaped && end != LineEnd::None {
+                        vec![6.0, 4.0]
+                    } else {
+                        Vec::new()
+                    },
                 }
             },
         )
@@ -823,4 +833,61 @@ fn an_arrow_keeps_its_ends_through_save_and_reopen() {
         .expect("kept");
     assert_eq!(read.ends, arrow.ends);
     assert_eq!(read.shape, arrow.shape);
+}
+
+#[test]
+fn rectangles_and_ellipses_keep_fill_border_and_dash_through_save_and_reopen() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let rect = PageRect {
+        x0: 100.0,
+        y0: 200.0,
+        x1: 260.0,
+        y1: 300.0,
+    };
+    let shape = |boxed| {
+        Annotation::new(
+            0,
+            Shape::Boxed(boxed, rect),
+            Style {
+                color: Some([0.1, 0.2, 0.8]),
+                opacity: 1.0,
+                width: 4.0,
+            },
+            "Ada",
+        )
+    };
+    let mut rectangle = shape(Boxed::Square);
+    rectangle.fill = Some([1.0, 0.96, 0.62]);
+    rectangle.dash = vec![6.0, 4.0];
+    let ellipse = shape(Boxed::Circle);
+    Operation::new(
+        "Shapes",
+        vec![
+            Change::CreateAnnotation(rectangle.clone()),
+            Change::CreateAnnotation(ellipse.clone()),
+        ],
+    )
+    .apply(&mut doc)
+    .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let bytes = std::fs::read(&scratch.0).expect("read");
+    assert!(
+        bytes.windows(4).any(|w| w == b"/S/D"),
+        "a dashed border, as Acrobat reads it"
+    );
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0).expect("read");
+    let find = |id: &str| read.iter().find(|a| a.id == id).expect("kept");
+    let (read_rectangle, read_ellipse) = (find(&rectangle.id), find(&ellipse.id));
+    assert!(matches!(
+        read_rectangle.shape,
+        Shape::Boxed(Boxed::Square, _)
+    ));
+    assert_eq!(read_rectangle.fill, rectangle.fill);
+    assert_eq!(read_rectangle.dash, rectangle.dash);
+    assert_eq!(read_rectangle.style.width, 4.0);
+    assert!(matches!(read_ellipse.shape, Shape::Boxed(Boxed::Circle, _)));
+    assert_eq!(read_ellipse.fill, None, "no fill stays none");
+    assert!(read_ellipse.dash.is_empty(), "solid stays solid");
 }
