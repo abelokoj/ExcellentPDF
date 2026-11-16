@@ -41,6 +41,8 @@ pub struct Request {
     pub mode: Mode,
     /// RGB from 0 to 1.
     pub color: [f32; 3],
+    /// From 0 to 1 (A.3).
+    pub opacity: f32,
     /// The page, the quads struck out (none for an insert) and the text under them.
     pub page: PageRequest,
     /// Where the caret goes.
@@ -74,6 +76,7 @@ impl Request {
         Some(Self {
             mode,
             color,
+            opacity: super::markup::opacity(value),
             page,
             caret: caret(PagePoint { x, y }),
             selected,

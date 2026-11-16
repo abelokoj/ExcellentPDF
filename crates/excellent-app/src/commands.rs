@@ -63,6 +63,8 @@ pub(crate) enum CommandId {
     Bookmark(BookmarkAction),
     /// Find in the shown document (F.1).
     Find(FindAction),
+    /// Opens the markup tools' colour dialog (A.3).
+    AnnotationColors,
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -422,6 +424,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["insert"],
+    },
+    Command {
+        id: CommandId::AnnotationColors,
+        name: "annotate.colors",
+        label: "command.annotation_colors",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+c"],
     },
     Command {
         id: CommandId::Canvas("copy"),

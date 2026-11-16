@@ -1,12 +1,15 @@
 //! The markup bar (plan A.1, A.2): once text is selected in a document that can be edited, a small bar floats under
 //! the selection with the four text markups (highlight, underline, squiggly, strikeout), the two proposed edits
-//! (replace and insert text) and five colours. A markup button, or its command, sends the selection to the app as
-//! `markup`, which makes it one undoable edit; an edit button sends `textEdit`, and the app asks for the text. The
-//! models are `excellent-features`' `annotate::markup` and `annotate::replace`.
+//! (replace and insert text), then the current tool's colours (A.3). A tool button, or its command, uses the tool in
+//! its own colour: a markup sends the selection to the app as `markup`, which makes it one undoable edit; an edit
+//! sends `textEdit`, and the app asks for the text. A colour gives the current tool (the last one pressed) that
+//! colour and uses it; the last cell asks the app for a custom colour. The models are `excellent-features`'
+//! `annotate::markup`, `annotate::replace` and `annotate::colors`.
 
 use std::ops::Range;
 
 use excellent_core::annot::Markup;
+use excellent_features::annotate::colors::{self, Colors, Tool as ColorTool, ToolStyle};
 use excellent_mupdf::PagePoint;
 use excellent_text::{FlatText, Granularity, PageText, Selection, TextPos};
 
@@ -15,8 +18,10 @@ use super::refhover::luminance;
 use crate::Rect;
 use crate::page::host::{Host, Wash};
 
-/// The colours offered, `0xRRGGBB`: yellow first, the colour a highlight is expected in.
-pub(super) const COLORS: [u32; 5] = [0xffd400, 0x7ed957, 0x5ec8f2, 0xff8fb1, 0xffa94d];
+/// The colour cells: the palette's five swatches, then the custom colour.
+const DOTS: usize = 6;
+/// The custom colour's cell.
+const CUSTOM: usize = DOTS - 1;
 
 /// What the bar's buttons do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,6 +47,19 @@ const TOOLS: [Tool; 6] = [
 /// How many of [`TOOLS`] are markups, before the rule.
 const MARKUPS: usize = 4;
 
+impl Tool {
+    /// The tool whose colour it draws in.
+    fn color_tool(self) -> ColorTool {
+        match self {
+            Self::Mark(Markup::Highlight) => ColorTool::Highlight,
+            Self::Mark(Markup::Underline) => ColorTool::Underline,
+            Self::Mark(Markup::Squiggly) => ColorTool::Squiggly,
+            Self::Mark(Markup::StrikeOut) => ColorTool::StrikeOut,
+            Self::Replace | Self::Insert => ColorTool::Proposal,
+        }
+    }
+}
+
 /// Sizes at 96 dpi, in pixels: a button's square, a colour's cell, the bar's padding, the gap under the selection.
 const BUTTON: f32 = 32.0;
 const DOT_CELL: f32 = 26.0;
@@ -66,8 +84,10 @@ pub(super) enum Hit {
 /// The bar's state.
 #[derive(Debug, Default)]
 pub(super) struct MarkBar {
-    /// The colour chosen, an index into [`COLORS`].
-    color: usize,
+    /// Every tool's colour and opacity, as the app keeps them (A.3).
+    colors: Colors,
+    /// The tool the colours belong to, an index into [`TOOLS`]: the last one pressed.
+    current: usize,
     /// Where it was last drawn, in client pixels; `None` while it isn't shown.
     frame: Option<Rect>,
     /// What the pointer is over.
@@ -155,7 +175,13 @@ impl<H: Host> PageCanvas<H> {
         if pages.is_empty() {
             return None;
         }
-        let data = serde_json::json!({ "kind": kind_name(kind), "color": self.markbar_rgb(), "pages": pages });
+        let style = self.tool_style(Tool::Mark(kind));
+        let data = serde_json::json!({
+            "kind": kind_name(kind),
+            "color": style.rgb(),
+            "opacity": style.opacity,
+            "pages": pages,
+        });
         Some(("markup", data))
     }
 
@@ -167,7 +193,8 @@ impl<H: Host> PageCanvas<H> {
         let foot = text.highlight(range.clone()).last()?.lr;
         let data = serde_json::json!({
             "mode": "replace",
-            "color": self.markbar_rgb(),
+            "color": self.tool_style(Tool::Replace).rgb(),
+            "opacity": self.tool_style(Tool::Replace).opacity,
             "page": page,
             "quads": quads(text, range.clone()),
             "quote": quote(text, &self.flat_text(), page, range.clone()),
@@ -194,7 +221,8 @@ impl<H: Host> PageCanvas<H> {
         let foot = foot(self.texts.get(at.page)?, at.index)?;
         let data = serde_json::json!({
             "mode": "insert",
-            "color": self.markbar_rgb(),
+            "color": self.tool_style(Tool::Insert).rgb(),
+            "opacity": self.tool_style(Tool::Insert).opacity,
             "page": at.page,
             "quads": [],
             "foot": [foot.x, foot.y],
@@ -210,10 +238,26 @@ impl<H: Host> PageCanvas<H> {
         (!text.text(range.clone()).trim().is_empty()).then_some((text, range))
     }
 
-    /// The bar's colour, channels 0 to 1.
-    fn markbar_rgb(&self) -> [f64; 3] {
-        let rgb = COLORS[self.markbar.color];
-        [16, 8, 0].map(|shift| f64::from((rgb >> shift) & 0xff) / 255.0)
+    /// `tool`'s colour and opacity.
+    fn tool_style(&self, tool: Tool) -> ToolStyle {
+        self.markbar.colors.style(tool.color_tool())
+    }
+
+    /// The tools' colours, as the app keeps them (the `annotationColors` prop, A.3).
+    pub(crate) fn set_annotation_colors(&mut self, colors: Colors) {
+        if self.markbar.colors != colors {
+            self.markbar.colors = colors;
+            self.invalidate();
+        }
+    }
+
+    /// The current tool's colour cells: its palette's swatches, then its colour when that is a custom one.
+    fn dots(&self) -> ([u32; CUSTOM], Option<u32>, ToolStyle) {
+        let tool = TOOLS[self.markbar.current].color_tool();
+        let swatches = self.markbar.colors.palette.swatches(tool);
+        let style = self.markbar.colors.style(tool);
+        let custom = (!swatches.contains(&style.color)).then_some(style.color);
+        (swatches, custom, style)
     }
 
     /// A click in the text ended where it began, at `click`: a plain click keeps its caret for an insert.
@@ -242,18 +286,35 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
-    /// The left button went down at client pixel (`x`, `y`): on a markup it marks the selection, on a colour it
-    /// chooses it. Returns whether the bar took the press.
+    /// The left button went down at client pixel (`x`, `y`): a tool is used in its colour and becomes the current
+    /// one; a swatch gives the current tool its colour, tells the app (`toolColor`: `{tool, color: "#rrggbb"}`) and
+    /// uses it; the custom cell asks the app for a colour (`pickColor`: `{tool}`). Returns whether the bar took the
+    /// press.
     pub(super) fn markbar_down(&mut self, x: i32, y: i32) -> bool {
         match self.markbar_hit(x, y) {
             None => false,
             Some(Hit::Tool(tool)) => {
+                if let Some(index) = TOOLS.iter().position(|&t| t == tool) {
+                    self.markbar.current = index;
+                }
                 self.use_tool(tool);
                 true
             }
+            Some(Hit::Color(CUSTOM)) => {
+                let tool = TOOLS[self.markbar.current].color_tool();
+                self.emit("pickColor", serde_json::json!({ "tool": tool.name() }));
+                true
+            }
             Some(Hit::Color(index)) => {
-                self.markbar.color = index;
-                self.invalidate();
+                let tool = TOOLS[self.markbar.current];
+                let (swatches, _, _) = self.dots();
+                let color = swatches[index];
+                self.markbar.colors.choose_color(tool.color_tool(), color);
+                self.emit(
+                    "toolColor",
+                    serde_json::json!({ "tool": tool.color_tool().name(), "color": colors::hex(color) }),
+                );
+                self.use_tool(tool);
                 true
             }
             Some(Hit::Frame) => true,
@@ -321,9 +382,10 @@ impl<H: Host> PageCanvas<H> {
             (0xc4_c8cf, 0x1a_1d23, 0x3a_3f47, 0xe8_ebf0)
         };
         let paper = if dark { 0x26_282d } else { 0xff_ffff };
-        let color = COLORS[self.markbar.color];
+        let (swatches, custom, style) = self.dots();
+        let current = TOOLS[self.markbar.current];
+        let tool_colors = TOOLS.map(|tool| self.tool_style(tool).color);
         let hover = self.markbar.hover;
-        let chosen = self.markbar.color;
         let host = &mut self.host;
         let radius = RADIUS * s;
         host.band(
@@ -342,19 +404,31 @@ impl<H: Host> PageCanvas<H> {
         );
         host.band(&inner, radius - hair, paper, Wash::Darkest)?;
         let cells = cells(frame, s);
-        for (cell, tool) in cells.tools.iter().zip(TOOLS) {
+        for ((cell, tool), color) in cells.tools.iter().zip(TOOLS).zip(tool_colors) {
             if hover == Some(Hit::Tool(tool)) {
                 host.band(&inset(cell, 2.0 * s), 6.0 * s, lit, Wash::Darkest)?;
             }
             glyph(host, tool, cell, s, ink, color)?;
+            if tool == current {
+                // The colours that follow are this tool's.
+                let (cx, _) = center(cell);
+                host.band(
+                    &Rect::new(cx - 6.0 * s, cell.y1 - 3.0 * s, 12.0 * s, 2.0 * s),
+                    s,
+                    ink,
+                    Wash::Darkest,
+                )?;
+            }
         }
         for rule in cells.separators {
             host.fill(&Rect::new(rule.0, rule.1, hair, rule.2), edge)?;
         }
         for (index, cell) in cells.colors.iter().enumerate() {
             let (cx, cy) = center(cell);
-            if index == chosen || hover == Some(Hit::Color(index)) {
-                let ring = if index == chosen { ink } else { edge };
+            let color = swatches.get(index).copied().or(custom);
+            let chosen = color == Some(style.color);
+            if chosen || hover == Some(Hit::Color(index)) {
+                let ring = if chosen { ink } else { edge };
                 host.band(
                     &circle(cx, cy, (DOT + 3.0) * s),
                     (DOT + 3.0) * s,
@@ -368,12 +442,17 @@ impl<H: Host> PageCanvas<H> {
                     Wash::Darkest,
                 )?;
             }
-            host.band(
-                &circle(cx, cy, DOT * s),
-                DOT * s,
-                COLORS[index],
-                Wash::Darkest,
-            )?;
+            match color {
+                Some(color) => {
+                    host.band(&circle(cx, cy, DOT * s), DOT * s, color, Wash::Darkest)?
+                }
+                None => {
+                    // No custom colour yet: a "+".
+                    let arm = 5.0 * s;
+                    host.fill(&Rect::new(cx - arm, cy - s, 2.0 * arm, 2.0 * s), ink)?;
+                    host.fill(&Rect::new(cx - s, cy - arm, 2.0 * s, 2.0 * arm), ink)?;
+                }
+            }
         }
         Ok(())
     }
@@ -385,14 +464,14 @@ impl<H: Host> PageCanvas<H> {
     reason = "the counts are a handful of buttons"
 )]
 const WIDTH: f32 =
-    2.0 * PAD + TOOLS.len() as f32 * BUTTON + 2.0 * SEPARATOR + COLORS.len() as f32 * DOT_CELL;
+    2.0 * PAD + TOOLS.len() as f32 * BUTTON + 2.0 * SEPARATOR + DOTS as f32 * DOT_CELL;
 
 /// The bar's parts in client pixels.
 struct Cells {
     tools: [Rect; TOOLS.len()],
     /// The rules after the markups and after the edits: each one's left, top and height.
     separators: [(f32, f32, f32); 2],
-    colors: [Rect; COLORS.len()],
+    colors: [Rect; DOTS],
 }
 
 fn cells(frame: Rect, s: f32) -> Cells {
@@ -419,7 +498,7 @@ fn cells(frame: Rect, s: f32) -> Cells {
     });
     separators[1] = rule(x);
     x += SEPARATOR * s;
-    let colors = [0; COLORS.len()].map(|_| {
+    let colors = [0; DOTS].map(|_| {
         let cell = Rect::new(x, top, DOT_CELL * s, size);
         x += DOT_CELL * s;
         cell
@@ -577,6 +656,6 @@ mod tests {
         assert!(cells.separators[0].0 < cells.tools[MARKUPS].x0);
         assert!(cells.tools[TOOLS.len() - 1].x1 <= cells.separators[1].0);
         assert!(cells.separators[1].0 < cells.colors[0].x0);
-        assert!((cells.colors[COLORS.len() - 1].x1 - (frame.x1 - PAD)).abs() < 0.01);
+        assert!((cells.colors[DOTS - 1].x1 - (frame.x1 - PAD)).abs() < 0.01);
     }
 }

@@ -99,6 +99,7 @@ pub(crate) fn settings_window(
             .child(tabs_section(live))
             .child(links_section(live))
             .child(print_section(live))
+            .child(annotation_section(live, hand_over))
             .child(modes_section(live, hand_over))
             .child(help_section(live, hand_over))
             .child(shortcuts_section(live)),
@@ -152,6 +153,38 @@ fn appearance_section(
                         s.set_flag(themes::FOLLOW_SYSTEM_CONTRAST, (!on).then_some(false));
                     });
                 },
+            ),
+        ))
+}
+
+/// A.3: the palette the markup tools offer, and the colour dialog.
+fn annotation_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -> View {
+    use crate::annotate::colors;
+    use excellent_features::annotate::colors::Palette;
+    let palette = [
+        (Palette::Standard, "settings.annotation_palette_standard"),
+        (Palette::ColorBlindSafe, "settings.annotation_palette_safe"),
+    ]
+    .into_iter()
+    .fold(segmented(), |row, (choice, label)| {
+        row.child(segment(
+            label,
+            move || colors::palette(live) == choice,
+            move || colors::set_palette(live, choice),
+        ))
+    });
+    section("settings.section.annotation")
+        .child(row(
+            "settings.annotation_palette",
+            "settings.annotation_palette_hint",
+            palette,
+        ))
+        .child(row(
+            "settings.annotation_colors",
+            "settings.annotation_colors_hint",
+            picker_button(
+                move || t!("settings.annotation_colors_choose"),
+                move || hand_over(CommandId::AnnotationColors),
             ),
         ))
 }
@@ -843,10 +876,11 @@ fn on_off(
         .thumb_class(SWITCH_THUMB)
 }
 
-/// The frame of a row of segments, one of which is chosen.
-fn segmented() -> View {
+/// The frame of a row of segments, one of which is chosen; they wrap when they don't fit.
+pub(crate) fn segmented() -> View {
     view()
         .flex_row()
+        .flex_wrap()
         .p(px(2.0))
         .gap(px(2.0))
         .rounded(px(8.0))
@@ -854,7 +888,7 @@ fn segmented() -> View {
 }
 
 /// One segment: `chosen` says whether it is the one; pressing it chooses it.
-fn segment(
+pub(crate) fn segment(
     label: &'static str,
     chosen: impl Fn() -> bool + Copy + 'static,
     choose: impl Fn() + 'static,

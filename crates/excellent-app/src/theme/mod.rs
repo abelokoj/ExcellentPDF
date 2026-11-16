@@ -356,9 +356,19 @@ fn build(source: &str, contrast: Contrast) -> Result<(Theme, Vec<String>), Strin
 
 #[cfg(test)]
 mod tests {
+    use excellent_features::annotate::colors::{self as annotation, Palette, Tool};
     use nsh_core::color::Hsla;
 
     use super::*;
+
+    #[test]
+    fn the_theme_s_annotation_colors_are_the_highlighter_s() {
+        let theme: Vec<u32> = palette::ANNOTATION[..5]
+            .iter()
+            .filter_map(|(_, hex)| annotation::parse_hex(hex))
+            .collect();
+        assert_eq!(theme, Palette::Standard.swatches(Tool::Highlight).to_vec());
+    }
 
     /// WCAG's relative luminance of an opaque colour.
     fn luminance(colour: Hsla) -> f32 {

@@ -103,6 +103,19 @@ impl Settings {
         };
     }
 
+    /// What `key` holds, of any kind.
+    pub(crate) fn value(&self, key: &str) -> Option<&toml::Value> {
+        self.table.get(key)
+    }
+
+    /// Sets `key` to `value`, or removes it (`None`: the default).
+    pub(crate) fn set_value(&mut self, key: &str, value: Option<toml::Value>) {
+        match value {
+            Some(value) => self.table.insert(key.to_owned(), value),
+            None => self.table.remove(key),
+        };
+    }
+
     /// The table `key` holds, if it holds one.
     pub(crate) fn table(&self, key: &str) -> Option<&toml::Table> {
         self.table.get(key).and_then(toml::Value::as_table)

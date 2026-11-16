@@ -3180,6 +3180,13 @@ the selection, or at the caret the last plain click in the text left. The page k
 
 **Done when:** palettes include a color-blind-safe set (U.4).
 
+*Built (2026-11-15):* the palettes are pure data in `annotate::colors`: highlighters (highlight, squiggly) take five
+light swatches, the line tools (underline, strikeout, the proposals) five strong inks; the colour-blind-safe set is
+Okabe and Ito's. A test holds the standard highlighter swatches equal to the theme's `annot-*` colours. Six custom
+colours are remembered, newest first. The canvas gets every tool's colour and opacity as its `annotationColors` prop
+and tells the app a swatch's choice (`toolColor`) or asks for a custom colour (`pickColor`). Opacity is the picker's
+alpha, at least 10 %. The command is `annotate.colors` (`Shift+C`); it opens on the highlighter.
+
 #### Ph3: 17/49 | A.4: Notes on highlights
 **P0; Phase 3; Needs:** A.1; **Code:** `excellent-features/annotate/notes.rs`
 1. Contents with `pdf_set_annot_contents`; a popup with `pdf_set_annot_popup` so other readers can open it.

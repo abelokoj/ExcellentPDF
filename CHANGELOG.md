@@ -6,6 +6,20 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 23:19; Ph3: 16/49 | A.3: Annotation colors
+
+- Each markup tool (highlight, underline, squiggly, strikeout, and the replace and insert proposals) has a colour and
+  an opacity of its own. Highlighters start from the theme's light annotation colours, the line tools from strong
+  inks.
+- The markup bar draws each tool in its colour and shows the current tool's (the last one pressed) five swatches and
+  a custom cell. A swatch recolours that tool and applies it; the custom cell opens the colour dialog.
+- The colour dialog (palette, Annotate toolbar, `Shift+C`, the settings window) has a tool selector, NSH's colour
+  picker with a saturation and brightness area, a hue slider, an opacity slider and a hex field, the palette's
+  swatches and the custom colours used lately. Done keeps the changes; Cancel or Escape drops them.
+- Settings, Annotation: the palette, Standard or Colour-blind safe (Okabe and Ito's colours). Everything is kept in
+  `settings.toml` under `[annotation]`.
+- The model is `excellent-features::annotate::colors`.
+
 ### 2026-11-15 23:04; Ph3: 15/49 | A.2: Replace and insert text
 
 - The markup bar under selected text has two more buttons after a rule: Replace (strikeout and caret) and Insert

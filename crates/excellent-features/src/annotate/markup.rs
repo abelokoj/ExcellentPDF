@@ -34,6 +34,8 @@ pub struct Request {
     pub kind: Markup,
     /// RGB from 0 to 1.
     pub color: [f32; 3],
+    /// From 0 to 1 (A.3).
+    pub opacity: f32,
     /// The selection on each page it covers.
     pub pages: Vec<PageRequest>,
 }
@@ -63,6 +65,7 @@ impl Request {
             _ => return None,
         };
         let color = color(value.get("color")?)?;
+        let opacity = opacity(value);
         let pages = value
             .get("pages")
             .and_then(Value::as_array)
@@ -70,7 +73,12 @@ impl Request {
             .flatten()
             .filter_map(PageRequest::parse)
             .collect();
-        Some(Self { kind, color, pages })
+        Some(Self {
+            kind,
+            color,
+            opacity,
+            pages,
+        })
     }
 }
 
@@ -114,6 +122,19 @@ pub(super) fn color(value: &Value) -> Option<[f32; 3]> {
         .iter()
         .all(|c| (0.0..=1.0).contains(c))
         .then_some(color)
+}
+
+/// The `opacity` in `value`, from 0 to 1; opaque when there is none (A.3).
+pub(super) fn opacity(value: &Value) -> f32 {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "an opacity from 0 to 1 fits an f32"
+    )]
+    value
+        .get("opacity")
+        .and_then(Value::as_f64)
+        .filter(|o| o.is_finite())
+        .map_or(1.0, |o| o.clamp(0.0, 1.0) as f32)
 }
 
 /// The finite numbers of a JSON array, as `f32`; `None` when one isn't.

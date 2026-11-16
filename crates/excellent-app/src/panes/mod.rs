@@ -166,7 +166,7 @@ impl Pane {
             outline: OutlineState::new(tabs, pages, editing),
             bookmarks: BookmarkState::new(tabs, pages),
             find: FindState::new(canvas, focus),
-            annotate: AnnotateState::new(editing),
+            annotate: AnnotateState::new(editing, live),
         }
     }
 
@@ -192,6 +192,7 @@ impl Pane {
             || self.outline.is_menu_open()
             || self.bookmarks.covers_pages()
             || self.annotate.is_asking()
+            || self.annotate.is_picking()
     }
 }
 

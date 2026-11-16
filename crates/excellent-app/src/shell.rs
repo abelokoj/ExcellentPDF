@@ -403,6 +403,9 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Outline(action) => pane.outline.run(action, pane.canvas),
             CommandId::Bookmark(action) => pane.bookmarks.run(action, pane.canvas),
             CommandId::Find(action) => pane.find.run(action),
+            CommandId::AnnotationColors => pane
+                .annotate
+                .pick(excellent_features::annotate::colors::Tool::Highlight),
             CommandId::Undo => pane.editing.undo(),
             CommandId::Redo => pane.editing.redo(),
             // Every pane's edits.
@@ -438,7 +441,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
         });
     });
     // Each pane's own dialogs: the group being edited, the bookmark being written, the link being asked about, the
-    // text of a proposed edit (A.2).
+    // text of a proposed edit (A.2), the markup tools' colours (A.3).
     let pane_dialogs = panes.slots().into_iter().fold(view(), |dialogs, pane| {
         dialogs
             .child(when(
@@ -456,6 +459,10 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             .child(when(
                 move || pane.annotate.is_asking(),
                 move || crate::annotate::text_edit_dialog(pane.annotate),
+            ))
+            .child(when(
+                move || pane.annotate.is_picking(),
+                move || crate::annotate::color_dialog(pane.annotate),
             ))
     });
 
