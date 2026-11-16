@@ -3387,6 +3387,11 @@ reports come with A.26.
 
 **Done when:** `tag:` search (F.4) finds tagged annotations across documents.
 
+*Built (2026-11-16):* `annotate::tags` (`set_tags`, `asked` for `tag:` words); the inspector's Tags field; the
+annotation list's search takes `tag:`. `library.db` migration 6 adds `annotation_tag`, written after every save
+(`excellent-app::annotate::tag_index`); `excellent_store::annotation_tags::find` is the query F.4's `tag:` will run
+(DD16).
+
 #### Ph3: 32/49 | A.19: Filters by color, tag, author and date
 **P1; Phase 3; Needs:** A.14, A.18; **Code:** as A.14
 1. Filter chips in the list; "show only matching" also hides the others on the page (render with annotations

@@ -13,4 +13,5 @@ pub mod polygons;
 pub mod replace;
 pub mod shapes;
 pub mod sticky;
+pub mod tags;
 pub mod transfer;

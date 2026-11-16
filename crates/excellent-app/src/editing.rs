@@ -162,16 +162,20 @@ impl Editing {
         }
         spawn(async move {
             let saving = blocking(move || {
-                documents
-                    .into_iter()
-                    .filter_map(|document| {
-                        let err = document.save().err()?;
-                        Some((document.path().to_path_buf(), err.to_string()))
-                    })
-                    .collect::<Vec<_>>()
+                let (mut saved, mut failures) = (Vec::new(), Vec::new());
+                for document in documents {
+                    match document.save() {
+                        Ok(()) => saved.push(document),
+                        Err(err) => {
+                            failures.push((document.path().to_path_buf(), err.to_string()));
+                        }
+                    }
+                }
+                (saved, failures)
             });
             match saving.await {
-                Ok(failures) => {
+                Ok((saved, failures)) => {
+                    saved.iter().for_each(crate::annotate::tag_index::index);
                     for (path, err) in failures {
                         log::warn!("save: {}: {err}", path.display());
                         show_message(t!("save.failed", name = file_name(&path)), err);

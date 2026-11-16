@@ -1,5 +1,5 @@
 //! The annotation list (A.14): one row per annotation of the document, grouped by page, filtered by kind, colour and
-//! category (A.17) and searched in its note and the text it marks, as Enhanced's annotation search and filter bar do. Pure: the app
+//! category (A.17) and searched in its note, the text it marks and its tags (`tag:method` for one tag, A.18), as Enhanced's annotation search and filter bar do. Pure: the app
 //! reads the annotations on a worker, makes the rows once, and filters them as the reader types. Each row keeps its
 //! text folded to lower case, so a filter over 10,000 rows is one pass of substring tests.
 
@@ -7,6 +7,7 @@ use excellent_core::annot::{Annotation, Boxed, Markup, Shape};
 
 use super::categories::Category;
 use super::notes::Target;
+use super::tags;
 
 /// What kind of annotation a row is, as the list names and filters it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -93,8 +94,10 @@ pub struct Row {
     pub text: String,
     /// Who made it.
     pub author: String,
-    /// Its note and the text it marks, folded to lower case, for search.
+    /// Its note, the text it marks and its tags, folded to lower case, for search.
     folded: String,
+    /// Its tags, folded to lower case, for `tag:` (A.18).
+    tags: Vec<String>,
 }
 
 impl Row {
@@ -117,7 +120,12 @@ impl Row {
             category: Category::of(annotation),
             text: one_line(text),
             author: annotation.author.clone(),
-            folded: format!("{note}\n{marked}").to_lowercase(),
+            folded: format!("{note}\n{marked}\n{}", annotation.tags.join("\n")).to_lowercase(),
+            tags: annotation
+                .tags
+                .iter()
+                .map(|tag| tag.to_lowercase())
+                .collect(),
         }
     }
 }
@@ -131,7 +139,7 @@ pub fn rows(annotations: &[Annotation]) -> Vec<Row> {
 }
 
 /// What the list shows: some kinds (none: all), one colour (none: all), some categories (none: all), and the rows
-/// whose note or marked text holds every word of the search.
+/// whose note, marked text or tags hold every word of the search (a `tag:` word: that tag).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Filter {
     /// The kinds shown; empty for every kind.
@@ -158,7 +166,10 @@ impl Filter {
     #[must_use]
     pub fn apply(&self, rows: &[Row]) -> Vec<usize> {
         let query = self.query.to_lowercase();
-        let words: Vec<&str> = query.split_whitespace().collect();
+        let words: Vec<(Option<String>, &str)> = query
+            .split_whitespace()
+            .map(|word| (tags::asked(word), word))
+            .collect();
         rows.iter()
             .enumerate()
             .filter(|(_, row)| {
@@ -166,7 +177,10 @@ impl Filter {
                     && self.color.is_none_or(|color| row.color == Some(color))
                     && (self.categories.is_empty()
                         || row.category.is_some_and(|c| self.categories.contains(&c)))
-                    && words.iter().all(|word| row.folded.contains(word))
+                    && words.iter().all(|(tag, word)| match tag {
+                        Some(tag) => row.tags.contains(tag),
+                        None => row.folded.contains(word),
+                    })
             })
             .map(|(index, _)| index)
             .collect()
@@ -360,6 +374,35 @@ mod tests {
             ..notes
         };
         assert_eq!(blue.apply(&rows), vec![2]);
+    }
+
+    #[test]
+    fn a_tag_word_finds_that_tag_and_plain_words_find_tags_too() {
+        let mut method = highlight(0, "we sampled ten sites");
+        method.tags = vec!["Method".to_owned(), "to read".to_owned()];
+        let mut methods = note(1, "methods compared", [1.0, 0.0, 0.0]);
+        methods.tags = vec!["review".to_owned()];
+        let rows = rows(&[method, methods]);
+        let search = |query: &str| {
+            Filter {
+                query: query.to_owned(),
+                ..Filter::default()
+            }
+            .apply(&rows)
+        };
+        assert_eq!(
+            search("tag:method"),
+            vec![0],
+            "the tag, not a word in a note"
+        );
+        assert_eq!(search("TAG:Method sampled"), vec![0]);
+        assert_eq!(
+            search("method"),
+            vec![0, 1],
+            "a plain word finds tags and notes"
+        );
+        assert_eq!(search("review"), vec![1]);
+        assert!(search("tag:meth").is_empty(), "a whole tag");
     }
 
     #[test]

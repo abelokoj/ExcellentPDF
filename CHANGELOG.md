@@ -6,6 +6,14 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 05:31; Ph3: 31/49 | A.18: Tags on annotations
+
+- An annotation's inspector has a Tags field: type tags separated by commas, and they are saved inside the PDF with
+  the annotation (one step of undo).
+- The Annotations tab's search finds tags, and `tag:method` finds the annotations tagged "method" only.
+- Each time a PDF is saved, its annotations' tags are recorded in the library, ready for searching every document
+  by tag when library search comes (Phase 5).
+
 ### 2026-11-16 05:20; Ph3: 30/49 | A.17: Semantic categories
 
 - An annotation can now be a Claim, Evidence, Question, Definition, Method, Result or To do, each with its own colour.

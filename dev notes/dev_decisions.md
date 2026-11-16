@@ -292,3 +292,19 @@ one, which belongs to the design system, not to this tag.
 - Choosing a category takes a click on the annotation, then one on the chip; no shortcut sets one.
 - When a selection toolbar or an icon set lands, both read `Category::ALL`, `color` and `icon`: no model change.
 - A locked annotation's category can't be changed, as its colour can't (A.12).
+
+## DD16. Annotation tags are indexed now; the library-wide `tag:` search waits for F.4 (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.18 is a Phase 3 tag whose Done when needs F.4's `tag:` search, a Phase 5 tag (it needs F.3,
+the full-text index). A.18 builds everything that is its own: tags on the annotation, the inspector's field, `tag:`
+in the document's annotation list, and the library index (`annotation_tag`, written after each save) with its query,
+`annotation_tags::find`, tested across documents. No library-wide search box is added before F.3 and F.4.
+
+**Why:** a search box of its own for one operator would be replaced by F.4's within two phases, and F.3 decides how
+the library's search looks and ranks.
+
+**What it means:**
+
+- Until Phase 5, tags are searched one document at a time, in its Annotations tab.
+- F.4's parser sends `tag:` to `annotation_tags::find`; nothing in A.18 changes then.
+- Files tagged before the app is updated to this version are indexed the next time they are saved.

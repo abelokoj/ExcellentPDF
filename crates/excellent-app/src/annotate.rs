@@ -15,6 +15,7 @@ mod list;
 pub(crate) mod margin;
 mod note;
 mod select;
+pub(crate) mod tag_index;
 mod transfer;
 
 pub(crate) use excellent_features::annotate::freetext::Kind;

@@ -1,5 +1,5 @@
 //! The annotation inspector's own rows (A.12), under the note and its kind's controls (`note`): its category (A.17),
-//! who made it, its colour and opacity, when it was made and changed, and its lock. Each edit is one step of undo through
+//! its tags (A.18), who made it, its colour and opacity, when it was made and changed, and its lock. Each edit is one step of undo through
 //! `AnnotateState::change_note`; the rows are built again from the annotation as the document has it after every
 //! edit, so an undone change shows in the next frame. A locked annotation shows its facts and its lock, and why the
 //! rest is gone. The model is `excellent-features`' `annotate::inspector`.
@@ -8,6 +8,7 @@ use excellent_core::annot::{Annotation, Markup, Shape};
 use excellent_features::annotate::categories::{self, Category};
 use excellent_features::annotate::colors::{Tool, ToolStyle};
 use excellent_features::annotate::inspector::{self, Details, OPACITIES};
+use excellent_features::annotate::tags;
 use nsh_base::{button, input, theme, toggle};
 use nsh_core::prelude::*;
 
@@ -15,7 +16,7 @@ use super::AnnotateState;
 use crate::bookmarks::{caption, field};
 use crate::settings_window::{on_off, segment_of, segmented};
 
-/// `annotation`'s category, who made it, its colour and its opacity: what a lock keeps as it is.
+/// `annotation`'s category, tags, who made it, its colour and its opacity: what a lock keeps as it is.
 pub(super) fn look(state: AnnotateState, annotation: &Annotation) -> View {
     let details = Details::of(annotation);
     let category = Category::of(annotation);
@@ -32,6 +33,17 @@ pub(super) fn look(state: AnnotateState, annotation: &Annotation) -> View {
                 },
             ))
         });
+    let typed_tags = signal(tags::text(annotation));
+    let keep_tags = move || {
+        let text = untracked(|| typed_tags.get());
+        state.change_note(t!("tags.edit"), |a| tags::set_tags(a, &text));
+    };
+    let tags_field = field(input().value(move || typed_tags.get()))
+        .on_change(move |text: &str| typed_tags.set(text.to_owned()))
+        .on_submit(move |_: &str| keep_tags())
+        .on_blur(keep_tags)
+        .placeholder(t!("tags.placeholder"))
+        .label(t!("tags.title"));
     let author = signal(details.author.clone());
     let commit = move || {
         let name = untracked(|| author.get());
@@ -48,6 +60,8 @@ pub(super) fn look(state: AnnotateState, annotation: &Annotation) -> View {
         .gap_2()
         .child(caption("category.title"))
         .child(picker)
+        .child(caption("tags.title"))
+        .child(tags_field)
         .child(caption("inspector.author"))
         .child(author_field);
     if inspector::has_color(annotation) {

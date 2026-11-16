@@ -193,6 +193,12 @@ status = "in-progress"
 tests = ["a_category_survives_save_and_reopen", "the_anchor_and_tags_travel_in_the_private_key", "a_category_is_set_changed_and_taken_away_one_change_each", "the_filter_shows_the_chosen_categories_only"]
 open = "not tried by hand; picked in the inspector, not the selection toolbar (DD15); icons are named (Lucide) but drawn as colour dots until the app has an icon set; export by category and the A.26 reports wait for A.26"
 
+["A.18"]
+label = "Ph3: 31/49"
+status = "in-progress"
+tests = ["a_tag_finds_tagged_annotations_across_documents", "a_tag_word_finds_that_tag_and_plain_words_find_tags_too", "tags_are_typed_with_commas_and_set_in_one_change", "a_search_word_asks_for_a_tag", "the_anchor_and_tags_travel_in_the_private_key"]
+open = "not tried by hand; the library-wide tag: search has its query (excellent_store::annotation_tags::find) but no search box until F.3 and F.4 (Phase 5, DD16); the index is written after each save by reading every page's annotations"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"
