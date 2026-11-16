@@ -1459,7 +1459,12 @@ impl<H: Host> PageCanvas<H> {
                     return List::Ready(list, Arc::default(), document.revision(key.page));
                 }
                 let revision = document.revision(key.page);
-                let job = pool().build_display_list(&mupdf, key.page, Priority::Visible);
+                let job = pool().build_display_list(
+                    &mupdf,
+                    key.page,
+                    document.hidden_annotations(),
+                    Priority::Visible,
+                );
                 let waker = Arc::clone(&self.waker);
                 job.when_done(move || waker.wake());
                 List::Building(job, revision)

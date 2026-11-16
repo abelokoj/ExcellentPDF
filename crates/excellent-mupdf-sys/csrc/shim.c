@@ -407,6 +407,56 @@ int ex_new_contents_display_list(fz_context *ctx, fz_page *page, fz_cookie *cook
 	return new_display_list(ctx, page, 0, cookie, out, err);
 }
 
+int ex_new_display_list_without(fz_context *ctx, fz_page *page, const char *const *hidden, int count,
+	fz_cookie *cookie, fz_display_list **out, ex_error *err)
+{
+	/* fz_run_page's three steps, with the annotations run one by one as pdf_run_page_annots does. */
+	fz_display_list *list = NULL;
+	fz_device *dev = NULL;
+
+	fz_var(list);
+	fz_var(dev);
+	fz_try(ctx)
+	{
+		pdf_page *pdf = pdf_page_from_fz_page(ctx, page);
+
+		list = fz_new_display_list(ctx, fz_bound_page(ctx, page));
+		dev = fz_new_list_device(ctx, list);
+		fz_run_page_contents(ctx, page, dev, fz_identity, cookie);
+		if (pdf)
+		{
+			pdf_annot *annot;
+
+			for (annot = pdf_first_annot(ctx, pdf); annot; annot = pdf_next_annot(ctx, annot))
+			{
+				const char *id;
+				int i, skip = 0;
+
+				if (cookie && cookie->abort)
+					break;
+				id = pdf_dict_get_text_string(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(NM));
+				for (i = 0; i < count && !skip; i++)
+					skip = !strcmp(id, hidden[i]);
+				if (!skip)
+					pdf_run_annot(ctx, annot, dev, fz_identity, cookie);
+			}
+		}
+		else
+			fz_run_page_annots(ctx, page, dev, fz_identity, cookie);
+		fz_run_page_widgets(ctx, page, dev, fz_identity, cookie);
+		fz_close_device(ctx, dev);
+	}
+	fz_always(ctx)
+		fz_drop_device(ctx, dev);
+	fz_catch(ctx)
+	{
+		fz_drop_display_list(ctx, list);
+		return ex_fail(ctx, err);
+	}
+	*out = list;
+	return 0;
+}
+
 void ex_drop_display_list(fz_context *ctx, fz_display_list *list)
 {
 	fz_drop_display_list(ctx, list);

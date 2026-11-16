@@ -110,6 +110,8 @@ struct State {
     recovery: Option<oplog::Read>,
     /// Goes up with every operation applied, undone or redone, and every recovery.
     edits: u64,
+    /// The ids of the annotations the views leave out (A.19's "show only matching"); empty for none.
+    hidden: Arc<[String]>,
 }
 
 impl State {
@@ -173,6 +175,7 @@ impl Document {
                 log,
                 recovery,
                 edits: 0,
+                hidden: Arc::from([]),
             }),
         })
     }
@@ -298,10 +301,30 @@ impl Document {
         self.log_path.is_some()
     }
 
-    /// A number that goes up with every edit applied, undone, redone or recovered: a view of what edits change
-    /// (the outline) reads it again when it moves.
+    /// A number that goes up with every edit applied, undone, redone or recovered, and with every change to which
+    /// annotations are hidden: a view of what edits change (the outline, the pages) reads it again when it moves.
     pub fn edits(&self) -> u64 {
         self.lock().edits
+    }
+
+    /// The ids of the annotations the views leave out (A.19); empty when they draw them all.
+    pub fn hidden_annotations(&self) -> Arc<[String]> {
+        Arc::clone(&self.lock().hidden)
+    }
+
+    /// Has the views leave out the annotations whose ids are `ids` (none, when empty), and returns whether that
+    /// changed anything: then every page is drawn again. The file is not changed.
+    pub fn hide_annotations(&self, mut ids: Vec<String>) -> bool {
+        ids.sort_unstable();
+        ids.dedup();
+        let mut state = self.lock();
+        if *state.hidden == *ids {
+            return false;
+        }
+        state.hidden = ids.into();
+        state.all_pages_changed();
+        state.edits += 1;
+        true
     }
 
     /// The link to (`x`, `y`), in page points, on page `page` (counting from zero) at `zoom` (1 is 100 %; `None` keeps
@@ -688,6 +711,24 @@ mod tests {
                 uri,
             }],
         )
+    }
+
+    #[test]
+    fn hiding_annotations_redraws_once_and_leaves_the_file() {
+        let scratch = Scratch::new("hide", "base14-outline-annot.pdf");
+        let document = scratch.open();
+        let (edits, revision) = (document.edits(), document.revision(0));
+        assert!(document.hide_annotations(vec!["b".into(), "a".into(), "a".into()]));
+        assert_eq!(&*document.hidden_annotations(), ["a", "b"]);
+        assert_ne!(document.revision(0), revision, "pages are drawn again");
+        assert_eq!(document.edits(), edits + 1);
+        assert!(
+            !document.hide_annotations(vec!["a".into(), "b".into()]),
+            "no change"
+        );
+        assert!(!document.has_unsaved_changes(), "the file is not changed");
+        assert!(document.hide_annotations(Vec::new()));
+        assert!(document.hidden_annotations().is_empty());
     }
 
     #[test]

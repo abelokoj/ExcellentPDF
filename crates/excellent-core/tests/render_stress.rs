@@ -25,7 +25,7 @@ fn four_workers_render_one_document_ten_thousand_times() {
     let pool = RenderPool::new(4);
 
     let lists: Vec<_> = [0, 1]
-        .map(|page| pool.build_display_list(&document, page, Priority::Visible))
+        .map(|page| pool.build_display_list(&document, page, Default::default(), Priority::Visible))
         .into_iter()
         .map(|job| Arc::new(job.wait().expect("display list")))
         .collect();
@@ -85,7 +85,7 @@ fn a_cancelled_job_reports_it() {
     let pool = RenderPool::new(1);
     // Holding the document keeps the job from finishing before it is cancelled.
     let held = document.lock().expect("lock");
-    let job = pool.build_display_list(&document, 0, Priority::Background);
+    let job = pool.build_display_list(&document, 0, Default::default(), Priority::Background);
     job.cancel();
     drop(held);
     assert!(job.wait().expect_err("cancelled").is_aborted());
@@ -97,7 +97,7 @@ fn cancelling_a_running_render_stops_it_within_20_ms() {
     let document = corpus("heavy-vector.pdf");
     let pool = RenderPool::new(1);
     let list = Arc::new(
-        pool.build_display_list(&document, 0, Priority::Visible)
+        pool.build_display_list(&document, 0, Default::default(), Priority::Visible)
             .wait()
             .expect("display list"),
     );

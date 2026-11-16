@@ -6,6 +6,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 05:56; Ph3: 32/49 | A.19: Filters by color, tag, author and date
+
+- The Annotations tab filters by tag, by author (when a file has more than one) and by when an annotation last
+  changed (today, the past week, the past month), beside the kind, colour and category filters. Filters combine:
+  every one chosen must match; within one, any choice may.
+- "Show only matching on the pages" leaves the annotations the list doesn't show out of the pages too; the file is
+  not changed.
+- Each file's filter is kept in the library and is there again when the file is opened. "Clear filters" shows
+  everything again.
+
 ### 2026-11-16 05:31; Ph3: 31/49 | A.18: Tags on annotations
 
 - An annotation's inspector has a Tags field: type tags separated by commas, and they are saved inside the PDF with

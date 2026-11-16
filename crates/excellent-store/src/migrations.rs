@@ -14,6 +14,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/0004_bookmarks.sql"),
     include_str!("migrations/0005_panes.sql"),
     include_str!("migrations/0006_annotation_tags.sql"),
+    include_str!("migrations/0007_annotation_filters.sql"),
 ];
 
 /// The newest version this build knows.

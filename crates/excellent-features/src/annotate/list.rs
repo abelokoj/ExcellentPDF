@@ -1,9 +1,12 @@
-//! The annotation list (A.14): one row per annotation of the document, grouped by page, filtered by kind, colour and
-//! category (A.17) and searched in its note, the text it marks and its tags (`tag:method` for one tag, A.18), as Enhanced's annotation search and filter bar do. Pure: the app
-//! reads the annotations on a worker, makes the rows once, and filters them as the reader types. Each row keeps its
-//! text folded to lower case, so a filter over 10,000 rows is one pass of substring tests.
+//! The annotation list (A.14): one row per annotation of the document, grouped by page, filtered by kind, colour,
+//! category (A.17), tag, author and date (A.19) and searched in its note, the text it marks and its tags (`tag:method`
+//! for one tag, A.18), as Enhanced's annotation search and filter bar do. The filters combine with AND; the choices
+//! within one (two colours' worth of kinds, say) with OR. Pure: the app reads the annotations on a worker, makes the
+//! rows once, and filters them as the reader types. Each row keeps its text folded to lower case, so a filter over
+//! 10,000 rows is one pass of substring tests.
 
 use excellent_core::annot::{Annotation, Boxed, Markup, Shape};
+use serde_json::{Value, json};
 
 use super::categories::Category;
 use super::notes::Target;
@@ -62,6 +65,12 @@ impl Kind {
         }
     }
 
+    /// The kind named `name` ([`Kind::name`]).
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.name() == name)
+    }
+
     /// Its name, for its label's key (`annotations.kind.<name>`).
     #[must_use]
     pub fn name(self) -> &'static str {
@@ -94,10 +103,14 @@ pub struct Row {
     pub text: String,
     /// Who made it.
     pub author: String,
+    /// Its tags, as written.
+    pub tags: Vec<String>,
+    /// When it last changed, in seconds since 1970 (UTC).
+    pub modified: i64,
     /// Its note, the text it marks and its tags, folded to lower case, for search.
     folded: String,
-    /// Its tags, folded to lower case, for `tag:` (A.18).
-    tags: Vec<String>,
+    /// Its tags, folded to lower case, for `tag:` (A.18) and the tag filter (A.19).
+    folded_tags: Vec<String>,
 }
 
 impl Row {
@@ -120,8 +133,10 @@ impl Row {
             category: Category::of(annotation),
             text: one_line(text),
             author: annotation.author.clone(),
+            tags: annotation.tags.clone(),
+            modified: annotation.modified,
             folded: format!("{note}\n{marked}\n{}", annotation.tags.join("\n")).to_lowercase(),
-            tags: annotation
+            folded_tags: annotation
                 .tags
                 .iter()
                 .map(|tag| tag.to_lowercase())
@@ -138,8 +153,51 @@ pub fn rows(annotations: &[Annotation]) -> Vec<Row> {
     rows
 }
 
-/// What the list shows: some kinds (none: all), one colour (none: all), some categories (none: all), and the rows
-/// whose note, marked text or tags hold every word of the search (a `tag:` word: that tag).
+/// How recently the rows shown were changed (A.19).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Since {
+    /// In the last day.
+    Day,
+    /// In the last seven days.
+    Week,
+    /// In the last thirty days.
+    Month,
+}
+
+impl Since {
+    /// Every choice, in the order the filter offers them.
+    pub const ALL: [Self; 3] = [Self::Day, Self::Week, Self::Month];
+
+    /// Its name, for its label's key (`annotations.since.<name>`) and the saved filter.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Day => "day",
+            Self::Week => "week",
+            Self::Month => "month",
+        }
+    }
+
+    /// The choice named `name`.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|since| since.name() == name)
+    }
+
+    /// How far back it reaches, in seconds.
+    fn seconds(self) -> i64 {
+        const DAY: i64 = 24 * 60 * 60;
+        match self {
+            Self::Day => DAY,
+            Self::Week => 7 * DAY,
+            Self::Month => 30 * DAY,
+        }
+    }
+}
+
+/// What the list shows: some kinds, one colour, some categories, some tags, some authors (none of each: all), the
+/// rows changed since a time (none: all), and the rows whose note, marked text or tags hold every word of the search
+/// (a `tag:` word: that tag).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Filter {
     /// The kinds shown; empty for every kind.
@@ -148,8 +206,16 @@ pub struct Filter {
     pub color: Option<u32>,
     /// The categories shown; empty for every row, with a category or not.
     pub categories: Vec<Category>,
+    /// The tags shown, folded to lower case; empty for every row, tagged or not.
+    pub tags: Vec<String>,
+    /// The authors shown; empty for every author.
+    pub authors: Vec<String>,
+    /// How recently the rows shown were changed; `None` for any time.
+    pub since: Option<Since>,
     /// The search as typed.
     pub query: String,
+    /// Whether the pages, too, leave out the annotations the filter doesn't show ("show only matching").
+    pub show_only: bool,
 }
 
 impl Filter {
@@ -159,12 +225,40 @@ impl Filter {
         self.kinds.is_empty()
             && self.color.is_none()
             && self.categories.is_empty()
+            && self.tags.is_empty()
+            && self.authors.is_empty()
+            && self.since.is_none()
             && self.query.trim().is_empty()
     }
 
-    /// The indices of the rows of `rows` it shows, in order.
+    /// The indices of the rows of `rows` it shows, in order, as of now.
     #[must_use]
     pub fn apply(&self, rows: &[Row]) -> Vec<usize> {
+        self.apply_at(rows, excellent_core::annot::now())
+    }
+
+    /// The ids of the annotations of `rows` the pages leave out, as of now: those it doesn't show, when it shows only
+    /// matching ones; none otherwise.
+    #[must_use]
+    pub fn hidden(&self, rows: &[Row]) -> Vec<String> {
+        if !self.show_only || self.is_empty() {
+            return Vec::new();
+        }
+        let shown = self.apply(rows);
+        let mut shown = shown.iter().peekable();
+        let mut hidden = Vec::new();
+        for (index, row) in rows.iter().enumerate() {
+            if shown.next_if(|&&at| at == index).is_none() {
+                hidden.push(row.target.id.clone());
+            }
+        }
+        hidden
+    }
+
+    /// The indices of the rows of `rows` it shows, in order, at `now` (seconds since 1970, UTC).
+    #[must_use]
+    pub fn apply_at(&self, rows: &[Row], now: i64) -> Vec<usize> {
+        let after = self.since.map(|since| now - since.seconds());
         let query = self.query.to_lowercase();
         let words: Vec<(Option<String>, &str)> = query
             .split_whitespace()
@@ -177,8 +271,12 @@ impl Filter {
                     && self.color.is_none_or(|color| row.color == Some(color))
                     && (self.categories.is_empty()
                         || row.category.is_some_and(|c| self.categories.contains(&c)))
+                    && (self.tags.is_empty()
+                        || row.folded_tags.iter().any(|tag| self.tags.contains(tag)))
+                    && (self.authors.is_empty() || self.authors.contains(&row.author))
+                    && after.is_none_or(|after| row.modified >= after)
                     && words.iter().all(|(tag, word)| match tag {
-                        Some(tag) => row.tags.contains(tag),
+                        Some(tag) => row.folded_tags.contains(tag),
                         None => row.folded.contains(word),
                     })
             })
@@ -190,29 +288,129 @@ impl Filter {
     #[must_use]
     pub fn toggled_kind(&self, kind: Kind) -> Self {
         let mut next = self.clone();
-        if let Some(at) = next.kinds.iter().position(|k| *k == kind) {
-            next.kinds.remove(at);
-        } else {
-            next.kinds.push(kind);
-            next.kinds.sort_unstable();
-        }
+        toggle(&mut next.kinds, kind);
         next
     }
-}
 
-impl Filter {
     /// The filter with `category` shown or, when it was, not.
     #[must_use]
     pub fn toggled_category(&self, category: Category) -> Self {
         let mut next = self.clone();
-        if let Some(at) = next.categories.iter().position(|c| *c == category) {
-            next.categories.remove(at);
-        } else {
-            next.categories.push(category);
-            next.categories.sort_unstable();
-        }
+        toggle(&mut next.categories, category);
         next
     }
+
+    /// The filter with the tag `tag` (any case) shown or, when it was, not.
+    #[must_use]
+    pub fn toggled_tag(&self, tag: &str) -> Self {
+        let mut next = self.clone();
+        toggle(&mut next.tags, tag.to_lowercase());
+        next
+    }
+
+    /// The filter with `author`'s annotations shown or, when they were, not.
+    #[must_use]
+    pub fn toggled_author(&self, author: &str) -> Self {
+        let mut next = self.clone();
+        toggle(&mut next.authors, author.to_owned());
+        next
+    }
+
+    /// The filter as kept for its file (`library.db`, A.19).
+    #[must_use]
+    pub fn to_json(&self) -> String {
+        json!({
+            "kinds": self.kinds.iter().map(|kind| kind.name()).collect::<Vec<_>>(),
+            "color": self.color,
+            "categories": self.categories.iter().map(|category| category.key()).collect::<Vec<_>>(),
+            "tags": self.tags,
+            "authors": self.authors,
+            "since": self.since.map(Since::name),
+            "query": self.query,
+            "show_only": self.show_only,
+        })
+        .to_string()
+    }
+
+    /// The filter kept as `text` by [`Filter::to_json`]; what it can't read is left out, and text that isn't JSON
+    /// gives the empty filter.
+    #[must_use]
+    pub fn from_json(text: &str) -> Self {
+        let value: Value = serde_json::from_str(text).unwrap_or_default();
+        let names = |key: &str| -> Vec<String> {
+            value[key]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|name| Some(name.as_str()?.to_owned()))
+                .collect()
+        };
+        let mut kinds: Vec<Kind> = names("kinds")
+            .iter()
+            .filter_map(|n| Kind::from_name(n))
+            .collect();
+        kinds.sort_unstable();
+        kinds.dedup();
+        let mut categories: Vec<Category> = names("categories")
+            .iter()
+            .filter_map(|key| Category::from_key(key))
+            .collect();
+        categories.sort_unstable();
+        categories.dedup();
+        let mut tags: Vec<String> = names("tags").iter().map(|tag| tag.to_lowercase()).collect();
+        tags.sort_unstable();
+        tags.dedup();
+        let mut authors = names("authors");
+        authors.sort_unstable();
+        authors.dedup();
+        Self {
+            kinds,
+            color: value["color"]
+                .as_u64()
+                .and_then(|color| u32::try_from(color).ok())
+                .filter(|color| *color <= 0x00ff_ffff),
+            categories,
+            tags,
+            authors,
+            since: value["since"].as_str().and_then(Since::from_name),
+            query: value["query"].as_str().unwrap_or_default().to_owned(),
+            show_only: value["show_only"].as_bool().unwrap_or_default(),
+        }
+    }
+}
+
+/// `list` with `item` taken out or, when it wasn't there, put in its sorted place.
+fn toggle<T: Ord>(list: &mut Vec<T>, item: T) {
+    match list.binary_search(&item) {
+        Ok(at) => {
+            list.remove(at);
+        }
+        Err(at) => list.insert(at, item),
+    }
+}
+
+/// The tags of `rows`, each once whatever its case (as first written) and sorted, for the filter to offer.
+#[must_use]
+pub fn tags(rows: &[Row]) -> Vec<String> {
+    let mut tags: Vec<(String, String)> = Vec::new();
+    for row in rows {
+        for (tag, folded) in row.tags.iter().zip(&row.folded_tags) {
+            if !tags.iter().any(|(_, seen)| seen == folded) {
+                tags.push((tag.clone(), folded.clone()));
+            }
+        }
+    }
+    tags.sort_unstable_by(|a, b| a.1.cmp(&b.1));
+    tags.into_iter().map(|(tag, _)| tag).collect()
+}
+
+/// The authors of `rows`, each once and sorted, for the filter to offer.
+#[must_use]
+pub fn authors(rows: &[Row]) -> Vec<String> {
+    let mut authors: Vec<String> = rows.iter().map(|row| row.author.clone()).collect();
+    authors.sort_unstable();
+    authors.dedup();
+    authors
 }
 
 /// The categories of `rows`, each once and in [`Category::ALL`]'s order, for the filter to offer.
@@ -403,6 +601,102 @@ mod tests {
         );
         assert_eq!(search("review"), vec![1]);
         assert!(search("tag:meth").is_empty(), "a whole tag");
+    }
+
+    #[test]
+    fn filters_combine_with_and_and_choices_with_or() {
+        const DAY: i64 = 24 * 60 * 60;
+        let now = 100 * DAY;
+        let mut a = note(0, "one", [1.0, 0.0, 0.0]);
+        a.author = "Ada".to_owned();
+        a.tags = vec!["Method".to_owned()];
+        a.modified = now - DAY / 2;
+        let mut b = note(1, "two", [1.0, 0.0, 0.0]);
+        b.author = "Grace".to_owned();
+        b.tags = vec!["review".to_owned()];
+        b.modified = now - 3 * DAY;
+        let mut c = highlight(2, "three");
+        c.author = "Grace".to_owned();
+        c.modified = now - 60 * DAY;
+        let rows = rows(&[a, b, c]);
+        assert_eq!(tags(&rows), ["Method", "review"]);
+        assert_eq!(authors(&rows), ["Ada", "Grace"]);
+        let grace = Filter::default().toggled_author("Grace");
+        assert_eq!(grace.apply_at(&rows, now), vec![1, 2]);
+        let week = Filter {
+            since: Some(Since::Week),
+            ..grace.clone()
+        };
+        assert_eq!(week.apply_at(&rows, now), vec![1], "Grace's, and this week");
+        let today = Filter {
+            since: Some(Since::Day),
+            ..Filter::default()
+        };
+        assert_eq!(today.apply_at(&rows, now), vec![0]);
+        let tagged = Filter::default()
+            .toggled_tag("METHOD")
+            .toggled_tag("Review");
+        assert_eq!(tagged.apply_at(&rows, now), vec![0, 1], "either tag");
+        assert_eq!(
+            tagged.toggled_author("Ada").apply_at(&rows, now),
+            vec![0],
+            "a tag and an author"
+        );
+        assert!(
+            tagged
+                .toggled_tag("method")
+                .toggled_tag("review")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn show_only_matching_hides_the_rest_on_the_page() {
+        let rows = rows(&[
+            note(0, "keep", [1.0, 0.0, 0.0]),
+            note(0, "drop", [0.0, 0.0, 1.0]),
+            highlight(1, "keep this"),
+        ]);
+        let keep = Filter {
+            query: "keep".to_owned(),
+            ..Filter::default()
+        };
+        assert!(keep.hidden(&rows).is_empty(), "the list only");
+        let only = Filter {
+            show_only: true,
+            ..keep
+        };
+        assert_eq!(only.hidden(&rows), vec![rows[1].target.id.clone()]);
+        let nothing = Filter {
+            show_only: true,
+            ..Filter::default()
+        };
+        assert!(
+            nothing.hidden(&rows).is_empty(),
+            "an empty filter hides nothing"
+        );
+    }
+
+    #[test]
+    fn a_filter_is_kept_as_json_and_read_back() {
+        let filter = Filter {
+            kinds: vec![Kind::Highlight, Kind::Note],
+            color: Some(0xff_ff00),
+            categories: vec![Category::Claim],
+            tags: vec!["method".to_owned()],
+            authors: vec!["Ada".to_owned()],
+            since: Some(Since::Month),
+            query: "fox".to_owned(),
+            show_only: true,
+        };
+        assert_eq!(Filter::from_json(&filter.to_json()), filter);
+        assert_eq!(Filter::from_json("not json"), Filter::default());
+        let odd = Filter::from_json(
+            r#"{"kinds":["highlight","nope"],"color":-4,"since":"year","tags":["A"]}"#,
+        );
+        assert_eq!(odd.kinds, [Kind::Highlight]);
+        assert_eq!((odd.color, odd.since), (None, None));
+        assert_eq!(odd.tags, ["a"]);
     }
 
     #[test]

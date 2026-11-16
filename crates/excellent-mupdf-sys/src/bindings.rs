@@ -377,6 +377,17 @@ unsafe extern "C" {
     ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn ex_new_display_list_without(
+        ctx: *mut fz_context,
+        page: *mut fz_page,
+        hidden: *const *const ::core::ffi::c_char,
+        count: ::core::ffi::c_int,
+        cookie: *mut fz_cookie,
+        out: *mut *mut fz_display_list,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn ex_drop_display_list(ctx: *mut fz_context, list: *mut fz_display_list);
 }
 unsafe extern "C" {

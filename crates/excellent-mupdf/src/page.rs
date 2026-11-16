@@ -4,8 +4,9 @@ use core::marker::PhantomData;
 use core::ptr::{self, NonNull};
 
 use excellent_mupdf_sys::{
-    ex_drop_page, ex_error, ex_new_contents_display_list, ex_new_display_list, ex_new_stext_page,
-    ex_page_bounds, ex_render_page, fz_context, fz_cookie, fz_display_list, fz_page, fz_rect,
+    ex_drop_page, ex_error, ex_new_contents_display_list, ex_new_display_list,
+    ex_new_display_list_without, ex_new_stext_page, ex_page_bounds, ex_render_page, fz_context,
+    fz_cookie, fz_display_list, fz_page, fz_rect,
 };
 
 /// The shape of the shim's display-list makers.
@@ -104,6 +105,49 @@ impl Page<'_> {
     /// MuPDF fails to run the page, or `cookie` was aborted.
     pub fn contents_display_list(&self, cookie: Option<&Cookie>) -> Result<DisplayList> {
         self.record(ex_new_contents_display_list, cookie)
+    }
+
+    /// Records the page as [`Page::display_list`] does, without the annotations whose ids (`/NM`) are in `hidden`
+    /// (A.19). A page that isn't a PDF's keeps all its annotations. `cookie` cancels it.
+    ///
+    /// # Errors
+    ///
+    /// MuPDF fails to run the page, or `cookie` was aborted.
+    pub fn display_list_without(
+        &self,
+        hidden: &[String],
+        cookie: Option<&Cookie>,
+    ) -> Result<DisplayList> {
+        if hidden.is_empty() {
+            return self.display_list(cookie);
+        }
+        // An id with a NUL in it is no annotation's: it can't be written in a PDF string MuPDF hands back whole.
+        let ids: Vec<std::ffi::CString> = hidden
+            .iter()
+            .filter_map(|id| std::ffi::CString::new(id.as_str()).ok())
+            .collect();
+        let pointers: Vec<*const core::ffi::c_char> = ids.iter().map(|id| id.as_ptr()).collect();
+        let count = core::ffi::c_int::try_from(pointers.len()).unwrap_or(core::ffi::c_int::MAX);
+        let mut raw = ptr::null_mut();
+        with_context(|ctx| {
+            // SAFETY: the page is live and on its own thread; `pointers` holds `count` NUL-terminated strings that
+            // `ids` keeps alive past the call; the cookie, if any, outlives the call.
+            check(|err| unsafe {
+                ex_new_display_list_without(
+                    ctx,
+                    self.raw.as_ptr(),
+                    pointers.as_ptr(),
+                    count,
+                    cookie::raw(cookie),
+                    &mut raw,
+                    err,
+                )
+            })
+        })?;
+        let list = DisplayList::new(
+            NonNull::new(raw).expect("ex_new_display_list_without succeeded with a list"),
+        );
+        cookie::finish(cookie, list)
     }
 
     /// Records the page with `new`, one of the shim's display-list makers.

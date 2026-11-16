@@ -529,6 +529,70 @@ fn the_anchor_and_tags_travel_in_the_private_key() {
     );
 }
 
+/// A.19: a page recorded without an annotation's id doesn't draw it, and the others still draw.
+#[test]
+fn a_hidden_annotation_is_left_out_of_the_page() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let highlight = Annotation::new(
+        0,
+        Shape::Markup(
+            Markup::Highlight,
+            vec![Quad {
+                ul: PagePoint { x: 40.0, y: 100.0 },
+                ur: PagePoint { x: 200.0, y: 100.0 },
+                ll: PagePoint { x: 40.0, y: 140.0 },
+                lr: PagePoint { x: 200.0, y: 140.0 },
+            }],
+        ),
+        Style {
+            color: Some([1.0, 0.0, 0.0]),
+            opacity: 1.0,
+            width: 0.0,
+        },
+        "Ada",
+    );
+    Operation::new(
+        "Highlight",
+        vec![Change::CreateAnnotation(highlight.clone())],
+    )
+    .apply(&mut doc)
+    .expect("apply");
+    let page = doc.load_page(0).expect("page");
+    let pixels = |hidden: &[String]| {
+        page.display_list_without(hidden, None)
+            .expect("list")
+            .render(
+                &excellent_mupdf::Matrix::IDENTITY,
+                excellent_mupdf::Background::White,
+            )
+            .expect("render")
+            .samples()
+            .to_vec()
+    };
+    let all = pixels(&[]);
+    assert_eq!(
+        pixels(&["someone else".to_owned()]),
+        all,
+        "another id hides nothing"
+    );
+    let without = pixels(std::slice::from_ref(&highlight.id));
+    assert_ne!(without, all, "the highlight is gone");
+    let contents = page
+        .contents_display_list(None)
+        .expect("list")
+        .render(
+            &excellent_mupdf::Matrix::IDENTITY,
+            excellent_mupdf::Background::White,
+        )
+        .expect("render")
+        .samples()
+        .to_vec();
+    assert!(
+        page_annotations(&doc, 0).expect("read").len() > 1 || without == contents,
+        "with the only annotation hidden, the page is its contents"
+    );
+}
+
 /// A.17: an annotation's category is written to the file and read back after a save and a reopen.
 #[test]
 fn a_category_survives_save_and_reopen() {

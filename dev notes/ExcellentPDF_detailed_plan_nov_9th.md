@@ -3399,6 +3399,11 @@ annotation list's search takes `tag:`. `library.db` migration 6 adds `annotation
 
 **Done when:** filters combine with AND and are saved per document.
 
+*Built (2026-11-16):* `annotate::list::Filter` gains tags, authors, `Since` and `show_only`, with `hidden` and JSON;
+`library.db` migration 7 adds `annotation_filter`. Pages are recorded without hidden annotations by the shim's
+`ex_new_display_list_without` (`Page::display_list_without`, `Document::hide_annotations`). Printing and export
+keep every annotation (DD17).
+
 #### Ph3: 33/49 | A.20: Stamps library with dynamic fields
 **P1; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/stamps.rs`
 1. Standard stamps: `PDF_ANNOT_STAMP` with `pdf_set_annot_icon_name` (Approved, Draft, Confidential…).

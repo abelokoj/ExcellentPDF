@@ -33,7 +33,12 @@ pub fn render(
                 let revision = document.revision(page);
                 let list = {
                     let mupdf = mupdf.lock().expect("document lock poisoned");
-                    Arc::new(mupdf.load_page(page)?.display_list(Some(cookie))?)
+                    let hidden = document.hidden_annotations();
+                    Arc::new(
+                        mupdf
+                            .load_page(page)?
+                            .display_list_without(&hidden, Some(cookie))?,
+                    )
                 };
                 document.keep_display_list(page, revision, Arc::clone(&list));
                 list

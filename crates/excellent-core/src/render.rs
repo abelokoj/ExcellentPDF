@@ -225,17 +225,21 @@ impl RenderPool {
         Self { shared, workers }
     }
 
-    /// Records page `page` of `document` into a display list.
+    /// Records page `page` of `document` into a display list, without the annotations whose ids are in `hidden`
+    /// (A.19).
     pub fn build_display_list(
         &self,
         document: &Arc<Mutex<Document>>,
         page: usize,
+        hidden: Arc<[String]>,
         priority: Priority,
     ) -> Job<DisplayList> {
         let document = Arc::clone(document);
         self.submit(priority, move |cookie| {
             let document = document.lock().expect("document lock poisoned");
-            document.load_page(page)?.display_list(Some(cookie))
+            document
+                .load_page(page)?
+                .display_list_without(&hidden, Some(cookie))
         })
     }
 

@@ -89,6 +89,11 @@ impl Editing {
             .filter(|document| document.is_editable())
     }
 
+    /// Has the views draw the shown document again, its file unchanged: which annotations it hides changed (A.19).
+    pub(crate) fn redraw(self) {
+        self.revision.update(|revision| *revision += 1);
+    }
+
     /// Whether the shown document can be edited (a PDF).
     pub(crate) fn can_edit(self) -> bool {
         self.document().is_some()

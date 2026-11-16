@@ -199,6 +199,12 @@ status = "in-progress"
 tests = ["a_tag_finds_tagged_annotations_across_documents", "a_tag_word_finds_that_tag_and_plain_words_find_tags_too", "tags_are_typed_with_commas_and_set_in_one_change", "a_search_word_asks_for_a_tag", "the_anchor_and_tags_travel_in_the_private_key"]
 open = "not tried by hand; the library-wide tag: search has its query (excellent_store::annotation_tags::find) but no search box until F.3 and F.4 (Phase 5, DD16); the index is written after each save by reading every page's annotations"
 
+["A.19"]
+label = "Ph3: 32/49"
+status = "in-progress"
+tests = ["filters_combine_with_and_and_choices_with_or", "a_filter_is_kept_per_file", "a_filter_is_kept_as_json_and_read_back", "show_only_matching_hides_the_rest_on_the_page", "a_hidden_annotation_is_left_out_of_the_page", "hiding_annotations_redraws_once_and_leaves_the_file"]
+open = "not tried by hand; show only matching hides annotations in the page views and thumbnails, not in printing or export (DD17), and takes effect once the Annotations tab has read the file"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

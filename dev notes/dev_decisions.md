@@ -308,3 +308,20 @@ the library's search looks and ranks.
 - Until Phase 5, tags are searched one document at a time, in its Annotations tab.
 - F.4's parser sends `tag:` to `annotation_tags::find`; nothing in A.18 changes then.
 - Files tagged before the app is updated to this version are indexed the next time they are saved.
+
+## DD17. "Show only matching" hides annotations in the views, not in printing or export (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.19's "show only matching" changes what the page views and thumbnails draw
+(`Document::hide_annotations`); printing (P.x) and export record pages with every annotation, as the file holds them.
+The hidden set lives with the open document, not in the file, and is worked out by the Annotations tab, so it takes
+effect once that tab has read the file.
+
+**Why:** the plan names the page ("also hides the others on the page"); a printout or an exported file that silently
+lacks annotations would look like lost work. A print option "only the annotations shown" can come with the print
+dialog's annotation choices if the maintainer wants it.
+
+**What it means:**
+
+- Reopening a file whose saved filter has "show only matching" on draws every annotation until the Annotations tab
+  is shown.
+- An annotation made while the filter is on and that doesn't match it leaves the page once the list reads it again.

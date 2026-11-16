@@ -17,7 +17,7 @@ fn each_reading_theme_renders_the_corpus_with_aa_text_contrast() {
     let document = Arc::new(Mutex::new(Document::open(path).expect("open")));
     let pool = RenderPool::new(1);
     let list = Arc::new(
-        pool.build_display_list(&document, 0, Priority::Visible)
+        pool.build_display_list(&document, 0, Default::default(), Priority::Visible)
             .wait()
             .expect("display list"),
     );
