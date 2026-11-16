@@ -25,6 +25,7 @@ mod print;
 mod reading;
 mod reading_theme_bar;
 mod recent;
+mod recovery_bar;
 mod session;
 mod settings;
 mod settings_window;

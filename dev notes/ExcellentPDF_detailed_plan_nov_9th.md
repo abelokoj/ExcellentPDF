@@ -3351,6 +3351,10 @@ inspector (DD13), with `annotate.list` (Shift+O on the page) to show it.
 
 **Done when:** killing the app after drawing ten annotations restores all ten on restart.
 
+*Built (2026-11-16):* `Document::recover` returns the names of the edits it brought back (`oplog::Read::restored`),
+and `Document::revert` drops every unsaved edit and starts the log again. The app (`editing.rs`) recovers when the
+file is shown, without asking, and saves nothing until the reader decides; `recovery_bar.rs` is the bar.
+
 #### Ph3: 29/49 | A.16: Transfer annotations to another version
 **P1 (parity); Phase 3; Needs:** K.28; **Code:** `excellent-features/annotate/transfer.rs`
 1. Pick a source and target document; re-anchor each annotation by text (K.28); show a review list (placed, moved,

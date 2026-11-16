@@ -112,8 +112,12 @@ fn swatch(
         )
 }
 
-/// Keep (`primary`) or Cancel.
-fn bar_button(label: &'static str, primary: bool, press: impl Fn() + 'static) -> impl IntoElement {
+/// A bar's button: its main one (`primary`, as Keep) or another (as Cancel).
+pub(crate) fn bar_button(
+    label: &'static str,
+    primary: bool,
+    press: impl Fn() + 'static,
+) -> impl IntoElement {
     button()
         .accessibility_label(t!(label))
         .on_press(press)

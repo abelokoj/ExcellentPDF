@@ -175,6 +175,31 @@ pub(crate) struct Read {
     pub(crate) last: Fingerprint,
 }
 
+impl Read {
+    /// The names of the operations the document has that its saved file doesn't, in the order they were made: what
+    /// recovery brings back (A.15).
+    pub(crate) fn restored(&self) -> Vec<String> {
+        let done = &self.history.done;
+        let from = self
+            .history
+            .saved
+            .and_then(|saved| done.iter().position(|&id| id == saved))
+            .map_or(0, |at| at + 1);
+        done[from..]
+            .iter()
+            .filter_map(|&id| {
+                self.records.iter().find_map(|record| match record {
+                    Record::Operation {
+                        id: logged,
+                        operation,
+                    } if *logged == id => Some(operation.name.clone()),
+                    _ => None,
+                })
+            })
+            .collect()
+    }
+}
+
 /// Reads the log at `path`. `None` when it has no readable start (a log of another format, or empty).
 ///
 /// # Errors

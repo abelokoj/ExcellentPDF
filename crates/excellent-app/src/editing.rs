@@ -1,7 +1,8 @@
 //! Edits to the shown document (K.14, K.15), as the app makes them: each one applied as one step of undo, undo and
 //! redo, and saving. The file is saved 2 s after the last edit, when another tab is shown and as the app quits, on a
-//! background thread except at quit. When a file opens with edits a crash left unsaved, the reader is offered them
-//! back.
+//! background thread except at quit. When a file opens with edits a crash left unsaved, they are brought back at
+//! once, and a bar over the pages lists them for the reader to keep or discard (A.15). Until then they aren't saved:
+//! closed undecided, they are brought back again next time.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -30,8 +31,18 @@ pub(crate) struct Editing {
     unsaved: Stored<Vec<Arc<Document>>>,
     /// The save waiting for the reader to stop editing.
     pending: Stored<Option<Spawned<()>>>,
-    /// The files whose unsaved edits from a crash the reader was asked about this run.
+    /// The files whose unsaved edits from a crash were looked for this run.
     asked: Stored<Vec<PathBuf>>,
+    /// Edits brought back from a crash that the reader hasn't kept or discarded yet.
+    recovered: Signal<Vec<Recovered>>,
+}
+
+/// Edits a crash left unsaved, brought back when their file opened (A.15).
+#[derive(Debug, Clone, PartialEq)]
+struct Recovered {
+    path: PathBuf,
+    /// What each edit was, in the order made.
+    changes: Vec<String>,
 }
 
 impl Editing {
@@ -44,15 +55,16 @@ impl Editing {
             unsaved: stored(Vec::new()),
             pending: stored(None),
             asked: stored(Vec::new()),
+            recovered: signal(Vec::new()),
         };
-        // Another tab shown (or this one closed): what was edited is saved, and a file with a crash's edits offers
-        // them.
+        // Another tab shown (or this one closed): what was edited is saved, and a file with a crash's edits gets
+        // them back.
         effect(move || {
             let shown = tabs.shown_path();
             untracked(|| {
                 editing.save_now();
                 if let Some(path) = shown {
-                    editing.offer_recovery(&path);
+                    editing.recover(&path);
                 }
             });
         });
@@ -121,8 +133,10 @@ impl Editing {
         }
     }
 
-    /// The document changed: views read it again, and it is saved once the reader stops.
+    /// The document changed: views read it again, and it is saved once the reader stops. Edits brought back from a
+    /// crash are kept with it.
     fn edited(self, document: Arc<Document>) {
+        self.settle(document.path());
         self.revision.update(|revision| *revision += 1);
         self.unsaved.with(|unsaved| {
             if !unsaved.iter().any(|kept| Arc::ptr_eq(kept, &document)) {
@@ -183,8 +197,9 @@ impl Editing {
         }
     }
 
-    /// Offers the edits a crash left unsaved in the file at `path`, once a run.
-    fn offer_recovery(self, path: &Path) {
+    /// Brings back the edits a crash left unsaved in the file at `path`, once a run, for the reader to keep or
+    /// discard.
+    fn recover(self, path: &Path) {
         let Some(document) = registry().open(path).ok() else {
             return;
         };
@@ -198,25 +213,57 @@ impl Editing {
         if asked_before || !document.is_recoverable() {
             return;
         }
-        let name = file_name(path);
-        spawn(async move {
-            let choice = alert_dialog()
-                .title(t!("recover.title", name = name))
-                .description(t!("recover.body"))
-                .action("recover", t!("recover.recover"))
-                .destructive("discard", t!("recover.discard"))
-                .show()
-                .await;
-            match choice.ok().and_then(|result| result.action).as_deref() {
-                Some("recover") => match document.recover() {
-                    Ok(()) => self.edited(document),
-                    Err(err) => show_problem(t!("recover.failed"), &err),
-                },
-                Some("discard") => document.discard_recovery(),
-                // Closed without a choice: asked again when the file next opens.
-                _ => {}
+        match document.recover() {
+            Ok(changes) => {
+                self.revision.update(|revision| *revision += 1);
+                let path = path.to_path_buf();
+                self.recovered
+                    .update(|recovered| recovered.push(Recovered { path, changes }));
             }
+            Err(err) => show_problem(t!("recover.failed"), &err),
+        }
+    }
+
+    /// The edits brought back for the shown file that the reader hasn't kept or discarded (tracked); `None` when
+    /// there are none.
+    pub(crate) fn recovered(self) -> Option<Vec<String>> {
+        let shown = self.tabs.shown_path()?;
+        self.recovered.with(|recovered| {
+            recovered
+                .iter()
+                .find(|r| r.path == shown)
+                .map(|r| r.changes.clone())
+        })
+    }
+
+    /// Keeps the shown file's recovered edits: saved like any other.
+    pub(crate) fn keep_recovered(self) {
+        if let Some(document) = self.document() {
+            self.edited(document);
+        }
+    }
+
+    /// Discards the shown file's recovered edits: the file stays as it is on disk.
+    pub(crate) fn discard_recovered(self) {
+        let Some(document) = self.document() else {
+            return;
+        };
+        self.settle(document.path());
+        match document.revert() {
+            Ok(()) => self.revision.update(|revision| *revision += 1),
+            Err(err) => show_problem(t!("recover.discard_failed"), &err),
+        }
+    }
+
+    /// The edits brought back for the file at `path` are decided: its bar goes.
+    fn settle(self, path: &Path) {
+        let waiting = untracked(|| {
+            self.recovered
+                .with(|all| all.iter().any(|r| r.path == path))
         });
+        if waiting {
+            self.recovered.update(|all| all.retain(|r| r.path != path));
+        }
     }
 }
 

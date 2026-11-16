@@ -6,6 +6,14 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 04:56; Ph3: 28/49 | A.15: Annotation recovery
+
+- When the app closed before your changes to a PDF were saved, opening the file brings them back at once, and a
+  "Recovered changes" bar above the pages lists them by kind ("Sticky note (10)").
+- Keep saves them like any edit; Discard drops them and leaves the file as it is on disk. Editing the file keeps them
+  too. Close it undecided and they come back next time.
+- This replaces the dialog that asked before restoring anything.
+
 ### 2026-11-16 04:47; Ph3: 27/49 | A.14: Annotation list with filter and search
 
 - An Annotations tab beside the inspector lists every annotation of the shown document under a heading per page:

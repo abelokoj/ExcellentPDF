@@ -175,6 +175,12 @@ status = "in-progress"
 tests = ["rows_read_the_note_else_the_marked_text_and_group_by_page", "the_filter_takes_kinds_a_colour_and_every_word_of_the_search_in_any_case", "ten_thousand_annotations_filter_as_you_type_within_a_frame"]
 open = "not tried by hand; the list is a tab of the right dock beside the inspector, not of the left sidebar, and rows show a colour bar instead of a type icon (DD13); the whole document is read again after every edit"
 
+["A.15"]
+label = "Ph3: 28/49"
+status = "in-progress"
+tests = ["ten_annotations_drawn_before_a_crash_all_come_back", "unsaved_edits_come_back_after_a_crash", "the_bar_counts_each_kind_of_change_in_the_order_first_made"]
+open = "not tried by hand; Keep and Discard are the bar's buttons only, with no shortcut or palette command (the bar shows once, after a crash); a file changed on disk since its edits were logged still drops them (K.15 step 5)"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

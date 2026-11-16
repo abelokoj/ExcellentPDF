@@ -463,23 +463,49 @@ impl Document {
     }
 
     /// Brings back the edits an earlier run never saved, with their undo history: its log replayed over the file as
-    /// the log started. They are unsaved until the next save.
+    /// the log started. They are unsaved until the next save. Returns the names of the edits the saved file doesn't
+    /// have, in the order they were made (A.15's "Recovered changes" bar lists them).
     ///
     /// # Errors
     ///
     /// The file as the log started can't be had back, or the log doesn't replay; the document stays as it was.
-    pub fn recover(&self) -> Result<()> {
+    pub fn recover(&self) -> Result<Vec<String>> {
         let (Some(log_path), shared) = (self.log_path.clone(), self.mupdf()?) else {
-            return Ok(());
+            return Ok(Vec::new());
         };
         let mut mupdf = shared.lock().expect("document lock poisoned");
         let mut state = self.lock();
         let Some(read) = state.recovery.take() else {
-            return Ok(());
+            return Ok(Vec::new());
         };
         let mut document = replay(&self.path, &log_path, &read)?;
         std::mem::swap(&mut *mupdf, &mut document);
         state.log = Some(Log::resume(log_path, &read)?);
+        state.all_pages_changed();
+        state.edits += 1;
+        Ok(read.restored())
+    }
+
+    /// Drops every unsaved edit (A.15's Discard): the document is its file as last saved again, its undo history
+    /// starts again and its log goes.
+    ///
+    /// # Errors
+    ///
+    /// MuPDF can't open the file again; the document stays as it was.
+    pub fn revert(&self) -> Result<()> {
+        if !self.is_editable() {
+            return Ok(());
+        }
+        let shared = self.mupdf()?;
+        let mut mupdf = shared.lock().expect("document lock poisoned");
+        let mut state = self.lock();
+        let mut reopened = excellent_mupdf::Document::open_pdf(&self.path)?;
+        std::mem::swap(&mut *mupdf, &mut reopened);
+        let base = state.id.fingerprint();
+        if let Some(log) = state.log.as_mut() {
+            log.restart(base);
+        }
+        state.recovery = None;
         state.all_pages_changed();
         state.edits += 1;
         Ok(())
@@ -808,7 +834,11 @@ mod tests {
         let document = scratch.open();
         assert!(document.is_recoverable());
         assert_eq!(titles(&document), ["Saved", "Page one", "Page two"]);
-        document.recover().expect("recover");
+        assert_eq!(
+            document.recover().expect("recover"),
+            ["Add outline entry"],
+            "the edit the saved file lacks; the undone one isn't listed"
+        );
         assert!(!document.is_recoverable());
         assert!(document.has_unsaved_changes());
         assert_eq!(titles(&document), ["Kept", "Saved", "Page one", "Page two"]);
@@ -828,6 +858,54 @@ mod tests {
         let document = scratch.open();
         assert!(!document.is_recoverable(), "all of it was saved");
         assert_eq!(titles(&document).len(), 5);
+    }
+
+    #[test]
+    fn ten_annotations_drawn_before_a_crash_all_come_back() {
+        use crate::annot::{Annotation, Boxed, Shape, Style, page_annotations};
+
+        let scratch = Scratch::new("ten", "base14-outline-annot.pdf");
+        let count = |document: &Document| {
+            let mupdf = document.mupdf().expect("awake");
+            let mupdf = mupdf.lock().expect("lock");
+            page_annotations(&mupdf, 0).expect("annotations").len()
+        };
+        let before = count(&scratch.open());
+        {
+            let document = scratch.open();
+            for n in 0..10u8 {
+                let at = 20.0 + f32::from(n) * 30.0;
+                let note = Annotation::new(
+                    0,
+                    Shape::Boxed(
+                        Boxed::Note,
+                        PageRect {
+                            x0: at,
+                            y0: 40.0,
+                            x1: at + 20.0,
+                            y1: 60.0,
+                        },
+                    ),
+                    Style::default(),
+                    "Ada",
+                );
+                let operation = Operation::new("Sticky note", vec![Change::CreateAnnotation(note)]);
+                document.apply(&operation).expect("apply");
+            }
+            // The app is killed: nothing is saved.
+        }
+        let document = scratch.open();
+        assert_eq!(count(&document), before, "the file has none of them");
+        let restored = document.recover().expect("recover");
+        assert_eq!(restored.len(), 10);
+        assert_eq!(count(&document), before + 10, "all ten come back");
+
+        document.revert().expect("revert");
+        assert_eq!(count(&document), before, "discarded, the file is as it was");
+        assert!(!document.has_unsaved_changes());
+        assert!(!document.undo_state().can_undo());
+        drop(document);
+        assert_eq!(scratch.logs(), 0, "and no log is left");
     }
 
     #[test]

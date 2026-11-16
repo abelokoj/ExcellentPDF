@@ -502,6 +502,10 @@ fn document_panel(
     view()
         .flex_1()
         .child(when(
+            move || pane.editing.recovered().is_some() && !full_screen.is_on(),
+            move || crate::recovery_bar::recovery_bar(pane.editing),
+        ))
+        .child(when(
             move || pane.find.is_open() && tabs.has_shown() && !full_screen.is_on(),
             move || {
                 view()
