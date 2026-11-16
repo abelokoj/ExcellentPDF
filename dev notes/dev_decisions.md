@@ -431,3 +431,17 @@ for a file. A JSON-LD processor crate would add a large dependency (and network 
 
 **What it means:** a processor-level check (for example with `jsonld` in CI, offline with a cached context) is a
 follow-up if the maintainer wants stronger proof.
+
+## DD24. H.1 commits ink with one width and replays a synthetic session (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** H.1 commits each finished stroke as a standard ink annotation with the stroke's mean width (the
+smoothed points in its ink list); the per-point widths reach the page with H.9's own appearance stream. The replay
+test's only session is synthetic (a written "e", a line and a circle at 240 Hz), marked as such in the file, because
+no pen session has been recorded on the reference device yet. Prediction is the Rust constant-velocity one on every
+platform for now, and only the canvas's own frame draws it (the Windows compositor trail gets real samples only).
+
+**Why:** committing on pen-up is H.1's step 6 and keeps strokes from being lost; H.9 owns the appearance. A recorded
+session needs the maintainer's pen and device.
+
+**What it means:** until H.9, a pressure stroke saves as an even line; record a session with
+`EXCELLENTPDF_RECORD_INK=<folder>` and add it to `crates/excellent-ink/tests/sessions`.

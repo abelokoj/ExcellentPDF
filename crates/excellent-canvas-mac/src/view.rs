@@ -408,6 +408,9 @@ impl CanvasView {
             x: (point.x * scale) as f32,
             y: (point.y * scale) as f32,
             pressure: Some(event.pressure().clamp(0.0, 1.0)),
+            // shortcut: no tilt or sample time from AppKit yet; the canvas times samples as they arrive.
+            tilt: None,
+            time: None,
             contact: true,
             eraser: self.ivars().eraser.get(),
             input: 0,

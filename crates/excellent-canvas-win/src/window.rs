@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Once;
 
-use excellent_canvas::page::{ClickLimits, Cursor, PenSample};
+use excellent_canvas::page::{ClickLimits, Cursor, PenSample, Tilt};
 use nsh_platform_windows::ComponentContext;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{ClientToScreen, ScreenToClient, ValidateRect};
@@ -378,6 +378,14 @@ fn pen_sample(sample: &Sample, origin: POINT) -> PenSample {
         x: (sample.x - origin.x) as f32,
         y: (sample.y - origin.y) as f32,
         pressure: sample.pressure,
+        tilt: match (sample.tilt_x, sample.tilt_y) {
+            (None, None) => None,
+            (x, y) => Some(Tilt {
+                x: x.unwrap_or(0) as f32,
+                y: y.unwrap_or(0) as f32,
+            }),
+        },
+        time: Some(f64::from(sample.time)),
         contact: sample.contact,
         eraser: sample.eraser,
         input: sample.performance_count,

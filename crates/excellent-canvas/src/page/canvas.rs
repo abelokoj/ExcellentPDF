@@ -19,7 +19,11 @@ use excellent_core::formats;
 use excellent_core::render::{Job, Note, Priority, Recolor};
 use excellent_core::shared::{pool, registry};
 use excellent_core::transform::Transform;
-use excellent_ink::stroke::{InkPoint, Stroke, WidthCurve};
+use excellent_ink::predict::predict;
+use excellent_ink::sample::{Sample, Tilt, Tool};
+use excellent_ink::session::Session;
+use excellent_ink::stroke::Stroke;
+use excellent_ink::width::WidthCurve;
 use excellent_mupdf::{
     DeviceRect, DisplayList, Link, PageBox, PagePoint, PageRect, Pixmap, Reflow, Target, TextLayout,
 };
@@ -59,6 +63,19 @@ const SCREEN_STEP: f32 = 0.9;
 /// Ink colour.
 // shortcut: one pen in one colour until H.2's pen types and the toolbar's colour picker.
 const INK: u32 = 0x1a3d8f;
+/// How far ahead of the pen the preview draws (plan §8.2, step 3), in milliseconds: about one frame at 60 Hz.
+const PREDICT_MS: f64 = 16.0;
+/// The furthest the preview runs ahead of the pen, in pixels, so a sudden stop never overshoots far.
+const PREDICT_MAX_PX: f32 = 24.0;
+/// How many of the newest samples prediction looks at.
+const RECENT_SAMPLES: usize = 8;
+/// How much a finished stroke is steadied before it is saved (0 none, towards 1 heavy), and how closely its curve is
+/// followed, in page points (plan §8.2, step 4).
+const STEADINESS: f32 = 0.2;
+const SMOOTH_TOLERANCE: f32 = 0.1;
+/// Set to a folder to record every finished stroke there as a pen session file (plan §16): sessions recorded on a
+/// real device become the replay tests' fixtures.
+const RECORD_INK: &str = "EXCELLENTPDF_RECORD_INK";
 /// Selected text's highlight: a light blue that keeps black text black under it (drawn darkest-wins), or laid over
 /// dark paper translucent ([`Wash`]).
 const SELECTION: u32 = 0xb4d5fe;
@@ -103,6 +120,11 @@ pub struct PenSample {
     pub y: f32,
     /// 0 to 1; `None` when the pen doesn't say.
     pub pressure: Option<f32>,
+    /// How the pen leans; `None` when the pen doesn't say.
+    pub tilt: Option<Tilt>,
+    /// When the sample was taken, in milliseconds on the platform's input clock; `None` when the platform doesn't
+    /// say, and the canvas times it as it arrives.
+    pub time: Option<f64>,
     /// Touching the screen.
     pub contact: bool,
     /// The pen's eraser end, or the pen turned over.
@@ -238,6 +260,10 @@ struct PenStroke {
     page: usize,
     stroke: Stroke,
     latency: Latency,
+    /// When it started, to time samples the platform doesn't.
+    started: std::time::Instant,
+    /// The newest samples in the view's pixels, for prediction.
+    recent: Vec<Sample>,
 }
 
 /// Input-to-present times of one stroke's frames, in milliseconds: from the newest sample's time stamp to the frame
@@ -1098,6 +1124,8 @@ impl<H: Host> PageCanvas<H> {
             page,
             stroke: Stroke::new(),
             latency: Latency::default(),
+            started: std::time::Instant::now(),
+            recent: Vec::with_capacity(RECENT_SAMPLES + 1),
         });
         self.trail.clear();
         self.host.trail_start(INK);
@@ -1127,15 +1155,29 @@ impl<H: Host> PageCanvas<H> {
             let (sx, sy) = (sample.x, sample.y);
             let (x, y) = self.viewport.to_layout_point(sx, sy);
             let on_page = placement.to_page(x, y);
-            let width = curve.width(sample.pressure);
-            pen.stroke.push(InkPoint {
+            let time = sample
+                .time
+                .unwrap_or_else(|| pen.started.elapsed().as_secs_f64() * 1000.0);
+            let ink = Sample {
                 x: on_page.x,
                 y: on_page.y,
-                width,
-            });
+                pressure: sample.pressure,
+                tilt: sample.tilt,
+                time,
+                tool: Tool::Pen,
+            };
+            pen.stroke.push_sample(ink, &curve);
+            let width = pen.stroke.points().last().map_or(0.0, |point| point.width);
             on_screen.push((sx, sy, width * scale));
+            pen.recent.push(Sample {
+                x: sx,
+                y: sy,
+                ..ink
+            });
             newest = Some(sample.input);
         }
+        let stale = pen.recent.len().saturating_sub(RECENT_SAMPLES);
+        pen.recent.drain(..stale);
         let Some(input) = newest else {
             return;
         };
@@ -1174,12 +1216,37 @@ impl<H: Host> PageCanvas<H> {
             );
         }
         if !pen.stroke.is_empty() {
+            self.commit_ink(pen.page, &pen.stroke);
+            // Shown until the annotation it becomes is drawn with its page.
             self.ink.push(PageStroke {
                 page: pen.page,
                 stroke: pen.stroke,
             });
         }
         self.invalidate();
+    }
+
+    /// Sends the app the finished `stroke` on page `page` (`ink`: `{page, points: [[x, y, width]], color}`, its
+    /// smoothed points in page points), to commit as one step of undo (plan §8.2, step 6), and records it when
+    /// asked to.
+    fn commit_ink(&self, page: usize, stroke: &Stroke) {
+        let points: Vec<[f32; 3]> = stroke
+            .smoothed(STEADINESS, SMOOTH_TOLERANCE)
+            .iter()
+            .map(|point| [point.x, point.y, point.width])
+            .collect();
+        let channel = |shift: u32| f32::from(((INK >> shift) & 0xff) as u8) / 255.0;
+        self.emit(
+            "ink",
+            serde_json::json!({
+                "page": page,
+                "points": points,
+                "color": [channel(16), channel(8), channel(0)],
+            }),
+        );
+        if let Some(dir) = std::env::var_os(RECORD_INK) {
+            record_ink(std::path::PathBuf::from(dir), stroke.samples().to_vec());
+        }
     }
 
     /// Whether pointer `id` is drawing a stroke.
@@ -1558,18 +1625,23 @@ impl<H: Host> PageCanvas<H> {
         found.draw(host, wash)?;
         aids.draw_under(host)?;
         let scale = self.viewport.scale();
+        // The pen's stroke runs on to where the pen is about to be; the next frame replaces that with what it did.
+        let ahead = self
+            .pen
+            .as_ref()
+            .and_then(|pen| predict(&pen.recent, PREDICT_MS, PREDICT_MAX_PX));
         let strokes = self
             .ink
             .iter()
-            .map(|ink| (ink.page, &ink.stroke))
-            .chain(self.pen.as_ref().map(|pen| (pen.page, &pen.stroke)));
-        for (page, stroke) in strokes {
+            .map(|ink| (ink.page, &ink.stroke, None))
+            .chain(self.pen.as_ref().map(|pen| (pen.page, &pen.stroke, ahead)));
+        for (page, stroke, ahead) in strokes {
             let Some(placement) =
                 Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page)
             else {
                 continue;
             };
-            let points: Vec<InkPixel> = stroke
+            let mut points: Vec<InkPixel> = stroke
                 .points()
                 .iter()
                 .map(|p| {
@@ -1578,6 +1650,9 @@ impl<H: Host> PageCanvas<H> {
                     (x, y, p.width * scale)
                 })
                 .collect();
+            if let (Some((x, y)), Some(&(_, _, width))) = (ahead, points.last()) {
+                points.push((x, y, width));
+            }
             host.polyline(&points, INK)?;
         }
         aids.draw_over(host)?;
@@ -1642,6 +1717,8 @@ impl<H: Host> PageCanvas<H> {
             })
             .map(|(page, _)| *page)
             .collect();
+        // A finished stroke on a changed page is now its annotation, drawn with the page.
+        self.ink.retain(|ink| !stale.contains(&ink.page));
         for page in stale {
             self.lists.remove(&page);
             self.tiles.forget_page(page);
@@ -1769,4 +1846,20 @@ fn open_document(path: &Path, page_box: PageBox, reflow: Reflow) -> document::Re
         labels,
         reflow,
     })
+}
+
+/// Writes `samples`, a finished stroke's, to a new pen session file in `dir`, off the UI thread (plan §16).
+fn record_ink(dir: std::path::PathBuf, samples: Vec<Sample>) {
+    std::thread::spawn(move || {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.as_millis());
+        let path = dir.join(format!("ink-{stamp}.session"));
+        let session = Session {
+            strokes: vec![samples],
+        };
+        if let Err(err) = std::fs::write(&path, session.to_text()) {
+            log::warn!("ink: cannot record {}: {err}", path.display());
+        }
+    });
 }

@@ -241,6 +241,12 @@ status = "in-progress"
 tests = ["the_export_uses_only_the_context_s_terms", "our_export_comes_back_whole", "another_tool_s_quote_becomes_a_highlight_to_place", "iso_dates_go_both_ways", "the_format_is_told_by_extension_or_header"]
 open = "not tried by hand; no JSON-LD processor in the tests (DD23)"
 
+["H.1"]
+label = "Ph0: 13/13"
+status = "in-progress"
+tests = ["recorded_sessions_replay", "tilt_gives_altitude_and_azimuth", "the_response_curve_needs_a_firmer_hand", "leaning_widens_and_speed_thins", "a_steady_pen_is_followed_ahead", "the_spline_passes_through_every_point", "flattening_stays_within_the_tolerance", "a_session_goes_out_and_back", "a_finished_stroke_becomes_one_ink_annotation"]
+open = "latency not measured on the reference device; synthetic session fixture only; mean width until H.9 (DD24)"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

@@ -366,6 +366,9 @@ impl CanvasWidget {
             pressure: stylus
                 .axis(gdk::AxisUse::Pressure)
                 .map(|pressure| pressure.clamp(0.0, 1.0) as f32),
+            // shortcut: no tilt or sample time from GTK yet; the canvas times samples as they arrive.
+            tilt: None,
+            time: None,
             contact,
             eraser,
             input: 0,

@@ -369,6 +369,7 @@
   "flatten.done_detail": "يعرض %{name} التعليقات جزءًا من صفحاته؛ لم يعد بالإمكان نقلها أو تحريرها. هذا المستند لم يتغير.",
   "flatten.failed": "تعذّر حفظ %{name}",
   "exchange.filter_w3c": "تعليقات الويب W3C",
+  "ink.edit": "حبر",
   "command.note": "ملاحظة على التحديد",
   "toolbar.short.note": "ملاحظة",
   "note.heading": "%{kind} في الصفحة %{page}",

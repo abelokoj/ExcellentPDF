@@ -369,6 +369,7 @@
   "flatten.done_detail": "%{name} shows the annotations as part of its pages; they can no longer be moved or edited. This document is unchanged.",
   "flatten.failed": "Couldn't save %{name}",
   "exchange.filter_w3c": "W3C Web Annotations",
+  "ink.edit": "Ink",
   "command.note": "Note on the selection",
   "toolbar.short.note": "Note",
   "note.heading": "%{kind} on page %{page}",

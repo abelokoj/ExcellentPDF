@@ -32,6 +32,7 @@ use excellent_core::edit::{Change, Operation};
 use excellent_features::annotate::colors::Tool as ColorTool;
 use excellent_features::annotate::edit;
 use excellent_features::annotate::freetext;
+use excellent_features::annotate::ink::Inked;
 use excellent_features::annotate::inspector as rules;
 use excellent_features::annotate::margin::ToScreen;
 use excellent_features::annotate::markup::{self, Marking};
@@ -272,6 +273,19 @@ impl AnnotateState {
         }
     }
 
+    /// The canvas finished a pen stroke (`ink`, H.1): it becomes an ink annotation, one step of undo.
+    fn inked(self, data: &JsonValue) {
+        let Some(inked) = Inked::parse(data) else {
+            log::warn!("ink: a stroke that doesn't parse: {data}");
+            return;
+        };
+        let made = inked.annotation(&author());
+        self.editing.apply(&Operation::new(
+            t!("ink.edit"),
+            vec![Change::CreateAnnotation(made)],
+        ));
+    }
+
     /// Makes `change` of the open note's annotation, as it is now, one step of undo named `name`.
     fn change_note(self, name: String, change: impl FnOnce(&Annotation) -> Option<Change>) {
         let Some(noting) = untracked(|| self.noting.get()) else {
@@ -424,6 +438,7 @@ impl AnnotateState {
             "markup" => self.mark(&event.data),
             "pagePress" => self.press(&event.data),
             "pageDraw" => self.drawn(&event.data),
+            "ink" => self.inked(&event.data),
             "annotDrag" => self.selection_dragged(&event.data),
             "annotMarquee" => self.marquee(&event.data),
             "margin" => self.margin_moved(&event.data),

@@ -6,6 +6,14 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 11:43; Ph0: 13/13 | H.1: Ink capture and stroke pipeline
+
+- Pen strokes are now saved: when the pen lifts, the stroke becomes an ink annotation in the document, one step of
+  undo. Strokes are smoothed (a Catmull-Rom spline), their width follows pressure on a 1.25 curve, tilt and speed,
+  and while the pen moves the preview runs a frame ahead of it.
+- Windows passes the pen's tilt and sample times through. Set `EXCELLENTPDF_RECORD_INK` to a folder to record pen
+  sessions; recorded sessions in `crates/excellent-ink/tests/sessions` are replayed by the tests.
+
 ### 2026-11-16 11:42; Ph3: 38/49 | A.28: W3C Web Annotation export
 
 - Export and Import annotations (Ctrl+Alt+E, Ctrl+Alt+I) now also take W3C Web Annotation files (`.jsonld`), the

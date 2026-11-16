@@ -35,7 +35,7 @@ pub(crate) enum Device {
 
 /// One pointer sample. A pen reports only some of pressure, tilt and rotation; the rest are `None`.
 #[derive(Debug, Clone, Copy, PartialEq)]
-// shortcut: tilt, rotation, buttons, barrel and time are captured for H.1 and H.2 but nothing reads them yet.
+// shortcut: rotation, buttons and the barrel are captured for H.2 but nothing reads them yet.
 pub(crate) struct Sample {
     pub(crate) device: Device,
     pub(crate) id: u32,

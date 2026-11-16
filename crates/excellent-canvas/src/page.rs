@@ -15,6 +15,7 @@ mod saved;
 
 pub use canvas::{Cursor, PageCanvas, PenSample, ZoomChange};
 pub use clicks::ClickLimits;
+pub use excellent_ink::sample::Tilt;
 pub use host::{Host, Wash};
 
 /// The component's name, as the app's `native(...)` element uses it.

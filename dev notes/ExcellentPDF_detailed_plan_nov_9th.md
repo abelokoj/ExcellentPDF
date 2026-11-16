@@ -3530,6 +3530,10 @@ pen logging), `src/AnnotPlacement.cpp` (`AddInkPressure`: Enhanced keeps the str
 annotation has one width; we keep per-point widths, §8.3).
 **Links:** Windows pointer input <https://learn.microsoft.com/en-us/windows/win32/inputmsg/wm-pointerupdate>
 
+*Built (2026-11-16):* `excellent-ink`'s `sample`, `width`, `predict`, `smooth`, `stroke` and `session` modules; the
+canvas sends a finished stroke as an `ink` event and the app commits it (`excellent-features::annotate::ink`). The
+annotation takes the stroke's mean width until H.9; the session fixture is synthetic until one is recorded (DD24).
+
 #### Ph3: 39/49 | H.2: Pen types
 **P0; Phase 3; Needs:** H.1; **Code:** `excellent-ink::pens`
 1. Fountain pen, ballpoint, pencil (grain texture, tilt shading), brush, calligraphy (nib angle), marker; each a
