@@ -6,6 +6,13 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 13:27; Ph3: 39/49 | H.2: Pen types
+
+- Six pens: fountain pen, ballpoint, pencil, brush, calligraphy and marker, each with its own response to pressure,
+  tilt and speed, its own steadying and, for the pencil, grain and a lighter line; the calligraphy pen has a flat nib
+  at 45°. Pick one from the Write toolbar, with keys 1 to 6 on the pages, or from the palette (Ink).
+- Each pen is checked against a golden image of a replayed pen session.
+
 ### 2026-11-16 11:43; Ph0: 13/13 | H.1: Ink capture and stroke pipeline
 
 - Pen strokes are now saved: when the pen lifts, the stroke becomes an ink annotation in the document, one step of

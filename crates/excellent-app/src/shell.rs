@@ -472,6 +472,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
                 .place(Placing::Shape(pane.annotate.regular_polygon())),
             CommandId::Star => pane.annotate.place(Placing::Shape(pane.annotate.star())),
             CommandId::Stamp => pane.annotate.place(Placing::Stamp),
+            CommandId::Pen(kind) => pane.annotate.choose_pen(kind),
             CommandId::MarginNotes => pane.annotate.toggle_margin(),
             CommandId::TransferAnnotations => pane.annotate.transfer(),
             CommandId::ExportAnnotations => pane.annotate.export_annotations(),
@@ -578,6 +579,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             modes,
             move || panes.active().pages.count() > 0,
             move || full_screen.is_on(),
+            move |id| panes.slots()[panes.active_cell()].annotate.is_on(id),
             run,
         ))
         .child(

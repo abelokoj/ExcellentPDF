@@ -92,6 +92,13 @@ impl Stroke {
         flatten(&catmull_rom(&filter(&self.points, steadiness)), tolerance)
     }
 
+    /// Sets point `index`'s width (a flat nib's, H.2); nothing when there is no such point.
+    pub fn set_width(&mut self, index: usize, width: f32) {
+        if let Some(point) = self.points.get_mut(index) {
+            point.width = width;
+        }
+    }
+
     /// How many points.
     #[must_use]
     pub fn len(&self) -> usize {

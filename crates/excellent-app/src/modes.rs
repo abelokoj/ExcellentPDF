@@ -87,8 +87,19 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "edit.undo",
             "edit.redo",
         ],
-        // shortcut: pens and erasers (H.1 to H.9) and the study tools (S.*) put their commands here with their tags.
-        Mode::Write | Mode::Study => &[],
+        Mode::Write => &[
+            "ink.pen_fountain",
+            "ink.pen_ballpoint",
+            "ink.pen_pencil",
+            "ink.pen_brush",
+            "ink.pen_calligraphy",
+            "ink.pen_marker",
+            "|",
+            "edit.undo",
+            "edit.redo",
+        ],
+        // shortcut: the study tools (S.*) put their commands here with their tags.
+        Mode::Study => &[],
         Mode::Present => &[
             "view.full_screen",
             "|",
@@ -356,16 +367,18 @@ fn refused(err: &PresetError, path: &Path) -> String {
 
 /// The mode bar: the mode switcher and the mode's toolbar, one stop of Tab whose arrows move along it, then the
 /// customize button. Its bottom edge and the chosen mode take the mode's accent. `has_document` dims the tools that
-/// need one; `hidden` hides the bar (full screen).
+/// need one; `hidden` hides the bar (full screen); `on` says which of the tools that choose one of several (the pens)
+/// is chosen.
 pub(crate) fn mode_bar(
     modes: Modes,
     has_document: impl Fn() -> bool + Copy + 'static,
     hidden: impl Fn() -> bool + Copy + 'static,
+    on: impl Fn(CommandId) -> bool + Copy + 'static,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
     let shown_tools = dynamic(move || {
         let toolbar = modes.toolbar(modes.current());
-        untracked(move || tools(&toolbar, has_document, run).into_element())
+        untracked(move || tools(&toolbar, has_document, on, run).into_element())
     });
     view()
         .h(px(40.0))
@@ -467,6 +480,7 @@ fn rule() -> impl IntoElement {
 fn tools(
     toolbar: &Toolbar,
     has_document: impl Fn() -> bool + Copy + 'static,
+    on: impl Fn(CommandId) -> bool + Copy + 'static,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> View {
     if toolbar.is_empty() {
@@ -482,6 +496,9 @@ fn tools(
         |row, item| match item {
             Item::Separator => row.child(rule()),
             Item::Command(name) => match commands::find(name) {
+                Some(id @ CommandId::Pen(_)) => {
+                    row.child(choice_button(id, short_label(name), move || on(id), run))
+                }
                 Some(id) => row.child(tool_button(id, short_label(name), has_document, run)),
                 None => row,
             },
@@ -531,6 +548,12 @@ fn short_label(name: &str) -> Option<&'static str> {
         "annotate.paste" => Some("toolbar.short.paste"),
         "annotate.delete" => Some("toolbar.short.delete"),
         "go.screen_up" => Some("toolbar.short.screen_up"),
+        "ink.pen_fountain" => Some("toolbar.short.pen_fountain"),
+        "ink.pen_ballpoint" => Some("toolbar.short.pen_ballpoint"),
+        "ink.pen_pencil" => Some("toolbar.short.pen_pencil"),
+        "ink.pen_brush" => Some("toolbar.short.pen_brush"),
+        "ink.pen_calligraphy" => Some("toolbar.short.pen_calligraphy"),
+        "ink.pen_marker" => Some("toolbar.short.pen_marker"),
         "go.screen_down" => Some("toolbar.short.screen_down"),
         _ => None,
     }
@@ -563,6 +586,39 @@ fn tool_button(
                 .text_color(move || {
                     if off() {
                         theme().muted_foreground
+                    } else {
+                        theme().foreground
+                    }
+                }),
+        )
+}
+
+/// A tool that chooses one of several (a pen): pressed while it is the one chosen, and heard so.
+fn choice_button(
+    id: CommandId,
+    short: Option<&'static str>,
+    chosen: impl Fn() -> bool + Copy + 'static,
+    run: impl Fn(CommandId) + Copy + 'static,
+) -> impl IntoElement {
+    toggle()
+        .pressed(chosen)
+        .accessibility_label(commands::label_with_shortcut(id))
+        .on_change(move |_: &bool| run(id))
+        .h(px(28.0))
+        .px_2()
+        .flex_shrink_0()
+        .rounded(px(6.0))
+        .items_center()
+        .justify_center()
+        .hover(|s| s.bg(move || theme().accent))
+        .pressed_style(|s| s.bg(move || theme().primary))
+        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(
+            text(move || short.map_or_else(|| commands::label(id), |key| t!(key)))
+                .text_size(px(13.0))
+                .text_color(move || {
+                    if chosen() {
+                        theme().primary_foreground
                     } else {
                         theme().foreground
                     }
@@ -982,6 +1038,8 @@ mod tests {
         let present = default_toolbar(Mode::Present);
         assert!(read.contains("view.zoom_in") && !read.contains("go.first_page"));
         assert!(present.contains("go.first_page") && !present.contains("view.zoom_in"));
-        assert!(default_toolbar(Mode::Write).is_empty());
+        let write = default_toolbar(Mode::Write);
+        assert!(write.contains("ink.pen_fountain") && !write.contains("view.zoom_in"));
+        assert!(default_toolbar(Mode::Study).is_empty());
     }
 }

@@ -18,6 +18,7 @@ path = "src/main.rs"
 env_logger.workspace = true
 excellent-core.workspace = true
 excellent-features.workspace = true
+excellent-ink.workspace = true
 excellent-mupdf.workspace = true
 excellent-platform.workspace = true
 excellent-store.workspace = true

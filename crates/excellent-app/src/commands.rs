@@ -12,6 +12,7 @@ use nsh_base::CommandItem;
 use nsh_core::prelude::*;
 
 use excellent_features::split::Follow;
+use excellent_ink::pens::PenKind;
 
 use crate::bookmarks::BookmarkAction;
 use crate::find::FindAction;
@@ -109,6 +110,8 @@ pub(crate) enum CommandId {
     PolyLine,
     /// Draws a cloud by the next clicks on the pages (A.10).
     Cloud,
+    /// The pen ink draws with from now on (H.2).
+    Pen(PenKind),
     /// Copies the selected annotations and deletes them (A.13).
     CutAnnotations,
     /// Pastes the copied annotations onto the page shown (A.13).
@@ -616,6 +619,54 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+m"],
+    },
+    Command {
+        id: CommandId::Pen(PenKind::Fountain),
+        name: "ink.pen_fountain",
+        label: "command.pen_fountain",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["1"],
+    },
+    Command {
+        id: CommandId::Pen(PenKind::Ballpoint),
+        name: "ink.pen_ballpoint",
+        label: "command.pen_ballpoint",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["2"],
+    },
+    Command {
+        id: CommandId::Pen(PenKind::Pencil),
+        name: "ink.pen_pencil",
+        label: "command.pen_pencil",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["3"],
+    },
+    Command {
+        id: CommandId::Pen(PenKind::Brush),
+        name: "ink.pen_brush",
+        label: "command.pen_brush",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["4"],
+    },
+    Command {
+        id: CommandId::Pen(PenKind::Calligraphy),
+        name: "ink.pen_calligraphy",
+        label: "command.pen_calligraphy",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["5"],
+    },
+    Command {
+        id: CommandId::Pen(PenKind::Marker),
+        name: "ink.pen_marker",
+        label: "command.pen_marker",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["6"],
     },
     Command {
         id: CommandId::CutAnnotations,

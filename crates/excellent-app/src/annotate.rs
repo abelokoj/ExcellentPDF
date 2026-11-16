@@ -41,11 +41,13 @@ use excellent_features::annotate::polygons;
 use excellent_features::annotate::replace::{self, Mode, Proposal};
 use excellent_features::annotate::shapes::{self, Drawn};
 use excellent_features::annotate::sticky::{self, Icon};
+use excellent_ink::pens::{DEFAULT_SIZE, PenKind};
 use nsh_base::{input, theme};
 use nsh_core::JsonValue;
 use nsh_core::prelude::*;
 
 use crate::bookmarks::{caption, field};
+use crate::commands::CommandId;
 use crate::editing::Editing;
 use crate::list_dialog::{card, list_dialog};
 use crate::settings::Live;
@@ -107,6 +109,9 @@ pub(crate) struct AnnotateState {
     /// The stamp the Stamp command places, and the reader's library of stamps (A.20).
     stamp: Signal<stamps::Choice>,
     stamps: Signal<Vec<excellent_features::annotate::stamps::Item>>,
+    /// The pen ink draws with (H.2).
+    // shortcut: one per pane and forgotten on quitting; H.7's favourites keep the reader's pens.
+    pen: Signal<PenKind>,
 }
 
 impl AnnotateState {
@@ -126,6 +131,7 @@ impl AnnotateState {
             listing: list::Listing::new(),
             stamp: signal(stamps::Choice::default()),
             stamps: signal(Vec::new()),
+            pen: signal(PenKind::default()),
         }
     }
 
@@ -237,6 +243,21 @@ impl AnnotateState {
             Some(Placing::Shape(kind)) => JsonValue::from(kind.to_string()),
             _ => JsonValue::Null,
         }
+    }
+
+    /// Draws ink with `kind` from now on (H.2).
+    pub(crate) fn choose_pen(self, kind: PenKind) {
+        self.pen.set(kind);
+    }
+
+    /// The canvas's `pen` prop, `{kind, size}` (H.2).
+    pub(crate) fn pen_prop(self) -> JsonValue {
+        serde_json::json!({ "kind": self.pen.get().to_string(), "size": DEFAULT_SIZE })
+    }
+
+    /// Whether `id` is the tool now chosen, so its toolbar button shows pressed (H.2: the pen).
+    pub(crate) fn is_on(self, id: CommandId) -> bool {
+        matches!(id, CommandId::Pen(kind) if kind == self.pen.get())
     }
 
     /// The regular-polygon tool, with as many sides as the settings say (A.10).

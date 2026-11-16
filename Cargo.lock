@@ -749,6 +749,7 @@ dependencies = [
  "excellent-canvas-win",
  "excellent-core",
  "excellent-features",
+ "excellent-ink",
  "excellent-mupdf",
  "excellent-platform",
  "excellent-store",

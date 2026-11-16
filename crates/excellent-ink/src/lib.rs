@@ -2,9 +2,11 @@
 //!
 //! See plan §5.4 and §8. H.1's pipeline: [`sample`]s as the hardware gives them, a [`width`] from pressure, tilt and
 //! speed, [`predict`]ion for the preview, [`smooth`]ing to Béziers, the finished [`stroke`], and recorded
-//! [`session`]s that tests replay.
+//! [`session`]s that tests replay. H.2: the [`pens`], and a [`raster`]izer the golden-image tests draw them with.
 
+pub mod pens;
 pub mod predict;
+pub mod raster;
 pub mod sample;
 pub mod session;
 pub mod smooth;

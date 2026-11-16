@@ -19,11 +19,11 @@ use excellent_core::formats;
 use excellent_core::render::{Job, Note, Priority, Recolor};
 use excellent_core::shared::{pool, registry};
 use excellent_core::transform::Transform;
+use excellent_ink::pens::Pen;
 use excellent_ink::predict::predict;
 use excellent_ink::sample::{Sample, Tilt, Tool};
 use excellent_ink::session::Session;
 use excellent_ink::stroke::Stroke;
-use excellent_ink::width::WidthCurve;
 use excellent_mupdf::{
     DeviceRect, DisplayList, Link, PageBox, PagePoint, PageRect, Pixmap, Reflow, Target, TextLayout,
 };
@@ -61,7 +61,7 @@ const SIDE_STEP: f32 = 0.1;
 /// How much of a screen "screen down" moves; the rest stays on screen to keep the reader's place.
 const SCREEN_STEP: f32 = 0.9;
 /// Ink colour.
-// shortcut: one pen in one colour until H.2's pen types and the toolbar's colour picker.
+// shortcut: one colour for every pen until H.7's favourites give the toolbar a colour picker.
 const INK: u32 = 0x1a3d8f;
 /// How far ahead of the pen the preview draws (plan §8.2, step 3), in milliseconds: about one frame at 60 Hz.
 const PREDICT_MS: f64 = 16.0;
@@ -69,9 +69,8 @@ const PREDICT_MS: f64 = 16.0;
 const PREDICT_MAX_PX: f32 = 24.0;
 /// How many of the newest samples prediction looks at.
 const RECENT_SAMPLES: usize = 8;
-/// How much a finished stroke is steadied before it is saved (0 none, towards 1 heavy), and how closely its curve is
-/// followed, in page points (plan §8.2, step 4).
-const STEADINESS: f32 = 0.2;
+/// How closely a finished stroke's curve is followed, in page points (plan §8.2, step 4); the pen says how much it is
+/// steadied.
 const SMOOTH_TOLERANCE: f32 = 0.1;
 /// Set to a folder to record every finished stroke there as a pen session file (plan §16): sessions recorded on a
 /// real device become the replay tests' fixtures.
@@ -182,6 +181,8 @@ pub struct PageCanvas<H: Host> {
     ink: Vec<PageStroke>,
     /// The stroke the pen is drawing.
     pen: Option<PenStroke>,
+    /// The pen the next stroke draws with (H.2).
+    ink_pen: Pen,
     /// Tokens of the points handed to the host's ink trail that it still draws, oldest first.
     trail: Vec<u32>,
     /// The page last reported as the reader's.
@@ -259,6 +260,8 @@ struct PenStroke {
     id: u32,
     page: usize,
     stroke: Stroke,
+    /// The pen it draws with, as chosen when it started.
+    with: Pen,
     latency: Latency,
     /// When it started, to time samples the platform doesn't.
     started: std::time::Instant,
@@ -308,6 +311,7 @@ impl<H: Host> PageCanvas<H> {
             tiles: TileCache::new(TILE_BUDGET),
             ink: Vec::new(),
             pen: None,
+            ink_pen: Pen::default(),
             trail: Vec::new(),
             reported_page: None,
             reported_view: None,
@@ -1123,6 +1127,7 @@ impl<H: Host> PageCanvas<H> {
             id: sample.id,
             page,
             stroke: Stroke::new(),
+            with: self.ink_pen,
             latency: Latency::default(),
             started: std::time::Instant::now(),
             recent: Vec::with_capacity(RECENT_SAMPLES + 1),
@@ -1147,7 +1152,6 @@ impl<H: Host> PageCanvas<H> {
         let Some(pen) = &mut self.pen else {
             return;
         };
-        let curve = WidthCurve::default();
         let scale = self.viewport.scale();
         let mut on_screen = Vec::with_capacity(samples.len());
         let mut newest = None;
@@ -1166,7 +1170,7 @@ impl<H: Host> PageCanvas<H> {
                 time,
                 tool: Tool::Pen,
             };
-            pen.stroke.push_sample(ink, &curve);
+            pen.with.push(&mut pen.stroke, ink);
             let width = pen.stroke.points().last().map_or(0.0, |point| point.width);
             on_screen.push((sx, sy, width * scale));
             pen.recent.push(Sample {
@@ -1216,7 +1220,7 @@ impl<H: Host> PageCanvas<H> {
             );
         }
         if !pen.stroke.is_empty() {
-            self.commit_ink(pen.page, &pen.stroke);
+            self.commit_ink(&pen);
             // Shown until the annotation it becomes is drawn with its page.
             self.ink.push(PageStroke {
                 page: pen.page,
@@ -1226,12 +1230,15 @@ impl<H: Host> PageCanvas<H> {
         self.invalidate();
     }
 
-    /// Sends the app the finished `stroke` on page `page` (`ink`: `{page, points: [[x, y, width]], color}`, its
-    /// smoothed points in page points), to commit as one step of undo (plan §8.2, step 6), and records it when
-    /// asked to.
-    fn commit_ink(&self, page: usize, stroke: &Stroke) {
-        let points: Vec<[f32; 3]> = stroke
-            .smoothed(STEADINESS, SMOOTH_TOLERANCE)
+    /// Sends the app the finished stroke (`ink`: `{page, points: [[x, y, width]], color, opacity}`, its points
+    /// smoothed as its pen does, in page points), to commit as one step of undo (plan §8.2, step 6), and records it
+    /// when asked to.
+    fn commit_ink(&self, pen: &PenStroke) {
+        let PenStroke {
+            page, stroke, with, ..
+        } = pen;
+        let points: Vec<[f32; 3]> = with
+            .finish(stroke, SMOOTH_TOLERANCE)
             .iter()
             .map(|point| [point.x, point.y, point.width])
             .collect();
@@ -1242,11 +1249,17 @@ impl<H: Host> PageCanvas<H> {
                 "page": page,
                 "points": points,
                 "color": [channel(16), channel(8), channel(0)],
+                "opacity": with.opacity,
             }),
         );
         if let Some(dir) = std::env::var_os(RECORD_INK) {
             record_ink(std::path::PathBuf::from(dir), stroke.samples().to_vec());
         }
+    }
+
+    /// The pen the next stroke draws with (H.2); a stroke under way keeps its own.
+    pub fn set_pen(&mut self, pen: Pen) {
+        self.ink_pen = pen;
     }
 
     /// Whether pointer `id` is drawing a stroke.

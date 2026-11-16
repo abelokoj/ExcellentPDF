@@ -3542,6 +3542,11 @@ annotation takes the stroke's mean width until H.9; the session fixture is synth
 
 **Done when:** each pen has a recorded-session golden image test.
 
+*Built (2026-11-16):* `excellent-ink::pens` (the six presets and the calligraphy nib) and `excellent-ink::raster`
+(the golden-image rasterizer); `ink.pen_*` commands on the Write toolbar (keys 1 to 6) set the canvas's `pen` prop.
+Enhanced has no pen-type code to port. Texture and blend reach the saved appearance with H.9; the pen is per pane
+until H.7 (DD25).
+
 #### Ph3: 40/49 | H.3: Highlighter pen
 **P0; Phase 3; Needs:** H.2; **Code:** as H.2
 1. Wide translucent stroke with blend mode Multiply in the appearance stream; optional snap to text lines (K.13).

@@ -445,3 +445,18 @@ session needs the maintainer's pen and device.
 
 **What it means:** until H.9, a pressure stroke saves as an even line; record a session with
 `EXCELLENTPDF_RECORD_INK=<folder>` and add it to `crates/excellent-ink/tests/sessions`.
+
+## DD25. H.2's pens are per pane and drawn plain until H.9 (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** H.2 builds the six pens as presets in `excellent-ink::pens` and nothing from Enhanced, which has
+no pen types or nib behaviour (its `Canvas_UnitTest*` tests cover the laser pointer and tool switching). The chosen
+pen lives in each pane's annotation state, is not saved across runs, and has one size (2.4 pt) and one colour. A
+pen's texture (pencil grain) and blend show in the golden images (`excellent-ink::raster`) only; the saved ink
+annotation and the live preview draw a plain line in the pen's widths, with the pen's opacity on the annotation.
+
+**Why:** H.7 (favourites) owns pen sizes, colours and remembering them; H.9 owns the appearance stream where texture
+and blend belong. The golden images test the presets themselves, so they stay valid when H.9 draws them.
+
+**What it means:** until H.9, a pencil saves as a slightly translucent plain line; until H.7, every pane starts with
+the fountain pen.
+

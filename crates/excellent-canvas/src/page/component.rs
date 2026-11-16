@@ -12,6 +12,7 @@ use excellent_features::read::autoscroll::Change;
 use excellent_features::read::focus::Scope;
 use excellent_features::read::ruler::{Step, Style};
 use excellent_features::search::find::{Case, Direction, HitId, Marks, Options, Words};
+use excellent_ink::pens::{DEFAULT_SIZE, Pen, PenKind};
 use excellent_mupdf::PagePoint;
 use nsh_core::JsonValue;
 
@@ -57,6 +58,7 @@ impl<H: Host> PageCanvas<H> {
                 self.set_annotation_colors(value.map(Colors::from_json).unwrap_or_default())
             }
             "drawing" => self.set_drawing(text.and_then(Kind::parse)),
+            "pen" => self.set_pen(value.map_or_else(Pen::default, pen)),
             "margin" => self.set_margin(value.and_then(JsonValue::as_bool).unwrap_or(false)),
             "selected" => self.set_selected(value),
             "bookmarks" => self.set_bookmarks(value.map(bookmarks).unwrap_or_default()),
@@ -303,6 +305,18 @@ fn bookmarks(value: &JsonValue) -> Vec<(usize, PagePoint, u32)> {
 fn parse_rgb(text: &str) -> Option<u32> {
     let hex = text.strip_prefix('#').filter(|hex| hex.len() == 6)?;
     u32::from_str_radix(hex, 16).ok()
+}
+
+/// The `pen` prop, `{kind, size}` (H.2): the kind by name, the size in points; what is missing or unknown comes as
+/// the default pen has it.
+fn pen(value: &JsonValue) -> Pen {
+    let kind = value
+        .get("kind")
+        .and_then(JsonValue::as_str)
+        .and_then(PenKind::parse)
+        .unwrap_or_default();
+    let size = value.get("size").and_then(JsonValue::as_f64);
+    kind.pen(size.map_or(DEFAULT_SIZE, |size| size as f32))
 }
 
 #[cfg(test)]
