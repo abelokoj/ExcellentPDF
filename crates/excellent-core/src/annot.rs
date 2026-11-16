@@ -722,6 +722,25 @@ pub fn page_replies(document: &Document, page: usize) -> excellent_mupdf::Result
     Ok(found)
 }
 
+/// The annotations of the FDF file `bytes`, as they would read on `target`'s pages (A.24), replies among them; those
+/// for pages `target` lacks, and kinds the model doesn't keep, are left out.
+///
+/// # Errors
+///
+/// `bytes` isn't an FDF file, `target` isn't a PDF, or MuPDF can't read them.
+pub fn fdf_annotations(
+    target: &Document,
+    bytes: &[u8],
+) -> excellent_mupdf::Result<Vec<Annotation>> {
+    let fdf = Document::from_bytes(bytes, "application/pdf")?;
+    let holder = target.with_fdf_annotations(&fdf)?;
+    let mut found = Vec::new();
+    for page in 0..holder.page_count()? {
+        found.extend(read_page(&holder, page)?);
+    }
+    Ok(found)
+}
+
 /// Every annotation the model keeps on page `page`, replies and all.
 fn read_page(document: &Document, page: usize) -> excellent_mupdf::Result<Vec<Annotation>> {
     let loaded = document.load_page(page)?;

@@ -1155,6 +1155,32 @@ unsafe extern "C" {
     ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn ex_page_transform(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        number: ::core::ffi::c_int,
+        out: *mut fz_matrix,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_fdf_write(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        out: *mut *mut fz_buffer,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_fdf_read(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        fdf: *mut fz_document,
+        out: *mut *mut fz_document,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn ex_save_pdf(
         ctx: *mut fz_context,
         doc: *mut fz_document,

@@ -79,6 +79,11 @@ impl Document {
     }
 
     /// The MuPDF document, for this crate's other modules.
+    /// Takes ownership of a document the shim made.
+    pub(crate) fn from_raw(raw: NonNull<fz_document>) -> Self {
+        Self { raw }
+    }
+
     pub(crate) fn raw(&self) -> NonNull<fz_document> {
         self.raw
     }

@@ -422,6 +422,19 @@ int ex_layers(fz_context *ctx, fz_document *doc, fz_buffer **out, ex_error *err)
  * (/D /ON, /OFF, /Locked), which is what other readers open with. Fails with FZ_ERROR_ARGUMENT when the document has
  * no layer of that name. */
 int ex_layer_set(fz_context *ctx, fz_document *doc, const char *name, int visible, int locked, ex_error *err);
+/* Page `number`'s map from PDF space (the file's coordinates: points, y up) to page space, as MuPDF reads
+ * annotations (A.24's XFDF writes PDF space). PDF only. */
+int ex_page_transform(fz_context *ctx, fz_document *doc, int number, fz_matrix *out, ex_error *err);
+
+/* The PDF's annotations as an FDF file (A.24), each with its /Page: all but links, popups and form fields, replies
+ * pointing at their parents' copies. */
+int ex_fdf_write(fz_context *ctx, fz_document *doc, fz_buffer **out, ex_error *err);
+
+/* A new PDF with `doc`'s page count and page boxes and no content, holding the annotations of the FDF file opened as
+ * `fdf`, each on its /Page: so they read as the document's would (A.24). Annotations for pages it lacks are left
+ * out. */
+int ex_fdf_read(fz_context *ctx, fz_document *doc, fz_document *fdf, fz_document **out, ex_error *err);
+
 /* Buffers: `*data` points into the buffer and is valid until it is dropped. */
 /* A.20: the stamp of page `page` whose /NM is `id` drawn as the `len` bytes of `art`: with `kind` 0 the first page
  * of a PDF (its appearance, kept by MuPDF because the stamp's name is not a standard one), with 1 an image

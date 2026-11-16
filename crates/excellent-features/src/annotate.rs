@@ -18,3 +18,4 @@ pub mod sticky;
 pub mod tags;
 pub mod threads;
 pub mod transfer;
+pub mod xfdf;

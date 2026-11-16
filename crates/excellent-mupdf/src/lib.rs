@@ -23,6 +23,7 @@ mod display_list;
 mod document;
 mod edit;
 mod error;
+mod exchange;
 mod fonts;
 mod geometry;
 mod html;

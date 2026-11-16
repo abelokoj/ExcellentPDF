@@ -2319,3 +2319,204 @@ int ex_save_pdf(fz_context *ctx, fz_document *doc, const char *path, int *increm
 		return ex_fail(ctx, err);
 	return 0;
 }
+
+/* ---- Exchange (A.24): page space for XFDF, and FDF files read and written through MuPDF ---- */
+
+int ex_page_transform(fz_context *ctx, fz_document *doc, int number, fz_matrix *out, ex_error *err)
+{
+	fz_matrix ctm = fz_identity;
+	fz_try(ctx)
+	{
+		pdf_document *pdf = ex_pdf(ctx, doc);
+		pdf_page_obj_transform(ctx, pdf_lookup_page_obj(ctx, pdf, number), NULL, &ctm);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	*out = ctm;
+	return 0;
+}
+
+/* Whether an annotation dictionary travels in an FDF: not a link, a popup (its parent brings its own) or a field. */
+static int ex_fdf_kind(fz_context *ctx, pdf_obj *annot)
+{
+	pdf_obj *subtype = pdf_dict_get(ctx, annot, PDF_NAME(Subtype));
+	return pdf_is_name(ctx, subtype) && !pdf_name_eq(ctx, subtype, PDF_NAME(Link)) &&
+		!pdf_name_eq(ctx, subtype, PDF_NAME(Popup)) && !pdf_name_eq(ctx, subtype, PDF_NAME(Widget));
+}
+
+int ex_fdf_write(fz_context *ctx, fz_document *doc, fz_buffer **out, ex_error *err)
+{
+	pdf_document *fdf = NULL;
+	pdf_graft_map *map = NULL;
+	fz_buffer *buf = NULL;
+	fz_output *output = NULL;
+	int *from = NULL, *irt = NULL;
+	pdf_obj *copy = NULL, *moved = NULL;
+	fz_var(fdf);
+	fz_var(map);
+	fz_var(buf);
+	fz_var(output);
+	fz_var(from);
+	fz_var(irt);
+	fz_var(copy);
+	fz_var(moved);
+	fz_try(ctx)
+	{
+		pdf_document *pdf = ex_pdf(ctx, doc);
+		int pages = pdf_count_pages(ctx, pdf), count = 0, cap = 0, i, k, j;
+		fdf = pdf_create_document(ctx);
+		map = pdf_new_graft_map(ctx, fdf);
+		pdf_obj *root = pdf_dict_get(ctx, pdf_trailer(ctx, fdf), PDF_NAME(Root));
+		/* MuPDF has no name constant for /FDF. */
+		pdf_obj *body = pdf_new_dict(ctx, fdf, 2);
+		pdf_dict_puts_drop(ctx, root, "FDF", body);
+		pdf_obj *annots = pdf_dict_put_array(ctx, body, PDF_NAME(Annots), 8);
+		for (i = 0; i < pages; i++)
+		{
+			pdf_obj *list = pdf_dict_get(ctx, pdf_lookup_page_obj(ctx, pdf, i), PDF_NAME(Annots));
+			int n = pdf_array_len(ctx, list);
+			for (k = 0; k < n; k++)
+			{
+				pdf_obj *annot = pdf_array_get(ctx, list, k);
+				if (!ex_fdf_kind(ctx, annot))
+					continue;
+				/* A copy without what ties it to this file's pages (/P, its popup), or to another annotation
+				 * (/IRT, put back below), so grafting doesn't pull the page tree in. */
+				copy = pdf_copy_dict(ctx, annot);
+				pdf_dict_del(ctx, copy, PDF_NAME(P));
+				pdf_dict_del(ctx, copy, PDF_NAME(Popup));
+				pdf_dict_del(ctx, copy, PDF_NAME(IRT));
+				pdf_dict_del(ctx, copy, PDF_NAME(Parent));
+				moved = pdf_graft_mapped_object(ctx, map, copy);
+				pdf_drop_obj(ctx, copy);
+				copy = NULL;
+				pdf_dict_put_int(ctx, moved, PDF_NAME(Page), i);
+				pdf_array_push_drop(ctx, annots, pdf_add_object(ctx, fdf, moved));
+				pdf_drop_obj(ctx, moved);
+				moved = NULL;
+				if (count == cap)
+				{
+					cap = cap ? cap * 2 : 32;
+					from = fz_realloc_array(ctx, from, cap, int);
+					irt = fz_realloc_array(ctx, irt, cap, int);
+				}
+				from[count] = pdf_to_num(ctx, annot);
+				irt[count] = pdf_to_num(ctx, pdf_dict_get(ctx, annot, PDF_NAME(IRT)));
+				count++;
+			}
+		}
+		/* Each reply's /IRT names its parent's copy. */
+		for (i = 0; i < count; i++)
+			for (j = 0; irt[i] && j < count; j++)
+				if (from[j] == irt[i])
+				{
+					pdf_dict_put(ctx, pdf_array_get(ctx, annots, i), PDF_NAME(IRT), pdf_array_get(ctx, annots, j));
+					break;
+				}
+		buf = fz_new_buffer(ctx, 4096);
+		output = fz_new_output_with_buffer(ctx, buf);
+		pdf_write_options opts = pdf_default_write_options;
+		pdf_write_document(ctx, fdf, output, &opts);
+		fz_close_output(ctx, output);
+		/* An FDF is a PDF file with its own header (ISO 32000-1, 12.7.8). */
+		if (buf->len >= 5 && memcmp(buf->data, "%PDF-", 5) == 0)
+			memcpy(buf->data, "%FDF-", 5);
+		*out = buf;
+		buf = NULL;
+	}
+	fz_always(ctx)
+	{
+		pdf_drop_obj(ctx, copy);
+		pdf_drop_obj(ctx, moved);
+		fz_drop_output(ctx, output);
+		fz_drop_buffer(ctx, buf);
+		fz_free(ctx, from);
+		fz_free(ctx, irt);
+		pdf_drop_graft_map(ctx, map);
+		pdf_drop_document(ctx, fdf);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_fdf_read(fz_context *ctx, fz_document *doc, fz_document *fdf_doc, fz_document **out, ex_error *err)
+{
+	pdf_document *scratch = NULL;
+	pdf_graft_map *map = NULL;
+	pdf_obj *page = NULL, *moved = NULL;
+	fz_var(scratch);
+	fz_var(map);
+	fz_var(page);
+	fz_var(moved);
+	fz_try(ctx)
+	{
+		pdf_document *pdf = ex_pdf(ctx, doc);
+		pdf_document *fdf = pdf_specifics(ctx, fdf_doc);
+		if (!fdf)
+			fz_throw(ctx, FZ_ERROR_FORMAT, "not an FDF file");
+		pdf_obj *annots = pdf_dict_getp(ctx, pdf_trailer(ctx, fdf), "Root/FDF/Annots");
+		int pages = pdf_count_pages(ctx, pdf), i, k, n = pdf_array_len(ctx, annots);
+		scratch = pdf_create_document(ctx);
+		/* Blank pages shaped like the document's, so the annotations read in its page space. */
+		for (i = 0; i < pages; i++)
+		{
+			pdf_obj *from = pdf_lookup_page_obj(ctx, pdf, i);
+			fz_rect media = pdf_to_rect(ctx, pdf_dict_get_inheritable(ctx, from, PDF_NAME(MediaBox)));
+			int rotate = pdf_to_int(ctx, pdf_dict_get_inheritable(ctx, from, PDF_NAME(Rotate)));
+			page = pdf_add_page(ctx, scratch, media, rotate, NULL, NULL);
+			pdf_obj *crop = pdf_dict_get_inheritable(ctx, from, PDF_NAME(CropBox));
+			if (pdf_is_array(ctx, crop))
+				pdf_dict_put_rect(ctx, page, PDF_NAME(CropBox), pdf_to_rect(ctx, crop));
+			pdf_obj *unit = pdf_dict_get(ctx, from, PDF_NAME(UserUnit));
+			if (pdf_is_number(ctx, unit))
+				pdf_dict_put_real(ctx, page, PDF_NAME(UserUnit), pdf_to_real(ctx, unit));
+			pdf_insert_page(ctx, scratch, -1, page);
+			pdf_drop_obj(ctx, page);
+			page = NULL;
+		}
+		map = pdf_new_graft_map(ctx, scratch);
+		for (k = 0; k < n; k++)
+		{
+			pdf_obj *annot = pdf_array_get(ctx, annots, k);
+			int at = pdf_dict_get_int(ctx, annot, PDF_NAME(Page));
+			if (at < 0 || at >= pages || !ex_fdf_kind(ctx, annot))
+				continue;
+			/* Mapped, so a reply's /IRT and its parent come over as one object. */
+			moved = pdf_graft_mapped_object(ctx, map, annot);
+			if (!pdf_is_indirect(ctx, moved))
+			{
+				pdf_obj *direct = moved;
+				moved = NULL;
+				fz_try(ctx)
+					moved = pdf_add_object(ctx, scratch, direct);
+				fz_always(ctx)
+					pdf_drop_obj(ctx, direct);
+				fz_catch(ctx)
+					fz_rethrow(ctx);
+			}
+			pdf_obj *target = pdf_lookup_page_obj(ctx, scratch, at);
+			pdf_dict_del(ctx, moved, PDF_NAME(Page));
+			pdf_dict_del(ctx, moved, PDF_NAME(Popup));
+			pdf_dict_put(ctx, moved, PDF_NAME(P), target);
+			pdf_obj *list = pdf_dict_get(ctx, target, PDF_NAME(Annots));
+			if (!pdf_is_array(ctx, list))
+				list = pdf_dict_put_array(ctx, target, PDF_NAME(Annots), 4);
+			pdf_array_push(ctx, list, moved);
+			pdf_drop_obj(ctx, moved);
+			moved = NULL;
+		}
+		*out = (fz_document *)scratch;
+		scratch = NULL;
+	}
+	fz_always(ctx)
+	{
+		pdf_drop_obj(ctx, page);
+		pdf_drop_obj(ctx, moved);
+		pdf_drop_graft_map(ctx, map);
+		pdf_drop_document(ctx, scratch);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}

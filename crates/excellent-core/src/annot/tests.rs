@@ -1359,3 +1359,65 @@ fn a_hidden_layer_hides_its_annotations_here_and_in_the_file() {
     assert!(pixels(&doc) != blank, "off the layer, it is drawn");
     assert_eq!(doc.layers().expect("layers").len(), 1, "the layer stays");
 }
+
+/// A.24: annotations written as FDF read back on a copy of the document with their ids, pages, kinds and threads.
+#[test]
+fn annotations_go_out_and_back_as_fdf() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let mut square = Annotation::new(
+        1,
+        Shape::Boxed(
+            Boxed::Square,
+            PageRect {
+                x0: 50.0,
+                y0: 60.0,
+                x1: 150.0,
+                y1: 120.0,
+            },
+        ),
+        Style::default(),
+        "Ada",
+    );
+    square.contents = "Look here".into();
+    let mut reply = Annotation::new(
+        1,
+        Shape::Boxed(
+            Boxed::Note,
+            PageRect {
+                x0: 50.0,
+                y0: 60.0,
+                x1: 70.0,
+                y1: 80.0,
+            },
+        ),
+        Style::default(),
+        "Grace",
+    );
+    reply.reply_to = Some(square.id.clone());
+    reply.contents = "Agreed".into();
+    Operation::new(
+        "Square",
+        vec![
+            Change::CreateAnnotation(square.clone()),
+            Change::CreateAnnotation(reply.clone()),
+        ],
+    )
+    .apply(&mut doc)
+    .expect("apply");
+    let fdf = doc.to_fdf().expect("write FDF");
+    assert!(fdf.starts_with(b"%FDF-"), "an FDF header");
+
+    let fresh = Document::open_pdf(corpus()).expect("open a fresh copy");
+    let read = fdf_annotations(&fresh, &fdf).expect("read FDF");
+    let came = read.iter().find(|a| a.id == square.id).expect("the square");
+    assert_eq!((came.page, &came.shape), (1, &square.shape));
+    assert_eq!(came.contents, "Look here");
+    assert_eq!(came.author, "Ada");
+    let answer = read.iter().find(|a| a.id == reply.id).expect("the reply");
+    assert_eq!(
+        answer.reply_to.as_deref(),
+        Some(square.id.as_str()),
+        "the thread is kept"
+    );
+    assert!(fdf_annotations(&fresh, b"not an fdf file").is_err());
+}

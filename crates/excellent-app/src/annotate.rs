@@ -10,6 +10,7 @@
 //! `annotate::freetext` and `annotate::shapes`.
 
 pub(crate) mod colors;
+mod exchange;
 mod inspector;
 mod layers;
 mod list;

@@ -71,6 +71,10 @@ pub(crate) enum CommandId {
     AnnotationList,
     /// Adds another version's annotations to the shown document (A.16).
     TransferAnnotations,
+    /// Writes the shown PDF's annotations to an XFDF or FDF file (A.24).
+    ExportAnnotations,
+    /// Merges an XFDF or FDF file's annotations into the shown PDF (A.24).
+    ImportAnnotations,
     /// Shows the document's layers, at the top of the annotation list (A.22).
     Layers,
     /// Puts every annotation on no layer on its author's (A.22).
@@ -158,6 +162,8 @@ impl CommandId {
                     | Self::Cloud
                     | Self::CutAnnotations
                     | Self::TransferAnnotations
+                    | Self::ExportAnnotations
+                    | Self::ImportAnnotations
                     | Self::LayersByAuthor
                     | Self::PasteAnnotations
                     | Self::DeleteAnnotations
@@ -648,6 +654,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+v"],
+    },
+    Command {
+        id: CommandId::ExportAnnotations,
+        name: "annotate.export",
+        label: "command.export_annotations",
+        group: "command.group.annotate",
+        keys: &["mod+alt+e"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ImportAnnotations,
+        name: "annotate.import",
+        label: "command.import_annotations",
+        group: "command.group.annotate",
+        keys: &["mod+alt+i"],
+        page_keys: &[],
     },
     Command {
         id: CommandId::AnnotationList,

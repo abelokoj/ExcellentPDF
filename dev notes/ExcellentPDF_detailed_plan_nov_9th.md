@@ -3468,6 +3468,12 @@ the inspector has a Layer row (DD20).
 **Done when:** XFDF exported here imports into Acrobat and back without loss.
 **Links:** XFDF is ISO 19444-1; quick-xml <https://github.com/tafia/quick-xml>
 
+*Built (2026-11-16):* `annotate::xfdf` (`write`, `read`, `merge`, `PageSpace`) over `AnnotData`, written fresh with
+`quick-xml` 0.37 rather than from PdfCraft; FDF through the shim (`ex_fdf_write` grafts the annotations into an FDF
+body with `/Page`; `ex_fdf_read` grafts an FDF's onto a blank copy of the pages, read as the document's own are), and
+`ex_page_transform` for PDF space. The app's `annotate::exchange` adds Export (Ctrl+Alt+E) and Import (Ctrl+Alt+I),
+one undo step per import (DD21).
+
 #### Ph3: 37/49 | A.25: Flatten on export
 **P1; Phase 3; Needs:** K.15; **Code:** `excellent-features/annotate/flatten.rs`
 1. "Export flattened copy": save a copy, then `pdf_bake_document(ctx, doc, bake_annots = 1, bake_widgets = 0 or 1)`;

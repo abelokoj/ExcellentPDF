@@ -138,7 +138,7 @@ impl Settings {
     /// to stop the user.
     pub(crate) fn save(&mut self) {
         let Some(path) = &self.path else { return };
-        match write_atomically(path, &self.table.to_string()) {
+        match write_atomically(path, self.table.to_string()) {
             Ok(()) => self.modified = modified_time(path),
             Err(err) => log::warn!("settings: can't write {}: {err}", path.display()),
         }
@@ -228,13 +228,14 @@ fn modified_time(path: &Path) -> Option<SystemTime> {
     fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
-/// Writes `text` to a temporary file beside `path`, then renames it over `path`, so a crash never leaves half a file.
-pub(crate) fn write_atomically(path: &Path, text: &str) -> io::Result<()> {
+/// Writes `contents` to a temporary file beside `path`, then renames it over `path`, so a crash never leaves half a
+/// file.
+pub(crate) fn write_atomically(path: &Path, contents: impl AsRef<[u8]>) -> io::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
     let temporary = path.with_extension("toml.tmp");
-    fs::write(&temporary, text)?;
+    fs::write(&temporary, contents)?;
     fs::rename(&temporary, path)
 }
 

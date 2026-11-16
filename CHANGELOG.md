@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 10:39; Ph3: 36/49 | A.24: XFDF and FDF import and export
+
+- Annotations can be exported as XFDF or FDF (Ctrl+Alt+E, the Annotate toolbar's Export, or the palette), the files
+  Acrobat and other PDF tools import.
+- Importing an XFDF or FDF file (Ctrl+Alt+I) merges it by annotation id: annotations already here are updated, new
+  ones added, locked ones left alone. The whole import is one step of undo, and a summary says what changed.
+- Replies, statuses, groups, colours, borders, fills, clouds, line ends, text boxes and callouts all travel; tags,
+  categories and layers ride along in attributes other tools ignore.
+
 ### 2026-11-16 09:59; Ph3: 35/49 | A.22: Annotation layers by person or purpose
 
 - Annotations can be put on layers, the PDF's optional content groups that Acrobat lists in its Layers panel. The

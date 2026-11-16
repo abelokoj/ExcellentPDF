@@ -381,3 +381,25 @@ crowd the sidebar. Sorting by author is rare, so a shortcut isn't worth a key.
 - A layer can't be renamed or deleted yet; one with nothing on it stays in the file.
 - AGENTS.md's three ways to an action are met for Layers but not for "One per author" (toolbar button and palette
   only).
+
+## DD21. XFDF: our own attributes for app-only data, import updates by id and skips locked ones (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.24's XFDF is written from scratch with `quick-xml`, not ported from PdfCraft. What only this
+app keeps (tags, anchor, category, layer) is written in attributes of our own namespace (`xpdf:data`, `xpdf:layer`).
+Import updates an annotation with the same id in place (or deletes and recreates it when the file puts it on another
+page), adds new ids, and leaves out annotations locked here and those on pages the document lacks; the summary
+counts them. Annotations already the same are left untouched, so a re-import adds no undo noise. A sticky note's open
+state and a custom stamp's art are not written to XFDF. Export and import have toolbar buttons, shortcuts and palette
+commands.
+
+**Why:** XFDF's schema has no place for these app-only fields, and namespaced attributes are what the format allows
+for extensions; other readers ignore them. A locked annotation (A.12) is one the reader asked not to be changed, so an
+import shouldn't change it either. The open state is a viewing preference, and stamp art needs an appearance stream,
+which XFDF carries only as Acrobat's own base64 blob; FDF keeps both, so it is the format to pick for a full copy.
+
+**What it means:**
+
+- Acrobat keeps unknown attributes only while it doesn't edit the annotation; an XFDF that went through it may lose
+  tags and layers.
+- A reader who wants to replace a locked annotation must unlock it first.
+- Not checked in Acrobat: the Done-when stays open until someone with Acrobat tries it.
