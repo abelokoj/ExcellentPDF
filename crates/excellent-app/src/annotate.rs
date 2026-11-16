@@ -2,17 +2,21 @@
 //! document, and its `textEdit` event (A.2) into a proposed replacement or insertion, once the reader types the text
 //! in a small dialog. Every tool's colour and opacity (A.3) are the settings' and the colour dialog's: `colors`. A
 //! click on a markup (`pagePress`), or a markup made with the note tool, opens its note in the inspector (A.4):
-//! `note`. The sticky-note command waits for a click on the page and puts a sticky note there, its note open (A.5). The models are `excellent-features`' `annotate::markup`, `annotate::replace`, `annotate::colors` and
-//! `annotate::notes`.
+//! `note`. The sticky-note, text-box and typewriter commands wait for a click on the page and put a sticky note (A.5)
+//! or a text box (A.6) there, its note or text open in the inspector. The models are `excellent-features`'
+//! `annotate::markup`, `annotate::replace`, `annotate::colors`, `annotate::notes`, `annotate::sticky` and
+//! `annotate::freetext`.
 
 pub(crate) mod colors;
 mod note;
 
+pub(crate) use excellent_features::annotate::freetext::Kind;
 pub(crate) use note::note_panel;
 
-use excellent_core::annot::{Annotation, Markup, Style, page_annotations};
+use excellent_core::annot::{Annotation, Markup, Style, TextStyle, page_annotations};
 use excellent_core::edit::{Change, Operation};
 use excellent_features::annotate::colors::Tool as ColorTool;
+use excellent_features::annotate::freetext;
 use excellent_features::annotate::markup::{self, Marking};
 use excellent_features::annotate::notes::{self, Target};
 use excellent_features::annotate::replace::{self, Mode, Proposal};
@@ -26,6 +30,15 @@ use crate::editing::Editing;
 use crate::list_dialog::{card, list_dialog};
 use crate::settings::Live;
 use crate::tabs::{Tone, action_button};
+
+/// What the next click on the pages puts there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Placing {
+    /// A sticky note (A.5).
+    Sticky,
+    /// A text box or typewriter text (A.6).
+    Text(Kind),
+}
 
 /// A pane's annotating: its document's edits, the replacement or insertion waiting for its text, the tool whose
 /// colour is being chosen, and the note open in the inspector.
@@ -43,8 +56,8 @@ pub(crate) struct AnnotateState {
     draft: Signal<String>,
     /// Counts the notes opened, so the window shows the inspector for each one.
     reveals: Signal<u64>,
-    /// Whether the next click on the page places a sticky note (A.5).
-    placing: Signal<bool>,
+    /// What the next click on the page places (A.5, A.6), if anything.
+    placing: Signal<Option<Placing>>,
 }
 
 impl AnnotateState {
@@ -57,26 +70,27 @@ impl AnnotateState {
             noting: signal(None),
             draft: signal(String::new()),
             reveals: signal(0),
-            placing: signal(false),
+            placing: signal(None),
         }
     }
 
-    /// The sticky-note command (A.5): the next click on the pages places one; run again, it is called off.
-    pub(crate) fn place_sticky(self) {
+    /// The sticky-note, text-box and typewriter commands (A.5, A.6): the next click on the pages places `what`; run
+    /// again, it is called off.
+    pub(crate) fn place(self, what: Placing) {
         if !self.editing.can_edit() {
             return;
         }
-        let placing = !untracked(|| self.placing.get());
-        if placing {
+        let placing = (untracked(|| self.placing.get()) != Some(what)).then_some(what);
+        if placing.is_some() {
             self.close_note();
             self.reveals.update(|count| *count += 1);
         }
         self.placing.set(placing);
     }
 
-    /// Puts a sticky note where the click `data` (`pagePress`) landed, as one step of undo, and opens its note.
-    fn put_sticky(self, data: &JsonValue) {
-        self.placing.set(false);
+    /// Puts `what` where the click `data` (`pagePress`) landed, as one step of undo, and opens its note or text.
+    fn put(self, what: Placing, data: &JsonValue) {
+        self.placing.set(None);
         let Some((page, point)) = notes::parse_press(data) else {
             return;
         };
@@ -91,27 +105,52 @@ impl AnnotateState {
             match mupdf.load_page(page).and_then(|loaded| loaded.bounds()) {
                 Ok(bounds) => bounds,
                 Err(err) => {
-                    log::warn!("sticky note: cannot read page {page}'s size: {err}");
+                    log::warn!("annotate: cannot read page {page}'s size: {err}");
                     return;
                 }
             }
         };
-        let note = sticky::place(
-            page,
-            point,
-            bounds,
-            Icon::default(),
-            Style::default(),
-            &author(),
-        );
+        let (made, name) = match what {
+            Placing::Sticky => (
+                sticky::place(
+                    page,
+                    point,
+                    bounds,
+                    Icon::default(),
+                    Style::default(),
+                    &author(),
+                ),
+                t!("sticky.name"),
+            ),
+            Placing::Text(kind) => (
+                freetext::place(page, point, bounds, kind, TextStyle::default(), &author()),
+                text_name(kind),
+            ),
+        };
         let target = Target {
             page,
-            id: note.id.clone(),
+            id: made.id.clone(),
         };
-        let operation = Operation::new(t!("sticky.name"), vec![Change::CreateAnnotation(note)]);
+        let operation = Operation::new(name, vec![Change::CreateAnnotation(made)]);
         if self.editing.apply(&operation) {
             self.open_note(&target);
+            // A text box left empty when the reader is done is taken away again, as Acrobat does.
+            self.noting
+                .update(|noting| noting.iter_mut().for_each(|noting| noting.fresh = true));
         }
+    }
+
+    /// Deletes the open text box (A.6), as one step of undo, and closes it.
+    fn delete_text_box(self) {
+        if let Some(noting) = untracked(|| self.noting.get()) {
+            let change = Change::DeleteAnnotation {
+                page: noting.target.page,
+                id: noting.target.id.clone(),
+            };
+            self.editing
+                .apply(&Operation::new(t!("text.delete"), vec![change]));
+        }
+        self.noting.set(None);
     }
 
     /// Makes `change` of the open note's annotation, as it is now, one step of undo named `name`.
@@ -140,7 +179,8 @@ impl AnnotateState {
         self.reveals.update(|count| *count += 1);
     }
 
-    /// Saves the open note's text into its markup, as one step of undo, when it changed.
+    /// Saves the open note's text into its markup, or a text box's into the box, as one step of undo, when it
+    /// changed. A text box just placed and left empty is deleted.
     fn save_note(self) {
         let Some(noting) = untracked(|| self.noting.get()) else {
             return;
@@ -149,9 +189,20 @@ impl AnnotateState {
             // Undone, or the document changed: there is nothing to write it to.
             return;
         };
-        if let Some(change) = notes::write(&annotation, &untracked(|| self.draft.get())) {
-            self.editing
-                .apply(&Operation::new(t!("note.edit"), vec![change]));
+        let draft = untracked(|| self.draft.get());
+        let (name, change) = if !annotation.is_text_box() {
+            (t!("note.edit"), notes::write(&annotation, &draft))
+        } else if noting.fresh && notes::normalize(&draft).is_empty() {
+            let gone = Change::DeleteAnnotation {
+                page: annotation.page,
+                id: annotation.id.clone(),
+            };
+            (t!("text.delete"), Some(gone))
+        } else {
+            (t!("text.edit"), freetext::set_text(&annotation, &draft))
+        };
+        if let Some(change) = change {
+            self.editing.apply(&Operation::new(name, vec![change]));
         }
     }
 
@@ -181,11 +232,11 @@ impl AnnotateState {
             .find(|annotation| annotation.id == target.id)
     }
 
-    /// A plain click on the page (`pagePress`): a sticky note goes there when one is being placed; else the note of
-    /// the markup or sticky note under it opens.
+    /// A plain click on the page (`pagePress`): a sticky note or text box goes there when one is being placed; else
+    /// the note of the markup or sticky note under it, or the text box's text, opens.
     fn press(self, data: &JsonValue) {
-        if untracked(|| self.placing.get()) {
-            self.put_sticky(data);
+        if let Some(what) = untracked(|| self.placing.get()) {
+            self.put(what, data);
             return;
         }
         let Some((page, point)) = notes::parse_press(data) else {
@@ -411,6 +462,14 @@ fn form(
 }
 
 /// The edit's name, as undo shows it.
+/// A text box's name, or typewriter text's, for its heading and its undo step.
+fn text_name(kind: Kind) -> String {
+    t!(match kind {
+        Kind::Box => "text.box_name",
+        Kind::Typewriter => "text.typewriter_name",
+    })
+}
+
 fn name(kind: Markup) -> String {
     match kind {
         Markup::Highlight => t!("markup.highlight"),

@@ -85,6 +85,7 @@ fn shape() -> impl Strategy<Value = Shape> {
     let boxed = select(vec![
         Boxed::Note,
         Boxed::FreeText,
+        Boxed::Typewriter,
         Boxed::Square,
         Boxed::Circle,
         Boxed::Stamp,
@@ -129,6 +130,21 @@ fn text() -> impl Strategy<Value = String> {
         "第二章の注".to_owned(),
         "Line one\nline two".to_owned(),
     ])
+}
+
+fn text_style() -> impl Strategy<Value = TextStyle> {
+    (
+        select(Font::ALL.to_vec()),
+        select(vec![9.0, 12.0, 18.0]),
+        select(vec![[0.0; 3], [0.0, 0.25, 0.5], [1.0, 0.0, 0.0]]),
+        select(vec![Align::Left, Align::Center, Align::Right]),
+    )
+        .prop_map(|(font, size, color, align)| TextStyle {
+            font,
+            size,
+            color,
+            align,
+        })
 }
 
 fn tags() -> impl Strategy<Value = Vec<String>> {
@@ -179,11 +195,14 @@ fn annotation() -> impl Strategy<Value = Annotation> {
             .prop_map(str::to_owned),
             any::<bool>(),
         ),
+        text_style(),
     )
         .prop_map(
-            |(page, shape, style, author, created, contents, tags, anchor, (icon, open))| {
-                // Only a sticky note has an icon and its own open state here.
+            |(page, shape, style, author, created, contents, tags, anchor, (icon, open), text)| {
+                // Only a sticky note has an icon and its own open state here, and only a text box a text style.
                 let note = matches!(shape, Shape::Boxed(Boxed::Note, _));
+                let text_box =
+                    matches!(shape, Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _));
                 Annotation {
                     id: new_id(),
                     page,
@@ -198,6 +217,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     group: None,
                     icon: if note { icon } else { String::new() },
                     open: note && open,
+                    text: if text_box { text } else { TextStyle::default() },
                 }
             },
         )
@@ -313,7 +333,7 @@ fn sized(kind: Boxed, given: PageRect, drawn: PageRect) -> bool {
                 },
             )
         }
-        Boxed::FreeText | Boxed::Square | Boxed::Circle => same(drawn, given),
+        Boxed::FreeText | Boxed::Typewriter | Boxed::Square | Boxed::Circle => same(drawn, given),
     }
 }
 
@@ -383,6 +403,18 @@ fn annotation_changes_read_back_from_the_log_as_written() {
     note.icon = "Help".into();
     note.open = true;
     note.tags = vec!["todo".into()];
+    let mut typed = Annotation::new(
+        0,
+        Shape::Boxed(Boxed::Typewriter, PageRect::default()),
+        Style::default(),
+        "Ada",
+    );
+    typed.text = TextStyle {
+        font: Font::Mono,
+        size: 10.5,
+        color: [0.0, 0.25, 1.0],
+        align: Align::Right,
+    };
     note.anchor = Some(Quote {
         prefix: "a ".into(),
         exact: "word".into(),
@@ -404,6 +436,7 @@ fn annotation_changes_read_back_from_the_log_as_written() {
     );
     let changes = vec![
         Change::CreateAnnotation(note.clone()),
+        Change::CreateAnnotation(typed),
         Change::UpdateAnnotation(ink),
         Change::DeleteAnnotation {
             page: 1,
@@ -603,4 +636,55 @@ fn a_sticky_note_keeps_its_icon_and_open_state_through_save_and_reopen() {
         (kept.icon.as_str(), kept.open, kept.contents.as_str()),
         ("Help", true, "Why this number?")
     );
+}
+
+/// A.6: typewriter text typed in Chinese keeps its intent, font, size, colour and alignment through a save and a
+/// reopen, written as Acrobat reads them (`/IT /FreeTextTypeWriter`, `/DA`, `/Q`).
+#[test]
+fn typewriter_text_keeps_its_style_through_save_and_reopen() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let mut typed = Annotation::new(
+        0,
+        Shape::Boxed(
+            Boxed::Typewriter,
+            PageRect {
+                x0: 72.0,
+                y0: 72.0,
+                x1: 272.0,
+                y1: 92.0,
+            },
+        ),
+        Style {
+            color: None,
+            opacity: 1.0,
+            width: 0.0,
+        },
+        "Ada",
+    );
+    typed.contents = "中文输入 and English".into();
+    typed.text = TextStyle {
+        font: Font::Mono,
+        size: 14.0,
+        color: [0.0, 0.25, 0.5],
+        align: Align::Center,
+    };
+    Operation::new("Type", vec![Change::CreateAnnotation(typed.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let bytes = std::fs::read(&scratch.0).expect("read");
+    let has = |needle: &[u8]| bytes.windows(needle.len()).any(|w| w == needle);
+    assert!(has(b"/IT/FreeTextTypeWriter"), "the intent Acrobat reads");
+    assert!(has(b"/Cour 14 Tf"), "the font and size in /DA");
+    assert!(has(b"/Q 1"), "centred");
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0)
+        .expect("read")
+        .into_iter()
+        .find(|a| a.id == typed.id)
+        .expect("kept");
+    assert!(matches!(read.shape, Shape::Boxed(Boxed::Typewriter, _)));
+    assert_eq!(read.text, typed.text);
+    assert_eq!(read.contents, typed.contents);
 }

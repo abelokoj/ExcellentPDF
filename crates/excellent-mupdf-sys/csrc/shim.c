@@ -937,6 +937,15 @@ int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex
 		props.quad_count = pdf_annot_has_quad_points(ctx, annot) ? pdf_annot_quad_point_count(ctx, annot) : 0;
 		props.point_count = ex_annot_point_count(ctx, annot, &props.stroke_count);
 		props.is_open = pdf_annot_has_open(ctx, annot) ? pdf_annot_is_open(ctx, annot) : 0;
+		if (pdf_annot_has_intent(ctx, annot))
+			props.intent = (int)pdf_annot_intent(ctx, annot);
+		if (pdf_annot_has_quadding(ctx, annot))
+			props.quadding = pdf_annot_quadding(ctx, annot);
+		if (pdf_annot_has_default_appearance(ctx, annot))
+		{
+			const char *font;
+			pdf_annot_default_appearance(ctx, annot, &font, &props.font_size, &props.text_color_n, props.text_color);
+		}
 	}
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
@@ -1009,6 +1018,14 @@ int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out,
 			if (pdf_annot_has_icon_name(ctx, annot))
 				text = pdf_to_name(ctx, pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(Name)));
 			break;
+		case EX_ANNOT_FONT:
+			if (pdf_annot_has_default_appearance(ctx, annot))
+			{
+				float size, color[4];
+				int n;
+				pdf_annot_default_appearance(ctx, annot, &text, &size, &n, color);
+			}
+			break;
 		default:
 			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no annotation text %d", which);
 		}
@@ -1067,6 +1084,24 @@ static fz_rect ex_popup_rect(fz_context *ctx, pdf_annot *annot, const ex_annot_w
 	return popup;
 }
 
+/* Writes a text box's font, size and colour (/DA) when they changed: writing it drops the rich text (/RC, /DS)
+ * another app may have given the box, so an unchanged style keeps it. */
+static void ex_annot_text_style(fz_context *ctx, pdf_annot *annot, const ex_annot_write *w)
+{
+	const ex_annot_props *p = &w->props;
+	const char *font = w->font && *w->font ? w->font : "Helv";
+	float size = p->font_size > 0 ? p->font_size : 12;
+	const char *was_font;
+	float was_size, was_color[4];
+	int was_n, i, same;
+	pdf_annot_default_appearance(ctx, annot, &was_font, &was_size, &was_n, was_color);
+	same = !strcmp(font, was_font) && size == was_size && p->text_color_n == was_n;
+	for (i = 0; same && i < was_n && i < 4; i++)
+		same = p->text_color[i] == was_color[i];
+	if (!same || !pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(DA)))
+		pdf_set_annot_default_appearance(ctx, annot, font, size, p->text_color_n, p->text_color);
+}
+
 /* Writes every property of `w` to `annot`, then rebuilds its appearance. */
 static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_write *w)
 {
@@ -1102,14 +1137,22 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 	}
 	else if (pdf_annot_has_vertices(ctx, annot))
 		pdf_set_annot_vertices(ctx, annot, p->point_count, w->points);
-	/* A note gets a popup to open in other readers (A.4); one already there keeps its place. */
-	if (w->contents && *w->contents && pdf_annot_has_popup(ctx, annot)
+	/* A note gets a popup to open in other readers (A.4); one already there keeps its place. A text box shows its
+	 * text on the page, so it has none (A.6). */
+	if (w->contents && *w->contents && pdf_annot_has_popup(ctx, annot) && pdf_annot_type(ctx, annot) != PDF_ANNOT_FREE_TEXT
 		&& !pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(Popup)))
 		pdf_set_annot_popup(ctx, annot, ex_popup_rect(ctx, annot, w));
 	if (pdf_annot_has_icon_name(ctx, annot))
 		pdf_set_annot_icon_name(ctx, annot, w->icon && *w->icon ? w->icon : NULL);
 	if (pdf_annot_has_open(ctx, annot))
 		pdf_set_annot_is_open(ctx, annot, p->is_open);
+	if (pdf_annot_type(ctx, annot) == PDF_ANNOT_FREE_TEXT)
+	{
+		ex_annot_text_style(ctx, annot, w);
+		pdf_set_annot_quadding(ctx, annot, p->quadding);
+		/* Only a text box's: other kinds' intents (a dimension line's) are not the model's and stay as they are. */
+		pdf_set_annot_intent(ctx, annot, (enum pdf_intent)p->intent);
+	}
 	ex_annot_group(ctx, annot, w->group);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))

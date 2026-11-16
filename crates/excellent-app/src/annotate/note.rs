@@ -1,18 +1,21 @@
 //! The note editor (A.4): a markup's note, written in the inspector beside the pages so it never covers them (§7.3).
 //! A click on a markup, or the markup bar's note tool, opens it; the text is kept as typed and saved into the PDF as
 //! the markup's `/Contents`, one step of undo, when the reader is done or opens another note. A sticky note's (A.5)
-//! also has its icon and whether other readers show it open. The models are `excellent-features`' `annotate::notes`
-//! and `annotate::sticky`.
+//! also has its icon and whether other readers show it open. A text box's (A.6) is its text, typed here so input
+//! methods work (in place on the page once U.8 gives the canvas the platform's input path), with its font, size,
+//! alignment, colour and border. The models are `excellent-features`' `annotate::notes`, `annotate::sticky` and
+//! `annotate::freetext`.
 
-use excellent_core::annot::{Annotation, Markup, Shape};
+use excellent_core::annot::{Align, Annotation, Boxed, Font, Markup, Shape, TextStyle};
+use excellent_features::annotate::freetext::{self, Kind};
 use excellent_features::annotate::notes::{self, Target};
 use excellent_features::annotate::sticky::{self, Icon};
 use nsh_base::{input, theme};
 use nsh_core::prelude::*;
 
-use super::AnnotateState;
+use super::{AnnotateState, Placing};
 use crate::bookmarks::{caption, field};
-use crate::settings_window::{on_off, segment, segmented};
+use crate::settings_window::{on_off, segment, segment_of, segmented};
 use crate::tabs::{Tone, action_button};
 
 /// The note open in the inspector: whose it is, and what the panel shows of its markup.
@@ -25,6 +28,10 @@ pub(crate) struct Noting {
     color: u32,
     /// A sticky note's icon and open state; `None` for a markup.
     sticky: Option<(Icon, bool)>,
+    /// A text box's kind, text style and whether it has a border; `None` for the others.
+    text: Option<(Kind, TextStyle, bool)>,
+    /// Whether it was just placed: a text box left empty is then taken away.
+    pub(super) fresh: bool,
 }
 
 impl Noting {
@@ -44,9 +51,24 @@ impl Noting {
                 .as_ref()
                 .map(|quote| quote.exact.trim().to_owned())
                 .unwrap_or_default(),
-            color: annotation.style.color.map_or(0xff_d54f, packed),
+            // A text box's dot is its text's colour; its own (`style.color`) is its background.
+            color: if annotation.is_text_box() {
+                packed(annotation.text.color)
+            } else {
+                annotation.style.color.map_or(0xff_d54f, packed)
+            },
             sticky: sticky::is_sticky(annotation)
                 .then(|| (Icon::of(&annotation.icon), annotation.open)),
+            text: match annotation.shape {
+                Shape::Boxed(Boxed::FreeText, _) => {
+                    Some((Kind::Box, annotation.text, annotation.style.width > 0.0))
+                }
+                Shape::Boxed(Boxed::Typewriter, _) => {
+                    Some((Kind::Typewriter, annotation.text, false))
+                }
+                _ => None,
+            },
+            fresh: false,
         }
     }
 }
@@ -54,39 +76,49 @@ impl Noting {
 /// Characters of the markup's text the panel quotes.
 const QUOTE: usize = 160;
 
-/// The inspector's content for a pane: where a sticky note goes while one is being placed, the open note, or what
-/// the inspector will show.
+/// The inspector's content for a pane: where a sticky note or text box goes while one is being placed, the open
+/// note or text, or what the inspector will show.
 pub(crate) fn note_panel(state: AnnotateState) -> impl IntoElement {
     dynamic(move || match (state.placing.get(), state.noting.get()) {
-        (true, _) => placing().into_element(),
-        (false, Some(noting)) => untracked(|| editor(state, noting).into_element()),
-        (false, None) => {
+        (Some(what), _) => placing(what).into_element(),
+        (None, Some(noting)) => untracked(|| editor(state, noting).into_element()),
+        (None, None) => {
             crate::shell::empty_message(|| t!("inspector.empty"), || t!("note.empty_hint"))
                 .into_element()
         }
     })
 }
 
-/// While a sticky note is being placed: where to click, and the key that calls it off.
-fn placing() -> View {
+/// While a sticky note or text box is being placed: where to click, and the key that calls it off.
+fn placing(what: Placing) -> View {
+    use crate::commands::{CommandId, shortcut_label};
+    let (title, hint, command) = match what {
+        Placing::Sticky => (
+            "sticky.placing",
+            "sticky.placing_hint",
+            CommandId::StickyNote,
+        ),
+        Placing::Text(Kind::Box) => ("text.placing", "text.placing_hint", CommandId::TextBox),
+        Placing::Text(Kind::Typewriter) => (
+            "text.placing",
+            "text.placing_typewriter_hint",
+            CommandId::Typewriter,
+        ),
+    };
     crate::shell::empty_message(
-        || t!("sticky.placing"),
-        || {
-            t!(
-                "sticky.placing_hint",
-                key = crate::commands::shortcut_label(crate::commands::CommandId::StickyNote)
-            )
-        },
+        move || t!(title),
+        move || t!(hint, key = shortcut_label(command)),
     )
 }
 
 fn editor(state: AnnotateState, noting: Noting) -> View {
     let color = Hsla::from(rgb(noting.color));
-    let heading = t!(
-        "note.heading",
-        kind = noting.kind.map_or_else(|| t!("sticky.name"), super::name),
-        page = noting.target.page + 1
-    );
+    let kind = match (noting.kind, noting.text) {
+        (Some(kind), _) => super::name(kind),
+        (None, Some((kind, ..))) => super::text_name(kind),
+        (None, None) => t!("sticky.name"),
+    };
+    let heading = t!("note.heading", kind = kind, page = noting.target.page + 1);
     let mut panel = view().flex_1().p_4().gap_3().child(
         view()
             .flex_row()
@@ -124,17 +156,27 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
                 ),
         );
     }
+    let boxed = noting.text.is_some();
+    let (label, placeholder, saved_hint) = if boxed {
+        ("text.label", "text.placeholder", "text.saved_hint")
+    } else {
+        ("note.label", "note.placeholder", "note.saved_hint")
+    };
     let had_note = !untracked(|| state.draft.get()).is_empty();
     let note = field(input().value(move || state.draft.get()))
         .multiline(true)
         .min_h(px(120.0))
         .py_2()
         .on_change(move |text: &str| state.draft.set(text.to_owned()))
-        .placeholder(t!("note.placeholder"))
-        .label(t!("note.label"))
+        .placeholder(t!(placeholder))
+        .label(t!(label))
         .auto_focus(true);
     let mut buttons = view().flex_row().gap_2().items_center();
-    if had_note {
+    if boxed {
+        buttons = buttons.child(action_button("text.delete", Tone::Destructive, move || {
+            state.delete_text_box();
+        }));
+    } else if had_note {
         buttons = buttons.child(action_button("note.delete", Tone::Destructive, move || {
             state.draft.set(String::new());
             state.close_note();
@@ -143,19 +185,133 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
     if let Some((icon, open)) = noting.sticky {
         panel = panel.child(sticky_controls(state, icon, open));
     }
+    panel = panel.child(caption(label)).child(note);
+    if let Some((kind, style, border)) = noting.text {
+        panel = panel.child(text_controls(state, kind, style, border));
+    }
     panel
-        .child(caption("note.label"))
-        .child(note)
         .child(buttons.child(view().flex_1()).child(action_button(
             "note.close",
             Tone::Plain,
             move || state.close_note(),
         )))
         .child(
-            text(t!("note.saved_hint"))
+            text(t!(saved_hint))
                 .text_size(px(12.0))
                 .text_color(move || theme().muted_foreground),
         )
+}
+
+/// The text sizes offered, in points.
+const SIZES: [f32; 6] = [9.0, 10.0, 12.0, 14.0, 18.0, 24.0];
+
+/// The text colours offered, with their names: black first, then three that keep AA contrast on white paper.
+const COLORS: [([f32; 3], &str); 4] = [
+    ([0.0, 0.0, 0.0], "text.color.black"),
+    ([0.08, 0.32, 0.78], "text.color.blue"),
+    ([0.78, 0.12, 0.12], "text.color.red"),
+    ([0.06, 0.45, 0.22], "text.color.green"),
+];
+
+/// A text box's font, size, alignment and colour, and for a boxed one its border. Each change is one step of undo
+/// and fits the box to the text again.
+fn text_controls(state: AnnotateState, kind: Kind, style: TextStyle, border: bool) -> View {
+    let style = signal(style);
+    let restyle = move |change: &dyn Fn(&mut TextStyle)| {
+        let mut new = untracked(|| style.get());
+        change(&mut new);
+        style.set(new);
+        state.change_note(t!("text.style_edit"), |text_box| {
+            freetext::set_style(text_box, new)
+        });
+    };
+    let fonts = Font::ALL.into_iter().fold(segmented(), |group, font| {
+        group.child(segment(
+            font_label(font),
+            move || style.get().font == font,
+            move || restyle(&|s| s.font = font),
+        ))
+    });
+    let sizes = SIZES.into_iter().fold(segmented(), |group, size| {
+        group.child(segment_of(
+            move || t!("text.size_pt", size = size),
+            move || style.get().size == size,
+            move || restyle(&|s| s.size = size),
+        ))
+    });
+    let aligns =
+        [Align::Left, Align::Center, Align::Right]
+            .into_iter()
+            .fold(segmented(), |group, align| {
+                group.child(segment(
+                    align_label(align),
+                    move || style.get().align == align,
+                    move || restyle(&|s| s.align = align),
+                ))
+            });
+    let colors = COLORS
+        .into_iter()
+        .fold(segmented(), |group, (color, name)| {
+            group.child(segment(
+                name,
+                move || style.get().color == color,
+                move || restyle(&|s| s.color = color),
+            ))
+        });
+    let mut controls = view()
+        .gap_2()
+        .child(caption("text.font"))
+        .child(fonts)
+        .child(caption("text.size"))
+        .child(sizes)
+        .child(caption("text.align"))
+        .child(aligns)
+        .child(caption("text.color"))
+        .child(colors);
+    if kind == Kind::Box {
+        let border = signal(border);
+        controls = controls.child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap_3()
+                .child(
+                    text(t!("text.border"))
+                        .flex_1()
+                        .text_size(px(13.0))
+                        .text_color(move || theme().foreground),
+                )
+                .child(on_off(
+                    "text.border",
+                    move || border.get(),
+                    move |on| {
+                        border.set(on);
+                        state.change_note(t!("text.border_edit"), |text_box| {
+                            freetext::set_border(text_box, on)
+                        });
+                    },
+                )),
+        );
+    }
+    controls
+}
+
+/// The translation key of a font's name.
+fn font_label(font: Font) -> &'static str {
+    match font {
+        Font::Sans => "text.font.sans",
+        Font::Serif => "text.font.serif",
+        Font::Mono => "text.font.mono",
+    }
+}
+
+/// The translation key of an alignment's name.
+fn align_label(align: Align) -> &'static str {
+    match align {
+        Align::Left => "text.align.left",
+        Align::Center => "text.align.center",
+        Align::Right => "text.align.right",
+    }
 }
 
 /// A sticky note's icon, chosen from the standard's seven, and whether other readers show its note open. Each change
@@ -261,5 +417,19 @@ mod tests {
         note.icon = "Key".to_owned();
         note.open = true;
         assert_eq!(Noting::of(&note).sticky, Some((Icon::Key, true)));
+        assert_eq!(Noting::of(&note).text, None);
+        let mut boxed = Annotation::new(
+            2,
+            Shape::Boxed(Boxed::FreeText, Default::default()),
+            Style {
+                width: 1.0,
+                ..Style::default()
+            },
+            "me",
+        );
+        boxed.text.size = 18.0;
+        let noting = Noting::of(&boxed);
+        assert_eq!(noting.text, Some((Kind::Box, boxed.text, true)));
+        assert!(!noting.fresh, "only a box just placed is");
     }
 }

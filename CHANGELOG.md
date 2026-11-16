@@ -6,6 +6,21 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 00:25; Ph3: 19/49 | A.6: Text boxes and typewriter
+
+- Text boxes and typewriter text: two commands (palette, Annotate toolbar, `T` and `Shift+T` on the pages) wait for
+  a click and put a free-text annotation there, then open its text in the inspector. A text box is 200 points wide
+  with a border and grows down as its text wraps; typewriter text (`/IT /FreeTextTypeWriter`) has no border and its
+  box fits the text, for filling forms that have no fields.
+- In the inspector: the text (typed in an NSH field, so input methods work), font (Helvetica, Times, Courier: the
+  standard fonts every reader has), size, alignment, colour and, for a box, its border. Each change is one undoable
+  edit and fits the box again. A box placed and left empty is taken away; Delete text box removes one.
+- A click on a text box opens its text, as a click on a markup opens its note.
+- The annotation model keeps a text box's style (`TextStyle`: `/DA` and `/Q`) and typewriter text as its own kind;
+  the shim reads and writes the intent, alignment, font, size and colour, and leaves another app's rich text alone
+  when the style is unchanged. A test saves Chinese typewriter text, checks the bytes Acrobat reads, and reopens it.
+- The model is `excellent-features::annotate::freetext`.
+
 ### 2026-11-16 00:04; Ph3: 18/49 | A.5: Sticky notes
 
 - Sticky notes: the command (palette, Annotate toolbar, `Shift+S` on the pages) waits for a click on a page and puts

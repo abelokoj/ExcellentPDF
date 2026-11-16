@@ -3222,6 +3222,13 @@ the open switch added for sticky notes.
 
 **Done when:** text boxes typed in Chinese with an input method save and show in Acrobat.
 
+*Built (2026-11-16):* `Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _)` with `Annotation::text`
+(`TextStyle`: font, size, colour, alignment); the shim writes `/DA` only when the style changed, since MuPDF's setter
+drops `/RC` and `/DS`. A text box's `Style::color` is its background and `Style::width` its border; MuPDF strokes the
+border in the text colour. Boxes are fitted to their text by `freetext` (line height 1.2 em, MuPDF's) from average
+character widths, CJK a full em. Until U.8, the text is typed in the inspector's NSH input, which already takes input
+methods; step 3 (in place on the page) waits for U.8.
+
 #### Ph3: 20/49 | A.7: Callouts with leader lines
 **P0; Phase 3; Needs:** A.6; **Code:** as A.6
 1. `PDF_ANNOT_IT_FREETEXT_CALLOUT`; `pdf_set_annot_callout_line`, `pdf_set_annot_callout_point`,

@@ -905,7 +905,7 @@ fn named_segment(
     segment_of(move || name.to_owned(), chosen, choose)
 }
 
-fn segment_of(
+pub(crate) fn segment_of(
     label: impl Fn() -> String + Copy + 'static,
     chosen: impl Fn() -> bool + Copy + 'static,
     choose: impl Fn() + 'static,

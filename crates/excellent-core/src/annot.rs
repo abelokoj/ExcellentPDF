@@ -11,7 +11,8 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use excellent_mupdf::{AnnotData, AnnotKind, Document, PagePoint, PageRect, Quad};
+pub use excellent_mupdf::Align;
+use excellent_mupdf::{AnnotData, AnnotKind, Document, Intent, PagePoint, PageRect, Quad};
 use serde_json::{Map, Value, json};
 
 use crate::anchor::{Quote, new_id};
@@ -34,8 +35,10 @@ pub enum Markup {
 pub enum Boxed {
     /// A sticky note's icon (A.5).
     Note,
-    /// Text drawn on the page (A.6).
+    /// A box of text drawn on the page (A.6).
     FreeText,
+    /// Text typed onto the page as on a typewriter, with no box (A.6): a free-text annotation whose intent says so.
+    Typewriter,
     /// A rectangle (A.8).
     Square,
     /// An ellipse (A.8).
@@ -80,7 +83,7 @@ impl Shape {
             Self::Markup(Markup::Squiggly, _) => AnnotKind::Squiggly,
             Self::Markup(Markup::StrikeOut, _) => AnnotKind::StrikeOut,
             Self::Boxed(Boxed::Note, _) => AnnotKind::Text,
-            Self::Boxed(Boxed::FreeText, _) => AnnotKind::FreeText,
+            Self::Boxed(Boxed::FreeText | Boxed::Typewriter, _) => AnnotKind::FreeText,
             Self::Boxed(Boxed::Square, _) => AnnotKind::Square,
             Self::Boxed(Boxed::Circle, _) => AnnotKind::Circle,
             Self::Boxed(Boxed::Stamp, _) => AnnotKind::Stamp,
@@ -105,10 +108,75 @@ impl Shape {
     }
 }
 
+/// A text box's font: one of the standard fonts every PDF reader has, so the box looks the same in each (A.6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Font {
+    /// Helvetica.
+    #[default]
+    Sans,
+    /// Times.
+    Serif,
+    /// Courier, a typewriter's.
+    Mono,
+}
+
+impl Font {
+    /// Every font, in the order the inspector offers them.
+    pub const ALL: [Self; 3] = [Self::Sans, Self::Serif, Self::Mono];
+
+    /// The name MuPDF gives it in a text box's `/DA`.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Sans => "Helv",
+            Self::Serif => "TiRo",
+            Self::Mono => "Cour",
+        }
+    }
+
+    /// The font MuPDF names `name`; sans for any other.
+    #[must_use]
+    pub fn of(name: &str) -> Self {
+        Self::ALL
+            .into_iter()
+            .find(|font| font.name() == name)
+            .unwrap_or_default()
+    }
+}
+
+/// How a text box's text is drawn (A.6): PDF's `/DA` and `/Q`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TextStyle {
+    /// Its font.
+    pub font: Font,
+    /// Its size in points.
+    pub size: f32,
+    /// Its colour, RGB from 0 to 1; a text box's border is drawn in it too.
+    pub color: [f32; 3],
+    /// How its lines are aligned.
+    pub align: Align,
+}
+
+impl TextStyle {
+    /// The size a text box's text gets when its file gives none (MuPDF's and Acrobat's).
+    pub const SIZE: f32 = 12.0;
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            font: Font::Sans,
+            size: Self::SIZE,
+            color: [0.0; 3],
+            align: Align::Left,
+        }
+    }
+}
+
 /// How an annotation is drawn.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Style {
-    /// Its colour, RGB from 0 to 1; `None` for none (a shape's outline left out).
+    /// Its colour, RGB from 0 to 1; `None` for none (a shape's outline left out). A text box's is its background.
     pub color: Option<[f32; 3]>,
     /// 0 (clear) to 1.
     pub opacity: f32,
@@ -156,6 +224,8 @@ pub struct Annotation {
     pub icon: String,
     /// Whether other readers show its note open (PDF's `/Open`): a sticky note's own, or its popup's (A.4, A.5).
     pub open: bool,
+    /// A text box's text style (A.6); the default for the other kinds, which don't keep one.
+    pub text: TextStyle,
 }
 
 impl Annotation {
@@ -177,7 +247,17 @@ impl Annotation {
             group: None,
             icon: String::new(),
             open: false,
+            text: TextStyle::default(),
         }
+    }
+
+    /// Whether it is a text box, boxed or typed (A.6).
+    #[must_use]
+    pub fn is_text_box(&self) -> bool {
+        matches!(
+            self.shape,
+            Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _)
+        )
     }
 
     /// The annotation `data` (read from page `page`) is, or `None` when the model doesn't keep its kind.
@@ -189,6 +269,9 @@ impl Annotation {
             AnnotKind::Squiggly => Shape::Markup(Markup::Squiggly, data.quads.clone()),
             AnnotKind::StrikeOut => Shape::Markup(Markup::StrikeOut, data.quads.clone()),
             AnnotKind::Text => Shape::Boxed(Boxed::Note, data.rect),
+            AnnotKind::FreeText if data.intent == Intent::Typewriter => {
+                Shape::Boxed(Boxed::Typewriter, data.rect)
+            }
             AnnotKind::FreeText => Shape::Boxed(Boxed::FreeText, data.rect),
             AnnotKind::Square => Shape::Boxed(Boxed::Square, data.rect),
             AnnotKind::Circle => Shape::Boxed(Boxed::Circle, data.rect),
@@ -212,6 +295,20 @@ impl Annotation {
             .filter_map(|tag| tag.as_str().map(str::to_owned))
             .collect();
         let anchor = private.and_then(|object| quote_from_json(object.get("anchor")?));
+        let text = if data.kind == AnnotKind::FreeText {
+            TextStyle {
+                font: Font::of(&data.font),
+                size: if data.font_size > 0.0 {
+                    data.font_size
+                } else {
+                    TextStyle::SIZE
+                },
+                color: rgb(&data.text_color).unwrap_or_default(),
+                align: data.align,
+            }
+        } else {
+            TextStyle::default()
+        };
         Some(Self {
             id: data.id.clone(),
             page,
@@ -230,6 +327,7 @@ impl Annotation {
             group: (!data.group.is_empty()).then(|| data.group.clone()),
             icon: data.icon.clone(),
             open: data.open,
+            text,
         })
     }
 
@@ -245,6 +343,7 @@ impl Annotation {
             Shape::Line(a, b) => points = vec![*a, *b],
             Shape::Path(_, v) => points.clone_from(v),
         }
+        let text = self.is_text_box().then_some(self.text);
         AnnotData {
             kind: self.shape.kind(),
             id: self.id.clone(),
@@ -254,6 +353,16 @@ impl Annotation {
             group: self.group.clone().unwrap_or_default(),
             icon: self.icon.clone(),
             open: self.open,
+            intent: match self.shape {
+                Shape::Boxed(Boxed::Typewriter, _) => Intent::Typewriter,
+                _ => Intent::Plain,
+            },
+            align: text.map(|text| text.align).unwrap_or_default(),
+            font: text
+                .map(|text| text.font.name().to_owned())
+                .unwrap_or_default(),
+            font_size: text.map_or(0.0, |text| text.size),
+            text_color: text.map(|text| Vec::from(text.color)).unwrap_or_default(),
             rect,
             color: self.style.color.map(Vec::from).unwrap_or_default(),
             opacity: self.style.opacity,
@@ -314,6 +423,12 @@ impl Annotation {
             "group": self.group,
             "icon": self.icon,
             "open": self.open,
+            "text": self.is_text_box().then(|| json!({
+                "font": self.text.font.name(),
+                "size": self.text.size,
+                "color": self.text.color,
+                "align": format!("{:?}", self.text.align),
+            })),
         })
     }
 
@@ -330,6 +445,7 @@ impl Annotation {
             "StrikeOut" => Shape::Markup(Markup::StrikeOut, quads_from_json(geometry)?),
             "Note" => Shape::Boxed(Boxed::Note, rect_from_json(geometry)?),
             "FreeText" => Shape::Boxed(Boxed::FreeText, rect_from_json(geometry)?),
+            "Typewriter" => Shape::Boxed(Boxed::Typewriter, rect_from_json(geometry)?),
             "Square" => Shape::Boxed(Boxed::Square, rect_from_json(geometry)?),
             "Circle" => Shape::Boxed(Boxed::Circle, rect_from_json(geometry)?),
             "Stamp" => Shape::Boxed(Boxed::Stamp, rect_from_json(geometry)?),
@@ -383,6 +499,11 @@ impl Annotation {
                 .map(str::to_owned),
             icon: text("icon").unwrap_or_default(),
             open: object.get("open").and_then(Value::as_bool).unwrap_or(false),
+            // Before A.6 no text box kept a style.
+            text: object
+                .get("text")
+                .and_then(text_style_from_json)
+                .unwrap_or_default(),
         })
     }
 }
@@ -468,6 +589,20 @@ fn rgb(color: &[f32]) -> Option<[f32; 3]> {
         ]),
         _ => None,
     }
+}
+
+fn text_style_from_json(value: &Value) -> Option<TextStyle> {
+    let object = value.as_object()?;
+    Some(TextStyle {
+        font: Font::of(object.get("font")?.as_str()?),
+        size: object.get("size")?.as_f64()? as f32,
+        color: <[f32; 3]>::try_from(floats(object.get("color")?)?).ok()?,
+        align: match object.get("align")?.as_str()? {
+            "Center" => Align::Center,
+            "Right" => Align::Right,
+            _ => Align::Left,
+        },
+    })
 }
 
 fn quote_to_json(quote: &Quote) -> Value {

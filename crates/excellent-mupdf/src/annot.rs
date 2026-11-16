@@ -23,6 +23,69 @@ const AUTHOR: c_int = 2;
 const APP_DATA: c_int = 3;
 const GROUP: c_int = 4;
 const ICON: c_int = 5;
+const FONT: c_int = 6;
+
+/// How a text box is drawn (PDF's `/IT` on a free-text annotation, A.6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Intent {
+    /// A box of text: the default.
+    #[default]
+    Plain,
+    /// A box with a leader line to what it is about (A.7).
+    Callout,
+    /// Text typed onto the page, as on a form that has no fields.
+    Typewriter,
+}
+
+impl Intent {
+    /// MuPDF's `enum pdf_intent` value.
+    fn raw(self) -> c_int {
+        match self {
+            Self::Plain => 0,
+            Self::Callout => 1,
+            Self::Typewriter => 2,
+        }
+    }
+
+    /// The intent MuPDF names `raw`; any that isn't a text box's reads as plain.
+    fn from_raw(raw: c_int) -> Self {
+        match raw {
+            1 => Self::Callout,
+            2 => Self::Typewriter,
+            _ => Self::Plain,
+        }
+    }
+}
+
+/// How a text box's lines are aligned (PDF's `/Q`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Align {
+    /// Left: the default.
+    #[default]
+    Left,
+    /// Centred.
+    Center,
+    /// Right.
+    Right,
+}
+
+impl Align {
+    fn raw(self) -> c_int {
+        match self {
+            Self::Left => 0,
+            Self::Center => 1,
+            Self::Right => 2,
+        }
+    }
+
+    fn from_raw(raw: c_int) -> Self {
+        match raw {
+            1 => Self::Center,
+            2 => Self::Right,
+            _ => Self::Left,
+        }
+    }
+}
 
 /// The subtype of a PDF annotation (PDF 2.0, table 171).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -272,6 +335,11 @@ impl Annot<'_> {
             group: self.text(GROUP)?,
             icon: self.text(ICON)?,
             open: props.is_open != 0,
+            intent: Intent::from_raw(props.intent),
+            align: Align::from_raw(props.quadding),
+            font: self.text(FONT)?,
+            font_size: props.font_size,
+            text_color: props.text_color[..count(props.text_color_n).min(4)].to_vec(),
             rect: props.rect.into(),
             color: props.color[..color_n].to_vec(),
             opacity: props.opacity,
@@ -317,6 +385,16 @@ pub struct AnnotData {
     pub icon: String,
     /// Whether its note shows open in other readers (`/Open`: a sticky note's own, else its popup's).
     pub open: bool,
+    /// A text box's kind (`/IT`, A.6); plain for the other kinds.
+    pub intent: Intent,
+    /// A text box's alignment (`/Q`).
+    pub align: Align,
+    /// A text box's font (`/DA`), MuPDF's name for a standard one: `Helv`, `TiRo` or `Cour`; empty for other kinds.
+    pub font: String,
+    /// A text box's text size in points; 0 for other kinds.
+    pub font_size: f32,
+    /// A text box's text colour, as `color`.
+    pub text_color: Vec<f32>,
     /// Where it is: written for the kinds placed by a rectangle (notes, text boxes, shapes, stamps); read for all,
     /// as the area it covers.
     pub rect: PageRect,
@@ -351,20 +429,23 @@ impl AnnotData {
         let text = |s: &str| {
             CString::new(s).map_err(|_| MuError::argument("annotation text contains a NUL"))
         };
-        let (id, author, contents, app_data, group, icon) = (
+        let (id, author, contents, app_data, group, icon, font) = (
             text(&self.id)?,
             text(&self.author)?,
             text(&self.contents)?,
             text(&self.app_data)?,
             text(&self.group)?,
             text(&self.icon)?,
+            text(&self.font)?,
         );
         let count = |n: usize| c_int::try_from(n).map_err(|_| MuError::argument("too many points"));
-        if self.color.len() > 4 {
+        if self.color.len() > 4 || self.text_color.len() > 4 {
             return Err(MuError::argument("a colour has at most four components"));
         }
         let mut color = [0.0; 4];
         color[..self.color.len()].copy_from_slice(&self.color);
+        let mut text_color = [0.0; 4];
+        text_color[..self.text_color.len()].copy_from_slice(&self.text_color);
         let quads: Vec<fz_quad> = self.quads.iter().copied().map(fz_quad::from).collect();
         let lengths = self
             .strokes
@@ -386,6 +467,7 @@ impl AnnotData {
             app_data: app_data.as_ptr(),
             group: group.as_ptr(),
             icon: icon.as_ptr(),
+            font: font.as_ptr(),
             props: ex_annot_props {
                 type_: kind,
                 rect: self.rect.into(),
@@ -399,6 +481,11 @@ impl AnnotData {
                 stroke_count: count(lengths.len())?,
                 point_count: count(points.len())?,
                 is_open: c_int::from(self.open),
+                intent: self.intent.raw(),
+                quadding: self.align.raw(),
+                font_size: self.font_size,
+                text_color_n: count(self.text_color.len())?,
+                text_color,
             },
             quads: quads.as_ptr(),
             stroke_lengths: lengths.as_ptr(),

@@ -67,6 +67,10 @@ pub(crate) enum CommandId {
     AnnotationColors,
     /// Places a sticky note where the page is clicked next (A.5).
     StickyNote,
+    /// Places a text box where the page is clicked next (A.6).
+    TextBox,
+    /// Places typewriter text where the page is clicked next (A.6).
+    Typewriter,
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -101,6 +105,8 @@ impl CommandId {
                     | Self::Bookmark(_)
                     | Self::Find(_)
                     | Self::StickyNote
+                    | Self::TextBox
+                    | Self::Typewriter
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -443,6 +449,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+s"],
+    },
+    Command {
+        id: CommandId::TextBox,
+        name: "annotate.text_box",
+        label: "command.text_box",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["t"],
+    },
+    Command {
+        id: CommandId::Typewriter,
+        name: "annotate.typewriter",
+        label: "command.typewriter",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+t"],
     },
     Command {
         id: CommandId::AnnotationColors,

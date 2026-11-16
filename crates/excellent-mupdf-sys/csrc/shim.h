@@ -247,6 +247,13 @@ typedef struct ex_annot_props {
 	int point_count;
 	/* Whether its note shows open in other readers (/Open: a sticky note's own, else its popup's), A.5. */
 	int is_open;
+	/* A text box's (A.6): its enum pdf_intent (a typewriter's, a callout's), its alignment (/Q: 0 left, 1 centred,
+	 * 2 right), and its text's size and colour (/DA; colour components as `color`). Zero for the other kinds. */
+	int intent;
+	int quadding;
+	float font_size;
+	int text_color_n;
+	float text_color[4];
 } ex_annot_props;
 
 /* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author), the app's private key
@@ -259,6 +266,8 @@ typedef struct ex_annot_props {
 #define EX_ANNOT_GROUP 4
 /* Its icon's name (/Name: a sticky note's, a stamp's), as the file has it: empty when it names none (A.5). */
 #define EX_ANNOT_ICON 5
+/* A text box's font (/DA), as MuPDF names the standard ones: Helv, TiRo, Cour (A.6). */
+#define EX_ANNOT_FONT 6
 
 /* Reads `annot`: its properties, then its arrays into caller memory sized from them (any may be NULL to skip). */
 int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex_error *err);
@@ -284,6 +293,8 @@ typedef struct ex_annot_write {
 	const char *group;
 	/* The icon's name for the kinds that have one; NULL or empty removes it, leaving the kind's default. */
 	const char *icon;
+	/* A text box's font, Helv, TiRo or Cour; NULL or empty for Helv. */
+	const char *font;
 } ex_annot_write;
 
 /* Annotation edits (K.14), inside an operation, on page `page` (zero-based) of a PDF. ex_annot_create adds one;

@@ -29,6 +29,7 @@ use nsh_core::geometry::Points;
 use nsh_core::JsonValue;
 use nsh_core::prelude::*;
 
+use crate::annotate::{Kind, Placing};
 use crate::bookmarks::{self, BookmarkAction};
 use crate::commands::{self, CommandId};
 use crate::full_screen::FullScreen;
@@ -434,7 +435,9 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Outline(action) => pane.outline.run(action, pane.canvas),
             CommandId::Bookmark(action) => pane.bookmarks.run(action, pane.canvas),
             CommandId::Find(action) => pane.find.run(action),
-            CommandId::StickyNote => pane.annotate.place_sticky(),
+            CommandId::StickyNote => pane.annotate.place(Placing::Sticky),
+            CommandId::TextBox => pane.annotate.place(Placing::Text(Kind::Box)),
+            CommandId::Typewriter => pane.annotate.place(Placing::Text(Kind::Typewriter)),
             CommandId::AnnotationColors => pane
                 .annotate
                 .pick(excellent_features::annotate::colors::Tool::Highlight),
