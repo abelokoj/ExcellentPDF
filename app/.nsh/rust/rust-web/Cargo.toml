@@ -14,9 +14,9 @@ crate-type = ["cdylib"]
 linkable = ["nsh-platform-web/linkable"]
 
 [dependencies]
-nsh-core = { version = "=0.5.0" }
-nsh-base = { version = "=0.5.0", features = ["highlight"] }
+nsh-core = { version = "=0.5.1" }
+nsh-base = { version = "=0.5.1", features = ["highlight"] }
 app_excellent_app = { package = "excellent-app", path = "C:\\dev\\ExcellentPDF\\crates\\excellent-app" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-nsh-platform-web = { version = "=0.5.0", default-features = false }
+nsh-platform-web = { version = "=0.5.1", default-features = false }

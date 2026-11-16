@@ -1209,9 +1209,14 @@ name = "excellent-app"
 version = "0.1.0"
 dependencies = [
  "env_logger",
+ "excellent-canvas-gtk",
+ "excellent-canvas-mac",
  "excellent-canvas-win",
  "excellent-core",
  "excellent-features",
+ "excellent-mupdf",
+ "excellent-platform",
+ "excellent-store",
  "log",
  "nsh-base",
  "nsh-core",
@@ -1226,21 +1231,59 @@ dependencies = [
 [[package]]
 name = "excellent-canvas"
 version = "0.1.0"
+dependencies = [
+ "excellent-core",
+ "excellent-features",
+ "excellent-ink",
+ "excellent-mupdf",
+ "excellent-text",
+ "log",
+ "nsh-core",
+ "serde_json",
+]
+
+[[package]]
+name = "excellent-canvas-gtk"
+version = "0.1.0"
+dependencies = [
+ "excellent-canvas",
+ "excellent-mupdf",
+ "excellent-text",
+ "log",
+ "nsh-core",
+ "nsh-platform-linux",
+]
+
+[[package]]
+name = "excellent-canvas-mac"
+version = "0.1.0"
+dependencies = [
+ "dispatch2",
+ "excellent-canvas",
+ "excellent-mupdf",
+ "excellent-text",
+ "log",
+ "nsh-core",
+ "nsh-platform-macos",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation",
+]
 
 [[package]]
 name = "excellent-canvas-win"
 version = "0.1.0"
 dependencies = [
  "excellent-canvas",
- "excellent-core",
- "excellent-ink",
  "excellent-mupdf",
  "excellent-text",
  "log",
  "nsh-core",
  "nsh-platform-windows",
- "serde_json",
  "windows",
+ "windows-core",
  "windows-numerics",
 ]
 
@@ -1248,13 +1291,20 @@ dependencies = [
 name = "excellent-core"
 version = "0.1.0"
 dependencies = [
- "excellent-canvas",
  "excellent-mupdf",
+ "log",
+ "serde_json",
 ]
 
 [[package]]
 name = "excellent-features"
 version = "0.1.0"
+dependencies = [
+ "excellent-core",
+ "excellent-mupdf",
+ "excellent-text",
+ "serde_json",
+]
 
 [[package]]
 name = "excellent-ink"
@@ -1275,11 +1325,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "excellent-platform"
+version = "0.1.0"
+dependencies = [
+ "dispatch2",
+ "flate2",
+ "log",
+ "nsh-platform-linux",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "windows",
+]
+
+[[package]]
+name = "excellent-store"
+version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde_json",
+]
+
+[[package]]
 name = "excellent-text"
 version = "0.1.0"
 dependencies = [
  "excellent-mupdf",
 ]
+
+[[package]]
+name = "fallible-iterator"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
+
+[[package]]
+name = "fallible-streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "fancy-regex"
@@ -2135,6 +2219,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashlink"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a596f1b20ed2cc5ecac41a164aaebc7258057060f06c0cf7a2ba3991ee7990fb"
+dependencies = [
+ "hashbrown 0.17.1",
+]
+
+[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2744,6 +2837,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
+name = "libsqlite3-sys"
+version = "0.39.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14a5f01b87b92705d07b433c06f96cbc764637d81a0bffb5734ce17cf0f9a2b3"
+dependencies = [
+ "cc",
+ "pkg-config",
+ "vcpkg",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3205,9 +3309,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-base"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7bae08ed29b11f2595cf5b4ce406430b14493d24f07f2f4a9f068188fb35079"
+checksum = "2cadcf71a3a758271ee9ab5d4768de9054d1a97091eece01fa1a174b394ef53e"
 dependencies = [
  "chrono",
  "html5ever",
@@ -3236,9 +3340,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-core"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f93e2fa3cc4e18b393b7935d5551deba8330968f69f2a1b2ff1928cb125782a"
+checksum = "7283cdcd0a6703ecdcd2fc9f621705a3f4efbd3c88376219a6194a2f126b7573"
 dependencies = [
  "cap-std",
  "crc32fast",
@@ -3278,9 +3382,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-dev"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc746247e56b895185300d03794e5e0f5b2e8a9cc956f320fe97c5006725aaa6"
+checksum = "a9b2ebf4e4108cdc5fea48c44d2aa2f905f3d77b00ca2976877329d0ac6e2a80"
 dependencies = [
  "base64 0.22.1",
  "dunce",
@@ -3292,9 +3396,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-engine"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c0dda64a09a18ae35ba04be534f140d6f3cbcdb30a81b1926dc4718fefaefd2"
+checksum = "24a7d05151d74e2c1c24800c009016ea17d82268c5ccb821118a06188456db89"
 dependencies = [
  "block2",
  "crossbeam-channel",
@@ -3320,15 +3424,15 @@ dependencies = [
 
 [[package]]
 name = "nsh-i18n"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4570770dee21d88d2c364e091aa64a53af38480a39d75ee0feec0811a2c0dec"
+checksum = "f8452a60c20035f87e8003cb6daf98c01294b8d886e9a90503669a0c67e19ca9"
 
 [[package]]
 name = "nsh-ios-app"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df9d2cc6138d63079fce6c2d7ae0f3967b37f9f0b284b8cb71720b06cde5ec60"
+checksum = "a28a4eb527cfdb246c0ba084281ceb558414a3e1779a7d5c6f6fd1094fe1f669"
 dependencies = [
  "log",
  "nsh-engine",
@@ -3338,9 +3442,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-ios-host"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dbcc75167f3065dce89884baee82641b7d3e9fb06409f0389610c266fc07676"
+checksum = "e34c13786f71d1f01f362d598344b6608ef549823831e2377cf808fefd3a14a4"
 dependencies = [
  "log",
  "nsh-dev",
@@ -3350,9 +3454,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-js"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fda1d0dd5fff1c92ce576cae439317a0d30116a3d260c862eeeccb1dd6a3e713"
+checksum = "b10bc11cccccc4dc5d1be5f853e927bb5326028f2bd53c5a805d42178cc0b2d8"
 dependencies = [
  "futures-util",
  "getrandom 0.4.3",
@@ -3374,9 +3478,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-linux-app"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6329c58556a3952ec809df3900c046f18fbbe92bcafba539192902d95ce9c1cc"
+checksum = "c938225a5c4952caacf6c1bf997f65628cccac7b83bc46fad746bf34e832f5a9"
 dependencies = [
  "log",
  "nsh-engine",
@@ -3386,9 +3490,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-linux-host"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90b3e3cf0f6cca7f282ab59f35df12414b932971675e4543b1b0d35a4fd4ed24"
+checksum = "8c41eaa7ac56242e5f05106fc96c03db3ae2085dead87d1fa19c40b4ff0835ca"
 dependencies = [
  "log",
  "nsh-dev",
@@ -3398,9 +3502,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-macos-app"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8a2d24bf1e0e88bbc1f4ae9dbf5913b93042df33939a99991e0f2a958bfe065"
+checksum = "ce89d81b4f8f91b8fd5819a1fe6e804cfa1e9daddd8ebbcb89f46e109c5791ec"
 dependencies = [
  "log",
  "nsh-engine",
@@ -3411,9 +3515,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-macos-host"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f193f8859bfc55eea969a6b73c0698d5c986132cce224496aa10d49454794bcb"
+checksum = "c98e3e33e5949000f1ad4fed91bd8a952824e525517a85d8d9138ddde6236b5b"
 dependencies = [
  "log",
  "nsh-dev",
@@ -3423,9 +3527,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-macros"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eefb6467662ffb652997c7c252919488aa4723807e3a0f17fff3a8c01c29b22f"
+checksum = "db9d9d6eaf1942d10ccb5e328cbff1aeb7f0e27f945d3d0226c5943714a2e50e"
 dependencies = [
  "imagesize 0.15.0",
  "proc-macro2",
@@ -3437,9 +3541,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-package"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e292d17debb97b13445c7861dbeb8d39ea424d82426a1b11f60b2703f49b261"
+checksum = "612a2e3e9811992a5671443cbeeef7cfaac3e5530f5a6da40a8be19827215fda"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek 2.2.0",
@@ -3453,9 +3557,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-platform-android"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed49e1d03d34b0900625ecdcdd17a113d5ce5a19e70a9ae51a549ab6f10290a6"
+checksum = "fcc5540ff7683b4665d08360737c6482ed1b13e50e28bc0e7b02973bc028fe48"
 dependencies = [
  "jni 0.21.1",
  "libc",
@@ -3473,9 +3577,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-platform-apple"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c21f951bd6b8b53be180f15c9405bd4a952c9ff731d5776a754871e9169de1cf"
+checksum = "5ea5c1a4ab9cb63f2acaabd802bcfc153cd2bba7b94f303638a0eaa0d640fd34"
 dependencies = [
  "block2",
  "cc",
@@ -3493,9 +3597,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-platform-ios"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "899c9d8b36ee09bdb8f6e58e5a4580761dd161520cb15db77ef031fb9b94cb08"
+checksum = "c18b0e685a86bbfed9dde70ec80c6315713fbe40b1c5cab20cf1ed3565dc1913"
 dependencies = [
  "block2",
  "dispatch2",
@@ -3523,9 +3627,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-platform-linux"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef580b093e688cf9d7f4b072b220c77eb69b08686a346ca97280b11a2b51028a"
+checksum = "15b15f61efed36fbc29d3359f7a857700def24db96b31eb6eb5e17f2dd1e9b1f"
 dependencies = [
  "crossbeam-channel",
  "gstreamer",
@@ -3549,9 +3653,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-platform-macos"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "552bfc935c49f1f3fa72f7ad264f5794f65f73c972d943ec28eaa7d824a653ad"
+checksum = "274ad01eb629fd822560ae40695af1b181baa44febdd2931b7749cc6f25d3b81"
 dependencies = [
  "block2",
  "crossbeam-channel",
@@ -3580,9 +3684,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-platform-web"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24f16b1b68ba12079cb9c35582aed48163c5493fd86684cf5c2c438a0f56d809"
+checksum = "456ed9f606eb0c3792539116987a5546165405dcb8b88f60eb0aab0500de8245"
 dependencies = [
  "brotli",
  "crc32c",
@@ -3609,9 +3713,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-platform-windows"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27c4237a7b8dc68f3e648769b9cd70919d8d6b69df8a0bd81c168c8988ce2bbb"
+checksum = "d927d3e0d58f8db6f16c76d62d45c80070a66654817acbc209f309159cdc9884"
 dependencies = [
  "crossbeam-channel",
  "image",
@@ -3633,9 +3737,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-testing"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54ac8c9e9d8205b03748bf3485689b3ea3bd1f8f1b8fbc0b6f66ff19c67d655f"
+checksum = "ef76812dd35b2020574b8ef0f74835984329e758c37ed1f6f40db5f11f1bb441"
 dependencies = [
  "base64 0.22.1",
  "crossbeam-channel",
@@ -3654,9 +3758,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-updater"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b6df81dce14aadfd08fd2aaf9d6754e922e8537d360bc69dcb28a6e478921bd"
+checksum = "0a3598aa7721a64222c75d6c5948e720595d11916ec28a620e5ccec175221334"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek 2.2.0",
@@ -3672,9 +3776,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-windows-app"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca909c8b8f93b5a82a10d383d5213d0e95aae69c1f945f95873df2eedab0c398"
+checksum = "d6030750d50c3f9e470edd236001c13527888f86daa339572f52b872adccbeeb"
 dependencies = [
  "log",
  "nsh-engine",
@@ -3684,9 +3788,9 @@ dependencies = [
 
 [[package]]
 name = "nsh-windows-host"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb4e7a92a05eab6ae97236641f9b5066b3d4463948791927a6fb4d3b0e6213bc"
+checksum = "c9b3f8552f5e12048a6af637367bb200fcd588dd3f6a4661b590a11826064615"
 dependencies = [
  "log",
  "nsh-dev",
@@ -4864,6 +4968,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "rsqlite-vfs"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "353b74f9810d5b085b6c42c9d86a5f0fdb795553235cdd48753b32e3809d18a7"
+dependencies = [
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rusqlite"
+version = "0.41.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594"
+dependencies = [
+ "bitflags 2.13.2",
+ "fallible-iterator",
+ "fallible-streaming-iterator",
+ "hashlink",
+ "libsqlite3-sys",
+ "smallvec",
+ "sqlite-wasm-rs",
+]
+
+[[package]]
 name = "rust-i18n"
 version = "4.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5451,6 +5579,16 @@ name = "sponge-cursor"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a0219bd7d979d58245a4f41f695e1ac9f8befdffadd7f61f1bae9e39abc6620"
+
+[[package]]
+name = "sqlite-wasm-rs"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6cd504cecbfe7eef649988840f9a6cb768d11085efec138f8e99f160632d867"
+dependencies = [
+ "cc",
+ "rsqlite-vfs",
+]
 
 [[package]]
 name = "stable_deref_trait"
@@ -6160,6 +6298,12 @@ dependencies = [
  "itoa",
  "ryu",
 ]
+
+[[package]]
+name = "vcpkg"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "version-compare"

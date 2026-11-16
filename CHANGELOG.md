@@ -6,6 +6,11 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 09:01; NSH 0.5.1
+
+- NSH updated from 0.5.0 to 0.5.1 (D2): the workspace pins, the generated `app/.nsh` crates and both lockfiles; the
+  local tool in `C:\dev\nsh` and the source in `C:\dev\nsh-src` are at 0.5.1 too. No code changes were needed.
+
 ### 2026-11-16 08:23; Ph3: 33/49 | A.20: Stamps library with dynamic fields
 
 - A Stamp command (toolbar, Shift+M on a page, the palette) puts a stamp where the page is clicked next. While it

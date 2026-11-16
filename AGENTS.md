@@ -34,7 +34,7 @@ pull request as the code.
 | # | Decision |
 | --- | --- |
 | D1 | Rust, edition 2024, stable toolchain |
-| D2 | UI in **NSH v0.5.0** with **Rust components**, not TSX. `nsh-core` and `nsh-base` from crates.io, pinned to the installed CLI's version (`"=0.5.0"`); update NSH deliberately, in its own pull request |
+| D2 | UI in **NSH v0.5.1** with **Rust components**, not TSX. `nsh-core` and `nsh-base` from crates.io, pinned to the installed CLI's version (`"=0.5.1"`); update NSH deliberately, in its own pull request |
 | D3 | Documents: **MuPDF 1.28.5 as vendored by upstream SumatraPDF**, with its 70 patches, plus SumatraPDF Enhanced's six annotation patches renumbered `0088`–`0093` (plan §6.1). No PDFium, no pdf.js, no other engine |
 | D4 | Bindings: our own `excellent-mupdf-sys`, a C shim around every MuPDF call (`fz_try` / `fz_catch` inside the shim) |
 | D5 | Page view: one native component `excellent.page-canvas` per platform (a child window on Windows) over a shared Rust core |
@@ -181,11 +181,11 @@ self-cleaning build directory between projects and worktrees, so the disk doesn'
 | --- | --- |
 | MuPDF 1.28.5 headers (source of truth for MuPDF APIs) | `C:\dev\sumatrapdf\ext\mupdf\include\mupdf\`, then `third_party/mupdf/include/mupdf/` after T2 |
 | SumatraPDF Enhanced source, for anything ported | `C:\dev\sumatrapdf\src\` |
-| NSH tool and runtime (`nsh 0.5.0`) | `C:\dev\nsh` |
-| NSH source and docs at v0.5.0 | `C:\dev\nsh-src` (`AGENTS.md`, `website/docs/`, `docs/dev/`) and <https://nsh.dev> |
+| NSH tool and runtime (`nsh 0.5.1`) | `C:\dev\nsh` |
+| NSH source and docs at v0.5.1 | `C:\dev\nsh-src` (`AGENTS.md`, `website/docs/`, `docs/dev/`) and <https://nsh.dev> |
 | MuPDF docs | <https://mupdf.readthedocs.io/en/latest/> |
 
-Use only MuPDF functions that exist in the 1.28.5 headers, and only NSH APIs that exist in v0.5.0. Check before you
+Use only MuPDF functions that exist in the 1.28.5 headers, and only NSH APIs that exist in v0.5.1. Check before you
 cite or call one.
 
 ## 9. Process
