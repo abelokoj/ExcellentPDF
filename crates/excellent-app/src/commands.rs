@@ -71,6 +71,10 @@ pub(crate) enum CommandId {
     AnnotationList,
     /// Adds another version's annotations to the shown document (A.16).
     TransferAnnotations,
+    /// Shows the document's layers, at the top of the annotation list (A.22).
+    Layers,
+    /// Puts every annotation on no layer on its author's (A.22).
+    LayersByAuthor,
     /// Places a sticky note where the page is clicked next (A.5).
     StickyNote,
     /// Places a text box where the page is clicked next (A.6).
@@ -154,6 +158,7 @@ impl CommandId {
                     | Self::Cloud
                     | Self::CutAnnotations
                     | Self::TransferAnnotations
+                    | Self::LayersByAuthor
                     | Self::PasteAnnotations
                     | Self::DeleteAnnotations
                     | Self::Undo
@@ -651,6 +656,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+o"],
+    },
+    Command {
+        id: CommandId::Layers,
+        name: "annotate.layers",
+        label: "command.layers",
+        group: "command.group.annotate",
+        keys: &["mod+alt+l"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::LayersByAuthor,
+        name: "annotate.layers_by_author",
+        label: "command.layers_by_author",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &[],
     },
     Command {
         id: CommandId::MarginNotes,

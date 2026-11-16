@@ -854,10 +854,11 @@ pub struct ex_annot_write {
     pub font: *const ::core::ffi::c_char,
     pub reply_to: *const ::core::ffi::c_char,
     pub state: *const ::core::ffi::c_char,
+    pub layer: *const ::core::ffi::c_char,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 312usize];
+    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 320usize];
     ["Alignment of ex_annot_write"][::core::mem::align_of::<ex_annot_write>() - 8usize];
     ["Offset of field: ex_annot_write::props"]
         [::core::mem::offset_of!(ex_annot_write, props) - 32usize];
@@ -875,6 +876,8 @@ const _: () = {
         [::core::mem::offset_of!(ex_annot_write, reply_to) - 296usize];
     ["Offset of field: ex_annot_write::state"]
         [::core::mem::offset_of!(ex_annot_write, state) - 304usize];
+    ["Offset of field: ex_annot_write::layer"]
+        [::core::mem::offset_of!(ex_annot_write, layer) - 312usize];
 };
 impl Default for ex_annot_write {
     fn default() -> Self {
@@ -950,6 +953,24 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn ex_drop_buffer(ctx: *mut fz_context, buf: *mut fz_buffer);
+}
+unsafe extern "C" {
+    pub fn ex_layers(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        out: *mut *mut fz_buffer,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_layer_set(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        name: *const ::core::ffi::c_char,
+        visible: ::core::ffi::c_int,
+        locked: ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
     pub fn ex_annot_set_stamp_art(

@@ -360,3 +360,24 @@ field inside the open note would only move focus there.
 - Undo after deleting an annotation brings its whole thread back.
 - Transferring annotations from another version drops their replies until transfer carries threads over.
 - AGENTS.md's three ways to an action are not met for Reply and Set status; Acrobat has no shortcut for them either.
+
+## DD20. Layers: lock keeps visibility, the list keeps hidden ones, a new note goes on its author's layer (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.22's lock is the PDF's `/Locked` in the default configuration: a locked layer can't be shown
+or hidden (here or in Acrobat) until it is unlocked; it does not stop the annotations on it from being edited (A.12
+locks annotations one by one). The Layers section heads the annotation list (Annotations panel) rather than a panel
+of its own; Ctrl+Alt+L opens it. A hidden layer's annotations are not drawn, pressed, selected or shown in the margin,
+but stay in the annotation list. Once the document has a layer named for an author, that author's new annotations go
+on it. "One per author" has a palette command but no shortcut.
+
+**Why:** Acrobat's Locked means exactly this, and the Done-when is about Acrobat's Layers panel; an extra
+"read-only layer" would live only in this app. The list is where annotations are found and moved, so hiding them
+there too would leave no way back to them short of showing the layer. A separate panel for a handful of lines would
+crowd the sidebar. Sorting by author is rare, so a shortcut isn't worth a key.
+
+**What it means:**
+
+- To stop edits on a layer's annotations, lock them (A.12) as well as the layer.
+- A layer can't be renamed or deleted yet; one with nothing on it stays in the file.
+- AGENTS.md's three ways to an action are met for Layers but not for "One per author" (toolbar button and palette
+  only).

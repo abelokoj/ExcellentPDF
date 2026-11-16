@@ -3442,6 +3442,12 @@ Display lists and `ex_render_page` leave replies out, `page_annotations` too (`p
 
 **Done when:** hiding a layer here hides it in Acrobat's layers panel too.
 
+*Built (2026-11-16):* `annotate::layers` (move_to, by_author, show, lock, shown, place_new); `Annotation::layer`
+written as `/OC` by the shim's `ex_annot_layer`, which makes the group in `/OCGs` and `/D /Order`; `Change::SetLayer`
+writes `/D`'s `/OFF`, `/ON` and `/Locked` through `ex_layer_set`, and MuPDF's layer cache is reset after each change,
+undo and redo. Showing or hiding redraws every page (`Pages::Every`). The Layers section heads the annotation list;
+the inspector has a Layer row (DD20).
+
 #### Ph7: 4/32 | A.23: Measurement
 **P1; Phase 7; Needs:** A.8, A.10; **Code:** `excellent-features/measure`
 1. Tools: distance (`PDF_ANNOT_IT_LINE_DIMENSION`), perimeter (`PDF_ANNOT_IT_POLYLINE_DIMENSION`), area

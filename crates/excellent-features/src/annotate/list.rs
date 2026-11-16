@@ -111,6 +111,8 @@ pub struct Row {
     pub replies: usize,
     /// Its review status (A.21); `None` when none is set.
     pub status: Option<Status>,
+    /// The layer it is on (A.22); `None` for none.
+    pub layer: Option<String>,
     /// Its note, the text it marks, its tags and its replies, folded to lower case, for search.
     folded: String,
     /// Its tags, folded to lower case, for `tag:` (A.18) and the tag filter (A.19).
@@ -143,6 +145,7 @@ impl Row {
             modified: annotation.modified,
             replies: thread.len(),
             status: super::threads::status_of(replies, &annotation.id),
+            layer: annotation.layer.clone(),
             folded: format!(
                 "{note}\n{marked}\n{}\n{}",
                 annotation.tags.join("\n"),

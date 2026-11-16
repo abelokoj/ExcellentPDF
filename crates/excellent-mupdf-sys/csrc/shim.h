@@ -298,6 +298,8 @@ typedef struct ex_annot_props {
 /* Its review state's name (/State: Accepted, Rejected, Cancelled, Completed, None, Marked, Unmarked), as the file has
  * it (A.21). */
 #define EX_ANNOT_STATE 8
+/* The name of the layer it is on (/OC, when that is an optional content group: A.22); empty for none. */
+#define EX_ANNOT_LAYER 9
 
 /* Reads `annot`: its properties, then its arrays into caller memory sized from them (any may be NULL to skip). */
 int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex_error *err);
@@ -329,6 +331,9 @@ typedef struct ex_annot_write {
 	const char *reply_to;
 	/* A reply's review state (/State, see EX_ANNOT_STATE); NULL or empty for none. */
 	const char *state;
+	/* The name of the layer to put it on (A.22), made when the document has none of that name; NULL or empty for
+	 * none. */
+	const char *layer;
 } ex_annot_write;
 
 /* Annotation edits (K.14), inside an operation, on page `page` (zero-based) of a PDF. ex_annot_create adds one;
@@ -409,6 +414,14 @@ int ex_link_uri(fz_context *ctx, fz_document *doc, int page, float x, float y, f
  * again. `*incremental` is 1 when the opened bytes start the new file unchanged, else 0. */
 int ex_save_pdf(fz_context *ctx, fz_document *doc, const char *path, int *incremental, ex_error *err);
 
+/* A.22: the document's layers (optional content groups, /OCProperties /OCGs) in the file's order, into a new
+ * buffer: one entry each, a flags byte ('0' plus 1 when the default configuration /D hides it, plus 2 when it locks
+ * it) then its name, UTF-8, ending in a NUL. Empty for a document without layers or not a PDF. */
+int ex_layers(fz_context *ctx, fz_document *doc, fz_buffer **out, ex_error *err);
+/* A.22, inside an operation: the layer named `name` shown or hidden, locked or not, in the default configuration
+ * (/D /ON, /OFF, /Locked), which is what other readers open with. Fails with FZ_ERROR_ARGUMENT when the document has
+ * no layer of that name. */
+int ex_layer_set(fz_context *ctx, fz_document *doc, const char *name, int visible, int locked, ex_error *err);
 /* Buffers: `*data` points into the buffer and is valid until it is dropped. */
 /* A.20: the stamp of page `page` whose /NM is `id` drawn as the `len` bytes of `art`: with `kind` 0 the first page
  * of a PDF (its appearance, kept by MuPDF because the stamp's name is not a standard one), with 1 an image

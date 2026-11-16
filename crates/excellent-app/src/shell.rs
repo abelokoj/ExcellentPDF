@@ -474,9 +474,11 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Stamp => pane.annotate.place(Placing::Stamp),
             CommandId::MarginNotes => pane.annotate.toggle_margin(),
             CommandId::TransferAnnotations => pane.annotate.transfer(),
-            CommandId::AnnotationList => {
+            // The layers sit at the top of the annotation list (A.22).
+            CommandId::AnnotationList | CommandId::Layers => {
                 layout.update(|layout| show_panel(layout, Panel::Annotations.key()));
             }
+            CommandId::LayersByAuthor => pane.annotate.layers_by_author(),
             CommandId::AnnotationColors => pane
                 .annotate
                 .pick(excellent_features::annotate::colors::Tool::Highlight),

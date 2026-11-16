@@ -26,6 +26,7 @@ const ICON: c_int = 5;
 const FONT: c_int = 6;
 const REPLY_TO: c_int = 7;
 const STATE: c_int = 8;
+const LAYER: c_int = 9;
 
 /// How a text box is drawn (PDF's `/IT` on a free-text annotation, A.6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -394,6 +395,7 @@ impl Annot<'_> {
             group: self.text(GROUP)?,
             reply_to: self.text(REPLY_TO)?,
             state: self.text(STATE)?,
+            layer: self.text(LAYER)?,
             icon: self.text(ICON)?,
             open: props.is_open != 0,
             intent: Intent::from_raw(props.intent),
@@ -460,6 +462,9 @@ pub struct AnnotData {
     /// A reply's review state (`/State`: `Accepted`, `Rejected`, `Cancelled`, `Completed`, `None`, `Marked` or
     /// `Unmarked`), as the file names it; empty for none. Written with its `/StateModel` and hidden on the page.
     pub state: String,
+    /// The name of the layer it is on (`/OC`, an optional content group: A.22); empty for none. Writing a name the
+    /// document has no layer of makes one; writing none keeps another app's membership dictionary.
+    pub layer: String,
     /// Its icon's name (`/Name`: a sticky note's or a stamp's, A.5), as the file has it; empty for none, which
     /// readers show as the kind's default.
     pub icon: String,
@@ -531,7 +536,11 @@ impl AnnotData {
             text(&self.icon)?,
             text(&self.font)?,
         );
-        let (reply_to, state) = (text(&self.reply_to)?, text(&self.state)?);
+        let (reply_to, state, layer) = (
+            text(&self.reply_to)?,
+            text(&self.state)?,
+            text(&self.layer)?,
+        );
         let count = |n: usize| c_int::try_from(n).map_err(|_| MuError::argument("too many points"));
         if self.color.len() > 4 || self.text_color.len() > 4 {
             return Err(MuError::argument("a colour has at most four components"));
@@ -580,6 +589,7 @@ impl AnnotData {
             font: font.as_ptr(),
             reply_to: reply_to.as_ptr(),
             state: state.as_ptr(),
+            layer: layer.as_ptr(),
             props: ex_annot_props {
                 type_: kind,
                 rect: self.rect.into(),

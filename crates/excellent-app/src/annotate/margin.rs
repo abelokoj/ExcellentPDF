@@ -4,7 +4,6 @@
 //! they scroll and zoom (its `margin` events). Turned on and off by `annotate.margin_notes` and in the settings. The
 //! model is `excellent-features`' `annotate::margin`.
 
-use excellent_core::annot::page_annotations;
 use excellent_features::annotate::margin::{self, Outline, ToScreen};
 use excellent_features::annotate::notes::{self, Target};
 use nsh_base::{button, input, theme};
@@ -110,13 +109,8 @@ impl AnnotateState {
         let mupdf = shared.lock().expect("document lock poisoned");
         pages
             .iter()
-            .flat_map(|&page| {
-                page_annotations(&mupdf, page)
-                    .map_err(|err| {
-                        log::warn!("margin: cannot read page {page}'s annotations: {err}")
-                    })
-                    .unwrap_or_default()
-            })
+            // A hidden layer's notes leave the margin with it (A.22).
+            .flat_map(|&page| super::layers::shown_on_page(&mupdf, page))
             .filter(margin::has_card)
             .map(|annotation| Card {
                 noting: Noting::of(&annotation),

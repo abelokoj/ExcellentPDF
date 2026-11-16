@@ -6,7 +6,7 @@
 
 use std::sync::Mutex;
 
-use excellent_core::annot::{Annotation, page_annotations};
+use excellent_core::annot::Annotation;
 use excellent_core::edit::{Change, Operation};
 use excellent_features::annotate::edit::{self, Clip, Drag, Grip, Marquee};
 use excellent_features::annotate::notes::Target;
@@ -230,9 +230,8 @@ impl AnnotateState {
             return Vec::new();
         };
         let mupdf = shared.lock().expect("document lock poisoned");
-        page_annotations(&mupdf, page)
-            .map_err(|err| log::warn!("select: cannot read page {page}'s annotations: {err}"))
-            .unwrap_or_default()
+        // What a hidden layer holds can't be selected on the page (A.22).
+        super::layers::shown_on_page(&mupdf, page)
     }
 
     /// Makes `changes` one step of undo named `name`; nothing for none. Returns whether it was made.

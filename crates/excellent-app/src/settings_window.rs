@@ -54,9 +54,9 @@ const SLIDER_TRACK: &str = "h-1 rounded-full bg-muted";
 const SLIDER_RANGE: &str = "h-1 rounded-full bg-primary";
 const SLIDER_THUMB: &str =
     "size-4 rounded-full bg-background border-2 border-primary focus-visible:border-ring";
-const SWITCH_TRACK: &str = "w-9 h-5 p-0.5 rounded-full bg-input checked:bg-primary \
+pub(crate) const SWITCH_TRACK: &str = "w-9 h-5 p-0.5 rounded-full bg-input checked:bg-primary \
                             focus-visible:ring-2 focus-visible:ring-ring";
-const SWITCH_THUMB: &str = "size-4 rounded-full bg-background shadow-sm checked:ml-4";
+pub(crate) const SWITCH_THUMB: &str = "size-4 rounded-full bg-background shadow-sm checked:ml-4";
 
 /// The settings window. `choose` runs a command after it closes (the theme pickers are their own dialogs).
 pub(crate) fn settings_window(

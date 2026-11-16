@@ -191,8 +191,23 @@ pub(crate) fn annotation_list(
             .with(|rows| rows.as_ref().is_some_and(|r| !r.is_empty()))
     };
     let read = move || listing.rows.with(Option::is_some);
+    // The layers (A.22), read again after every edit: showing or hiding one is an edit.
+    let layers = computed(move || {
+        state.editing.revision();
+        untracked(|| state.layers())
+    });
+    let held = move |name: &str| {
+        listing.rows.with(|rows| {
+            rows.as_deref().map_or(0, |rows| {
+                rows.iter()
+                    .filter(|row| row.layer.as_deref() == Some(name))
+                    .count()
+            })
+        })
+    };
     view()
         .flex_1()
+        .child(super::layers::layers_section(state, layers, held))
         .child(when(has_rows, move || filters(listing)))
         .child(
             when(

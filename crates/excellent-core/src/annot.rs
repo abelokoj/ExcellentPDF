@@ -288,6 +288,8 @@ pub struct Annotation {
     pub reply_to: Option<String>,
     /// A reply's review status (A.21); `None` for a reply that is only text, and for everything else.
     pub state: Option<Status>,
+    /// The name of the layer it is on (A.22): hidden with it; `None` for none.
+    pub layer: Option<String>,
     /// Its semantic category's key (A.17), such as `claim`; `None` for none.
     pub category: Option<String>,
     /// Its icon's name (PDF's `/Name`): a sticky note's (A.5) or a stamp's; empty for none, which readers draw as
@@ -330,6 +332,7 @@ impl Annotation {
             group: None,
             reply_to: None,
             state: None,
+            layer: None,
             category: None,
             icon: String::new(),
             open: false,
@@ -434,6 +437,7 @@ impl Annotation {
             group: (!data.group.is_empty()).then(|| data.group.clone()),
             reply_to: (!data.reply_to.is_empty()).then(|| data.reply_to.clone()),
             state: Status::from_name(&data.state),
+            layer: (!data.layer.is_empty()).then(|| data.layer.clone()),
             category,
             icon: data.icon.clone(),
             open: data.open,
@@ -472,6 +476,7 @@ impl Annotation {
                 .state
                 .map(|state| state.name().to_owned())
                 .unwrap_or_default(),
+            layer: self.layer.clone().unwrap_or_default(),
             icon: self.icon.clone(),
             open: self.open,
             intent: match self.shape {
@@ -562,6 +567,7 @@ impl Annotation {
             "group": self.group,
             "reply_to": self.reply_to,
             "state": self.state.map(Status::name),
+            "layer": self.layer,
             "category": self.category,
             "icon": self.icon,
             "open": self.open,
@@ -654,6 +660,8 @@ impl Annotation {
             // Before A.21 none answered another.
             reply_to: text("reply_to"),
             state: text("state").as_deref().and_then(Status::from_name),
+            // Before A.22 none was on a layer.
+            layer: text("layer"),
             // Before A.17 none had a category.
             category: text("category"),
             icon: text("icon").unwrap_or_default(),

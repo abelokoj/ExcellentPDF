@@ -10,7 +10,7 @@ use std::path::Path;
 
 use excellent_mupdf_sys::{
     ex_abandon_operation, ex_annot_create, ex_annot_delete, ex_annot_set_stamp_art,
-    ex_annot_update, ex_begin_operation, ex_end_operation, ex_is_pdf, ex_link_uri,
+    ex_annot_update, ex_begin_operation, ex_end_operation, ex_is_pdf, ex_layer_set, ex_link_uri,
     ex_outline_delete, ex_outline_edit, ex_outline_insert, ex_outline_move, ex_outline_style,
     ex_outline_update, ex_redo, ex_save_pdf, ex_undo, ex_undo_state,
 };
@@ -446,6 +446,29 @@ impl Edit<'_> {
                     kind,
                     bytes.as_ptr(),
                     bytes.len(),
+                    err,
+                )
+            })
+        })
+    }
+
+    /// Shows or hides, locks or unlocks, the layer named `name` (A.22) in the file's default configuration, which
+    /// other readers open with.
+    ///
+    /// # Errors
+    ///
+    /// The document has no layer of that name, the name contains a NUL, or MuPDF can't write it.
+    pub fn set_layer(&mut self, name: &str, visible: bool, locked: bool) -> Result<()> {
+        let name = c_text(name)?;
+        with_context(|ctx| {
+            // SAFETY: as for `create_annot`; `name` is NUL-terminated.
+            check(|err| unsafe {
+                ex_layer_set(
+                    ctx,
+                    self.doc.raw().as_ptr(),
+                    name.as_ptr(),
+                    c_int::from(visible),
+                    c_int::from(locked),
                     err,
                 )
             })

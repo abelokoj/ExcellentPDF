@@ -63,7 +63,8 @@ pub(super) fn look(state: AnnotateState, annotation: &Annotation) -> View {
         .child(caption("tags.title"))
         .child(tags_field)
         .child(caption("inspector.author"))
-        .child(author_field);
+        .child(author_field)
+        .child(super::layers::layer_rows(state, annotation));
     if inspector::has_color(annotation) {
         rows = rows.child(caption("inspector.color")).child(swatches(
             state,

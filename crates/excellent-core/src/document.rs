@@ -22,7 +22,7 @@ use excellent_mupdf::{DisplayList, MuError, Reflow, Save, UndoState};
 
 pub use identity::FileId;
 
-use crate::edit::Operation;
+use crate::edit::{Operation, Pages};
 use crate::oplog::{self, Log, Record};
 
 /// A MuPDF document as the render pool takes it: one thread uses it at a time.
@@ -129,6 +129,13 @@ impl State {
     fn all_pages_changed(&mut self) {
         self.layouts += 1;
         self.lists.clear();
+    }
+
+    fn pages_changed(&mut self, pages: &Pages) {
+        match pages {
+            Pages::These(pages) => pages.iter().for_each(|&page| self.page_changed(page)),
+            Pages::Every => self.all_pages_changed(),
+        }
     }
 }
 
@@ -365,9 +372,7 @@ impl Document {
         }
         // A new log replaced the earlier run's.
         state.recovery = None;
-        for page in operation.pages() {
-            state.page_changed(page);
-        }
+        state.pages_changed(&operation.pages());
         state.edits += 1;
         Ok(())
     }
@@ -402,7 +407,7 @@ impl Document {
             Direction::Back => log.history().undo_pages(),
             Direction::Forward => log.history().redo_pages(),
         }
-        .to_vec();
+        .clone();
         match direction {
             Direction::Back if undo.can_undo() => {
                 mupdf.undo()?;
@@ -420,9 +425,7 @@ impl Document {
             }
             Direction::Back | Direction::Forward => return Ok(false),
         }
-        for page in pages {
-            state.page_changed(page);
-        }
+        state.pages_changed(&pages);
         state.edits += 1;
         Ok(true)
     }
@@ -801,7 +804,7 @@ mod tests {
         };
         let note = Annotation::new(1, Shape::Boxed(Boxed::Note, rect), Style::default(), "Ada");
         let create = Operation::new("Add note", vec![Change::CreateAnnotation(note)]);
-        assert_eq!(create.pages(), [1]);
+        assert_eq!(create.pages(), Pages::These(vec![1]));
 
         document.apply(&create).expect("apply");
         assert_eq!((document.revision(0), document.revision(1)), (0, 1));

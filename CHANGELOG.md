@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 09:59; Ph3: 35/49 | A.22: Annotation layers by person or purpose
+
+- Annotations can be put on layers, the PDF's optional content groups that Acrobat lists in its Layers panel. The
+  inspector's Layer row takes a layer name (a new one makes the layer) or a chip of an existing layer.
+- The top of the annotation list (Ctrl+Alt+L, or "Layers" in the palette) lists the layers: show or hide each, see
+  how many annotations it holds, and lock it so its visibility stays. Each change is one step of undo and is saved in
+  the file, so other readers open it with the same layers hidden.
+- "One per author" puts every annotation on no layer on its author's layer; from then on a reviewer's new
+  annotations go on their layer by themselves.
+- A hidden layer's annotations are not drawn, pressed or shown in the margin, but stay in the annotation list.
+
 ### 2026-11-16 09:26; Ph3: 34/49 | A.21: Comment threads with replies and resolve
 
 - An annotation's inspector now shows its comment thread: a status (Accepted, Rejected, Cancelled, Completed, None),

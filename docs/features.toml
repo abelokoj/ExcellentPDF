@@ -217,6 +217,12 @@ status = "in-progress"
 tests = ["a_thread_survives_save_and_goes_with_its_parent", "a_reply_is_a_note_on_its_parent_that_names_it", "a_thread_reads_its_replies_however_deep_oldest_first", "a_loop_of_replies_ends", "the_latest_status_counts_and_clearing_takes_it_back", "replies_are_no_rows_but_counted_and_found_on_their_parent_s"]
 open = "not tried by hand and not opened in Acrobat; replies are not carried over by A.16's transfer; Reply has no shortcut or palette command (DD19)"
 
+["A.22"]
+label = "Ph3: 35/49"
+status = "in-progress"
+tests = ["a_hidden_layer_hides_its_annotations_here_and_in_the_file", "the_shim_s_list_reads_as_layers", "a_name_is_one_trimmed_line", "moving_skips_what_is_there_locked_or_a_reply", "sorting_by_author_gives_each_reviewer_a_layer", "a_locked_layer_keeps_its_visibility", "what_a_hidden_layer_holds_is_not_shown", "a_new_annotation_goes_on_its_author_s_layer"]
+open = "not tried by hand and not opened in Acrobat; lock keeps visibility only (DD20); layers can't be renamed or deleted"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

@@ -73,6 +73,24 @@ pub enum Change {
         /// What it is drawn as.
         art: StampArt,
     },
+    /// The layer named `name` shown or hidden, locked or not (A.22), as other readers open the file.
+    SetLayer {
+        /// Its name.
+        name: String,
+        /// Whether what is on it is drawn.
+        visible: bool,
+        /// Whether readers keep it from being shown or hidden.
+        locked: bool,
+    },
+}
+
+/// The pages whose look an operation changes: what is drawn again when it is made, undone or redone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Pages {
+    /// These, each once, in order; none for an outline's changes.
+    These(Vec<usize>),
+    /// Every page: a layer was shown or hidden (A.22).
+    Every,
 }
 
 /// Changes made, and undone, together: one step of the undo history.
@@ -85,7 +103,8 @@ pub struct Operation {
 }
 
 impl Change {
-    /// The page whose look it changes: an annotation's; `None` for the outline.
+    /// The page whose look it changes: an annotation's; `None` for the outline and a layer (which is every page's,
+    /// [`Operation::pages`]).
     pub fn page(&self) -> Option<usize> {
         match self {
             Self::CreateAnnotation(annotation) | Self::UpdateAnnotation(annotation) => {
@@ -96,7 +115,8 @@ impl Change {
             | Self::UpdateOutlineEntry { .. }
             | Self::StyleOutlineEntry { .. }
             | Self::DeleteOutlineEntry { .. }
-            | Self::MoveOutlineEntry { .. } => None,
+            | Self::MoveOutlineEntry { .. }
+            | Self::SetLayer { .. } => None,
         }
     }
 
@@ -130,6 +150,11 @@ impl Change {
             }
             Self::DeleteAnnotation { page, id } => edit.delete_annot(*page, id),
             Self::StampArt { page, id, art } => edit.set_stamp_art(*page, id, art),
+            Self::SetLayer {
+                name,
+                visible,
+                locked,
+            } => edit.set_layer(name, *visible, *locked),
         }
     }
 
@@ -171,6 +196,13 @@ impl Change {
                 };
                 json!({"kind": "annot.stamp_art", "target": id, "page": page, "art": kind,
                     "bytes": to_hex(bytes)})
+            }
+            Self::SetLayer {
+                name,
+                visible,
+                locked,
+            } => {
+                json!({"kind": "layer.set", "target": name, "visible": visible, "locked": locked})
             }
         }
     }
@@ -227,6 +259,11 @@ impl Change {
                     },
                 }
             }
+            "layer.set" => Self::SetLayer {
+                name: text("target")?,
+                visible: object.get("visible")?.as_bool()?,
+                locked: object.get("locked")?.as_bool()?,
+            },
             _ => return None,
         })
     }
@@ -241,12 +278,20 @@ impl Operation {
         }
     }
 
-    /// The pages whose look it changes, each once, in order: the pages of its annotations (an outline is no page's).
-    pub fn pages(&self) -> Vec<usize> {
+    /// The pages whose look it changes: the pages of its annotations (an outline is no page's), or every page when
+    /// it shows or hides a layer.
+    pub fn pages(&self) -> Pages {
+        if self
+            .changes
+            .iter()
+            .any(|change| matches!(change, Change::SetLayer { .. }))
+        {
+            return Pages::Every;
+        }
         let mut pages: Vec<usize> = self.changes.iter().filter_map(Change::page).collect();
         pages.sort_unstable();
         pages.dedup();
-        pages
+        Pages::These(pages)
     }
 
     /// Makes every change, in order, inside one MuPDF operation.
@@ -368,6 +413,11 @@ mod tests {
                 page: 0,
                 id: "stamp-2".into(),
                 art: StampArt::Image(Vec::new()),
+            },
+            Change::SetLayer {
+                name: "Ada's \"notes\"".into(),
+                visible: false,
+                locked: true,
             },
         ];
         let operation = Operation::new("Several", changes);

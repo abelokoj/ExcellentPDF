@@ -4,13 +4,15 @@
 //! once, and a bar over the pages lists them for the reader to keep or discard (A.15). Until then they aren't saved:
 //! closed undecided, they are brought back again next time.
 
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use excellent_core::document::{self, Document};
-use excellent_core::edit::Operation;
+use excellent_core::edit::{Change, Operation};
 use excellent_core::shared::registry;
+use excellent_features::annotate::layers;
 use nsh_base::alert_dialog;
 use nsh_core::element::desktop::on_app_quit;
 use nsh_core::prelude::*;
@@ -35,6 +37,34 @@ pub(crate) struct Editing {
     asked: Stored<Vec<PathBuf>>,
     /// Edits brought back from a crash that the reader hasn't kept or discarded yet.
     recovered: Signal<Vec<Recovered>>,
+}
+
+/// `operation` with each new annotation on its author's layer, when the document has one (A.22): a reviewer who has
+/// a layer keeps annotating on it.
+fn on_author_layers<'a>(document: &Document, operation: &'a Operation) -> Cow<'a, Operation> {
+    let creates = operation
+        .changes
+        .iter()
+        .any(|change| matches!(change, Change::CreateAnnotation(_)));
+    if !creates {
+        return Cow::Borrowed(operation);
+    }
+    let all = match document.mupdf() {
+        Ok(shared) => shared
+            .lock()
+            .expect("document lock poisoned")
+            .layers()
+            .map_err(|err| log::warn!("layers: cannot read them: {err}"))
+            .unwrap_or_default(),
+        Err(_) => Vec::new(),
+    };
+    if all.is_empty() {
+        return Cow::Borrowed(operation);
+    }
+    Cow::Owned(Operation::new(
+        operation.name.clone(),
+        layers::place_new(&operation.changes, &all),
+    ))
 }
 
 /// Edits a crash left unsaved, brought back when their file opened (A.15).
@@ -105,7 +135,8 @@ impl Editing {
         let Some(document) = self.document() else {
             return false;
         };
-        match document.apply(operation) {
+        let operation = on_author_layers(&document, operation);
+        match document.apply(&operation) {
             Ok(()) => {
                 self.edited(document);
                 true

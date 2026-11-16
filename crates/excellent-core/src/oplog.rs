@@ -19,7 +19,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use excellent_mupdf::UndoState;
 use serde_json::{Map, Value, json};
 
-use crate::edit::Operation;
+use crate::edit::{Operation, Pages};
 
 /// The log's format; a log of another format is not read.
 const SCHEMA: u64 = 1;
@@ -100,7 +100,7 @@ pub(crate) struct History {
     /// The next operation's id.
     next: u64,
     /// The pages each operation that changes pages changes, by id: what undo and redo draw again.
-    pages: BTreeMap<u64, Vec<usize>>,
+    pages: BTreeMap<u64, Pages>,
 }
 
 impl History {
@@ -118,18 +118,18 @@ impl History {
     }
 
     /// The pages the next undo changes.
-    pub(crate) fn undo_pages(&self) -> &[usize] {
+    pub(crate) fn undo_pages(&self) -> &Pages {
         self.pages_of(self.done.last())
     }
 
     /// The pages the next redo changes.
-    pub(crate) fn redo_pages(&self) -> &[usize] {
+    pub(crate) fn redo_pages(&self) -> &Pages {
         self.pages_of(self.undone.last())
     }
 
-    fn pages_of(&self, id: Option<&u64>) -> &[usize] {
-        id.and_then(|id| self.pages.get(id))
-            .map_or(&[], Vec::as_slice)
+    fn pages_of(&self, id: Option<&u64>) -> &Pages {
+        static NONE: Pages = Pages::These(Vec::new());
+        id.and_then(|id| self.pages.get(id)).unwrap_or(&NONE)
     }
 
     /// Follows `record`; `false` when it can't follow (an undo with nothing done, an id out of order), and then the
@@ -146,7 +146,7 @@ impl History {
                     self.pages.remove(&undone);
                 }
                 let pages = operation.pages();
-                if !pages.is_empty() {
+                if pages != Pages::These(Vec::new()) {
                     self.pages.insert(id, pages);
                 }
                 self.next = id + 1;

@@ -243,6 +243,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     anchor,
                     group: None,
                     reply_to: None,
+                    layer: None,
                     state: None,
                     category: None,
                     icon: if note { icon } else { String::new() },
@@ -1277,4 +1278,84 @@ fn a_thread_survives_save_and_goes_with_its_parent() {
         2,
         "undo brings it back"
     );
+}
+
+/// A.22: an annotation on a layer is hidden with it; the file says so as other readers read it (`/OCProperties /D
+/// /OFF`), reopened; undo shows it again, and taking it off the layer draws it whatever the layer.
+#[test]
+fn a_hidden_layer_hides_its_annotations_here_and_in_the_file() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let pixels = |doc: &Document| {
+        doc.load_page(0)
+            .expect("page")
+            .render(
+                &excellent_mupdf::Matrix::IDENTITY,
+                excellent_mupdf::Background::White,
+            )
+            .expect("render")
+            .samples()
+            .to_vec()
+    };
+    let blank = pixels(&doc);
+    let rect = PageRect {
+        x0: 300.0,
+        y0: 300.0,
+        x1: 360.0,
+        y1: 360.0,
+    };
+    let mut square = Annotation::new(
+        0,
+        Shape::Boxed(Boxed::Square, rect),
+        Style {
+            color: Some([1.0, 0.0, 0.0]),
+            opacity: 1.0,
+            width: 4.0,
+        },
+        "Ada",
+    );
+    square.layer = Some("Ada".into());
+    let hide = |visible: bool, locked: bool| {
+        Operation::new(
+            "Layer",
+            vec![Change::SetLayer {
+                name: "Ada".into(),
+                visible,
+                locked,
+            }],
+        )
+    };
+    Operation::new("Square", vec![Change::CreateAnnotation(square.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    assert!(pixels(&doc) != blank, "a shown layer's annotation is drawn");
+    let layer = |visible: bool, locked: bool| excellent_mupdf::Layer {
+        name: "Ada".into(),
+        visible,
+        locked,
+    };
+    assert_eq!(doc.layers().expect("layers"), [layer(true, false)]);
+    hide(false, false).apply(&mut doc).expect("hide");
+    assert!(pixels(&doc) == blank, "a hidden layer's annotation isn't");
+
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    assert_eq!(reopened.layers().expect("layers"), [layer(false, false)]);
+    assert!(pixels(&reopened) == blank, "hidden as the file opens");
+    let read = page_annotations(&reopened, 0).expect("read");
+    let on = read.iter().find(|a| a.id == square.id).expect("the square");
+    assert_eq!(on.layer.as_deref(), Some("Ada"));
+
+    doc.undo().expect("undo");
+    assert!(pixels(&doc) != blank, "undo shows it again");
+    assert_eq!(doc.layers().expect("layers"), [layer(true, false)]);
+    hide(false, true).apply(&mut doc).expect("hide and lock");
+    assert_eq!(doc.layers().expect("layers"), [layer(false, true)]);
+    let mut off = square;
+    off.layer = None;
+    Operation::new("Off the layer", vec![Change::UpdateAnnotation(off)])
+        .apply(&mut doc)
+        .expect("update");
+    assert!(pixels(&doc) != blank, "off the layer, it is drawn");
+    assert_eq!(doc.layers().expect("layers").len(), 1, "the layer stays");
 }

@@ -1159,6 +1159,13 @@ int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out,
 		case EX_ANNOT_STATE:
 			text = pdf_to_name(ctx, pdf_dict_gets(ctx, pdf_annot_obj(ctx, annot), "State"));
 			break;
+		case EX_ANNOT_LAYER:
+		{
+			pdf_obj *oc = pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(OC));
+			if (pdf_name_eq(ctx, pdf_dict_get(ctx, oc, PDF_NAME(Type)), PDF_NAME(OCG)))
+				text = pdf_dict_get_text_string(ctx, oc, PDF_NAME(Name));
+			break;
+		}
 		case EX_ANNOT_FONT:
 			if (pdf_annot_has_default_appearance(ctx, annot))
 			{
@@ -1177,6 +1184,170 @@ int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out,
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
 	*out = buf;
+	return 0;
+}
+
+/* ---- Layers (A.22): optional content groups (/OCProperties) that annotations are put on with /OC ---- */
+
+/* MuPDF reads a document's layers once and keeps them (doc->ocg): it reads them again after an edit changed them,
+ * or undo or redo did. */
+static void ex_reset_layers(fz_context *ctx, pdf_document *pdf)
+{
+	pdf_drop_ocg(ctx, pdf);
+	pdf->ocg = NULL;
+}
+
+/* The document's /OCProperties with its /OCGs and /D, made when `make` (else NULL when it has none). */
+static pdf_obj *ex_ocprops(fz_context *ctx, pdf_document *pdf, int make)
+{
+	pdf_obj *root = pdf_dict_get(ctx, pdf_trailer(ctx, pdf), PDF_NAME(Root));
+	pdf_obj *props = pdf_dict_get(ctx, root, PDF_NAME(OCProperties));
+	if (!make)
+		return props;
+	if (!props)
+		props = pdf_dict_put_dict(ctx, root, PDF_NAME(OCProperties), 2);
+	if (!pdf_is_array(ctx, pdf_dict_get(ctx, props, PDF_NAME(OCGs))))
+		pdf_dict_put_array(ctx, props, PDF_NAME(OCGs), 4);
+	if (!pdf_is_dict(ctx, pdf_dict_get(ctx, props, PDF_NAME(D))))
+		pdf_dict_put_dict(ctx, props, PDF_NAME(D), 4);
+	return props;
+}
+
+/* The first layer of `props` named `name`, or NULL. */
+static pdf_obj *ex_find_ocg(fz_context *ctx, pdf_obj *props, const char *name)
+{
+	pdf_obj *ocgs = pdf_dict_get(ctx, props, PDF_NAME(OCGs));
+	int i, n = pdf_array_len(ctx, ocgs);
+	for (i = 0; i < n; i++)
+	{
+		pdf_obj *ocg = pdf_array_get(ctx, ocgs, i);
+		if (!strcmp(pdf_dict_get_text_string(ctx, ocg, PDF_NAME(Name)), name))
+			return ocg;
+	}
+	return NULL;
+}
+
+/* Puts `ocg` in the array `key` of `d` once (made when it has none), or takes it out of it. */
+static void ex_ocg_in(fz_context *ctx, pdf_obj *d, pdf_obj *key, pdf_obj *ocg, int in)
+{
+	pdf_obj *array = pdf_dict_get(ctx, d, key);
+	int at;
+	if (in && !pdf_is_array(ctx, array))
+		array = pdf_dict_put_array(ctx, d, key, 4);
+	while ((at = pdf_array_find(ctx, array, ocg)) >= 0)
+		pdf_array_delete(ctx, array, at);
+	if (in)
+		pdf_array_push(ctx, array, ocg);
+}
+
+/* The layer named `name`, made when the document has none: listed in /OCGs and in the default configuration's
+ * /Order (so readers show it in their layers panel), shown. Borrowed from /OCGs. */
+static pdf_obj *ex_make_ocg(fz_context *ctx, pdf_document *pdf, const char *name)
+{
+	pdf_obj *props = ex_ocprops(ctx, pdf, 1);
+	pdf_obj *ocgs = pdf_dict_get(ctx, props, PDF_NAME(OCGs));
+	pdf_obj *d = pdf_dict_get(ctx, props, PDF_NAME(D));
+	pdf_obj *ocg = ex_find_ocg(ctx, props, name);
+	pdf_obj *made;
+	if (ocg)
+		return ocg;
+	made = pdf_add_new_dict(ctx, pdf, 2);
+	fz_try(ctx)
+	{
+		pdf_obj *order = pdf_dict_get(ctx, d, PDF_NAME(Order));
+		pdf_dict_put(ctx, made, PDF_NAME(Type), PDF_NAME(OCG));
+		pdf_dict_put_text_string(ctx, made, PDF_NAME(Name), name);
+		pdf_array_push(ctx, ocgs, made);
+		/* No /Order lets a reader list the layers as it likes: a new one would list ours alone, so it lists them
+		 * all. */
+		if (pdf_is_array(ctx, order))
+			pdf_array_push(ctx, order, made);
+		else
+			pdf_dict_put_drop(ctx, d, PDF_NAME(Order), pdf_deep_copy_obj(ctx, ocgs));
+		if (pdf_name_eq(ctx, pdf_dict_get(ctx, d, PDF_NAME(BaseState)), PDF_NAME(OFF)))
+			ex_ocg_in(ctx, d, PDF_NAME(ON), made, 1);
+	}
+	fz_always(ctx)
+		pdf_drop_obj(ctx, made);
+	fz_catch(ctx)
+		fz_rethrow(ctx);
+	ex_reset_layers(ctx, pdf);
+	return ex_find_ocg(ctx, props, name);
+}
+
+/* Puts `annot` on the layer named `layer` (/OC), made when the document has none of that name, or on none when
+ * `layer` is NULL or empty. Another app's membership dictionary (/OCMD, which reads as no layer) is kept then. */
+static void ex_annot_layer(fz_context *ctx, pdf_annot *annot, const char *layer)
+{
+	pdf_obj *obj = pdf_annot_obj(ctx, annot);
+	pdf_obj *oc = pdf_dict_get(ctx, obj, PDF_NAME(OC));
+	int is_ocg = pdf_name_eq(ctx, pdf_dict_get(ctx, oc, PDF_NAME(Type)), PDF_NAME(OCG));
+	if (layer && *layer)
+	{
+		if (is_ocg && !strcmp(pdf_dict_get_text_string(ctx, oc, PDF_NAME(Name)), layer))
+			return;
+		pdf_dict_put(ctx, obj, PDF_NAME(OC), ex_make_ocg(ctx, pdf_annot_page(ctx, annot)->doc, layer));
+	}
+	else if (is_ocg)
+		pdf_dict_del(ctx, obj, PDF_NAME(OC));
+}
+
+int ex_layers(fz_context *ctx, fz_document *doc, fz_buffer **out, ex_error *err)
+{
+	fz_buffer *buf = NULL;
+	fz_var(buf);
+	fz_try(ctx)
+	{
+		pdf_document *pdf = pdf_specifics(ctx, doc);
+		pdf_obj *props = pdf ? ex_ocprops(ctx, pdf, 0) : NULL;
+		pdf_obj *ocgs = pdf_dict_get(ctx, props, PDF_NAME(OCGs));
+		pdf_obj *d = pdf_dict_get(ctx, props, PDF_NAME(D));
+		int base_off = pdf_name_eq(ctx, pdf_dict_get(ctx, d, PDF_NAME(BaseState)), PDF_NAME(OFF));
+		int i, n = pdf_array_len(ctx, ocgs);
+		buf = fz_new_buffer(ctx, 64);
+		for (i = 0; i < n; i++)
+		{
+			pdf_obj *ocg = pdf_array_get(ctx, ocgs, i);
+			const char *name = pdf_dict_get_text_string(ctx, ocg, PDF_NAME(Name));
+			int hidden = pdf_array_contains(ctx, pdf_dict_get(ctx, d, PDF_NAME(OFF)), ocg)
+				|| (base_off && !pdf_array_contains(ctx, pdf_dict_get(ctx, d, PDF_NAME(ON)), ocg));
+			int locked = pdf_array_contains(ctx, pdf_dict_get(ctx, d, PDF_NAME(Locked)), ocg);
+			fz_append_byte(ctx, buf, '0' + hidden + 2 * locked);
+			fz_append_string(ctx, buf, name);
+			fz_append_byte(ctx, buf, 0);
+		}
+	}
+	fz_catch(ctx)
+	{
+		fz_drop_buffer(ctx, buf);
+		return ex_fail(ctx, err);
+	}
+	*out = buf;
+	return 0;
+}
+
+int ex_layer_set(fz_context *ctx, fz_document *doc, const char *name, int visible, int locked, ex_error *err)
+{
+	fz_try(ctx)
+	{
+		pdf_document *pdf = pdf_specifics(ctx, doc);
+		pdf_obj *props, *ocg, *d;
+		if (!pdf)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "only a PDF has layers to edit");
+		props = ex_ocprops(ctx, pdf, 0);
+		ocg = props ? ex_find_ocg(ctx, props, name) : NULL;
+		if (!ocg)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no layer %s", name);
+		props = ex_ocprops(ctx, pdf, 1);
+		d = pdf_dict_get(ctx, props, PDF_NAME(D));
+		ex_ocg_in(ctx, d, PDF_NAME(OFF), ocg, !visible);
+		ex_ocg_in(ctx, d, PDF_NAME(ON), ocg,
+			visible && pdf_name_eq(ctx, pdf_dict_get(ctx, d, PDF_NAME(BaseState)), PDF_NAME(OFF)));
+		ex_ocg_in(ctx, d, PDF_NAME(Locked), ocg, locked);
+		ex_reset_layers(ctx, pdf);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
 	return 0;
 }
 
@@ -1354,6 +1525,7 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 	/* A group's /IRT is the group's (A.2). */
 	if (!(w->group && *w->group))
 		ex_annot_reply(ctx, annot, w->reply_to, w->state);
+	ex_annot_layer(ctx, annot, w->layer);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))
 		pdf_set_annot_modification_date(ctx, annot, p->modified);
@@ -1794,7 +1966,12 @@ int ex_undo_state(fz_context *ctx, fz_document *doc, int *position, int *steps, 
 int ex_undo(fz_context *ctx, fz_document *doc, ex_error *err)
 {
 	fz_try(ctx)
-		pdf_undo(ctx, ex_pdf(ctx, doc));
+	{
+		pdf_document *pdf = ex_pdf(ctx, doc);
+		pdf_undo(ctx, pdf);
+		/* It may have taken back a layer's state (A.22). */
+		ex_reset_layers(ctx, pdf);
+	}
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
 	return 0;
@@ -1803,7 +1980,11 @@ int ex_undo(fz_context *ctx, fz_document *doc, ex_error *err)
 int ex_redo(fz_context *ctx, fz_document *doc, ex_error *err)
 {
 	fz_try(ctx)
-		pdf_redo(ctx, ex_pdf(ctx, doc));
+	{
+		pdf_document *pdf = ex_pdf(ctx, doc);
+		pdf_redo(ctx, pdf);
+		ex_reset_layers(ctx, pdf);
+	}
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
 	return 0;

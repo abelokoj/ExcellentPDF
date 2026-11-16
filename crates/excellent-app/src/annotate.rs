@@ -11,6 +11,7 @@
 
 pub(crate) mod colors;
 mod inspector;
+mod layers;
 mod list;
 pub(crate) mod margin;
 mod note;
@@ -373,7 +374,8 @@ impl AnnotateState {
                 return;
             };
             let mupdf = shared.lock().expect("document lock poisoned");
-            let annotations = page_annotations(&mupdf, page).unwrap_or_default();
+            // What a hidden layer holds isn't on the page to press (A.22).
+            let annotations = layers::shown_on_page(&mupdf, page);
             edit::hit(&annotations, point).map(|annotation| Target {
                 page,
                 id: annotation.id.clone(),
