@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 05:10; Ph3: 29/49 | A.16: Transfer annotations to another version
+
+- Transfer annotations from another version (Annotate toolbar, `annotate.transfer`, Shift+V on the page) takes the
+  annotations of a file you pick, such as a paper's preprint, into the open PDF.
+- Each highlight, underline or strikeout is found again by the text it marks, on whatever page that text is now, even
+  with small changes to it; notes, shapes and drawings keep their page and place.
+- Before anything is added, a review says how many were found where they were, found elsewhere, kept in place and
+  not found, and names the first that weren't. Adding them is one step of undo.
+
 ### 2026-11-16 04:56; Ph3: 28/49 | A.15: Annotation recovery
 
 - When the app closed before your changes to a PDF were saved, opening the file brings them back at once, and a

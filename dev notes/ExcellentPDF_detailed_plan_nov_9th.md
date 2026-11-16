@@ -3363,6 +3363,11 @@ file is shown, without asking, and saves nothing until the reader decides; `reco
 
 **Done when:** transferring from a preprint to the published version places 95 % of highlights correctly.
 
+*Built (2026-11-16):* `annotate::transfer`: text markups are quoted (their K.28 anchor, else the text under their
+quads) and located in the target's flat text; `Fate` is placed, moved, in place (no text to find) or orphaned.
+`excellent-core::annot::load_text` reads every page's text on the workers. The app's `annotate/transfer.rs` picks
+the source, reviews in a dialog (DD14) and adds the placed ones as one operation.
+
 #### Ph3: 30/49 | A.17: Semantic categories
 **P1; Phase 3; Needs:** A.12; **Code:** `excellent-features/annotate/categories.rs`
 1. Categories (claim, evidence, question, definition, method, result, to-do) each with a color and icon; stored in a

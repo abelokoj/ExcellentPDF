@@ -69,6 +69,8 @@ pub(crate) enum CommandId {
     MarginNotes,
     /// Shows the list of the document's annotations (A.14).
     AnnotationList,
+    /// Adds another version's annotations to the shown document (A.16).
+    TransferAnnotations,
     /// Places a sticky note where the page is clicked next (A.5).
     StickyNote,
     /// Places a text box where the page is clicked next (A.6).
@@ -148,6 +150,7 @@ impl CommandId {
                     | Self::PolyLine
                     | Self::Cloud
                     | Self::CutAnnotations
+                    | Self::TransferAnnotations
                     | Self::PasteAnnotations
                     | Self::DeleteAnnotations
                     | Self::Undo
@@ -621,6 +624,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+c"],
+    },
+    Command {
+        id: CommandId::TransferAnnotations,
+        name: "annotate.transfer",
+        label: "command.transfer_annotations",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+v"],
     },
     Command {
         id: CommandId::AnnotationList,

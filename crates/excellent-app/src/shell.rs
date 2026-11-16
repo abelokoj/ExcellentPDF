@@ -472,6 +472,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
                 .place(Placing::Shape(pane.annotate.regular_polygon())),
             CommandId::Star => pane.annotate.place(Placing::Shape(pane.annotate.star())),
             CommandId::MarginNotes => pane.annotate.toggle_margin(),
+            CommandId::TransferAnnotations => pane.annotate.transfer(),
             CommandId::AnnotationList => {
                 layout.update(|layout| show_panel(layout, Panel::Annotations.key()));
             }

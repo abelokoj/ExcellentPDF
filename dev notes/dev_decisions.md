@@ -261,3 +261,17 @@ annotation kinds yet, and the kind named in words is clearer than a small glyph.
 
 - The tab can be dragged to the left sidebar like any dock panel.
 - When the annotation kinds get icons, the row shows the icon in the bar's place.
+
+## DD14. The transfer review is a dialog of counts, not a list (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.16 item 1 asks for "a review list (placed, moved, orphaned) before applying". The review is
+a dialog: how many were found where they were, found elsewhere or changed, kept in place and not found, the first
+five not found named, and Add or Cancel. It adds every annotation that was found; none can be left out one by one.
+
+**Why:** a list to pick from needs a dialog of its own with a scrolling list of rows, and the annotation list (A.14)
+already shows every annotation once added, where any can be checked, deleted (A.13) or undone in one step.
+
+**What it means:**
+
+- Moved annotations aren't listed before they are added; the reader checks them in the Annotations tab afterwards.
+- A review with rows and a check box each can replace the dialog without changing `annotate::transfer`.

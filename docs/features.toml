@@ -181,6 +181,12 @@ status = "in-progress"
 tests = ["ten_annotations_drawn_before_a_crash_all_come_back", "unsaved_edits_come_back_after_a_crash", "the_bar_counts_each_kind_of_change_in_the_order_first_made"]
 open = "not tried by hand; Keep and Discard are the bar's buttons only, with no shortcut or palette command (the bar shows once, after a crash); a file changed on disk since its edits were logged still drops them (K.15 step 5)"
 
+["A.16"]
+label = "Ph3: 29/49"
+status = "in-progress"
+tests = ["a_preprint_s_highlights_land_on_the_published_version_95_percent", "highlights_follow_their_text_and_other_annotations_keep_their_place", "text_that_is_gone_orphans_its_highlight_and_text_in_place_is_placed"]
+open = "not tried by hand, and not on a real preprint and its published version (the test typesets one); the review is a dialog with counts and the first five not found, not a list to pick from (DD14); annotations that mark no text keep their page and place; thousands of highlights in a long book take seconds"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

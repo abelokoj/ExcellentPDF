@@ -631,6 +631,24 @@ pub fn load_all(
     })
 }
 
+/// Every page's text with its layout, in page order, to find annotations' text in another version (A.16). Runs at
+/// background priority, taking the document's lock one page at a time, and can be cancelled.
+pub fn load_text(
+    pool: &crate::render::RenderPool,
+    mupdf: crate::document::SharedMupdf,
+) -> crate::render::Job<Vec<excellent_mupdf::TextLayout>> {
+    pool.submit(crate::render::Priority::Background, move |cookie| {
+        let count = mupdf.lock().expect("document lock poisoned").page_count()?;
+        let mut pages = Vec::with_capacity(count);
+        for page in 0..count {
+            cookie.check()?;
+            let document = mupdf.lock().expect("document lock poisoned");
+            pages.push(document.load_page(page)?.text(Some(cookie))?.layout());
+        }
+        Ok(pages)
+    })
+}
+
 /// Where an annotation is and how it looks, as the mini-map (R.17) marks it: read without the rest of the
 /// annotation, so marking a whole document stays quick.
 #[derive(Debug, Clone, Copy, PartialEq)]
