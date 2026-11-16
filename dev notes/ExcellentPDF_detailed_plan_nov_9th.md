@@ -3278,6 +3278,14 @@ for lines too.
 
 **Done when:** clouds render the same in Acrobat.
 
+*Built (2026-11-16):* `Annotation::cloud` (`/BE`, `None` for a plain border) through the shim's `cloudy` and
+`cloud_intensity`, written with `pdf_set_annot_border_effect` and `pdf_set_annot_border_effect_intensity` only when
+they change. The geometry is `annotate::polygons` (`regular`, `star`, `distance`, `inside`); `shapes::Kind` gains
+`Regular(n)`, `Star(n)`, `Polygon`, `PolyLine` and `Cloud`, named `regular:5` and so on in the canvas's `drawing`
+prop. The canvas counts clicks with K.13's click counter for the double-click; the vertices go to the app in one
+`pageDraw`, so the whole shape is one step of undo (no `pdf_add_annot_vertex` while drawing). Settings
+`polygon_sides` and `star_points`.
+
 #### Ph3: 24/49 | A.11: Margin notes and anchored note cards
 **P0; Phase 3; Needs:** A.4, K.28; **Code:** `excellent-features/annotate/margin.rs`
 1. A margin column beside the page (canvas overlay) showing each annotation's note as a card, aligned with its

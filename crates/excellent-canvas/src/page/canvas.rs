@@ -693,7 +693,7 @@ impl<H: Host> PageCanvas<H> {
         if self.markbar_down(x, y) || self.popover_down(x, y) {
             return false;
         }
-        if self.minimap_down(x, y) || self.draw_down(x, y) {
+        if self.minimap_down(x, y) || self.draw_down(x, y, time, limits) {
             return true;
         }
         let clicks = self.clicks.press(time, x, y, limits);

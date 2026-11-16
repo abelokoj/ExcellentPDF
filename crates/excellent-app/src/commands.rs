@@ -81,6 +81,16 @@ pub(crate) enum CommandId {
     Rectangle,
     /// Draws an ellipse by the next drag on the pages (A.9).
     Ellipse,
+    /// Draws a regular polygon by the next drag on the pages (A.10).
+    RegularPolygon,
+    /// Draws a star by the next drag on the pages (A.10).
+    Star,
+    /// Draws a polygon by the next clicks on the pages, corner by corner (A.10).
+    Polygon,
+    /// Draws a polyline by the next clicks on the pages (A.10).
+    PolyLine,
+    /// Draws a cloud by the next clicks on the pages (A.10).
+    Cloud,
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -122,6 +132,11 @@ impl CommandId {
                     | Self::Arrow
                     | Self::Rectangle
                     | Self::Ellipse
+                    | Self::RegularPolygon
+                    | Self::Star
+                    | Self::Polygon
+                    | Self::PolyLine
+                    | Self::Cloud
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -520,6 +535,46 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+e"],
+    },
+    Command {
+        id: CommandId::Polygon,
+        name: "annotate.polygon",
+        label: "command.polygon",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["p"],
+    },
+    Command {
+        id: CommandId::PolyLine,
+        name: "annotate.polyline",
+        label: "command.polyline",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+p"],
+    },
+    Command {
+        id: CommandId::Cloud,
+        name: "annotate.cloud",
+        label: "command.cloud",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+k"],
+    },
+    Command {
+        id: CommandId::RegularPolygon,
+        name: "annotate.regular_polygon",
+        label: "command.regular_polygon",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+r"],
+    },
+    Command {
+        id: CommandId::Star,
+        name: "annotate.star",
+        label: "command.star",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+x"],
     },
     Command {
         id: CommandId::AnnotationColors,

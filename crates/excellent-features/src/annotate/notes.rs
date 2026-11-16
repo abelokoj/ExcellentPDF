@@ -48,7 +48,7 @@ pub fn note_at(annotations: &[Annotation], point: PagePoint) -> Option<&Annotati
             Shape::Markup(_, quads) => quads.iter().any(|quad| near(quad.bounds())),
             Shape::Boxed(Boxed::Note | Boxed::FreeText | Boxed::Typewriter, rect) => near(*rect),
             Shape::Callout(rect, _) => near(*rect),
-            Shape::Line(..) | Shape::Boxed(Boxed::Square | Boxed::Circle, _) => {
+            Shape::Line(..) | Shape::Path(..) | Shape::Boxed(Boxed::Square | Boxed::Circle, _) => {
                 super::shapes::hits(annotation, point, SLOP)
             }
             _ => false,

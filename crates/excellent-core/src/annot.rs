@@ -238,6 +238,8 @@ pub struct Annotation {
     pub fill: Option<[f32; 3]>,
     /// Its border's dash pattern, dash and gap lengths in points; empty for a solid border (A.9).
     pub dash: Vec<f32>,
+    /// A closed shape's cloudy border's intensity, from 0 to 2; `None` for a plain border (A.10).
+    pub cloud: Option<f32>,
 }
 
 impl Annotation {
@@ -263,6 +265,7 @@ impl Annotation {
             ends: [LineEnd::None; 2],
             fill: None,
             dash: Vec::new(),
+            cloud: None,
         }
     }
 
@@ -354,6 +357,7 @@ impl Annotation {
             ends: data.ends,
             fill: rgb(&data.fill),
             dash: data.dash.clone(),
+            cloud: data.cloud,
         })
     }
 
@@ -398,6 +402,7 @@ impl Annotation {
             text_color: text.map(|text| Vec::from(text.color)).unwrap_or_default(),
             fill: self.fill.map(Vec::from).unwrap_or_default(),
             dash: self.dash.clone(),
+            cloud: self.cloud,
             rect,
             color: self.style.color.map(Vec::from).unwrap_or_default(),
             opacity: self.style.opacity,
@@ -465,6 +470,7 @@ impl Annotation {
             "ends": self.ends.map(|end| format!("{end:?}")),
             "fill": self.fill,
             "dash": self.dash,
+            "cloud": self.cloud,
             "text": self.is_text_box().then(|| json!({
                 "font": self.text.font.name(),
                 "size": self.text.size,
@@ -563,6 +569,11 @@ impl Annotation {
                 .and_then(floats)
                 .and_then(|fill| <[f32; 3]>::try_from(fill).ok()),
             dash: object.get("dash").and_then(floats).unwrap_or_default(),
+            // Before A.10 none had a cloudy border.
+            cloud: object
+                .get("cloud")
+                .and_then(Value::as_f64)
+                .map(|intensity| intensity as f32),
         })
     }
 }

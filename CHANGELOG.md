@@ -6,6 +6,18 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 03:25; Ph3: 23/49 | A.10: Polygons, polylines and clouds
+
+- Polygons, polylines and clouds: three commands (palette, Annotate toolbar, `P`, `Shift+P` and `Shift+K` on the
+  pages). Each click puts down a corner, shown with the side to the mouse and, for a polygon or cloud, the side that
+  will close it; a double-click finishes, as does a click on a polygon's first corner. Shift keeps a side at 15° steps.
+- Regular polygons and stars (`Shift+R`, `Shift+X`): dragged out like a rectangle, tip up. Their side and point
+  counts (3 to 32, 5 by default) are in Settings, Annotation.
+- In the inspector, a closed shape (rectangle, ellipse, polygon, cloud) gets a Border row, Plain or Cloudy, beside its
+  fill; a polyline gets the line's ends.
+- Saved as standard `/Polygon` and `/PolyLine` annotations with `/Vertices`; a cloud is a polygon with `/BE` `/S/C`
+  `/I 1`. A border's effect is rewritten only when it changes.
+
 ### 2026-11-16 01:27; Ph3: 22/49 | A.9: Rectangles and ellipses
 
 - Rectangles and ellipses: two commands (palette, Annotate toolbar, `R` and `Shift+E` on the pages) turn on the

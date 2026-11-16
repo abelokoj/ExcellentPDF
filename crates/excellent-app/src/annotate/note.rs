@@ -125,6 +125,27 @@ fn placing(what: Placing) -> View {
         Placing::Shape(shapes::Kind::Ellipse) => {
             ("line.placing", "ellipse.placing_hint", CommandId::Ellipse)
         }
+        Placing::Shape(shapes::Kind::Regular(_)) => (
+            "line.placing",
+            "regular_polygon.placing_hint",
+            CommandId::RegularPolygon,
+        ),
+        Placing::Shape(shapes::Kind::Star(_)) => {
+            ("line.placing", "star.placing_hint", CommandId::Star)
+        }
+        Placing::Shape(shapes::Kind::Polygon) => (
+            "polygon.placing",
+            "polygon.placing_hint",
+            CommandId::Polygon,
+        ),
+        Placing::Shape(shapes::Kind::PolyLine) => (
+            "polygon.placing",
+            "polyline.placing_hint",
+            CommandId::PolyLine,
+        ),
+        Placing::Shape(shapes::Kind::Cloud) => {
+            ("polygon.placing", "cloud.placing_hint", CommandId::Cloud)
+        }
         Placing::Text(Kind::Callout) => (
             "callout.placing",
             "callout.placing_hint",
@@ -204,10 +225,10 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
             state.delete_open(t!("text.delete"));
         }));
     } else if let Some((kind, ..)) = noting.shape {
-        let delete = if kind.is_box() {
-            "shape.delete"
-        } else {
+        let delete = if kind.has_ends() {
             "line.delete"
+        } else {
+            "shape.delete"
         };
         buttons = buttons.child(action_button(delete, Tone::Destructive, move || {
             state.delete_open(t!(delete));
@@ -226,7 +247,7 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
         panel = panel.child(text_controls(state, kind, style, border, end));
     }
     if let Some((kind, ends, look)) = noting.shape {
-        if !kind.is_box() {
+        if kind.has_ends() {
             panel = panel.child(line_controls(state, ends));
         }
         panel = panel.child(shape_controls(state, kind, look));
@@ -407,7 +428,8 @@ const FILL_NAMES: [&str; 5] = [
     "shape.fill.red",
 ];
 
-/// A shape's border width and style, and a rectangle's or ellipse's fill (A.9); each change is one step of undo.
+/// A shape's border width and style, and a closed shape's fill (A.9) and cloudy border (A.10); each change is one
+/// step of undo.
 fn shape_controls(state: AnnotateState, kind: shapes::Kind, look: shapes::Look) -> View {
     let look = signal(look);
     let restyle = move |change: &dyn Fn(&mut shapes::Look)| {
@@ -448,7 +470,22 @@ fn shape_controls(state: AnnotateState, kind: shapes::Kind, look: shapes::Look) 
         .child(widths)
         .child(caption("shape.dash"))
         .child(dashes);
-    if kind.is_box() {
+    if kind.is_closed() {
+        let borders = [(false, "shape.border.plain"), (true, "shape.border.cloudy")]
+            .into_iter()
+            .fold(segmented(), |group, (cloud, name)| {
+                group.child(segment(
+                    name,
+                    move || look.get().cloud == cloud,
+                    move || {
+                        restyle(&|look| look.cloud = cloud);
+                        state.change_note(t!("shape.border_edit"), |shape| {
+                            shapes::set_cloud(shape, cloud)
+                        });
+                    },
+                ))
+            });
+        controls = controls.child(caption("shape.border")).child(borders);
         let fills =
             shapes::FILLS
                 .into_iter()

@@ -4,6 +4,7 @@ pub mod colors;
 pub mod freetext;
 pub mod markup;
 pub mod notes;
+pub mod polygons;
 pub mod replace;
 pub mod shapes;
 pub mod sticky;

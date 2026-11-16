@@ -444,6 +444,13 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Arrow => pane.annotate.place(Placing::Shape(ShapeKind::Arrow)),
             CommandId::Rectangle => pane.annotate.place(Placing::Shape(ShapeKind::Rectangle)),
             CommandId::Ellipse => pane.annotate.place(Placing::Shape(ShapeKind::Ellipse)),
+            CommandId::Polygon => pane.annotate.place(Placing::Shape(ShapeKind::Polygon)),
+            CommandId::PolyLine => pane.annotate.place(Placing::Shape(ShapeKind::PolyLine)),
+            CommandId::Cloud => pane.annotate.place(Placing::Shape(ShapeKind::Cloud)),
+            CommandId::RegularPolygon => pane
+                .annotate
+                .place(Placing::Shape(pane.annotate.regular_polygon())),
+            CommandId::Star => pane.annotate.place(Placing::Shape(pane.annotate.star())),
             CommandId::AnnotationColors => pane
                 .annotate
                 .pick(excellent_features::annotate::colors::Tool::Highlight),

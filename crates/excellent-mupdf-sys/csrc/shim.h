@@ -268,6 +268,9 @@ typedef struct ex_annot_props {
 	float fill[4];
 	int dash_count;
 	float dash[8];
+	/* Whether a closed shape's border is cloudy (/BE /S /C), and how much (/BE /I, 0 to 2), A.10. */
+	int cloudy;
+	float cloud_intensity;
 } ex_annot_props;
 
 /* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author), the app's private key

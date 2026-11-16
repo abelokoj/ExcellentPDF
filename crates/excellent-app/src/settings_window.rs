@@ -159,7 +159,9 @@ fn appearance_section(
 
 /// A.3: the palette the markup tools offer, and the colour dialog.
 fn annotation_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -> View {
-    use crate::annotate::colors;
+    use crate::annotate::{POLYGON_SIDES, STAR_POINTS, colors};
+    use excellent_features::annotate::polygons::{DEFAULT_SIDES, SIDES};
+    let counts = (f64::from(*SIDES.start()), f64::from(*SIDES.end()));
     use excellent_features::annotate::colors::Palette;
     let palette = [
         (Palette::Standard, "settings.annotation_palette_standard"),
@@ -185,6 +187,32 @@ fn annotation_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static
             picker_button(
                 move || t!("settings.annotation_colors_choose"),
                 move || hand_over(CommandId::AnnotationColors),
+            ),
+        ))
+        .child(row(
+            "settings.polygon_sides",
+            "settings.polygon_sides_hint",
+            number_field(
+                live,
+                "settings.polygon_sides",
+                POLYGON_SIDES,
+                f64::from(DEFAULT_SIDES),
+                counts,
+                1.0,
+                "settings.unit.sides",
+            ),
+        ))
+        .child(row(
+            "settings.star_points",
+            "settings.star_points_hint",
+            number_field(
+                live,
+                "settings.star_points",
+                STAR_POINTS,
+                f64::from(DEFAULT_SIDES),
+                counts,
+                1.0,
+                "settings.unit.star_points",
             ),
         ))
 }

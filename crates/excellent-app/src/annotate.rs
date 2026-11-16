@@ -21,6 +21,7 @@ use excellent_features::annotate::colors::Tool as ColorTool;
 use excellent_features::annotate::freetext;
 use excellent_features::annotate::markup::{self, Marking};
 use excellent_features::annotate::notes::{self, Target};
+use excellent_features::annotate::polygons;
 use excellent_features::annotate::replace::{self, Mode, Proposal};
 use excellent_features::annotate::shapes::{self, Drawn};
 use excellent_features::annotate::sticky::{self, Icon};
@@ -34,6 +35,20 @@ use crate::list_dialog::{card, list_dialog};
 use crate::settings::Live;
 use crate::tabs::{Tone, action_button};
 
+/// The settings' keys: a regular polygon's sides and a star's points (A.10).
+pub(crate) const POLYGON_SIDES: &str = "polygon_sides";
+pub(crate) const STAR_POINTS: &str = "star_points";
+
+/// The count the setting `key` holds, within [`polygons::SIDES`]; [`polygons::DEFAULT_SIDES`] when unset.
+fn sides(live: Live, key: &str) -> u8 {
+    let (low, high) = (*polygons::SIDES.start(), *polygons::SIDES.end());
+    live.read(|s| s.number(key))
+        .filter(|n| n.is_finite())
+        .map_or(polygons::DEFAULT_SIDES, |n| {
+            n.round().clamp(f64::from(low), f64::from(high)) as u8
+        })
+}
+
 /// What the next click on the pages puts there.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Placing {
@@ -41,7 +56,8 @@ pub(crate) enum Placing {
     Sticky,
     /// A text box, typewriter text or a callout (A.6, A.7).
     Text(Kind),
-    /// A line, an arrow (A.8), a rectangle or an ellipse (A.9), dragged out on the page.
+    /// A line, an arrow (A.8), a rectangle or an ellipse (A.9), a regular polygon or a star dragged out on the page,
+    /// or a polygon, a polyline or a cloud clicked corner by corner (A.10).
     Shape(shapes::Kind),
 }
 
@@ -161,9 +177,19 @@ impl AnnotateState {
     /// The canvas's `drawing` prop: the drawing tool on (A.8), or `null`.
     pub(crate) fn drawing_prop(self) -> JsonValue {
         match self.placing.get() {
-            Some(Placing::Shape(kind)) => JsonValue::from(kind.name()),
+            Some(Placing::Shape(kind)) => JsonValue::from(kind.to_string()),
             _ => JsonValue::Null,
         }
+    }
+
+    /// The regular-polygon tool, with as many sides as the settings say (A.10).
+    pub(crate) fn regular_polygon(self) -> shapes::Kind {
+        shapes::Kind::Regular(sides(self.live, POLYGON_SIDES))
+    }
+
+    /// The star tool, with as many points as the settings say (A.10).
+    pub(crate) fn star(self) -> shapes::Kind {
+        shapes::Kind::Star(sides(self.live, STAR_POINTS))
     }
 
     /// The canvas drew a shape (`pageDraw`): it becomes an annotation, one step of undo, and the tool goes off, its
@@ -513,6 +539,9 @@ fn shape_kind_name(kind: shapes::Kind) -> String {
         shapes::Kind::Arrow => "arrow.name",
         shapes::Kind::Rectangle => "rectangle.name",
         shapes::Kind::Ellipse => "ellipse.name",
+        shapes::Kind::Regular(_) | shapes::Kind::Star(_) | shapes::Kind::Polygon => "polygon.name",
+        shapes::Kind::PolyLine => "polyline.name",
+        shapes::Kind::Cloud => "cloud.name",
     })
 }
 

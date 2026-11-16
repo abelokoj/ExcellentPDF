@@ -408,6 +408,7 @@ impl Annot<'_> {
                 .collect(),
             fill: props.fill[..count(props.fill_n).min(4)].to_vec(),
             dash: props.dash[..count(props.dash_count).min(8)].to_vec(),
+            cloud: (props.cloudy != 0).then_some(props.cloud_intensity),
             rect: props.rect.into(),
             color: props.color[..color_n].to_vec(),
             opacity: props.opacity,
@@ -467,6 +468,8 @@ pub struct AnnotData {
     pub fill: Vec<f32>,
     /// Its border's dash pattern, dash and gap lengths in points (`/BS /D`); empty for a solid border (A.9).
     pub dash: Vec<f32>,
+    /// A closed shape's cloudy border's intensity, from 0 to 2 (`/BE`); `None` for a plain border (A.10).
+    pub cloud: Option<f32>,
     /// A line's, polyline's or polygon's start and end (`/LE`); a callout's arrow at its tip first (A.7, A.8).
     pub ends: [LineEnd; 2],
     /// A callout's leader line, its tip first (`/CL`): read whole, written from its tip alone (MuPDF draws the rest
@@ -587,6 +590,8 @@ impl AnnotData {
                 fill,
                 dash_count: count(self.dash.len())?,
                 dash,
+                cloudy: self.cloud.is_some().into(),
+                cloud_intensity: self.cloud.unwrap_or_default(),
             },
             quads: quads.as_ptr(),
             stroke_lengths: lengths.as_ptr(),

@@ -1,16 +1,21 @@
-//! Shapes drawn by dragging on a page, from where the button went down to where it came up: lines and arrows (A.8),
-//! with an ending at each end (`/LE`), and rectangles and ellipses (A.9), with a fill (`/IC`). Each has its border's
-//! width and dash pattern (`/BS`). Shift snaps a line to steps of 15° and makes a box a square or a circle, as Acrobat
-//! does. MuPDF draws them into their appearances, so they look the same in every reader.
+//! Shapes drawn on a page: lines and arrows (A.8), with an ending at each end (`/LE`); rectangles and ellipses (A.9),
+//! with a fill (`/IC`); and polygons, polylines, clouds, regular polygons and stars (A.10). Lines and boxes are
+//! dragged from where the button went down to where it came up; polygons, polylines and clouds are clicked corner by
+//! corner and finished with a double-click. Each has its border's width and dash pattern (`/BS`); a closed one can
+//! have a cloudy border (`/BE`). Shift snaps a line to steps of 15° and makes a box square, as Acrobat does. MuPDF
+//! draws them into their appearances, so they look the same in every reader.
 
-use excellent_core::annot::{Annotation, Boxed, LineEnd, Shape, Style, now};
+use std::fmt;
+
+use excellent_core::annot::{Annotation, Boxed, LineEnd, Path, Shape, Style, now};
 use excellent_core::edit::Change;
 use excellent_mupdf::{PagePoint, PageRect};
 use serde_json::Value;
 
 use super::markup::{color, floats, opacity};
+use super::polygons;
 
-/// What a drag on the page draws.
+/// What the drawing tool draws.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     /// A plain line.
@@ -21,42 +26,103 @@ pub enum Kind {
     Rectangle,
     /// An ellipse (`/Circle`).
     Ellipse,
+    /// A regular polygon of this many sides, dragged out like a box (a `/Polygon`).
+    Regular(u8),
+    /// A star of this many points, dragged out like a box (a `/Polygon`).
+    Star(u8),
+    /// A polygon, clicked corner by corner.
+    Polygon,
+    /// A polyline, clicked point by point (`/PolyLine`).
+    PolyLine,
+    /// A polygon with a cloudy border, clicked corner by corner.
+    Cloud,
 }
 
 impl Kind {
-    /// Every kind.
-    pub const ALL: [Self; 4] = [Self::Line, Self::Arrow, Self::Rectangle, Self::Ellipse];
+    /// The kinds named by a word alone.
+    const NAMED: [Self; 7] = [
+        Self::Line,
+        Self::Arrow,
+        Self::Rectangle,
+        Self::Ellipse,
+        Self::Polygon,
+        Self::PolyLine,
+        Self::Cloud,
+    ];
 
-    /// Its name in events and props.
-    #[must_use]
-    pub fn name(self) -> &'static str {
+    fn word(self) -> &'static str {
         match self {
             Self::Line => "line",
             Self::Arrow => "arrow",
             Self::Rectangle => "rectangle",
             Self::Ellipse => "ellipse",
+            Self::Regular(_) => "regular",
+            Self::Star(_) => "star",
+            Self::Polygon => "polygon",
+            Self::PolyLine => "polyline",
+            Self::Cloud => "cloud",
         }
     }
 
-    /// The kind named `name`.
+    /// The kind named `name`, as [`Display`](fmt::Display) writes it: a word, and for a regular polygon or a star its
+    /// count after a colon (`star:5`).
     #[must_use]
     pub fn parse(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|kind| kind.name() == name)
+        if let Some((word, count)) = name.split_once(':') {
+            let count = count.parse().ok().filter(|n| polygons::SIDES.contains(n))?;
+            return match word {
+                "regular" => Some(Self::Regular(count)),
+                "star" => Some(Self::Star(count)),
+                _ => None,
+            };
+        }
+        Self::NAMED.into_iter().find(|kind| kind.word() == name)
     }
 
-    /// How a new one starts and ends; a box has no ends.
+    /// How a new one starts and ends; only an arrow has a head.
     #[must_use]
     pub fn ends(self) -> [LineEnd; 2] {
-        match self {
-            Self::Arrow => [LineEnd::None, LineEnd::OpenArrow],
-            Self::Line | Self::Rectangle | Self::Ellipse => [LineEnd::None; 2],
+        if self == Self::Arrow {
+            [LineEnd::None, LineEnd::OpenArrow]
+        } else {
+            [LineEnd::None; 2]
         }
     }
 
-    /// Whether it is drawn as a box, from one corner to the other, rather than as a line.
+    /// Whether it is dragged out as a box, from one corner to the other.
     #[must_use]
     pub fn is_box(self) -> bool {
-        matches!(self, Self::Rectangle | Self::Ellipse)
+        matches!(
+            self,
+            Self::Rectangle | Self::Ellipse | Self::Regular(_) | Self::Star(_)
+        )
+    }
+
+    /// Whether it is clicked point by point rather than dragged.
+    #[must_use]
+    pub fn is_clicked(self) -> bool {
+        matches!(self, Self::Polygon | Self::PolyLine | Self::Cloud)
+    }
+
+    /// Whether it encloses an area, so can be filled and given a cloudy border.
+    #[must_use]
+    pub fn is_closed(self) -> bool {
+        !self.has_ends()
+    }
+
+    /// Whether it has two ends, each of which can take an ending.
+    #[must_use]
+    pub fn has_ends(self) -> bool {
+        matches!(self, Self::Line | Self::Arrow | Self::PolyLine)
+    }
+}
+
+impl fmt::Display for Kind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Regular(count) | Self::Star(count) => write!(f, "{}:{count}", self.word()),
+            _ => f.write_str(self.word()),
+        }
     }
 }
 
@@ -85,6 +151,12 @@ const SNAP_DEGREES: f32 = 15.0;
 
 /// The straight sides an ellipse is drawn with while it is dragged out.
 const ELLIPSE_SIDES: usize = 48;
+
+/// A cloud's bulges (`/BE /I`), from 0 to 2: Acrobat's.
+pub const CLOUD_INTENSITY: f32 = 1.0;
+
+/// Points of a clicked shape closer than this, in points, are one point: a double-click puts its point down twice.
+const SAME_POINT: f32 = 0.5;
 
 /// How a border is drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,7 +193,7 @@ impl Dash {
     }
 }
 
-/// The fills a box offers, none first: white and three light tints that keep dark text on them readable.
+/// The fills a closed shape offers, none first: white and three light tints that keep dark text on them readable.
 pub const FILLS: [Option<[f32; 3]>; 5] = [
     None,
     Some([1.0, 1.0, 1.0]),
@@ -137,11 +209,14 @@ pub struct Look {
     pub width: f32,
     /// How the border is drawn.
     pub dash: Dash,
-    /// A box's fill; `None` for none, and for a line.
+    /// A closed shape's fill; `None` for none, and for a line.
     pub fill: Option<[f32; 3]>,
+    /// Whether a closed shape's border is cloudy.
+    pub cloud: bool,
 }
 
-/// What `annotation` is, when it is a shape: a line with an arrowhead is an arrow.
+/// What `annotation` is, when it is a shape: a line with an arrowhead is an arrow, a polygon with a cloudy border a
+/// cloud. A regular polygon or a star, once drawn, is a polygon.
 #[must_use]
 pub fn kind_of(annotation: &Annotation) -> Option<Kind> {
     match annotation.shape {
@@ -149,6 +224,9 @@ pub fn kind_of(annotation: &Annotation) -> Option<Kind> {
         Shape::Line(..) => Some(Kind::Line),
         Shape::Boxed(Boxed::Square, _) => Some(Kind::Rectangle),
         Shape::Boxed(Boxed::Circle, _) => Some(Kind::Ellipse),
+        Shape::Path(Path::Polygon, _) if annotation.cloud.is_some() => Some(Kind::Cloud),
+        Shape::Path(Path::Polygon, _) => Some(Kind::Polygon),
+        Shape::Path(Path::PolyLine, _) => Some(Kind::PolyLine),
         _ => None,
     }
 }
@@ -160,6 +238,7 @@ pub fn look_of(annotation: &Annotation) -> Option<Look> {
         width: annotation.style.width,
         dash: Dash::of(&annotation.dash),
         fill: annotation.fill,
+        cloud: annotation.cloud.is_some(),
     })
 }
 
@@ -224,13 +303,19 @@ pub fn rect_between(a: PagePoint, b: PagePoint) -> PageRect {
 }
 
 /// The outline of a `kind` dragged from `from` to `to`, in page points, for the preview: a line's two points, or a
-/// box's corners or an ellipse's points, closed.
+/// box's, ellipse's, polygon's or star's points, closed. A clicked kind's is the line between the two.
 #[must_use]
 pub fn outline(kind: Kind, from: PagePoint, to: PagePoint) -> Vec<PagePoint> {
     let rect = rect_between(from, to);
     let point = |x, y| PagePoint { x, y };
+    let closed = |mut points: Vec<PagePoint>| {
+        points.extend(points.first().copied());
+        points
+    };
     match kind {
-        Kind::Line | Kind::Arrow => vec![from, to],
+        Kind::Line | Kind::Arrow | Kind::Polygon | Kind::PolyLine | Kind::Cloud => vec![from, to],
+        Kind::Regular(sides) => closed(polygons::regular(rect, sides)),
+        Kind::Star(points) => closed(polygons::star(rect, points)),
         Kind::Rectangle => vec![
             point(rect.x0, rect.y0),
             point(rect.x1, rect.y0),
@@ -252,7 +337,7 @@ pub fn outline(kind: Kind, from: PagePoint, to: PagePoint) -> Vec<PagePoint> {
 }
 
 /// A new `kind` on page `page` dragged from `from` to `to`, `WIDTH` wide in `style`'s colour and opacity; `None` when
-/// a line is shorter than [`MIN_LENGTH`] or a box narrower or lower.
+/// a line is shorter than [`MIN_LENGTH`] or a box narrower or lower, and for a kind that is clicked, not dragged.
 #[must_use]
 pub fn draw(
     page: usize,
@@ -265,11 +350,57 @@ pub fn draw(
     if !big_enough(kind, from, to) {
         return None;
     }
+    let rect = rect_between(from, to);
     let shape = match kind {
         Kind::Line | Kind::Arrow => Shape::Line(from, to),
-        Kind::Rectangle => Shape::Boxed(Boxed::Square, rect_between(from, to)),
-        Kind::Ellipse => Shape::Boxed(Boxed::Circle, rect_between(from, to)),
+        Kind::Rectangle => Shape::Boxed(Boxed::Square, rect),
+        Kind::Ellipse => Shape::Boxed(Boxed::Circle, rect),
+        Kind::Regular(sides) => Shape::Path(Path::Polygon, polygons::regular(rect, sides)),
+        Kind::Star(points) => Shape::Path(Path::Polygon, polygons::star(rect, points)),
+        Kind::Polygon | Kind::PolyLine | Kind::Cloud => return None,
     };
+    Some(made(page, shape, kind, style, author))
+}
+
+/// Whether the clicked `points` make a `kind`: a polyline needs two points, a polygon or a cloud three, after a
+/// double-click's repeated point is dropped, spread at least [`MIN_LENGTH`] across.
+#[must_use]
+pub fn enough(kind: Kind, points: &[PagePoint]) -> bool {
+    let points = polygons::deduped(points, SAME_POINT);
+    let needed = if kind == Kind::PolyLine { 2 } else { 3 };
+    kind.is_clicked()
+        && points.len() >= needed
+        && polygons::bounds(&points).is_some_and(|b| (b.x1 - b.x0).max(b.y1 - b.y0) >= MIN_LENGTH)
+}
+
+/// A new `kind` on page `page` through the clicked `points`, as [`draw`] makes one; `None` when they are not
+/// [`enough`]. A cloud is a polygon with a cloudy border.
+#[must_use]
+pub fn trace(
+    page: usize,
+    points: &[PagePoint],
+    kind: Kind,
+    style: Style,
+    author: &str,
+) -> Option<Annotation> {
+    if !enough(kind, points) {
+        return None;
+    }
+    let points = polygons::deduped(points, SAME_POINT);
+    let path = if kind == Kind::PolyLine {
+        Path::PolyLine
+    } else {
+        Path::Polygon
+    };
+    let mut traced = made(page, Shape::Path(path, points), kind, style, author);
+    if kind == Kind::Cloud {
+        traced.cloud = Some(CLOUD_INTENSITY);
+    }
+    Some(traced)
+}
+
+/// A new `kind` shaped `shape`, `WIDTH` wide in `style`'s colour and opacity, with the kind's ends.
+fn made(page: usize, shape: Shape, kind: Kind, style: Style, author: &str) -> Annotation {
     let mut drawn = Annotation::new(
         page,
         shape,
@@ -280,7 +411,7 @@ pub fn draw(
         author,
     );
     drawn.ends = kind.ends();
-    Some(drawn)
+    drawn
 }
 
 /// Whether `annotation` is a line.
@@ -314,11 +445,11 @@ fn changed(annotation: &Annotation, edit: impl FnOnce(&mut Annotation)) -> Optio
     })
 }
 
-/// The change that gives the line `annotation` the endings `ends`, start first; none when it has them already, or
-/// isn't a line.
+/// The change that gives the line or polyline `annotation` the endings `ends`, start first; none when it has them
+/// already, or has no ends.
 #[must_use]
 pub fn set_ends(annotation: &Annotation, ends: [LineEnd; 2]) -> Option<Change> {
-    if !is_line(annotation) {
+    if !kind_of(annotation)?.has_ends() {
         return None;
     }
     changed(annotation, |line| line.ends = ends)
@@ -339,24 +470,41 @@ pub fn set_dash(annotation: &Annotation, dash: Dash) -> Option<Change> {
     changed(annotation, |shape| shape.dash = dash.pattern().to_vec())
 }
 
-/// The change that fills the box `annotation` with `fill` (`None`: empties it); none when it already is, or isn't
-/// a rectangle or an ellipse.
+/// The change that fills the closed shape `annotation` with `fill` (`None`: empties it); none when it already is,
+/// or encloses nothing.
 #[must_use]
 pub fn set_fill(annotation: &Annotation, fill: Option<[f32; 3]>) -> Option<Change> {
-    if !kind_of(annotation)?.is_box() {
+    if !kind_of(annotation)?.is_closed() {
         return None;
     }
     changed(annotation, |boxed| boxed.fill = fill)
 }
 
-/// Whether a click at `point` is on the shape `annotation`, within `slop` points: on a line, on a box's border, or
-/// anywhere inside a filled box. `false` for anything else.
+/// The change that makes the closed shape `annotation`'s border cloudy, or plain; none when it already is, or
+/// encloses nothing. Another app's intensity is kept while it stays cloudy.
+#[must_use]
+pub fn set_cloud(annotation: &Annotation, on: bool) -> Option<Change> {
+    if !kind_of(annotation)?.is_closed() {
+        return None;
+    }
+    changed(annotation, |shape| {
+        shape.cloud = on.then(|| annotation.cloud.unwrap_or(CLOUD_INTENSITY));
+    })
+}
+
+/// Whether a click at `point` is on the shape `annotation`, within `slop` points: on a line, on a border, or
+/// anywhere inside a filled shape. `false` for anything else.
 #[must_use]
 pub fn hits(annotation: &Annotation, point: PagePoint, slop: f32) -> bool {
     // The whole width, not half: a thin border is hard to hit.
     let reach = slop + annotation.style.width;
     match annotation.shape {
         Shape::Line(from, to) => distance(from, to, point) <= reach,
+        Shape::Path(path, ref points) => {
+            let closed = path == Path::Polygon;
+            polygons::distance(points, closed, point) <= reach
+                || (closed && annotation.fill.is_some() && polygons::inside(points, point))
+        }
         Shape::Boxed(Boxed::Square, rect) => {
             let inside =
                 (rect.x0..=rect.x1).contains(&point.x) && (rect.y0..=rect.y1).contains(&point.y);
@@ -419,7 +567,7 @@ pub struct Drawn {
     pub page: usize,
     /// What was drawn.
     pub kind: Kind,
-    /// Its points, in page points: where the drag started and where it ended.
+    /// Its points, in page points: where a drag started and where it ended, or each point clicked.
     pub points: Vec<PagePoint>,
     /// RGB from 0 to 1.
     pub color: [f32; 3],
@@ -460,6 +608,9 @@ impl Drawn {
             opacity: self.opacity,
             ..Style::default()
         };
+        if self.kind.is_clicked() {
+            return trace(self.page, &self.points, self.kind, style, author);
+        }
         match self.points[..] {
             [from, to] => draw(self.page, from, to, self.kind, style, author),
             _ => None,
@@ -587,6 +738,100 @@ mod tests {
         assert_eq!(
             outline(Kind::Arrow, ORIGIN, at(1.0, 2.0)),
             vec![ORIGIN, at(1.0, 2.0)]
+        );
+    }
+
+    #[test]
+    fn a_kind_round_trips_through_its_name_with_its_count() {
+        for kind in [
+            Kind::Star(7),
+            Kind::Regular(3),
+            Kind::Cloud,
+            Kind::PolyLine,
+            Kind::Arrow,
+        ] {
+            assert_eq!(Kind::parse(&kind.to_string()), Some(kind));
+        }
+        assert_eq!(Kind::Star(7).to_string(), "star:7");
+        assert_eq!(Kind::parse("star:2"), None, "fewer points than a star has");
+        assert_eq!(Kind::parse("polygon:5"), None);
+    }
+
+    #[test]
+    fn a_dragged_star_or_polygon_is_a_polygon_annotation() {
+        let star = draw(
+            0,
+            ORIGIN,
+            at(200.0, 200.0),
+            Kind::Star(5),
+            Style::default(),
+            "me",
+        )
+        .expect("big enough");
+        let Shape::Path(Path::Polygon, ref corners) = star.shape else {
+            panic!("a polygon, not {:?}", star.shape);
+        };
+        assert_eq!(corners.len(), 10);
+        assert_eq!(kind_of(&star), Some(Kind::Polygon));
+        assert_eq!(
+            outline(Kind::Regular(6), ORIGIN, at(200.0, 200.0)).len(),
+            7,
+            "six corners and back to the first"
+        );
+    }
+
+    #[test]
+    fn clicked_points_make_a_polygon_a_polyline_or_a_cloud() {
+        let points = [at(0.0, 0.0), at(50.0, 0.0), at(50.0, 40.0), at(50.2, 40.1)];
+        let cloud = trace(0, &points, Kind::Cloud, Style::default(), "me").expect("three corners");
+        assert_eq!(
+            cloud.shape,
+            Shape::Path(Path::Polygon, points[..3].to_vec()),
+            "the double-click's repeat dropped"
+        );
+        assert_eq!(cloud.cloud, Some(CLOUD_INTENSITY));
+        assert_eq!(kind_of(&cloud), Some(Kind::Cloud));
+        let polyline =
+            trace(0, &points[..2], Kind::PolyLine, Style::default(), "me").expect("two points");
+        assert_eq!(kind_of(&polyline), Some(Kind::PolyLine));
+        assert!(trace(0, &points[..2], Kind::Polygon, Style::default(), "me").is_none());
+        assert!(!enough(Kind::Line, &points), "a line is dragged");
+        assert!(
+            draw(
+                0,
+                ORIGIN,
+                at(200.0, 200.0),
+                Kind::Polygon,
+                Style::default(),
+                "me"
+            )
+            .is_none()
+        );
+        let Some(Change::UpdateAnnotation(plain)) = set_cloud(&cloud, false) else {
+            panic!("one update");
+        };
+        assert_eq!(kind_of(&plain), Some(Kind::Polygon));
+        assert!(
+            set_cloud(&polyline, true).is_none(),
+            "a polyline encloses nothing"
+        );
+        assert!(set_ends(&polyline, [LineEnd::None, LineEnd::OpenArrow]).is_some());
+        assert!(set_ends(&cloud, [LineEnd::None, LineEnd::OpenArrow]).is_none());
+    }
+
+    #[test]
+    fn a_click_hits_a_polygon_s_sides_and_a_filled_one_s_inside() {
+        let corners = [at(0.0, 0.0), at(100.0, 0.0), at(0.0, 100.0)];
+        let mut polygon =
+            trace(0, &corners, Kind::Polygon, Style::default(), "me").expect("enough");
+        assert!(hits(&polygon, at(-1.0, 50.0), 1.5), "on its closing side");
+        assert!(!hits(&polygon, at(20.0, 20.0), 1.5));
+        polygon.fill = FILLS[1];
+        assert!(hits(&polygon, at(20.0, 20.0), 1.5));
+        let polyline = trace(0, &corners, Kind::PolyLine, Style::default(), "me").expect("enough");
+        assert!(
+            !hits(&polyline, at(-4.0, 50.0), 1.5),
+            "a polyline isn't closed"
         );
     }
 

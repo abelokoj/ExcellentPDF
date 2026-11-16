@@ -930,6 +930,11 @@ static void ex_annot_shape_props(fz_context *ctx, pdf_annot *annot, ex_annot_pro
 		for (i = 0; i < props->dash_count; i++)
 			props->dash[i] = pdf_annot_border_dash_item(ctx, annot, i);
 	}
+	if (pdf_annot_has_border_effect(ctx, annot) && pdf_annot_border_effect(ctx, annot) == PDF_BORDER_EFFECT_CLOUDY)
+	{
+		props->cloudy = 1;
+		props->cloud_intensity = pdf_annot_border_effect_intensity(ctx, annot);
+	}
 }
 
 /* Writes `p`'s fill and dash pattern (A.9). The border is touched only when its dashes change, so another app's
@@ -951,6 +956,17 @@ static void ex_annot_write_shape(fz_context *ctx, pdf_annot *annot, const ex_ann
 	}
 	else
 		same = p->dash_count == 0;
+	/* The border effect, only when it changes: a plain border stays without /BE (A.10). */
+	if (pdf_annot_has_border_effect(ctx, annot))
+	{
+		int cloudy = pdf_annot_border_effect(ctx, annot) == PDF_BORDER_EFFECT_CLOUDY;
+		if (cloudy != p->cloudy || (cloudy && pdf_annot_border_effect_intensity(ctx, annot) != p->cloud_intensity))
+		{
+			pdf_set_annot_border_effect(ctx, annot, p->cloudy ? PDF_BORDER_EFFECT_CLOUDY : PDF_BORDER_EFFECT_NONE);
+			if (p->cloudy)
+				pdf_set_annot_border_effect_intensity(ctx, annot, p->cloud_intensity);
+		}
+	}
 	if (same)
 		return;
 	pdf_clear_annot_border_dash(ctx, annot);

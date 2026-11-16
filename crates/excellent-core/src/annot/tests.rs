@@ -222,6 +222,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _) | Shape::Callout(..)
                 );
                 let shaped = matches!(shape, Shape::Boxed(Boxed::Square | Boxed::Circle, _));
+                let closed = shaped || matches!(shape, Shape::Path(Path::Polygon, _));
                 // Lines, polylines and polygons keep both ends; a callout its tip's.
                 let ends = match shape {
                     Shape::Line(..) | Shape::Path(..) => [start, end],
@@ -253,6 +254,10 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     } else {
                         Vec::new()
                     },
+                    // Closed shapes keep a cloudy border (A.10).
+                    cloud: closed
+                        .then_some(1.0)
+                        .filter(|_| matches!(start, LineEnd::Square | LineEnd::Circle)),
                 }
             },
         )
@@ -890,4 +895,56 @@ fn rectangles_and_ellipses_keep_fill_border_and_dash_through_save_and_reopen() {
     assert!(matches!(read_ellipse.shape, Shape::Boxed(Boxed::Circle, _)));
     assert_eq!(read_ellipse.fill, None, "no fill stays none");
     assert!(read_ellipse.dash.is_empty(), "solid stays solid");
+}
+
+#[test]
+fn a_cloud_keeps_its_border_effect_through_save_and_reopen() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let corners = vec![
+        PagePoint { x: 100.0, y: 200.0 },
+        PagePoint { x: 260.0, y: 210.0 },
+        PagePoint { x: 220.0, y: 320.0 },
+        PagePoint { x: 120.0, y: 300.0 },
+    ];
+    let mut cloud = Annotation::new(
+        0,
+        Shape::Path(Path::Polygon, corners.clone()),
+        Style {
+            color: Some([0.8, 0.1, 0.1]),
+            opacity: 1.0,
+            width: 2.0,
+        },
+        "Ada",
+    );
+    cloud.cloud = Some(1.0);
+    let polyline = Annotation::new(
+        0,
+        Shape::Path(Path::PolyLine, corners.clone()),
+        Style::default(),
+        "Ada",
+    );
+    Operation::new(
+        "Cloud",
+        vec![
+            Change::CreateAnnotation(cloud.clone()),
+            Change::CreateAnnotation(polyline.clone()),
+        ],
+    )
+    .apply(&mut doc)
+    .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let bytes = std::fs::read(&scratch.0).expect("read");
+    assert!(
+        bytes.windows(4).any(|w| w == b"/S/C"),
+        "a cloudy border effect, as Acrobat reads it"
+    );
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0).expect("read");
+    let find = |id: &str| read.iter().find(|a| a.id == id).expect("kept");
+    let (read_cloud, read_polyline) = (find(&cloud.id), find(&polyline.id));
+    assert_eq!(read_cloud.cloud, Some(1.0));
+    assert_eq!(read_cloud.shape, cloud.shape);
+    assert_eq!(read_polyline.cloud, None);
+    assert_eq!(read_polyline.shape, polyline.shape);
 }
