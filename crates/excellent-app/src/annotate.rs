@@ -467,6 +467,7 @@ fn text_name(kind: Kind) -> String {
     t!(match kind {
         Kind::Box => "text.box_name",
         Kind::Typewriter => "text.typewriter_name",
+        Kind::Callout => "callout.name",
     })
 }
 

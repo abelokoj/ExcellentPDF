@@ -727,10 +727,14 @@ pub struct ex_annot_props {
     pub font_size: f32,
     pub text_color_n: ::core::ffi::c_int,
     pub text_color: [f32; 4usize],
+    pub line_start: ::core::ffi::c_int,
+    pub line_end: ::core::ffi::c_int,
+    pub callout_count: ::core::ffi::c_int,
+    pub callout: [fz_point; 3usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_annot_props"][::core::mem::size_of::<ex_annot_props>() - 112usize];
+    ["Size of ex_annot_props"][::core::mem::size_of::<ex_annot_props>() - 152usize];
     ["Alignment of ex_annot_props"][::core::mem::align_of::<ex_annot_props>() - 8usize];
     ["Offset of field: ex_annot_props::type_"]
         [::core::mem::offset_of!(ex_annot_props, type_) - 0usize];
@@ -766,6 +770,14 @@ const _: () = {
         [::core::mem::offset_of!(ex_annot_props, text_color_n) - 92usize];
     ["Offset of field: ex_annot_props::text_color"]
         [::core::mem::offset_of!(ex_annot_props, text_color) - 96usize];
+    ["Offset of field: ex_annot_props::line_start"]
+        [::core::mem::offset_of!(ex_annot_props, line_start) - 112usize];
+    ["Offset of field: ex_annot_props::line_end"]
+        [::core::mem::offset_of!(ex_annot_props, line_end) - 116usize];
+    ["Offset of field: ex_annot_props::callout_count"]
+        [::core::mem::offset_of!(ex_annot_props, callout_count) - 120usize];
+    ["Offset of field: ex_annot_props::callout"]
+        [::core::mem::offset_of!(ex_annot_props, callout) - 124usize];
 };
 unsafe extern "C" {
     pub fn ex_annot_props_of(
@@ -811,20 +823,20 @@ pub struct ex_annot_write {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 192usize];
+    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 232usize];
     ["Alignment of ex_annot_write"][::core::mem::align_of::<ex_annot_write>() - 8usize];
     ["Offset of field: ex_annot_write::props"]
         [::core::mem::offset_of!(ex_annot_write, props) - 32usize];
     ["Offset of field: ex_annot_write::quads"]
-        [::core::mem::offset_of!(ex_annot_write, quads) - 144usize];
+        [::core::mem::offset_of!(ex_annot_write, quads) - 184usize];
     ["Offset of field: ex_annot_write::points"]
-        [::core::mem::offset_of!(ex_annot_write, points) - 160usize];
+        [::core::mem::offset_of!(ex_annot_write, points) - 200usize];
     ["Offset of field: ex_annot_write::group"]
-        [::core::mem::offset_of!(ex_annot_write, group) - 168usize];
+        [::core::mem::offset_of!(ex_annot_write, group) - 208usize];
     ["Offset of field: ex_annot_write::icon"]
-        [::core::mem::offset_of!(ex_annot_write, icon) - 176usize];
+        [::core::mem::offset_of!(ex_annot_write, icon) - 216usize];
     ["Offset of field: ex_annot_write::font"]
-        [::core::mem::offset_of!(ex_annot_write, font) - 184usize];
+        [::core::mem::offset_of!(ex_annot_write, font) - 224usize];
 };
 impl Default for ex_annot_write {
     fn default() -> Self {

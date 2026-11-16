@@ -11,7 +11,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub use excellent_mupdf::Align;
+pub use excellent_mupdf::{Align, LineEnd};
 use excellent_mupdf::{AnnotData, AnnotKind, Document, Intent, PagePoint, PageRect, Quad};
 use serde_json::{Map, Value, json};
 
@@ -72,6 +72,9 @@ pub enum Shape {
     Line(PagePoint, PagePoint),
     /// A polygon or polyline through its vertices.
     Path(Path, Vec<PagePoint>),
+    /// A text box with a leader line to the point it is about, its tip (A.7): a free-text annotation whose intent
+    /// says so. The line runs from the tip to the box's edge, so it follows the box when the box moves.
+    Callout(PageRect, PagePoint),
 }
 
 impl Shape {
@@ -92,6 +95,7 @@ impl Shape {
             Self::Line(..) => AnnotKind::Line,
             Self::Path(Path::Polygon, _) => AnnotKind::Polygon,
             Self::Path(Path::PolyLine, _) => AnnotKind::PolyLine,
+            Self::Callout(..) => AnnotKind::FreeText,
         }
     }
 
@@ -101,6 +105,7 @@ impl Shape {
         matches!(
             self,
             Self::Boxed(Boxed::FreeText | Boxed::Square | Boxed::Circle, _)
+                | Self::Callout(..)
                 | Self::Ink(_)
                 | Self::Line(..)
                 | Self::Path(..)
@@ -226,6 +231,9 @@ pub struct Annotation {
     pub open: bool,
     /// A text box's text style (A.6); the default for the other kinds, which don't keep one.
     pub text: TextStyle,
+    /// How a line, polyline or polygon starts and ends (A.8), or a callout's leader line ends at its tip (the first,
+    /// A.7); none for the other kinds.
+    pub ends: [LineEnd; 2],
 }
 
 impl Annotation {
@@ -248,6 +256,7 @@ impl Annotation {
             icon: String::new(),
             open: false,
             text: TextStyle::default(),
+            ends: [LineEnd::None; 2],
         }
     }
 
@@ -256,7 +265,7 @@ impl Annotation {
     pub fn is_text_box(&self) -> bool {
         matches!(
             self.shape,
-            Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _)
+            Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _) | Shape::Callout(..)
         )
     }
 
@@ -271,6 +280,14 @@ impl Annotation {
             AnnotKind::Text => Shape::Boxed(Boxed::Note, data.rect),
             AnnotKind::FreeText if data.intent == Intent::Typewriter => {
                 Shape::Boxed(Boxed::Typewriter, data.rect)
+            }
+            AnnotKind::FreeText if data.intent == Intent::Callout => {
+                // One with no line yet points at its box's top left.
+                let tip = data.callout.first().copied().unwrap_or(PagePoint {
+                    x: data.rect.x0,
+                    y: data.rect.y0,
+                });
+                Shape::Callout(data.rect, tip)
             }
             AnnotKind::FreeText => Shape::Boxed(Boxed::FreeText, data.rect),
             AnnotKind::Square => Shape::Boxed(Boxed::Square, data.rect),
@@ -328,6 +345,7 @@ impl Annotation {
             icon: data.icon.clone(),
             open: data.open,
             text,
+            ends: data.ends,
         })
     }
 
@@ -342,6 +360,7 @@ impl Annotation {
             Shape::Ink(s) => strokes.clone_from(s),
             Shape::Line(a, b) => points = vec![*a, *b],
             Shape::Path(_, v) => points.clone_from(v),
+            Shape::Callout(r, _) => rect = *r,
         }
         let text = self.is_text_box().then_some(self.text);
         AnnotData {
@@ -355,7 +374,13 @@ impl Annotation {
             open: self.open,
             intent: match self.shape {
                 Shape::Boxed(Boxed::Typewriter, _) => Intent::Typewriter,
+                Shape::Callout(..) => Intent::Callout,
                 _ => Intent::Plain,
+            },
+            ends: self.ends,
+            callout: match self.shape {
+                Shape::Callout(_, tip) => vec![tip],
+                _ => Vec::new(),
             },
             align: text.map(|text| text.align).unwrap_or_default(),
             font: text
@@ -405,6 +430,10 @@ impl Annotation {
             ),
             Shape::Line(a, b) => ("Line".to_owned(), points_to_json(&[*a, *b])),
             Shape::Path(kind, vertices) => (format!("{kind:?}"), points_to_json(vertices)),
+            Shape::Callout(r, tip) => (
+                "Callout".to_owned(),
+                json!([r.x0, r.y0, r.x1, r.y1, tip.x, tip.y]),
+            ),
         };
         json!({
             "id": self.id,
@@ -423,6 +452,7 @@ impl Annotation {
             "group": self.group,
             "icon": self.icon,
             "open": self.open,
+            "ends": self.ends.map(|end| format!("{end:?}")),
             "text": self.is_text_box().then(|| json!({
                 "font": self.text.font.name(),
                 "size": self.text.size,
@@ -463,6 +493,12 @@ impl Annotation {
             },
             "Polygon" => Shape::Path(Path::Polygon, points_from_json(geometry)?),
             "PolyLine" => Shape::Path(Path::PolyLine, points_from_json(geometry)?),
+            "Callout" => match floats(geometry)?[..] {
+                [x0, y0, x1, y1, x, y] => {
+                    Shape::Callout(PageRect { x0, y0, x1, y1 }, PagePoint { x, y })
+                }
+                _ => return None,
+            },
             _ => return None,
         };
         let color = match object.get("color")? {
@@ -503,6 +539,11 @@ impl Annotation {
             text: object
                 .get("text")
                 .and_then(text_style_from_json)
+                .unwrap_or_default(),
+            // Before A.7 none kept its line endings.
+            ends: object
+                .get("ends")
+                .and_then(ends_from_json)
                 .unwrap_or_default(),
         })
     }
@@ -587,6 +628,19 @@ fn rgb(color: &[f32]) -> Option<[f32; 3]> {
             (1.0 - m) * (1.0 - k),
             (1.0 - y) * (1.0 - k),
         ]),
+        _ => None,
+    }
+}
+
+fn ends_from_json(value: &Value) -> Option<[LineEnd; 2]> {
+    let end = |value: &Value| {
+        let name = value.as_str()?;
+        LineEnd::ALL
+            .into_iter()
+            .find(|end| format!("{end:?}") == name)
+    };
+    match value.as_array()?.as_slice() {
+        [start, finish] => Some([end(start)?, end(finish)?]),
         _ => None,
     }
 }

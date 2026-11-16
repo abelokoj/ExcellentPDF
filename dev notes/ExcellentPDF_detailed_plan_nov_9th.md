@@ -3237,6 +3237,11 @@ methods; step 3 (in place on the page) waits for U.8.
 
 **Done when:** moving the box keeps the tip in place.
 
+*Built (2026-11-16):* `Shape::Callout(rect, tip)`; the shim writes `/CL` from the tip alone with
+`pdf_set_annot_callout_point` (MuPDF computes the point on the box's edge) and the tip's ending with
+`pdf_set_annot_callout_style`; `pdf_set_annot_callout_line` isn't needed. `LineEnd` is the model's `/LE` for every
+kind, so A.8 reuses it. The handles (step 2) wait for A.13, which gives every annotation its selection handles.
+
 #### Ph3: 21/49 | A.8: Lines and arrows
 **P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/shapes.rs`
 1. `PDF_ANNOT_LINE`; `pdf_set_annot_line`; ends with `pdf_set_annot_line_ending_styles` (open, closed, circle,

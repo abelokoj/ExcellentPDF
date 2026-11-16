@@ -1,10 +1,12 @@
 //! Text boxes and typewriter text (A.6): a free-text annotation, its text drawn on the page in one of the standard
 //! fonts, so every reader shows it alike. A text box keeps the width it was given, has a border in its text's colour
 //! and grows down as its text wraps; typewriter text (`/IT /FreeTextTypeWriter`) has no border and its box fits the
-//! text, as text typed onto a form that has no fields. MuPDF draws the text and clips what its box doesn't hold, so a
-//! box is fitted to its text whenever the text or its style changes.
+//! text, as text typed onto a form that has no fields. A callout (A.7) is a text box with a leader line from the
+//! point it is about, its tip, to the box's edge; the tip stays where it is when the box moves or grows. MuPDF draws
+//! the text and clips what its box doesn't hold, so a box is fitted to its text whenever the text or its style
+//! changes.
 
-use excellent_core::annot::{Annotation, Boxed, Font, Shape, Style, TextStyle, now};
+use excellent_core::annot::{Annotation, Boxed, Font, LineEnd, Shape, Style, TextStyle, now};
 use excellent_core::edit::Change;
 use excellent_mupdf::{PagePoint, PageRect};
 
@@ -17,6 +19,8 @@ pub enum Kind {
     Box,
     /// Text typed onto the page.
     Typewriter,
+    /// A box with a leader line to the point clicked (A.7).
+    Callout,
 }
 
 /// A new text box's width in points: about 40 characters of 12-point text.
@@ -25,10 +29,23 @@ pub const WIDTH: f32 = 200.0;
 /// A text box's border width in points.
 pub const BORDER: f32 = 1.0;
 
+/// How far a new callout's box sits from its tip, across and up, in points.
+const CALLOUT_OFFSET: (f32, f32) = (36.0, 36.0);
+
+/// The leader-line endings a callout offers at its tip, the first its default (A.7).
+pub const CALLOUT_ENDS: [LineEnd; 5] = [
+    LineEnd::OpenArrow,
+    LineEnd::ClosedArrow,
+    LineEnd::Circle,
+    LineEnd::Square,
+    LineEnd::None,
+];
+
 /// Line height as MuPDF sets a text box's lines (`pdf-appearance.c`, `write_variable_text`), in ems.
 const LINE: f32 = 1.2;
 
-/// A new one on page `page` with its top left at `at`, kept inside the page (`bounds`); empty, fitted to one line.
+/// A new one on page `page` with its top left at `at`, kept inside the page (`bounds`); empty, fitted to one line. A
+/// callout's tip is at `at` and its box above and to the right, or wherever the page has room.
 #[must_use]
 pub fn place(
     page: usize,
@@ -39,7 +56,7 @@ pub fn place(
     author: &str,
 ) -> Annotation {
     let (boxed, style) = match kind {
-        Kind::Box => (
+        Kind::Box | Kind::Callout => (
             Boxed::FreeText,
             Style {
                 color: None,
@@ -65,20 +82,66 @@ pub fn place(
     made.text = text;
     let size = fitted(&made);
     let fit = |start: f32, length: f32, low: f32, high: f32| start.min(high - length).max(low);
+    let corner = match kind {
+        Kind::Callout => {
+            let (across, up) = CALLOUT_OFFSET;
+            // To the left of the tip when the right has no room, below it when the top has none.
+            let x = if at.x + across + size.0 <= bounds.x1 {
+                at.x + across
+            } else {
+                at.x - across - size.0
+            };
+            let y = if at.y - up - size.1 >= bounds.y0 {
+                at.y - up - size.1
+            } else {
+                at.y + up
+            };
+            PagePoint { x, y }
+        }
+        Kind::Box | Kind::Typewriter => at,
+    };
     let (x0, y0) = (
-        fit(at.x, size.0, bounds.x0, bounds.x1),
-        fit(at.y, size.1, bounds.y0, bounds.y1),
+        fit(corner.x, size.0, bounds.x0, bounds.x1),
+        fit(corner.y, size.1, bounds.y0, bounds.y1),
     );
-    made.shape = Shape::Boxed(
-        boxed,
-        PageRect {
-            x0,
-            y0,
-            x1: x0 + size.0,
-            y1: y0 + size.1,
-        },
-    );
+    let rect = PageRect {
+        x0,
+        y0,
+        x1: x0 + size.0,
+        y1: y0 + size.1,
+    };
+    made.shape = match kind {
+        Kind::Callout => {
+            made.ends = [CALLOUT_ENDS[0], LineEnd::None];
+            Shape::Callout(rect, at)
+        }
+        Kind::Box | Kind::Typewriter => Shape::Boxed(boxed, rect),
+    };
     made
+}
+
+/// The kind of text box `annotation` is, if it is one.
+#[must_use]
+pub fn kind_of(annotation: &Annotation) -> Option<Kind> {
+    match annotation.shape {
+        Shape::Boxed(Boxed::FreeText, _) => Some(Kind::Box),
+        Shape::Boxed(Boxed::Typewriter, _) => Some(Kind::Typewriter),
+        Shape::Callout(..) => Some(Kind::Callout),
+        _ => None,
+    }
+}
+
+/// The change that ends the callout `annotation`'s leader line at its tip with `end`; none when it already does, or
+/// for the other kinds.
+#[must_use]
+pub fn set_end(annotation: &Annotation, end: LineEnd) -> Option<Change> {
+    (matches!(annotation.shape, Shape::Callout(..)) && annotation.ends[0] != end).then(|| {
+        Change::UpdateAnnotation(Annotation {
+            ends: [end, annotation.ends[1]],
+            modified: now(),
+            ..annotation.clone()
+        })
+    })
 }
 
 /// The change that gives the text box `annotation` the text `text`, its box fitted to it; none when the text stays.
@@ -109,7 +172,10 @@ pub fn set_style(annotation: &Annotation, text: TextStyle) -> Option<Change> {
 #[must_use]
 pub fn set_border(annotation: &Annotation, on: bool) -> Option<Change> {
     let width = if on { BORDER } else { 0.0 };
-    let boxed = matches!(annotation.shape, Shape::Boxed(Boxed::FreeText, _));
+    let boxed = matches!(
+        annotation.shape,
+        Shape::Boxed(Boxed::FreeText, _) | Shape::Callout(..)
+    );
     (boxed && annotation.style.width != width).then(|| {
         refit(Annotation {
             style: Style {
@@ -121,18 +187,18 @@ pub fn set_border(annotation: &Annotation, on: bool) -> Option<Change> {
     })
 }
 
-/// `annotation`, changed now, its box fitted to its text from the same top left.
+/// `annotation`, changed now, its box fitted to its text from the same top left; a callout's tip stays.
 fn refit(mut annotation: Annotation) -> Change {
-    if let Shape::Boxed(kind, rect) = annotation.shape {
-        let (width, height) = fitted(&annotation);
-        annotation.shape = Shape::Boxed(
-            kind,
-            PageRect {
-                x1: rect.x0 + width,
-                y1: rect.y0 + height,
-                ..rect
-            },
-        );
+    let (width, height) = fitted(&annotation);
+    let grown = |rect: PageRect| PageRect {
+        x1: rect.x0 + width,
+        y1: rect.y0 + height,
+        ..rect
+    };
+    match annotation.shape {
+        Shape::Boxed(kind, rect) => annotation.shape = Shape::Boxed(kind, grown(rect)),
+        Shape::Callout(rect, tip) => annotation.shape = Shape::Callout(grown(rect), tip),
+        _ => {}
     }
     annotation.modified = now();
     Change::UpdateAnnotation(annotation)
@@ -158,7 +224,7 @@ fn fitted(annotation: &Annotation) -> (f32, f32) {
                 height(lines.len()),
             )
         }
-        Shape::Boxed(_, rect) => {
+        Shape::Boxed(_, rect) | Shape::Callout(rect, _) => {
             let width = if rect.x1 > rect.x0 {
                 rect.x1 - rect.x0
             } else {
@@ -284,6 +350,55 @@ mod tests {
         let at = rect(&wrapped);
         assert_eq!(at.x1 - at.x0, WIDTH, "a box keeps its width");
         assert!(at.y1 - at.y0 > 3.0 * 12.0 * LINE, "and wraps");
+    }
+
+    #[test]
+    fn a_callout_points_at_the_click_from_a_box_that_has_room() {
+        let tip = PagePoint { x: 100.0, y: 400.0 };
+        let callout = place(0, tip, PAGE, Kind::Callout, TextStyle::default(), "me");
+        assert_eq!(kind_of(&callout), Some(Kind::Callout));
+        let Shape::Callout(rect, at) = callout.shape else {
+            panic!("a callout");
+        };
+        assert_eq!(at, tip);
+        assert!(rect.x0 > tip.x && rect.y1 < tip.y, "above and to the right");
+        assert_eq!(callout.ends[0], LineEnd::OpenArrow);
+        assert_eq!(callout.style.width, BORDER);
+
+        let corner = place(
+            0,
+            PagePoint { x: 600.0, y: 10.0 },
+            PAGE,
+            Kind::Callout,
+            TextStyle::default(),
+            "me",
+        );
+        let Shape::Callout(rect, _) = corner.shape else {
+            panic!("a callout");
+        };
+        assert!(
+            rect.x1 < 600.0 && rect.y0 > 10.0,
+            "left and below near the top right corner"
+        );
+
+        let typed = changed(set_text(
+            &callout,
+            "A long line of text for the callout box to wrap",
+        ));
+        let Shape::Callout(_, still) = typed.shape else {
+            panic!("a callout");
+        };
+        assert_eq!(still, tip, "the tip stays as the box grows");
+        assert!(set_end(&typed, LineEnd::OpenArrow).is_none());
+        assert_eq!(
+            changed(set_end(&typed, LineEnd::Circle)).ends[0],
+            LineEnd::Circle
+        );
+        let boxed = place(0, tip, PAGE, Kind::Box, TextStyle::default(), "me");
+        assert!(
+            set_end(&boxed, LineEnd::Circle).is_none(),
+            "only a callout has a tip"
+        );
     }
 
     #[test]

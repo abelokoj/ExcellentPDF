@@ -254,6 +254,14 @@ typedef struct ex_annot_props {
 	float font_size;
 	int text_color_n;
 	float text_color[4];
+	/* Line endings (enum pdf_line_ending): a line's, polyline's or polygon's start and end (/LE); a callout's arrow
+	 * at its tip in `line_start` (A.7, A.8). */
+	int line_start;
+	int line_end;
+	/* A callout's leader line (/CL), its tip first: 0, 2 or 3 points (A.7). Written from its tip alone: MuPDF draws
+	 * the rest from the box. */
+	int callout_count;
+	fz_point callout[3];
 } ex_annot_props;
 
 /* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author), the app's private key

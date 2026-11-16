@@ -101,6 +101,7 @@ fn shape() -> impl Strategy<Value = Shape> {
             prop::collection::vec(point(), 3..6)
         )
             .prop_map(|(k, v)| Shape::Path(k, v)),
+        (rect(), point()).prop_map(|(r, tip)| Shape::Callout(r, tip)),
     ]
 }
 
@@ -195,14 +196,37 @@ fn annotation() -> impl Strategy<Value = Annotation> {
             .prop_map(str::to_owned),
             any::<bool>(),
         ),
-        text_style(),
+        (
+            text_style(),
+            select(LineEnd::ALL.to_vec()),
+            select(LineEnd::ALL.to_vec()),
+        ),
     )
         .prop_map(
-            |(page, shape, style, author, created, contents, tags, anchor, (icon, open), text)| {
+            |(
+                page,
+                shape,
+                style,
+                author,
+                created,
+                contents,
+                tags,
+                anchor,
+                (icon, open),
+                (text, start, end),
+            )| {
                 // Only a sticky note has an icon and its own open state here, and only a text box a text style.
                 let note = matches!(shape, Shape::Boxed(Boxed::Note, _));
-                let text_box =
-                    matches!(shape, Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _));
+                let text_box = matches!(
+                    shape,
+                    Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _) | Shape::Callout(..)
+                );
+                // Lines, polylines and polygons keep both ends; a callout its tip's.
+                let ends = match shape {
+                    Shape::Line(..) | Shape::Path(..) => [start, end],
+                    Shape::Callout(..) => [start, LineEnd::None],
+                    _ => [LineEnd::None; 2],
+                };
                 Annotation {
                     id: new_id(),
                     page,
@@ -218,6 +242,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     icon: if note { icon } else { String::new() },
                     open: note && open,
                     text: if text_box { text } else { TextStyle::default() },
+                    ends,
                 }
             },
         )
@@ -366,6 +391,12 @@ proptest! {
                     (&expected.shape, &mut annotation.shape)
                 {
                     prop_assert!(sized(*kind, *given, *drawn), "{kind:?} drawn at {drawn:?}, given {given:?}");
+                    *drawn = *given;
+                }
+                if let (Shape::Callout(given, _), Shape::Callout(drawn, _)) =
+                    (&expected.shape, &mut annotation.shape)
+                {
+                    prop_assert!(sized(Boxed::FreeText, *given, *drawn), "callout drawn at {drawn:?}, given {given:?}");
                     *drawn = *given;
                 }
                 prop_assert!(ours.insert(data.id.clone(), annotation).is_none(), "id {} twice", data.id);
@@ -687,4 +718,70 @@ fn typewriter_text_keeps_its_style_through_save_and_reopen() {
     assert!(matches!(read.shape, Shape::Boxed(Boxed::Typewriter, _)));
     assert_eq!(read.text, typed.text);
     assert_eq!(read.contents, typed.contents);
+}
+
+/// A.7: a callout's leader line is written from its tip, with an arrow there; moving its box keeps the tip in place,
+/// through a save and a reopen.
+#[test]
+fn moving_a_callout_s_box_keeps_its_tip_in_place() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let tip = PagePoint { x: 100.0, y: 300.0 };
+    let mut callout = Annotation::new(
+        0,
+        Shape::Callout(
+            PageRect {
+                x0: 160.0,
+                y0: 200.0,
+                x1: 360.0,
+                y1: 230.0,
+            },
+            tip,
+        ),
+        Style {
+            color: None,
+            opacity: 1.0,
+            width: 1.0,
+        },
+        "Ada",
+    );
+    callout.contents = "This figure".into();
+    callout.ends = [LineEnd::OpenArrow, LineEnd::None];
+    Operation::new("Callout", vec![Change::CreateAnnotation(callout.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let moved = PageRect {
+        x0: 300.0,
+        y0: 500.0,
+        x1: 500.0,
+        y1: 530.0,
+    };
+    callout.shape = Shape::Callout(moved, tip);
+    Operation::new("Move", vec![Change::UpdateAnnotation(callout.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let bytes = std::fs::read(&scratch.0).expect("read");
+    assert!(
+        bytes.windows(19).any(|w| w == b"/IT/FreeTextCallout"),
+        "the intent Acrobat reads"
+    );
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0)
+        .expect("read")
+        .into_iter()
+        .find(|a| a.id == callout.id)
+        .expect("kept");
+    let Shape::Callout(rect, read_tip) = read.shape else {
+        panic!("a callout, not {:?}", read.shape);
+    };
+    assert!(
+        (read_tip.x - tip.x).abs() < 0.01 && (read_tip.y - tip.y).abs() < 0.01,
+        "the tip stays: {read_tip:?}"
+    );
+    assert!(
+        (rect.x0 - moved.x0).abs() < 0.01 && (rect.y1 - moved.y1).abs() < 0.01,
+        "the box moved: {rect:?}"
+    );
+    assert_eq!(read.ends[0], LineEnd::OpenArrow);
 }

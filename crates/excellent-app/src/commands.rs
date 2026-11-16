@@ -71,6 +71,8 @@ pub(crate) enum CommandId {
     TextBox,
     /// Places typewriter text where the page is clicked next (A.6).
     Typewriter,
+    /// Places a callout pointing at where the page is clicked next (A.7).
+    Callout,
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -107,6 +109,7 @@ impl CommandId {
                     | Self::StickyNote
                     | Self::TextBox
                     | Self::Typewriter
+                    | Self::Callout
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -465,6 +468,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+t"],
+    },
+    Command {
+        id: CommandId::Callout,
+        name: "annotate.callout",
+        label: "command.callout",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["o"],
     },
     Command {
         id: CommandId::AnnotationColors,

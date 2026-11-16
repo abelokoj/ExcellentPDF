@@ -6,7 +6,7 @@
 //! alignment, colour and border. The models are `excellent-features`' `annotate::notes`, `annotate::sticky` and
 //! `annotate::freetext`.
 
-use excellent_core::annot::{Align, Annotation, Boxed, Font, Markup, Shape, TextStyle};
+use excellent_core::annot::{Align, Annotation, Font, LineEnd, Markup, Shape, TextStyle};
 use excellent_features::annotate::freetext::{self, Kind};
 use excellent_features::annotate::notes::{self, Target};
 use excellent_features::annotate::sticky::{self, Icon};
@@ -28,8 +28,9 @@ pub(crate) struct Noting {
     color: u32,
     /// A sticky note's icon and open state; `None` for a markup.
     sticky: Option<(Icon, bool)>,
-    /// A text box's kind, text style and whether it has a border; `None` for the others.
-    text: Option<(Kind, TextStyle, bool)>,
+    /// A text box's kind, text style, whether it has a border and a callout's ending at its tip; `None` for the
+    /// others.
+    text: Option<(Kind, TextStyle, bool, LineEnd)>,
     /// Whether it was just placed: a text box left empty is then taken away.
     pub(super) fresh: bool,
 }
@@ -59,15 +60,14 @@ impl Noting {
             },
             sticky: sticky::is_sticky(annotation)
                 .then(|| (Icon::of(&annotation.icon), annotation.open)),
-            text: match annotation.shape {
-                Shape::Boxed(Boxed::FreeText, _) => {
-                    Some((Kind::Box, annotation.text, annotation.style.width > 0.0))
-                }
-                Shape::Boxed(Boxed::Typewriter, _) => {
-                    Some((Kind::Typewriter, annotation.text, false))
-                }
-                _ => None,
-            },
+            text: freetext::kind_of(annotation).map(|kind| {
+                (
+                    kind,
+                    annotation.text,
+                    annotation.style.width > 0.0,
+                    annotation.ends[0],
+                )
+            }),
             fresh: false,
         }
     }
@@ -103,6 +103,11 @@ fn placing(what: Placing) -> View {
             "text.placing",
             "text.placing_typewriter_hint",
             CommandId::Typewriter,
+        ),
+        Placing::Text(Kind::Callout) => (
+            "callout.placing",
+            "callout.placing_hint",
+            CommandId::Callout,
         ),
     };
     crate::shell::empty_message(
@@ -186,8 +191,8 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
         panel = panel.child(sticky_controls(state, icon, open));
     }
     panel = panel.child(caption(label)).child(note);
-    if let Some((kind, style, border)) = noting.text {
-        panel = panel.child(text_controls(state, kind, style, border));
+    if let Some((kind, style, border, end)) = noting.text {
+        panel = panel.child(text_controls(state, kind, style, border, end));
     }
     panel
         .child(buttons.child(view().flex_1()).child(action_button(
@@ -213,9 +218,15 @@ const COLORS: [([f32; 3], &str); 4] = [
     ([0.06, 0.45, 0.22], "text.color.green"),
 ];
 
-/// A text box's font, size, alignment and colour, and for a boxed one its border. Each change is one step of undo
-/// and fits the box to the text again.
-fn text_controls(state: AnnotateState, kind: Kind, style: TextStyle, border: bool) -> View {
+/// A text box's font, size, alignment and colour, for a boxed one its border, and for a callout the ending at its
+/// tip. Each change is one step of undo and fits the box to the text again.
+fn text_controls(
+    state: AnnotateState,
+    kind: Kind,
+    style: TextStyle,
+    border: bool,
+    end: LineEnd,
+) -> View {
     let style = signal(style);
     let restyle = move |change: &dyn Fn(&mut TextStyle)| {
         let mut new = untracked(|| style.get());
@@ -268,7 +279,25 @@ fn text_controls(state: AnnotateState, kind: Kind, style: TextStyle, border: boo
         .child(aligns)
         .child(caption("text.color"))
         .child(colors);
-    if kind == Kind::Box {
+    if kind == Kind::Callout {
+        let end = signal(end);
+        let ends = freetext::CALLOUT_ENDS
+            .into_iter()
+            .fold(segmented(), |group, choice| {
+                group.child(segment(
+                    end_label(choice),
+                    move || end.get() == choice,
+                    move || {
+                        end.set(choice);
+                        state.change_note(t!("callout.end_edit"), |callout| {
+                            freetext::set_end(callout, choice)
+                        });
+                    },
+                ))
+            });
+        controls = controls.child(caption("callout.end")).child(ends);
+    }
+    if kind != Kind::Typewriter {
         let border = signal(border);
         controls = controls.child(
             view()
@@ -302,6 +331,17 @@ fn font_label(font: Font) -> &'static str {
         Font::Sans => "text.font.sans",
         Font::Serif => "text.font.serif",
         Font::Mono => "text.font.mono",
+    }
+}
+
+/// The translation key of a callout ending's name.
+fn end_label(end: LineEnd) -> &'static str {
+    match end {
+        LineEnd::OpenArrow => "callout.end.open_arrow",
+        LineEnd::ClosedArrow => "callout.end.closed_arrow",
+        LineEnd::Circle => "callout.end.circle",
+        LineEnd::Square => "callout.end.square",
+        _ => "callout.end.none",
     }
 }
 
@@ -420,7 +460,7 @@ mod tests {
         assert_eq!(Noting::of(&note).text, None);
         let mut boxed = Annotation::new(
             2,
-            Shape::Boxed(Boxed::FreeText, Default::default()),
+            Shape::Boxed(excellent_core::annot::Boxed::FreeText, Default::default()),
             Style {
                 width: 1.0,
                 ..Style::default()
@@ -429,7 +469,10 @@ mod tests {
         );
         boxed.text.size = 18.0;
         let noting = Noting::of(&boxed);
-        assert_eq!(noting.text, Some((Kind::Box, boxed.text, true)));
+        assert_eq!(
+            noting.text,
+            Some((Kind::Box, boxed.text, true, LineEnd::None))
+        );
         assert!(!noting.fresh, "only a box just placed is");
     }
 }

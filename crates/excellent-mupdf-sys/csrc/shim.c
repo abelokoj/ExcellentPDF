@@ -946,6 +946,21 @@ int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex
 			const char *font;
 			pdf_annot_default_appearance(ctx, annot, &font, &props.font_size, &props.text_color_n, props.text_color);
 		}
+		if (props.type == PDF_ANNOT_FREE_TEXT)
+		{
+			if (props.intent == PDF_ANNOT_IT_FREETEXT_CALLOUT)
+			{
+				pdf_annot_callout_line(ctx, annot, props.callout, &props.callout_count);
+				props.line_start = (int)pdf_annot_callout_style(ctx, annot);
+			}
+		}
+		else if (pdf_annot_has_line_ending_styles(ctx, annot))
+		{
+			enum pdf_line_ending start, end;
+			pdf_annot_line_ending_styles(ctx, annot, &start, &end);
+			props.line_start = (int)start;
+			props.line_end = (int)end;
+		}
 	}
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
@@ -1106,6 +1121,9 @@ static void ex_annot_text_style(fz_context *ctx, pdf_annot *annot, const ex_anno
 static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_write *w)
 {
 	const ex_annot_props *p = &w->props;
+	/* MuPDF's rect setter gives every free text a leader line (to the page's corner when it has none): only a
+	 * callout keeps one. */
+	int had_callout = pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(CL)) != NULL;
 	pdf_set_annot_name(ctx, annot, w->id);
 	/* Before the rect: MuPDF's width setter grows /Rect by half the change in width. */
 	if (pdf_annot_has_border(ctx, annot))
@@ -1152,7 +1170,18 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 		pdf_set_annot_quadding(ctx, annot, p->quadding);
 		/* Only a text box's: other kinds' intents (a dimension line's) are not the model's and stay as they are. */
 		pdf_set_annot_intent(ctx, annot, (enum pdf_intent)p->intent);
+		if (p->intent == PDF_ANNOT_IT_FREETEXT_CALLOUT && p->callout_count > 0)
+		{
+			/* From the tip, MuPDF draws the line to the box's edge, and draws it again when the box moves (A.7). */
+			pdf_set_annot_callout_point(ctx, annot, p->callout[0]);
+			pdf_set_annot_callout_style(ctx, annot, (enum pdf_line_ending)p->line_start);
+		}
+		else if (!had_callout)
+			pdf_dict_del(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(CL));
 	}
+	else if (pdf_annot_has_line_ending_styles(ctx, annot))
+		pdf_set_annot_line_ending_styles(ctx, annot, (enum pdf_line_ending)p->line_start,
+			(enum pdf_line_ending)p->line_end);
 	ex_annot_group(ctx, annot, w->group);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))

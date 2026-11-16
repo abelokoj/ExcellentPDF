@@ -33,7 +33,7 @@ mod pixmap;
 mod text;
 mod writer;
 
-pub use annot::{Align, Annot, AnnotData, AnnotKind, Intent};
+pub use annot::{Align, Annot, AnnotData, AnnotKind, Intent, LineEnd};
 pub use cookie::Cookie;
 pub use display_list::DisplayList;
 pub use document::{Document, Reflow};

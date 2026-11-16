@@ -57,6 +57,63 @@ impl Intent {
     }
 }
 
+/// How a line, polyline or polygon ends, or a callout's leader line at its tip (PDF's `/LE`, A.7, A.8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum LineEnd {
+    /// None: the default.
+    #[default]
+    None,
+    /// A square.
+    Square,
+    /// A circle.
+    Circle,
+    /// A diamond.
+    Diamond,
+    /// An open arrowhead.
+    OpenArrow,
+    /// A closed, filled arrowhead.
+    ClosedArrow,
+    /// A short line across the end.
+    Butt,
+    /// An open arrowhead pointing back.
+    ROpenArrow,
+    /// A closed arrowhead pointing back.
+    RClosedArrow,
+    /// A slash across the end.
+    Slash,
+}
+
+impl LineEnd {
+    /// Every ending, in MuPDF's order (`enum pdf_line_ending`).
+    pub const ALL: [Self; 10] = [
+        Self::None,
+        Self::Square,
+        Self::Circle,
+        Self::Diamond,
+        Self::OpenArrow,
+        Self::ClosedArrow,
+        Self::Butt,
+        Self::ROpenArrow,
+        Self::RClosedArrow,
+        Self::Slash,
+    ];
+
+    fn raw(self) -> c_int {
+        Self::ALL
+            .iter()
+            .position(|&end| end == self)
+            .and_then(|index| c_int::try_from(index).ok())
+            .unwrap_or(0)
+    }
+
+    fn from_raw(raw: c_int) -> Self {
+        usize::try_from(raw)
+            .ok()
+            .and_then(|index| Self::ALL.get(index).copied())
+            .unwrap_or_default()
+    }
+}
+
 /// How a text box's lines are aligned (PDF's `/Q`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Align {
@@ -340,6 +397,15 @@ impl Annot<'_> {
             font: self.text(FONT)?,
             font_size: props.font_size,
             text_color: props.text_color[..count(props.text_color_n).min(4)].to_vec(),
+            ends: [
+                LineEnd::from_raw(props.line_start),
+                LineEnd::from_raw(props.line_end),
+            ],
+            callout: props.callout[..count(props.callout_count).min(3)]
+                .iter()
+                .copied()
+                .map(PagePoint::from)
+                .collect(),
             rect: props.rect.into(),
             color: props.color[..color_n].to_vec(),
             opacity: props.opacity,
@@ -395,6 +461,11 @@ pub struct AnnotData {
     pub font_size: f32,
     /// A text box's text colour, as `color`.
     pub text_color: Vec<f32>,
+    /// A line's, polyline's or polygon's start and end (`/LE`); a callout's arrow at its tip first (A.7, A.8).
+    pub ends: [LineEnd; 2],
+    /// A callout's leader line, its tip first (`/CL`): read whole, written from its tip alone (MuPDF draws the rest
+    /// from the box); empty for the other kinds.
+    pub callout: Vec<PagePoint>,
     /// Where it is: written for the kinds placed by a rectangle (notes, text boxes, shapes, stamps); read for all,
     /// as the area it covers.
     pub rect: PageRect,
@@ -446,6 +517,13 @@ impl AnnotData {
         color[..self.color.len()].copy_from_slice(&self.color);
         let mut text_color = [0.0; 4];
         text_color[..self.text_color.len()].copy_from_slice(&self.text_color);
+        if self.callout.len() > 3 {
+            return Err(MuError::argument("a leader line has at most three points"));
+        }
+        let mut callout = [fz_point::default(); 3];
+        for (slot, point) in callout.iter_mut().zip(&self.callout) {
+            *slot = fz_point::from(*point);
+        }
         let quads: Vec<fz_quad> = self.quads.iter().copied().map(fz_quad::from).collect();
         let lengths = self
             .strokes
@@ -486,6 +564,10 @@ impl AnnotData {
                 font_size: self.font_size,
                 text_color_n: count(self.text_color.len())?,
                 text_color,
+                line_start: self.ends[0].raw(),
+                line_end: self.ends[1].raw(),
+                callout_count: count(self.callout.len())?,
+                callout,
             },
             quads: quads.as_ptr(),
             stroke_lengths: lengths.as_ptr(),

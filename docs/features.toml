@@ -127,6 +127,12 @@ status = "in-progress"
 tests = ["typewriter_text_keeps_its_style_through_save_and_reopen", "random_annotation_edits_survive_save_and_reopen", "annotation_changes_read_back_from_the_log_as_written", "a_text_box_is_placed_at_the_click_with_a_border_and_typewriter_text_without", "typing_fits_the_box_to_the_text", "chinese_text_is_measured_a_full_em_a_character", "a_style_or_border_change_is_one_change_only_when_it_changes", "the_panel_shows_the_markup_s_colour_and_text"]
 open = "not tried by hand; not opened in Acrobat; text is typed in the inspector, not on the page, until U.8 gives the canvas the platform input path; boxes are fitted from average character widths, not the fonts' metrics; no background colour control or settings for new boxes' style yet; can't be moved or resized until A.13"
 
+["A.7"]
+label = "Ph3: 20/49"
+status = "in-progress"
+tests = ["moving_a_callout_s_box_keeps_its_tip_in_place", "random_annotation_edits_survive_save_and_reopen", "a_callout_points_at_the_click_from_a_box_that_has_room", "the_panel_shows_the_markup_s_colour_and_text"]
+open = "not tried by hand; not opened in Acrobat; the box and the tip have no drag handles yet (step 2 waits for A.13's selection handles); the leader line is written from its tip alone (MuPDF draws the knee-less line to the box's edge), so a three-point line from another app keeps only its tip when the box is edited"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

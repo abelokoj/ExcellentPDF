@@ -6,6 +6,18 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 00:39; Ph3: 20/49 | A.7: Callouts with leader lines
+
+- Callouts: a command (palette, Annotate toolbar, `O` on the pages) waits for a click and puts a text box beside the
+  point clicked, above and to the right or wherever the page has room, with a leader line from the box to that
+  point (`/IT /FreeTextCallout`, `/CL`). Its text, font, size, alignment, colour and border are edited as a text
+  box's; the inspector adds the arrow at the tip (open, closed, dot, square or none).
+- Moving or growing the box keeps the tip where it is: the model keeps the tip (`Shape::Callout`), and the shim
+  writes the line from it, so MuPDF draws it again to the box's new edge.
+- The model reads and writes line endings (`LineEnd`, `/LE`) for lines, polylines and polygons too, ready for A.8.
+- MuPDF's rect setter gives every free text a leader line to the page's corner; the shim now removes it from text
+  boxes that never had one.
+
 ### 2026-11-16 00:25; Ph3: 19/49 | A.6: Text boxes and typewriter
 
 - Text boxes and typewriter text: two commands (palette, Annotate toolbar, `T` and `Shift+T` on the pages) wait for

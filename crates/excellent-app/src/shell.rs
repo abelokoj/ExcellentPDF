@@ -438,6 +438,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::StickyNote => pane.annotate.place(Placing::Sticky),
             CommandId::TextBox => pane.annotate.place(Placing::Text(Kind::Box)),
             CommandId::Typewriter => pane.annotate.place(Placing::Text(Kind::Typewriter)),
+            CommandId::Callout => pane.annotate.place(Placing::Text(Kind::Callout)),
             CommandId::AnnotationColors => pane
                 .annotate
                 .pick(excellent_features::annotate::colors::Tool::Highlight),
