@@ -3469,7 +3469,7 @@ the inspector has a Layer row (DD20).
 **Links:** XFDF is ISO 19444-1; quick-xml <https://github.com/tafia/quick-xml>
 
 *Built (2026-11-16):* `annotate::xfdf` (`write`, `read`, `merge`, `PageSpace`) over `AnnotData`, written fresh with
-`quick-xml` 0.37 rather than from PdfCraft; FDF through the shim (`ex_fdf_write` grafts the annotations into an FDF
+`quick-xml` 0.42 (0.41 fixes RUSTSEC-2026-0194 and 0195) rather than from PdfCraft; FDF through the shim (`ex_fdf_write` grafts the annotations into an FDF
 body with `/Page`; `ex_fdf_read` grafts an FDF's onto a blank copy of the pages, read as the document's own are), and
 `ex_page_transform` for PDF space. The app's `annotate::exchange` adds Export (Ctrl+Alt+E) and Import (Ctrl+Alt+I),
 one undo step per import (DD21).

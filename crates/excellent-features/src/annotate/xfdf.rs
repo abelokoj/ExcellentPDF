@@ -17,9 +17,9 @@ use excellent_core::edit::Change;
 use excellent_mupdf::{
     Align, AnnotData, AnnotKind, Intent, LineEnd, Matrix, PagePoint, PageRect, Quad,
 };
-use quick_xml::Reader;
-use quick_xml::escape::escape;
+use quick_xml::escape::{escape, resolve_predefined_entity};
 use quick_xml::events::{BytesStart, Event};
+use quick_xml::{Reader, XmlVersion};
 use serde_json::Value;
 
 /// XFDF's namespace.
@@ -571,15 +571,28 @@ pub fn read(xml: &str, spaces: &[PageSpace]) -> Result<Vec<Annotation>, ReadXfdf
             }
             Event::Text(text) => {
                 if let Some(current) = pending.as_mut() {
-                    let text = text
-                        .unescape()
-                        .map_err(|err| ReadXfdfError(err.to_string()))?;
-                    take(current, into, &text);
+                    take(current, into, &text.xml_content(XmlVersion::Implicit1_0));
+                }
+            }
+            // `&lt;` and the like come apart from the text around them.
+            Event::GeneralRef(reference) => {
+                if let Some(current) = pending.as_mut() {
+                    let name = reference.xml_content(XmlVersion::Implicit1_0);
+                    let resolved = match reference
+                        .resolve_char_ref()
+                        .map_err(|err| ReadXfdfError(err.to_string()))?
+                    {
+                        Some(char) => char.to_string(),
+                        None => resolve_predefined_entity(&name)
+                            .ok_or_else(|| ReadXfdfError(format!("unknown entity &{name};")))?
+                            .to_owned(),
+                    };
+                    take(current, into, &resolved);
                 }
             }
             Event::CData(data) => {
                 if let Some(current) = pending.as_mut() {
-                    take(current, into, &String::from_utf8_lossy(&data));
+                    take(current, into, &data);
                 }
             }
             Event::End(end) => {
@@ -595,7 +608,7 @@ pub fn read(xml: &str, spaces: &[PageSpace]) -> Result<Vec<Annotation>, ReadXfdf
                             Reading::Nothing
                         };
                     }
-                } else if end.local_name().as_ref() == b"annots" {
+                } else if end.local_name().as_ref() == "annots" {
                     in_annots = false;
                 }
             }
@@ -608,7 +621,7 @@ pub fn read(xml: &str, spaces: &[PageSpace]) -> Result<Vec<Annotation>, ReadXfdf
 
 /// `start`'s name without its prefix.
 fn local(start: &BytesStart<'_>) -> String {
-    String::from_utf8_lossy(start.local_name().as_ref()).into_owned()
+    start.local_name().as_ref().to_owned()
 }
 
 /// An annotation element begun: its kind (none for one the model doesn't keep) and attributes.
@@ -616,9 +629,9 @@ fn begin(start: &BytesStart<'_>, name: &str) -> Result<Pending, ReadXfdfError> {
     let mut attrs = BTreeMap::new();
     for attr in start.attributes() {
         let attr = attr.map_err(|err| ReadXfdfError(err.to_string()))?;
-        let key = String::from_utf8_lossy(attr.key.as_ref()).into_owned();
+        let key = attr.key.as_ref().to_owned();
         let value = attr
-            .unescape_value()
+            .normalized_value(XmlVersion::Implicit1_0)
             .map_err(|err| ReadXfdfError(err.to_string()))?
             .into_owned();
         attrs.insert(key, value);
@@ -1146,7 +1159,7 @@ mod tests {
  name="b8f3" page="0" rect="100,600,200,700" subject="Rectangle" title="Grace" width="3" interior-color="#FFFF00">
 <contents-richtext><body xmlns="http://www.w3.org/1999/xhtml"><p>Look <b>here</b></p></body></contents-richtext>
 <popup flags="print,nozoom,norotate" open="no" page="0" rect="612,500,792,620"/></square>
-<text name="r1" page="0" rect="0,0,20,20" inreplyto="b8f3" replyType="reply" title="Ada"><contents>Done</contents></text>
+<text name="r1" page="0" rect="0,0,20,20" inreplyto="b8f3" replyType="reply" title="Ada"><contents>Done &#233; &amp; &#x2713;</contents></text>
 <link page="0" rect="0,0,10,10"/>
 <square name="far" page="7" rect="0,0,10,10"/>
 </annots><f href="x.pdf"/></xfdf>"##;
@@ -1169,6 +1182,10 @@ mod tests {
         assert_eq!(square.fill, Some([1.0, 1.0, 0.0]));
         assert_eq!(square.created, 1_794_839_400, "2026-11-16 14:30 UTC");
         assert_eq!(found[1].reply_to.as_deref(), Some("b8f3"));
+        assert_eq!(
+            found[1].contents, "Done é & ✓",
+            "character and entity references"
+        );
         assert!(
             read(
                 "<xfdf><annots><square page=\"0\"></text></annots></xfdf>",
