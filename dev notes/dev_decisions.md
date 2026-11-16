@@ -417,3 +417,17 @@ holding nothing would only be ceremony.
 
 **What it means:** to flatten a filled form, the forms switch (`Forms::Flatten`, already in the engine) needs a place
 in the UI; that is a small follow-up if the maintainer wants it.
+
+## DD23. W3C export shares A.24's commands and is checked by term list (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.28 adds W3C Web Annotations as a third format of A.24's Export and Import commands, picked by
+the file type in the dialog, rather than commands of its own. Each annotation carries its full record under the
+absolute IRI `urn:excellentpdf:annotation` so nothing is lost on our own round trip. "Validates against the context"
+is tested by checking that every key the export writes is a term of `anno.jsonld` (or an absolute IRI), not by a
+JSON-LD processor.
+
+**Why:** two more commands that differ only by file type would crowd the toolbar and palette; the dialog already asks
+for a file. A JSON-LD processor crate would add a large dependency (and network context loading) for one test.
+
+**What it means:** a processor-level check (for example with `jsonld` in CI, offline with a cached context) is a
+follow-up if the maintainer wants stronger proof.

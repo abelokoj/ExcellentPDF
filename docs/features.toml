@@ -235,6 +235,12 @@ status = "in-progress"
 tests = ["a_flattened_copy_looks_the_same_and_holds_no_annotations"]
 open = "not tried by hand; form fields stay fillable (DD22)"
 
+["A.28"]
+label = "Ph3: 38/49"
+status = "in-progress"
+tests = ["the_export_uses_only_the_context_s_terms", "our_export_comes_back_whole", "another_tool_s_quote_becomes_a_highlight_to_place", "iso_dates_go_both_ways", "the_format_is_told_by_extension_or_header"]
+open = "not tried by hand; no JSON-LD processor in the tests (DD23)"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

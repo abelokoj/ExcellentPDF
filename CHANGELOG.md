@@ -6,6 +6,13 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 11:42; Ph3: 38/49 | A.28: W3C Web Annotation export
+
+- Export and Import annotations (Ctrl+Alt+E, Ctrl+Alt+I) now also take W3C Web Annotation files (`.jsonld`), the
+  format web annotation tools share. Highlights carry text-quote and text-position selectors and a page fragment;
+  comments, tags and review states travel as bodies, replies as replies. Our own files come back whole and merge by
+  id; another tool's highlights are placed by finding the text they quote.
+
 ### 2026-11-16 11:08; Ph3: 37/49 | A.25: Flatten on export
 
 - "Export flattened copy" (Ctrl+Shift+E, the Annotate toolbar's Flatten, or the palette) saves a copy of the document

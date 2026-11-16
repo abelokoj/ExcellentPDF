@@ -3507,6 +3507,10 @@ bakes that copy, so the open original is never touched; `Document::save_flattene
 **Done when:** exported JSON validates against the model's JSON-LD context.
 **Links:** <https://www.w3.org/TR/annotation-model/>, <https://www.w3.org/TR/annotation-vocab/>
 
+*Built (2026-11-16):* a third format of A.24's Export and Import commands, not commands of its own. Each annotation
+also carries its whole record under the IRI `urn:excellentpdf:annotation`, so our own files round-trip; other tools'
+quotes are placed by A.16's transfer. The test checks every term against the context's list (DD23).
+
 ### 27.7 Handwriting, ink and drawing (H)
 
 The pipeline is in §8. Ink lives in `crates/excellent-ink` (model, smoothing, outlines) and the platform canvases
