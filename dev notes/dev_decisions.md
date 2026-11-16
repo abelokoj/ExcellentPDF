@@ -341,3 +341,22 @@ keeping the file as it came needs no conversion. The app has no time-zone suppor
 - Plan step 4 says "saved as small PDF files": images are the exception.
 - A dynamic stamp placed at 09:00 in New York reads 14:00 UTC, until U.7 brings local time.
 - Other readers that redraw stamps from `/Name` (rare) would show the custom name's text; Acrobat keeps the appearance.
+
+## DD19. Replies stay off the page, go with their parent, and aren't transferred (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.21's replies (a note with an `/IRT` that is not a group's) are not drawn, hit or listed on
+the page here; they show only in their thread. A status reply is also hidden in the file (`/F 30`, as Acrobat writes
+it). Deleting an annotation deletes its replies, however deep, in the same operation. A.16's transfer to another
+version leaves replies out. Reply and status have no keyboard shortcut or palette command: they live in the
+inspector, reached by Tab like the rest of a note.
+
+**Why:** Acrobat shows replies in its comment pane, not as icons stacked on the parent; a reply whose parent is gone
+answers nothing; transfer gives each annotation a new id, which would cut a reply from its parent. A command for a
+field inside the open note would only move focus there.
+
+**What it means:**
+
+- Other readers that draw every note (rare) would show a reply's icon where its parent is; MuPDF-based ones do.
+- Undo after deleting an annotation brings its whole thread back.
+- Transferring annotations from another version drops their replies until transfer carries threads over.
+- AGENTS.md's three ways to an action are not met for Reply and Set status; Acrobat has no shortcut for them either.

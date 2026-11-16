@@ -5,7 +5,7 @@
 //! rows once, and filters them as the reader types. Each row keeps its text folded to lower case, so a filter over
 //! 10,000 rows is one pass of substring tests.
 
-use excellent_core::annot::{Annotation, Boxed, Markup, Shape};
+use excellent_core::annot::{Annotation, Boxed, Markup, Shape, Status};
 use serde_json::{Value, json};
 
 use super::categories::Category;
@@ -107,16 +107,22 @@ pub struct Row {
     pub tags: Vec<String>,
     /// When it last changed, in seconds since 1970 (UTC).
     pub modified: i64,
-    /// Its note, the text it marks and its tags, folded to lower case, for search.
+    /// How many replies its comment thread has (A.21).
+    pub replies: usize,
+    /// Its review status (A.21); `None` when none is set.
+    pub status: Option<Status>,
+    /// Its note, the text it marks, its tags and its replies, folded to lower case, for search.
     folded: String,
     /// Its tags, folded to lower case, for `tag:` (A.18) and the tag filter (A.19).
     folded_tags: Vec<String>,
 }
 
 impl Row {
-    /// The row of `annotation`.
+    /// The row of `annotation`, with its thread from `replies` (every reply in the document will do, A.21).
     #[must_use]
-    pub fn of(annotation: &Annotation) -> Self {
+    pub fn of(annotation: &Annotation, replies: &[Annotation]) -> Self {
+        let thread = super::threads::thread(replies, &annotation.id);
+        let answered: Vec<&str> = thread.iter().map(|reply| reply.contents.as_str()).collect();
         let marked = annotation
             .anchor
             .as_ref()
@@ -135,7 +141,14 @@ impl Row {
             author: annotation.author.clone(),
             tags: annotation.tags.clone(),
             modified: annotation.modified,
-            folded: format!("{note}\n{marked}\n{}", annotation.tags.join("\n")).to_lowercase(),
+            replies: thread.len(),
+            status: super::threads::status_of(replies, &annotation.id),
+            folded: format!(
+                "{note}\n{marked}\n{}\n{}",
+                annotation.tags.join("\n"),
+                answered.join("\n")
+            )
+            .to_lowercase(),
             folded_tags: annotation
                 .tags
                 .iter()
@@ -145,10 +158,16 @@ impl Row {
     }
 }
 
-/// The rows of `annotations`, in page order and, on a page, in the order the page draws them.
+/// The rows of `annotations`, in page order and, on a page, in the order the page draws them. Replies in threads
+/// (A.21) are not rows of their own: each row counts its own and finds by them.
 #[must_use]
 pub fn rows(annotations: &[Annotation]) -> Vec<Row> {
-    let mut rows: Vec<Row> = annotations.iter().map(Row::of).collect();
+    let (replies, on_page): (Vec<Annotation>, Vec<Annotation>) =
+        annotations.iter().cloned().partition(Annotation::is_reply);
+    let mut rows: Vec<Row> = on_page
+        .iter()
+        .map(|annotation| Row::of(annotation, &replies))
+        .collect();
     rows.sort_by_key(|row| row.target.page);
     rows
 }
@@ -759,5 +778,41 @@ mod tests {
         // 16 ms is a frame at 60 Hz; an unoptimized test build gets ten times that.
         let limit = if cfg!(debug_assertions) { 160 } else { 16 };
         assert!(best.as_millis() < limit, "filtering took {best:?}");
+    }
+
+    #[test]
+    fn replies_are_no_rows_but_counted_and_found_on_their_parent_s() {
+        use excellent_core::annot::Status;
+        use excellent_core::edit::Change;
+
+        use crate::annotate::threads;
+
+        let parent = note(0, "plain", [1.0, 0.0, 0.0]);
+        let made = |change: Option<Change>| match change {
+            Some(Change::CreateAnnotation(annotation)) => annotation,
+            other => panic!("expected a new annotation, got {other:?}"),
+        };
+        let answer = made(threads::reply(&parent, "Needs a source", "Grace"));
+        let status = made(threads::set_status(
+            &parent,
+            &[],
+            Status::Completed,
+            "Grace",
+            "Completed",
+        ));
+        let rows = rows(&[parent.clone(), answer, status]);
+        assert_eq!(rows.len(), 1, "replies aren't rows");
+        assert_eq!(rows[0].target.id, parent.id);
+        assert_eq!(rows[0].replies, 1, "a status isn't a reply");
+        assert_eq!(rows[0].status, Some(Status::Completed));
+        let search = Filter {
+            query: "source".to_owned(),
+            ..Filter::default()
+        };
+        assert_eq!(
+            search.apply(&rows),
+            vec![0],
+            "a reply's words find its parent"
+        );
     }
 }

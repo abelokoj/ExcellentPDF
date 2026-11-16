@@ -525,6 +525,24 @@ fn row_view(
         ),
         None => kind_label(row.kind),
     };
+    // Its thread (A.21): the replies it has and its review status.
+    let kind = if row.replies > 0 {
+        t!(
+            "annotations.with_replies",
+            kind = kind,
+            count = row.replies.to_string()
+        )
+    } else {
+        kind
+    };
+    let kind = match row.status {
+        Some(status) => t!(
+            "annotations.with_status",
+            kind = kind,
+            status = t!(super::thread::status_key(status))
+        ),
+        None => kind,
+    };
     let shown_text = if row.text.is_empty() {
         kind.clone()
     } else {

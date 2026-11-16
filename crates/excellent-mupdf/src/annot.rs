@@ -24,6 +24,8 @@ const APP_DATA: c_int = 3;
 const GROUP: c_int = 4;
 const ICON: c_int = 5;
 const FONT: c_int = 6;
+const REPLY_TO: c_int = 7;
+const STATE: c_int = 8;
 
 /// How a text box is drawn (PDF's `/IT` on a free-text annotation, A.6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -390,6 +392,8 @@ impl Annot<'_> {
             contents: self.contents()?,
             app_data: self.text(APP_DATA)?,
             group: self.text(GROUP)?,
+            reply_to: self.text(REPLY_TO)?,
+            state: self.text(STATE)?,
             icon: self.text(ICON)?,
             open: props.is_open != 0,
             intent: Intent::from_raw(props.intent),
@@ -450,6 +454,12 @@ pub struct AnnotData {
     /// The id of the annotation on its page it is grouped with (`/IRT` with `/RT /Group`: a "replace text" pair,
     /// A.2); empty for none.
     pub group: String,
+    /// The id of the annotation on its page it answers (`/IRT` without `/RT /Group`: a reply in a comment thread,
+    /// A.21); empty for none.
+    pub reply_to: String,
+    /// A reply's review state (`/State`: `Accepted`, `Rejected`, `Cancelled`, `Completed`, `None`, `Marked` or
+    /// `Unmarked`), as the file names it; empty for none. Written with its `/StateModel` and hidden on the page.
+    pub state: String,
     /// Its icon's name (`/Name`: a sticky note's or a stamp's, A.5), as the file has it; empty for none, which
     /// readers show as the kind's default.
     pub icon: String,
@@ -521,6 +531,7 @@ impl AnnotData {
             text(&self.icon)?,
             text(&self.font)?,
         );
+        let (reply_to, state) = (text(&self.reply_to)?, text(&self.state)?);
         let count = |n: usize| c_int::try_from(n).map_err(|_| MuError::argument("too many points"));
         if self.color.len() > 4 || self.text_color.len() > 4 {
             return Err(MuError::argument("a colour has at most four components"));
@@ -567,6 +578,8 @@ impl AnnotData {
             group: group.as_ptr(),
             icon: icon.as_ptr(),
             font: font.as_ptr(),
+            reply_to: reply_to.as_ptr(),
+            state: state.as_ptr(),
             props: ex_annot_props {
                 type_: kind,
                 rect: self.rect.into(),

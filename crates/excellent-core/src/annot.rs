@@ -199,6 +199,65 @@ impl Default for Style {
     }
 }
 
+/// A reply's review state in a comment thread (A.21): PDF's `/State`, with its `/StateModel`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Status {
+    /// The reviewer agrees.
+    Accepted,
+    /// The reviewer disagrees.
+    Rejected,
+    /// The comment no longer applies.
+    Cancelled,
+    /// What it asks for is done.
+    Completed,
+    /// A status set earlier is taken back (PDF's `None`).
+    Cleared,
+    /// Ticked off by the reader (the Marked model, which Acrobat's check mark writes).
+    Marked,
+    /// The tick taken off again.
+    Unmarked,
+}
+
+impl Status {
+    /// The review statuses a reader sets, in Acrobat's order.
+    pub const REVIEW: [Self; 5] = [
+        Self::Accepted,
+        Self::Rejected,
+        Self::Cancelled,
+        Self::Completed,
+        Self::Cleared,
+    ];
+
+    /// Its name in the file (`/State`).
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Accepted => "Accepted",
+            Self::Rejected => "Rejected",
+            Self::Cancelled => "Cancelled",
+            Self::Completed => "Completed",
+            Self::Cleared => "None",
+            Self::Marked => "Marked",
+            Self::Unmarked => "Unmarked",
+        }
+    }
+
+    /// The status the file names `name`, or `None` for a name no model has.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Marked, Self::Unmarked]
+            .into_iter()
+            .chain(Self::REVIEW)
+            .find(|status| status.name() == name)
+    }
+
+    /// Whether it belongs to the Marked model rather than the Review one.
+    #[must_use]
+    pub fn is_mark(self) -> bool {
+        matches!(self, Self::Marked | Self::Unmarked)
+    }
+}
+
 /// An annotation as the app keeps it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Annotation {
@@ -224,6 +283,11 @@ pub struct Annotation {
     pub anchor: Option<Quote>,
     /// The id of the annotation on its page it goes with: a "replace text" strikeout names its caret (A.2).
     pub group: Option<String>,
+    /// The id of the annotation on its page it answers: a reply in a comment thread (A.21). Replies aren't drawn on
+    /// the page; they are read in their thread.
+    pub reply_to: Option<String>,
+    /// A reply's review status (A.21); `None` for a reply that is only text, and for everything else.
+    pub state: Option<Status>,
     /// Its semantic category's key (A.17), such as `claim`; `None` for none.
     pub category: Option<String>,
     /// Its icon's name (PDF's `/Name`): a sticky note's (A.5) or a stamp's; empty for none, which readers draw as
@@ -264,6 +328,8 @@ impl Annotation {
             tags: Vec::new(),
             anchor: None,
             group: None,
+            reply_to: None,
+            state: None,
             category: None,
             icon: String::new(),
             open: false,
@@ -274,6 +340,12 @@ impl Annotation {
             cloud: None,
             locked: false,
         }
+    }
+
+    /// Whether it answers another annotation in a comment thread (A.21), and so isn't on the page.
+    #[must_use]
+    pub fn is_reply(&self) -> bool {
+        self.reply_to.is_some()
     }
 
     /// Whether it is a text box, boxed or typed (A.6).
@@ -360,6 +432,8 @@ impl Annotation {
             tags,
             anchor,
             group: (!data.group.is_empty()).then(|| data.group.clone()),
+            reply_to: (!data.reply_to.is_empty()).then(|| data.reply_to.clone()),
+            state: Status::from_name(&data.state),
             category,
             icon: data.icon.clone(),
             open: data.open,
@@ -393,6 +467,11 @@ impl Annotation {
             contents: self.contents.clone(),
             app_data: self.private_json(),
             group: self.group.clone().unwrap_or_default(),
+            reply_to: self.reply_to.clone().unwrap_or_default(),
+            state: self
+                .state
+                .map(|state| state.name().to_owned())
+                .unwrap_or_default(),
             icon: self.icon.clone(),
             open: self.open,
             intent: match self.shape {
@@ -481,6 +560,8 @@ impl Annotation {
             "tags": self.tags,
             "anchor": self.anchor.as_ref().map(quote_to_json),
             "group": self.group,
+            "reply_to": self.reply_to,
+            "state": self.state.map(Status::name),
             "category": self.category,
             "icon": self.icon,
             "open": self.open,
@@ -570,6 +651,9 @@ impl Annotation {
                 .get("group")
                 .and_then(Value::as_str)
                 .map(str::to_owned),
+            // Before A.21 none answered another.
+            reply_to: text("reply_to"),
+            state: text("state").as_deref().and_then(Status::from_name),
             // Before A.17 none had a category.
             category: text("category"),
             icon: text("icon").unwrap_or_default(),
@@ -604,8 +688,8 @@ impl Annotation {
     }
 }
 
-/// The annotations the model keeps on page `page` of `document`, in the page's order. Other kinds are skipped, and
-/// stay in the file as they are.
+/// The annotations the model keeps on page `page` of `document`, in the page's order, the replies in comment threads
+/// left out (they aren't on the page: [`page_replies`]). Other kinds are skipped, and stay in the file as they are.
 ///
 /// # Errors
 ///
@@ -614,6 +698,24 @@ pub fn page_annotations(
     document: &Document,
     page: usize,
 ) -> excellent_mupdf::Result<Vec<Annotation>> {
+    let mut found = read_page(document, page)?;
+    found.retain(|annotation| !annotation.is_reply());
+    Ok(found)
+}
+
+/// The replies in comment threads on page `page` of `document` (A.21), statuses among them, in the page's order.
+///
+/// # Errors
+///
+/// MuPDF can't load the page or read an annotation.
+pub fn page_replies(document: &Document, page: usize) -> excellent_mupdf::Result<Vec<Annotation>> {
+    let mut found = read_page(document, page)?;
+    found.retain(Annotation::is_reply);
+    Ok(found)
+}
+
+/// Every annotation the model keeps on page `page`, replies and all.
+fn read_page(document: &Document, page: usize) -> excellent_mupdf::Result<Vec<Annotation>> {
     let loaded = document.load_page(page)?;
     let mut found = Vec::new();
     for annot in loaded.annots()? {
@@ -624,7 +726,8 @@ pub fn page_annotations(
     Ok(found)
 }
 
-/// Every page's annotations of the document `mupdf`, in page order, for the annotation list (A.14). Runs at
+/// Every page's annotations of the document `mupdf`, replies in threads (A.21) among them, in page order, for the
+/// annotation list (A.14). Runs at
 /// background priority, taking the document's lock one page at a time so the pages on screen still draw, and can be
 /// cancelled.
 pub fn load_all(
@@ -637,7 +740,7 @@ pub fn load_all(
         for page in 0..count {
             cookie.check()?;
             let document = mupdf.lock().expect("document lock poisoned");
-            all.extend(page_annotations(&document, page)?);
+            all.extend(read_page(&document, page)?);
         }
         Ok(all)
     })

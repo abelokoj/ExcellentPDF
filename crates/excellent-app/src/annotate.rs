@@ -17,6 +17,7 @@ mod note;
 mod select;
 mod stamps;
 pub(crate) mod tag_index;
+mod thread;
 mod transfer;
 
 pub(crate) use excellent_features::annotate::freetext::Kind;

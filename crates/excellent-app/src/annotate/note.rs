@@ -297,7 +297,7 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
 }
 
 /// What can be changed of `annotation` besides its note: its kind's controls and its look (or, locked, why not),
-/// then its dates and lock.
+/// its comment thread (A.21), then its dates and lock.
 fn controls(state: AnnotateState, annotation: &Annotation) -> View {
     let mut controls = view().gap_3();
     if annotation.locked {
@@ -318,7 +318,10 @@ fn controls(state: AnnotateState, annotation: &Annotation) -> View {
         }
         controls = controls.child(inspector::look(state, annotation));
     }
+    // A locked annotation can still be answered and given a status, as in Acrobat (A.21).
     controls
+        .child(view().h(px(1.0)).bg(move || theme().border))
+        .child(super::thread::thread_view(state, annotation))
         .child(view().h(px(1.0)).bg(move || theme().border))
         .child(inspector::facts(state, annotation))
 }

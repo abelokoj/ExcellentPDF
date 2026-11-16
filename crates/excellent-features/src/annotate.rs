@@ -15,4 +15,5 @@ pub mod shapes;
 pub mod stamps;
 pub mod sticky;
 pub mod tags;
+pub mod threads;
 pub mod transfer;

@@ -852,10 +852,12 @@ pub struct ex_annot_write {
     pub group: *const ::core::ffi::c_char,
     pub icon: *const ::core::ffi::c_char,
     pub font: *const ::core::ffi::c_char,
+    pub reply_to: *const ::core::ffi::c_char,
+    pub state: *const ::core::ffi::c_char,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 296usize];
+    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 312usize];
     ["Alignment of ex_annot_write"][::core::mem::align_of::<ex_annot_write>() - 8usize];
     ["Offset of field: ex_annot_write::props"]
         [::core::mem::offset_of!(ex_annot_write, props) - 32usize];
@@ -869,6 +871,10 @@ const _: () = {
         [::core::mem::offset_of!(ex_annot_write, icon) - 280usize];
     ["Offset of field: ex_annot_write::font"]
         [::core::mem::offset_of!(ex_annot_write, font) - 288usize];
+    ["Offset of field: ex_annot_write::reply_to"]
+        [::core::mem::offset_of!(ex_annot_write, reply_to) - 296usize];
+    ["Offset of field: ex_annot_write::state"]
+        [::core::mem::offset_of!(ex_annot_write, state) - 304usize];
 };
 impl Default for ex_annot_write {
     fn default() -> Self {

@@ -3428,6 +3428,11 @@ the library and times are UTC (DD18).
 
 **Done when:** threads and states show in Acrobat's comment pane, and Acrobat's replies show here.
 
+*Built (2026-11-16):* `annotate::threads` (reply, set_status, thread, status_of); `Annotation::reply_to` and
+`state` (`Status`), written by the shim's `ex_annot_reply` (`/IRT` without `/RT`; `/State`, `/StateModel`, `/F 30`).
+Display lists and `ex_render_page` leave replies out, `page_annotations` too (`page_replies` reads them), and
+`ex_annot_delete` deletes a thread with its parent (DD19). The list counts replies and shows the status.
+
 #### Ph3: 35/49 | A.22: Annotation layers by person or purpose
 **P1; Phase 3; Needs:** A.12; **Code:** `excellent-features/annotate/layers.rs`
 1. Create optional content groups in `/OCProperties` (MuPDF has no helper, so write the dictionaries with

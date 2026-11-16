@@ -93,7 +93,7 @@ void ex_drop_page(fz_context *ctx, fz_page *page);
 int ex_page_bounds(fz_context *ctx, fz_page *page, fz_rect *out, ex_error *err);
 
 /* Rendering: draws the page through `ctm` into a new RGB pixmap, with an alpha channel if `alpha` is non-zero
- * (otherwise on white). */
+ * (otherwise on white). Replies in comment threads (A.21) are left out, as in ex_new_display_list. */
 int ex_render_page(fz_context *ctx, fz_page *page, fz_matrix ctm, int alpha, fz_pixmap **out, ex_error *err);
 void ex_pixmap_info_of(fz_context *ctx, fz_pixmap *pix, ex_pixmap_info *out);
 void ex_drop_pixmap(fz_context *ctx, fz_pixmap *pix);
@@ -108,7 +108,8 @@ int ex_new_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_di
 int ex_new_contents_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_display_list **out,
 	ex_error *err);
 /* The same as ex_new_display_list without the annotations whose /NM is one of the `count` strings of `hidden`: the
- * annotation list's "show only matching" (A.19). A page that is not a PDF's keeps all its annotations. */
+ * annotation list's "show only matching" (A.19). A page that is not a PDF's keeps all its annotations. Neither draws
+ * the replies in a comment thread (A.21): readers show them in their comment pane, not on the page. */
 int ex_new_display_list_without(fz_context *ctx, fz_page *page, const char *const *hidden, int count,
 	fz_cookie *cookie, fz_display_list **out, ex_error *err);
 void ex_drop_display_list(fz_context *ctx, fz_display_list *list);
@@ -292,6 +293,11 @@ typedef struct ex_annot_props {
 #define EX_ANNOT_ICON 5
 /* A text box's font (/DA), as MuPDF names the standard ones: Helv, TiRo, Cour (A.6). */
 #define EX_ANNOT_FONT 6
+/* The /NM of the annotation it answers: its /IRT when its /RT is not /Group (a reply in a comment thread, A.21). */
+#define EX_ANNOT_REPLY_TO 7
+/* Its review state's name (/State: Accepted, Rejected, Cancelled, Completed, None, Marked, Unmarked), as the file has
+ * it (A.21). */
+#define EX_ANNOT_STATE 8
 
 /* Reads `annot`: its properties, then its arrays into caller memory sized from them (any may be NULL to skip). */
 int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex_error *err);
@@ -319,10 +325,15 @@ typedef struct ex_annot_write {
 	const char *icon;
 	/* A text box's font, Helv, TiRo or Cour; NULL or empty for Helv. */
 	const char *font;
+	/* The /NM of the annotation on its page it answers (A.21); NULL or empty for none. Not written with a group. */
+	const char *reply_to;
+	/* A reply's review state (/State, see EX_ANNOT_STATE); NULL or empty for none. */
+	const char *state;
 } ex_annot_write;
 
 /* Annotation edits (K.14), inside an operation, on page `page` (zero-based) of a PDF. ex_annot_create adds one;
- * ex_annot_update writes every property of the one whose /NM is `id`; ex_annot_delete removes it. The appearance is
+ * ex_annot_update writes every property of the one whose /NM is `id`; ex_annot_delete removes it and the replies in
+ * its comment thread (A.21), so undoing the operation brings them all back. The appearance is
  * rebuilt after each change. Fails with FZ_ERROR_ARGUMENT when no annotation on the page has the id. */
 int ex_annot_create(fz_context *ctx, fz_document *doc, int page, const ex_annot_write *annot, ex_error *err);
 int ex_annot_update(fz_context *ctx, fz_document *doc, int page, const ex_annot_write *annot, ex_error *err);

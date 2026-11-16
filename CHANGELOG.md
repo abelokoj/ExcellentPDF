@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 09:26; Ph3: 34/49 | A.21: Comment threads with replies and resolve
+
+- An annotation's inspector now shows its comment thread: a status (Accepted, Rejected, Cancelled, Completed, None),
+  its replies oldest first with who wrote them and when, and a field to reply. Each reply and each status is one
+  step of undo, and a locked annotation can still be answered.
+- Replies and statuses are written as Acrobat writes them: a note whose `/IRT` names its parent; a status also has
+  `/State` and `/StateModel` and is hidden. Replies made in Acrobat show here.
+- Replies are not drawn or clickable on the page. The annotation list shows each thread's reply count and status, and
+  its search finds an annotation by its replies' words.
+- Deleting an annotation deletes its thread with it, and undo brings both back.
+
 ### 2026-11-16 09:01; NSH 0.5.1
 
 - NSH updated from 0.5.0 to 0.5.1 (D2): the workspace pins, the generated `app/.nsh` crates and both lockfiles; the

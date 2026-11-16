@@ -242,6 +242,8 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     tags,
                     anchor,
                     group: None,
+                    reply_to: None,
+                    state: None,
                     category: None,
                     icon: if note { icon } else { String::new() },
                     open: note && open,
@@ -1177,4 +1179,102 @@ fn a_stamp_is_drawn_as_its_art_and_keeps_it_when_moved() {
         .expect("move");
     let kept = red(&doc);
     assert!(kept > 2000, "moving keeps the art: {kept}");
+}
+
+/// A.21: a reply and a review status are written as Acrobat writes them (`/IRT`; `/State` with `/StateModel`), read
+/// back after a save and a reopen, aren't drawn or counted on the page, and go with their parent when it is deleted;
+/// undo brings them back.
+#[test]
+fn a_thread_survives_save_and_goes_with_its_parent() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let rect = PageRect {
+        x0: 300.0,
+        y0: 300.0,
+        x1: 340.0,
+        y1: 340.0,
+    };
+    let parent = Annotation::new(
+        0,
+        Shape::Boxed(Boxed::Square, rect),
+        Style::default(),
+        "Ada",
+    );
+    let red = Style {
+        color: Some([1.0, 0.0, 0.0]),
+        opacity: 1.0,
+        width: 1.0,
+    };
+    let mut reply = Annotation::new(0, Shape::Boxed(Boxed::Note, rect), red, "Grace");
+    reply.reply_to = Some(parent.id.clone());
+    reply.contents = "Agreed.".into();
+    let mut status = Annotation::new(0, Shape::Boxed(Boxed::Note, rect), red, "Grace");
+    status.reply_to = Some(parent.id.clone());
+    status.state = Some(Status::Accepted);
+    status.contents = "Accepted set by Grace".into();
+    let pixels = |doc: &Document| {
+        doc.load_page(0)
+            .expect("page")
+            .render(
+                &excellent_mupdf::Matrix::IDENTITY,
+                excellent_mupdf::Background::White,
+            )
+            .expect("render")
+            .samples()
+            .to_vec()
+    };
+    Operation::new("Square", vec![Change::CreateAnnotation(parent.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let drawn = pixels(&doc);
+    Operation::new(
+        "Reply",
+        vec![
+            Change::CreateAnnotation(reply.clone()),
+            Change::CreateAnnotation(status.clone()),
+        ],
+    )
+    .apply(&mut doc)
+    .expect("apply");
+    assert!(pixels(&doc) == drawn, "replies aren't drawn on the page");
+
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let mut reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    assert!(
+        page_annotations(&reopened, 0)
+            .expect("read")
+            .iter()
+            .all(|a| !a.is_reply()),
+        "replies aren't on the page"
+    );
+    let replies = page_replies(&reopened, 0).expect("replies");
+    let read = |id: &str| replies.iter().find(|a| a.id == id).expect("kept");
+    assert_eq!(
+        read(&reply.id).reply_to.as_deref(),
+        Some(parent.id.as_str())
+    );
+    assert_eq!(read(&reply.id).contents, "Agreed.");
+    assert_eq!(read(&reply.id).state, None);
+    assert_eq!(read(&status.id).state, Some(Status::Accepted));
+    assert_eq!(read(&status.id).author, "Grace");
+
+    Operation::new(
+        "Delete",
+        vec![Change::DeleteAnnotation {
+            page: 0,
+            id: parent.id.clone(),
+        }],
+    )
+    .apply(&mut reopened)
+    .expect("delete");
+    assert!(
+        page_replies(&reopened, 0).expect("replies").is_empty(),
+        "the thread goes too"
+    );
+    reopened.undo().expect("undo");
+    assert_eq!(
+        page_replies(&reopened, 0).expect("replies").len(),
+        2,
+        "undo brings it back"
+    );
 }

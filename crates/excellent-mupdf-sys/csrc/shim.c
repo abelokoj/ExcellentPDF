@@ -339,8 +339,14 @@ int ex_page_bounds(fz_context *ctx, fz_page *page, fz_rect *out, ex_error *err)
 int ex_render_page(fz_context *ctx, fz_page *page, fz_matrix ctm, int alpha, fz_pixmap **out, ex_error *err)
 {
 	fz_pixmap *pix = NULL;
+	fz_display_list *list = NULL;
+	int failed = ex_new_display_list(ctx, page, NULL, &list, err);
+	if (failed)
+		return failed;
 	fz_try(ctx)
-		pix = fz_new_pixmap_from_page(ctx, page, ctm, fz_device_rgb(ctx), alpha);
+		pix = fz_new_pixmap_from_display_list(ctx, list, ctm, fz_device_rgb(ctx), alpha);
+	fz_always(ctx)
+		fz_drop_display_list(ctx, list);
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
 	*out = pix;
@@ -363,10 +369,16 @@ void ex_drop_pixmap(fz_context *ctx, fz_pixmap *pix)
 	fz_drop_pixmap(ctx, pix);
 }
 
-static int new_display_list(fz_context *ctx, fz_page *page, int annots, fz_cookie *cookie, fz_display_list **out,
-	ex_error *err)
+/* Whether `obj`, an annotation's dictionary, is a reply in a comment thread (A.21): an /IRT that is not a group's
+ * (/RT /Group, A.2). Readers show replies in their comment pane, not on the page. */
+static int ex_is_reply(fz_context *ctx, pdf_obj *obj)
 {
-	/* fz_new_display_list_from_page (or _from_page_contents plus the form fields) with a cookie. */
+	return pdf_dict_get(ctx, obj, PDF_NAME(IRT)) && !pdf_name_eq(ctx, pdf_dict_get(ctx, obj, PDF_NAME(RT)), PDF_NAME(Group));
+}
+
+static int new_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_display_list **out, ex_error *err)
+{
+	/* fz_new_display_list_from_page_contents plus the form fields, with a cookie. */
 	fz_display_list *list = NULL;
 	fz_device *dev = NULL;
 
@@ -376,13 +388,8 @@ static int new_display_list(fz_context *ctx, fz_page *page, int annots, fz_cooki
 	{
 		list = fz_new_display_list(ctx, fz_bound_page(ctx, page));
 		dev = fz_new_list_device(ctx, list);
-		if (annots)
-			fz_run_page(ctx, page, dev, fz_identity, cookie);
-		else
-		{
-			fz_run_page_contents(ctx, page, dev, fz_identity, cookie);
-			fz_run_page_widgets(ctx, page, dev, fz_identity, cookie);
-		}
+		fz_run_page_contents(ctx, page, dev, fz_identity, cookie);
+		fz_run_page_widgets(ctx, page, dev, fz_identity, cookie);
 		fz_close_device(ctx, dev);
 	}
 	fz_always(ctx)
@@ -398,13 +405,13 @@ static int new_display_list(fz_context *ctx, fz_page *page, int annots, fz_cooki
 
 int ex_new_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_display_list **out, ex_error *err)
 {
-	return new_display_list(ctx, page, 1, cookie, out, err);
+	return ex_new_display_list_without(ctx, page, NULL, 0, cookie, out, err);
 }
 
 int ex_new_contents_display_list(fz_context *ctx, fz_page *page, fz_cookie *cookie, fz_display_list **out,
 	ex_error *err)
 {
-	return new_display_list(ctx, page, 0, cookie, out, err);
+	return new_display_list(ctx, page, cookie, out, err);
 }
 
 int ex_new_display_list_without(fz_context *ctx, fz_page *page, const char *const *hidden, int count,
@@ -430,7 +437,7 @@ int ex_new_display_list_without(fz_context *ctx, fz_page *page, const char *cons
 			for (annot = pdf_first_annot(ctx, pdf); annot; annot = pdf_next_annot(ctx, annot))
 			{
 				const char *id;
-				int i, skip = 0;
+				int i, skip = ex_is_reply(ctx, pdf_annot_obj(ctx, annot));
 
 				if (cookie && cookie->abort)
 					break;
@@ -1142,6 +1149,16 @@ int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out,
 			if (pdf_annot_has_icon_name(ctx, annot))
 				text = pdf_to_name(ctx, pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(Name)));
 			break;
+		case EX_ANNOT_REPLY_TO:
+		{
+			pdf_obj *obj = pdf_annot_obj(ctx, annot);
+			if (ex_is_reply(ctx, obj))
+				text = pdf_dict_get_text_string(ctx, pdf_dict_get(ctx, obj, PDF_NAME(IRT)), PDF_NAME(NM));
+			break;
+		}
+		case EX_ANNOT_STATE:
+			text = pdf_to_name(ctx, pdf_dict_gets(ctx, pdf_annot_obj(ctx, annot), "State"));
+			break;
 		case EX_ANNOT_FONT:
 			if (pdf_annot_has_default_appearance(ctx, annot))
 			{
@@ -1182,6 +1199,40 @@ static void ex_annot_group(fz_context *ctx, pdf_annot *annot, const char *group)
 	{
 		pdf_dict_del(ctx, obj, PDF_NAME(IRT));
 		pdf_dict_del(ctx, obj, PDF_NAME(RT));
+	}
+}
+
+/* Makes `annot` a reply to the annotation of its page whose /NM is `parent` (/IRT, no /RT: A.21), or no reply when
+ * `parent` is NULL or empty. With a `state` the reply is a review status (/State, /StateModel): its own model for
+ * Marked and Unmarked, else Review; readers keep it hidden on the page (/F 30, as Acrobat writes it). */
+static void ex_annot_reply(fz_context *ctx, pdf_annot *annot, const char *parent, const char *state)
+{
+	pdf_obj *obj = pdf_annot_obj(ctx, annot);
+	if (parent && *parent)
+	{
+		pdf_annot *target = ex_find_annot(ctx, pdf_annot_page(ctx, annot), parent);
+		if (target == annot)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "an annotation can't answer itself");
+		pdf_dict_put(ctx, obj, PDF_NAME(IRT), pdf_annot_obj(ctx, target));
+		pdf_dict_del(ctx, obj, PDF_NAME(RT));
+	}
+	else if (ex_is_reply(ctx, obj))
+	{
+		pdf_dict_del(ctx, obj, PDF_NAME(IRT));
+		pdf_dict_del(ctx, obj, PDF_NAME(RT));
+	}
+	if (state && *state)
+	{
+		int marked = !strcmp(state, "Marked") || !strcmp(state, "Unmarked");
+		pdf_dict_puts_drop(ctx, obj, "State", pdf_new_name(ctx, state));
+		pdf_dict_puts_drop(ctx, obj, "StateModel", pdf_new_name(ctx, marked ? "Marked" : "Review"));
+		pdf_set_annot_flags(ctx, annot, pdf_annot_flags(ctx, annot) | PDF_ANNOT_IS_HIDDEN | PDF_ANNOT_IS_PRINT
+			| PDF_ANNOT_IS_NO_ZOOM | PDF_ANNOT_IS_NO_ROTATE);
+	}
+	else
+	{
+		pdf_dict_dels(ctx, obj, "State");
+		pdf_dict_dels(ctx, obj, "StateModel");
 	}
 }
 
@@ -1265,9 +1316,9 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 	else if (pdf_annot_has_vertices(ctx, annot))
 		pdf_set_annot_vertices(ctx, annot, p->point_count, w->points);
 	/* A note gets a popup to open in other readers (A.4); one already there keeps its place. A text box shows its
-	 * text on the page, so it has none (A.6). */
+	 * text on the page, so it has none (A.6), nor has a reply, read in its thread (A.21). */
 	if (w->contents && *w->contents && pdf_annot_has_popup(ctx, annot) && pdf_annot_type(ctx, annot) != PDF_ANNOT_FREE_TEXT
-		&& !pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(Popup)))
+		&& !(w->reply_to && *w->reply_to) && !pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(Popup)))
 		pdf_set_annot_popup(ctx, annot, ex_popup_rect(ctx, annot, w));
 	if (pdf_annot_has_icon_name(ctx, annot))
 		pdf_set_annot_icon_name(ctx, annot, w->icon && *w->icon ? w->icon : NULL);
@@ -1300,6 +1351,9 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 			pdf_set_annot_flags(ctx, annot, locked);
 	}
 	ex_annot_group(ctx, annot, w->group);
+	/* A group's /IRT is the group's (A.2). */
+	if (!(w->group && *w->group))
+		ex_annot_reply(ctx, annot, w->reply_to, w->state);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))
 		pdf_set_annot_modification_date(ctx, annot, p->modified);
@@ -1376,6 +1430,30 @@ int ex_annot_update(fz_context *ctx, fz_document *doc, int page, const ex_annot_
 	return 0;
 }
 
+/* Deletes `annot` from `page`, the replies under it first, however deep (A.21): a reply left behind would answer
+ * nothing. `depth` stops a loop of replies in a broken file. */
+static void ex_delete_thread(fz_context *ctx, pdf_page *page, pdf_annot *annot, int depth)
+{
+	pdf_obj *obj = pdf_resolve_indirect(ctx, pdf_annot_obj(ctx, annot));
+	pdf_annot *reply = pdf_first_annot(ctx, page);
+	if (depth > 100)
+		fz_throw(ctx, FZ_ERROR_FORMAT, "replies answer each other in a loop");
+	while (reply)
+	{
+		pdf_obj *r = pdf_annot_obj(ctx, reply);
+		if (reply != annot && ex_is_reply(ctx, r)
+			&& pdf_resolve_indirect(ctx, pdf_dict_get(ctx, r, PDF_NAME(IRT))) == obj)
+		{
+			ex_delete_thread(ctx, page, reply, depth + 1);
+			/* The list changed under us: look again from the start. */
+			reply = pdf_first_annot(ctx, page);
+		}
+		else
+			reply = pdf_next_annot(ctx, reply);
+	}
+	pdf_delete_annot(ctx, page, annot);
+}
+
 int ex_annot_delete(fz_context *ctx, fz_document *doc, int page, const char *id, ex_error *err)
 {
 	pdf_page *p = NULL;
@@ -1383,7 +1461,7 @@ int ex_annot_delete(fz_context *ctx, fz_document *doc, int page, const char *id,
 	fz_try(ctx)
 	{
 		p = ex_pdf_page(ctx, doc, page);
-		pdf_delete_annot(ctx, p, ex_find_annot(ctx, p, id));
+		ex_delete_thread(ctx, p, ex_find_annot(ctx, p, id), 0);
 	}
 	fz_always(ctx)
 		fz_drop_page(ctx, (fz_page *)p);

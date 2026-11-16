@@ -45,8 +45,11 @@ pub fn transfer(
 ) -> Vec<Transferred> {
     let from = Text::new(source_text);
     let to = Text::new(target_text);
+    // shortcut: replies in threads (A.21) aren't transferred, as their parents get new ids; carry them over with
+    // their parents when readers ask for it.
     source
         .iter()
+        .filter(|annotation| !annotation.is_reply())
         .map(|annotation| one(annotation, &from, &to))
         .collect()
 }
@@ -67,7 +70,7 @@ pub fn count(transferred: &[Transferred], fate: Fate) -> usize {
 }
 
 fn one(annotation: &Annotation, from: &Text, to: &Text) -> Transferred {
-    let row = Row::of(annotation);
+    let row = Row::of(annotation, &[]);
     let (fate, placed) = match &annotation.shape {
         Shape::Markup(kind, quads) => {
             let quote = annotation
