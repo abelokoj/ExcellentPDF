@@ -223,6 +223,7 @@ impl CanvasWidget {
             Cursor::Arrow => "default",
             Cursor::Hand => "pointer",
             Cursor::Pan => "all-scroll",
+            Cursor::Cross => "crosshair",
             Cursor::Text => "text",
         }));
     }

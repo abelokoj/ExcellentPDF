@@ -50,6 +50,7 @@ use crate::tabs;
 use crate::theme as themes;
 use crate::thumbnails;
 use crate::workspaces::{self, MAIN, Workspaces};
+use excellent_features::annotate::shapes::Kind as ShapeKind;
 
 /// The title bar's height; Windows draws its caption buttons this tall.
 const TITLE_BAR_HEIGHT: Points = px(40.0);
@@ -439,6 +440,8 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::TextBox => pane.annotate.place(Placing::Text(Kind::Box)),
             CommandId::Typewriter => pane.annotate.place(Placing::Text(Kind::Typewriter)),
             CommandId::Callout => pane.annotate.place(Placing::Text(Kind::Callout)),
+            CommandId::Line => pane.annotate.place(Placing::Shape(ShapeKind::Line)),
+            CommandId::Arrow => pane.annotate.place(Placing::Shape(ShapeKind::Arrow)),
             CommandId::AnnotationColors => pane
                 .annotate
                 .pick(excellent_features::annotate::colors::Tool::Highlight),

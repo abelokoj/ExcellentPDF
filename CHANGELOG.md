@@ -6,6 +6,18 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 01:01; Ph3: 21/49 | A.8: Lines and arrows
+
+- Lines and arrows: two commands (palette, Annotate toolbar, `Shift+L` and `Shift+A` on the pages) turn on a drawing
+  tool; a drag on a page draws the line, shown as it goes with a crosshair pointer, and Shift snaps it to steps of
+  15°. The line is one undoable edit, 2 points wide in the shapes' colour (a new tool in the colour dialog, red to
+  start), and its inspector opens.
+- In the inspector: the start and the end each take an ending (none, open or closed arrow, dot, square, diamond,
+  slash), written as `/LE` so Acrobat draws the same heads. A click on a line opens it again; Delete line removes it.
+- The page canvas has a `drawing` prop and sends `pageDraw`; the host tells it whether Shift is down (Windows reads
+  the key; the others draw unsnapped for now).
+- The model is `excellent-features::annotate::shapes`.
+
 ### 2026-11-16 00:39; Ph3: 20/49 | A.7: Callouts with leader lines
 
 - Callouts: a command (palette, Annotate toolbar, `O` on the pages) waits for a click and puts a text box beside the

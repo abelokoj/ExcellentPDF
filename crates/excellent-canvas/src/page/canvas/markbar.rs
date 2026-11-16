@@ -299,8 +299,13 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
+    /// `tool`'s colour and opacity, as the app keeps them (A.3).
+    pub(super) fn markbar_style(&self, tool: ColorTool) -> ToolStyle {
+        self.markbar.colors.style(tool)
+    }
+
     /// Whether the document shown can take markups: a PDF, which edits save into.
-    fn can_mark(&self) -> bool {
+    pub(super) fn can_mark(&self) -> bool {
         self.document
             .as_ref()
             .is_some_and(|document| document.is_editable())

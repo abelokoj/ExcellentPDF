@@ -33,7 +33,7 @@ pub fn parse_press(data: &Value) -> Option<(usize, PagePoint)> {
     ))
 }
 
-/// The markup, sticky note (A.5) or text box (A.6) under `point`, whose note or text a click opens: the one drawn last when several are, as
+/// The markup, sticky note (A.5), text box (A.6) or line (A.8) under `point`, whose note or text a click opens: the one drawn last when several are, as
 /// the page shows it on top.
 #[must_use]
 pub fn note_at(annotations: &[Annotation], point: PagePoint) -> Option<&Annotation> {
@@ -47,6 +47,10 @@ pub fn note_at(annotations: &[Annotation], point: PagePoint) -> Option<&Annotati
         .find(|annotation| match &annotation.shape {
             Shape::Markup(_, quads) => quads.iter().any(|quad| near(quad.bounds())),
             Shape::Boxed(Boxed::Note | Boxed::FreeText | Boxed::Typewriter, rect) => near(*rect),
+            Shape::Callout(rect, _) => near(*rect),
+            Shape::Line(from, to) => {
+                super::shapes::distance(*from, *to, point) <= SLOP + annotation.style.width
+            }
             _ => false,
         })
 }

@@ -785,3 +785,42 @@ fn moving_a_callout_s_box_keeps_its_tip_in_place() {
     );
     assert_eq!(read.ends[0], LineEnd::OpenArrow);
 }
+
+/// A.8: an arrow keeps its endings through a save and a reopen, written as `/LE`, which Acrobat draws the same.
+#[test]
+fn an_arrow_keeps_its_ends_through_save_and_reopen() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let mut arrow = Annotation::new(
+        0,
+        Shape::Line(
+            PagePoint { x: 100.0, y: 300.0 },
+            PagePoint { x: 300.0, y: 200.0 },
+        ),
+        Style {
+            color: Some([0.8, 0.1, 0.1]),
+            opacity: 1.0,
+            width: 2.0,
+        },
+        "Ada",
+    );
+    arrow.ends = [LineEnd::Circle, LineEnd::ClosedArrow];
+    Operation::new("Arrow", vec![Change::CreateAnnotation(arrow.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let bytes = std::fs::read(&scratch.0).expect("read");
+    let has = |needle: &[u8]| bytes.windows(needle.len()).any(|w| w == needle);
+    assert!(
+        has(b"/LE[/Circle/ClosedArrow]"),
+        "the endings Acrobat draws"
+    );
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0)
+        .expect("read")
+        .into_iter()
+        .find(|a| a.id == arrow.id)
+        .expect("kept");
+    assert_eq!(read.ends, arrow.ends);
+    assert_eq!(read.shape, arrow.shape);
+}

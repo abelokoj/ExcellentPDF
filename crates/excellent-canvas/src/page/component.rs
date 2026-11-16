@@ -7,6 +7,7 @@ use std::time::Duration;
 use excellent_core::annot::Markup;
 use excellent_core::darkmode::{PageColors, Pictures};
 use excellent_features::annotate::colors::Colors;
+use excellent_features::annotate::shapes::Kind;
 use excellent_features::read::autoscroll::Change;
 use excellent_features::read::focus::Scope;
 use excellent_features::read::ruler::{Step, Style};
@@ -33,7 +34,8 @@ impl<H: Host> PageCanvas<H> {
     /// left out). `hoverDelay`: how long the pointer rests on a link or citation before its preview shows (R.25), in
     /// milliseconds; `false` turns previews off; `null` or anything else: the default. `edits`: a number the app
     /// moves with every edit, undo or redo (A.1), so the pages they changed are drawn again. `annotationColors`: the
-    /// tools' colours (A.3), as `excellent-features`' `Colors::to_json` writes them; `null`: the defaults.
+    /// tools' colours (A.3), as `excellent-features`' `Colors::to_json` writes them; `null`: the defaults. `drawing`: the
+    /// drawing tool on (A.8), `"line"` or `"arrow"`; anything else: none.
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -52,6 +54,7 @@ impl<H: Host> PageCanvas<H> {
             "annotationColors" => {
                 self.set_annotation_colors(value.map(Colors::from_json).unwrap_or_default())
             }
+            "drawing" => self.set_drawing(text.and_then(Kind::parse)),
             "bookmarks" => self.set_bookmarks(value.map(bookmarks).unwrap_or_default()),
             "hoverDelay" => self.set_hover_delay(match value {
                 Some(JsonValue::Bool(false)) => None,

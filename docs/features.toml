@@ -133,6 +133,12 @@ status = "in-progress"
 tests = ["moving_a_callout_s_box_keeps_its_tip_in_place", "random_annotation_edits_survive_save_and_reopen", "a_callout_points_at_the_click_from_a_box_that_has_room", "the_panel_shows_the_markup_s_colour_and_text"]
 open = "not tried by hand; not opened in Acrobat; the box and the tip have no drag handles yet (step 2 waits for A.13's selection handles); the leader line is written from its tip alone (MuPDF draws the knee-less line to the box's edge), so a three-point line from another app keeps only its tip when the box is edited"
 
+["A.8"]
+label = "Ph3: 21/49"
+status = "in-progress"
+tests = ["an_arrow_keeps_its_ends_through_save_and_reopen", "random_annotation_edits_survive_save_and_reopen", "shift_snaps_to_fifteen_degree_steps_at_the_same_length", "a_drag_makes_a_line_or_an_arrow_and_a_click_makes_nothing", "changing_the_ends_is_one_change_only_when_they_change", "distance_is_measured_to_the_nearest_point_of_the_line", "the_canvas_s_drawn_shape_parses_into_an_annotation"]
+open = "not tried by hand; not opened in Acrobat; Shift snapping reads the key on Windows only (GTK and macOS draw unsnapped until their hosts read it); no width control yet (A.12's inspector); lines can't be moved or their ends dragged until A.13"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

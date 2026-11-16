@@ -21,12 +21,13 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, GWLP_USERDATA, GetClientRect, GetMessageTime,
-    GetSystemMetrics, GetWindowLongPtrW, HTCLIENT, IDC_ARROW, IDC_HAND, IDC_IBEAM, IDC_SIZEALL,
-    LoadCursorW, RegisterClassExW, SM_CXDOUBLECLK, SM_CYDOUBLECLK, SetCursor, SetWindowLongPtrW,
-    WINDOW_EX_STYLE, WM_CAPTURECHANGED, WM_DPICHANGED_AFTERPARENT, WM_ERASEBKGND, WM_GETOBJECT,
-    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL,
-    WM_NCDESTROY, WM_PAINT, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN, WM_POINTERUP,
-    WM_POINTERUPDATE, WM_SETCURSOR, WM_SIZE, WM_XBUTTONUP, WNDCLASSEXW, WS_CLIPCHILDREN, WS_POPUP,
+    GetSystemMetrics, GetWindowLongPtrW, HTCLIENT, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM,
+    IDC_SIZEALL, LoadCursorW, RegisterClassExW, SM_CXDOUBLECLK, SM_CYDOUBLECLK, SetCursor,
+    SetWindowLongPtrW, WINDOW_EX_STYLE, WM_CAPTURECHANGED, WM_DPICHANGED_AFTERPARENT,
+    WM_ERASEBKGND, WM_GETOBJECT, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MOUSEHWHEEL,
+    WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_PAINT, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN,
+    WM_POINTERUP, WM_POINTERUPDATE, WM_SETCURSOR, WM_SIZE, WM_XBUTTONUP, WNDCLASSEXW,
+    WS_CLIPCHILDREN, WS_POPUP,
 };
 use windows::core::BOOL;
 use windows::core::{Result, w};
@@ -286,6 +287,7 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
             let shape = match canvas.cursor() {
                 Cursor::Hand => IDC_HAND,
                 Cursor::Pan => IDC_SIZEALL,
+                Cursor::Cross => IDC_CROSS,
                 Cursor::Text | Cursor::Arrow => IDC_IBEAM,
             };
             // SAFETY: a system cursor, shared and never freed.

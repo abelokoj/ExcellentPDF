@@ -20,16 +20,19 @@ pub enum Tool {
     StrikeOut,
     /// Replace and insert text (A.2): the strikeout and caret of a proposal.
     Proposal,
+    /// Lines and arrows (A.8).
+    Shape,
 }
 
 impl Tool {
     /// Every tool, in the bar's order.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Highlight,
         Self::Underline,
         Self::Squiggly,
         Self::StrikeOut,
         Self::Proposal,
+        Self::Shape,
     ];
 
     /// Its name in settings and events.
@@ -41,6 +44,7 @@ impl Tool {
             Self::Squiggly => "squiggly",
             Self::StrikeOut => "strikeOut",
             Self::Proposal => "proposal",
+            Self::Shape => "shape",
         }
     }
 
@@ -56,10 +60,10 @@ impl Tool {
     }
 
     /// Which of its palette's swatches it starts with: yellow for a highlight, blue for an underline and a proposal
-    /// (Acrobat's), red for a squiggle and a strikeout.
+    /// (Acrobat's), red for a squiggle, a strikeout and a shape.
     fn first_swatch(self) -> usize {
         match self {
-            Self::Highlight | Self::Squiggly | Self::StrikeOut => 0,
+            Self::Highlight | Self::Squiggly | Self::StrikeOut | Self::Shape => 0,
             Self::Underline | Self::Proposal => 1,
         }
     }

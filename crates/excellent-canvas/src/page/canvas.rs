@@ -33,6 +33,7 @@ use crate::page::placement::Placement;
 use crate::page::saved::SavedView;
 
 mod access;
+mod draw;
 mod find;
 mod markbar;
 mod minimap;
@@ -71,6 +72,8 @@ pub enum Cursor {
     Text,
     /// Middle-click scrolling (R.21): the four-way arrows.
     Pan,
+    /// A drawing tool is on (A.8): the crosshair.
+    Cross,
 }
 
 /// Wakes the canvas's thread from a worker thread, once per batch of finished jobs.
@@ -211,6 +214,8 @@ pub struct PageCanvas<H: Host> {
     refhover: refhover::RefHover<H::Image>,
     /// The markup bar under selected text (A.1).
     markbar: markbar::MarkBar,
+    /// The drawing tool and the shape being drawn (A.8).
+    drawing: draw::Drawing,
     /// The document's edit count the pages were drawn at: an edit draws the pages it changed again (A.1).
     edits: u64,
 }
@@ -298,6 +303,7 @@ impl<H: Host> PageCanvas<H> {
             minimap: minimap::MiniMap::default(),
             refhover: refhover::RefHover::default(),
             markbar: markbar::MarkBar::default(),
+            drawing: draw::Drawing::default(),
             edits: 0,
         }
     }
@@ -617,6 +623,8 @@ impl<H: Host> PageCanvas<H> {
     pub fn cursor(&self) -> Cursor {
         if self.reading.is_panning() {
             Cursor::Pan
+        } else if self.is_drawing_tool() {
+            Cursor::Cross
         } else if self.selecting || (self.over_text && self.hovered.is_none()) {
             Cursor::Text
         } else if self.hovered.is_some() {
@@ -631,6 +639,9 @@ impl<H: Host> PageCanvas<H> {
     /// for a link out of the document; `null` for no link).
     pub fn mouse_moved(&mut self, at: Option<(i32, i32)>) {
         self.reading_mouse(at);
+        if self.draw_moved(at) {
+            return;
+        }
         self.markbar_hover(at);
         if let Some((x, y)) = at
             && (self.minimap_drag(y)
@@ -682,7 +693,7 @@ impl<H: Host> PageCanvas<H> {
         if self.markbar_down(x, y) || self.popover_down(x, y) {
             return false;
         }
-        if self.minimap_down(x, y) {
+        if self.minimap_down(x, y) || self.draw_down(x, y) {
             return true;
         }
         let clicks = self.clicks.press(time, x, y, limits);
@@ -710,7 +721,7 @@ impl<H: Host> PageCanvas<H> {
     /// which decides whether to open it. A plain click that did neither goes to the app as `pagePress` (A.4).
     /// Returns whether a selection ended, when the window lets the mouse go.
     pub fn mouse_up(&mut self, x: i32, y: i32) -> bool {
-        if self.minimap_up() {
+        if self.minimap_up() || self.draw_up(x, y) {
             return true;
         }
         if self.selecting {
@@ -741,6 +752,7 @@ impl<H: Host> PageCanvas<H> {
     /// Something else took the mouse while a selection was being dragged: the selection stays as it is.
     pub fn capture_lost(&mut self) {
         self.minimap_up();
+        self.draw_cancel();
         self.selecting = false;
         self.stop_pan();
     }
@@ -1334,6 +1346,7 @@ impl<H: Host> PageCanvas<H> {
         // The mini-map (R.17) over everything, before the frame ends.
         let drawn = self
             .draw(&needed)
+            .and_then(|()| self.draw_shape_preview())
             .and_then(|()| self.draw_minimap())
             .and_then(|()| self.draw_markbar())
             .and_then(|()| self.draw_popover())

@@ -532,6 +532,7 @@ fn show_cursor(cursor: Cursor) {
         Cursor::Arrow => NSCursor::arrowCursor(),
         Cursor::Hand => NSCursor::pointingHandCursor(),
         Cursor::Pan => NSCursor::closedHandCursor(),
+        Cursor::Cross => NSCursor::crosshairCursor(),
         Cursor::Text => NSCursor::IBeamCursor(),
     };
     cursor.set();

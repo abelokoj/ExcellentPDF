@@ -145,6 +145,11 @@ pub trait Host {
     /// The selected text changed.
     fn selection_changed(&self) {}
 
+    /// Whether Shift is held down now, for snapping a shape being drawn (A.8).
+    fn shift_down(&self) -> bool {
+        false
+    }
+
     /// The system draws a stroke's newest points ahead of the app's frames (Windows' ink trail), in `rgb`.
     fn trail_start(&mut self, _rgb: u32) {}
 

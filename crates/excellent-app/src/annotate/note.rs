@@ -3,12 +3,13 @@
 //! the markup's `/Contents`, one step of undo, when the reader is done or opens another note. A sticky note's (A.5)
 //! also has its icon and whether other readers show it open. A text box's (A.6) is its text, typed here so input
 //! methods work (in place on the page once U.8 gives the canvas the platform's input path), with its font, size,
-//! alignment, colour and border. The models are `excellent-features`' `annotate::notes`, `annotate::sticky` and
-//! `annotate::freetext`.
+//! alignment, colour and border. A line's (A.8) has its endings. The models are `excellent-features`'
+//! `annotate::notes`, `annotate::sticky`, `annotate::freetext` and `annotate::shapes`.
 
 use excellent_core::annot::{Align, Annotation, Font, LineEnd, Markup, Shape, TextStyle};
 use excellent_features::annotate::freetext::{self, Kind};
 use excellent_features::annotate::notes::{self, Target};
+use excellent_features::annotate::shapes;
 use excellent_features::annotate::sticky::{self, Icon};
 use nsh_base::{input, theme};
 use nsh_core::prelude::*;
@@ -31,6 +32,8 @@ pub(crate) struct Noting {
     /// A text box's kind, text style, whether it has a border and a callout's ending at its tip; `None` for the
     /// others.
     text: Option<(Kind, TextStyle, bool, LineEnd)>,
+    /// A line's endings, start first, and whether it is an arrow; `None` for the others.
+    line: Option<([LineEnd; 2], bool)>,
     /// Whether it was just placed: a text box left empty is then taken away.
     pub(super) fresh: bool,
 }
@@ -68,6 +71,8 @@ impl Noting {
                     annotation.ends[0],
                 )
             }),
+            line: shapes::is_line(annotation)
+                .then(|| (annotation.ends, shapes::is_arrow(annotation))),
             fresh: false,
         }
     }
@@ -104,6 +109,12 @@ fn placing(what: Placing) -> View {
             "text.placing_typewriter_hint",
             CommandId::Typewriter,
         ),
+        Placing::Shape(shapes::Kind::Line) => {
+            ("line.placing", "line.placing_hint", CommandId::Line)
+        }
+        Placing::Shape(shapes::Kind::Arrow) => {
+            ("line.placing", "line.placing_hint", CommandId::Arrow)
+        }
         Placing::Text(Kind::Callout) => (
             "callout.placing",
             "callout.placing_hint",
@@ -118,10 +129,12 @@ fn placing(what: Placing) -> View {
 
 fn editor(state: AnnotateState, noting: Noting) -> View {
     let color = Hsla::from(rgb(noting.color));
-    let kind = match (noting.kind, noting.text) {
-        (Some(kind), _) => super::name(kind),
-        (None, Some((kind, ..))) => super::text_name(kind),
-        (None, None) => t!("sticky.name"),
+    let kind = match (noting.kind, noting.text, noting.line) {
+        (Some(kind), ..) => super::name(kind),
+        (None, Some((kind, ..)), _) => super::text_name(kind),
+        (None, None, Some((_, true))) => t!("arrow.name"),
+        (None, None, Some((_, false))) => t!("line.name"),
+        (None, None, None) => t!("sticky.name"),
     };
     let heading = t!("note.heading", kind = kind, page = noting.target.page + 1);
     let mut panel = view().flex_1().p_4().gap_3().child(
@@ -179,7 +192,11 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
     let mut buttons = view().flex_row().gap_2().items_center();
     if boxed {
         buttons = buttons.child(action_button("text.delete", Tone::Destructive, move || {
-            state.delete_text_box();
+            state.delete_open(t!("text.delete"));
+        }));
+    } else if noting.line.is_some() {
+        buttons = buttons.child(action_button("line.delete", Tone::Destructive, move || {
+            state.delete_open(t!("line.delete"));
         }));
     } else if had_note {
         buttons = buttons.child(action_button("note.delete", Tone::Destructive, move || {
@@ -193,6 +210,9 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
     panel = panel.child(caption(label)).child(note);
     if let Some((kind, style, border, end)) = noting.text {
         panel = panel.child(text_controls(state, kind, style, border, end));
+    }
+    if let Some((ends, _)) = noting.line {
+        panel = panel.child(line_controls(state, ends));
     }
     panel
         .child(buttons.child(view().flex_1()).child(action_button(
@@ -331,6 +351,46 @@ fn font_label(font: Font) -> &'static str {
         Font::Sans => "text.font.sans",
         Font::Serif => "text.font.serif",
         Font::Mono => "text.font.mono",
+    }
+}
+
+/// A line's endings, at its start and at its end (A.8); each change is one step of undo.
+fn line_controls(state: AnnotateState, ends: [LineEnd; 2]) -> View {
+    let ends = signal(ends);
+    let row = move |side: usize| {
+        shapes::ENDS
+            .into_iter()
+            .fold(segmented(), move |group, choice| {
+                group.child(segment(
+                    line_end_label(choice),
+                    move || ends.get()[side] == choice,
+                    move || {
+                        let mut new = untracked(|| ends.get());
+                        new[side] = choice;
+                        ends.set(new);
+                        state.change_note(t!("line.ends_edit"), |line| shapes::set_ends(line, new));
+                    },
+                ))
+            })
+    };
+    view()
+        .gap_2()
+        .child(caption("line.start"))
+        .child(row(0))
+        .child(caption("line.end"))
+        .child(row(1))
+}
+
+/// The translation key of a line ending's name.
+fn line_end_label(end: LineEnd) -> &'static str {
+    match end {
+        LineEnd::OpenArrow => "callout.end.open_arrow",
+        LineEnd::ClosedArrow => "callout.end.closed_arrow",
+        LineEnd::Circle => "callout.end.circle",
+        LineEnd::Square => "callout.end.square",
+        LineEnd::Diamond => "line.end.diamond",
+        LineEnd::Slash => "line.end.slash",
+        _ => "callout.end.none",
     }
 }
 

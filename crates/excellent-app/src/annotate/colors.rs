@@ -248,6 +248,7 @@ fn tool_label(tool: Tool) -> &'static str {
         Tool::Squiggly => "markup.squiggly",
         Tool::StrikeOut => "markup.strikeout",
         Tool::Proposal => "annotation_colors.proposal",
+        Tool::Shape => "annotation_colors.shape",
     }
 }
 

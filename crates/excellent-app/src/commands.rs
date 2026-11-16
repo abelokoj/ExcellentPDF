@@ -73,6 +73,10 @@ pub(crate) enum CommandId {
     Typewriter,
     /// Places a callout pointing at where the page is clicked next (A.7).
     Callout,
+    /// Draws a line by the next drag on the pages (A.8).
+    Line,
+    /// Draws an arrow by the next drag on the pages (A.8).
+    Arrow,
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -110,6 +114,8 @@ impl CommandId {
                     | Self::TextBox
                     | Self::Typewriter
                     | Self::Callout
+                    | Self::Line
+                    | Self::Arrow
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -476,6 +482,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["o"],
+    },
+    Command {
+        id: CommandId::Line,
+        name: "annotate.line",
+        label: "command.line",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+l"],
+    },
+    Command {
+        id: CommandId::Arrow,
+        name: "annotate.arrow",
+        label: "command.arrow",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+a"],
     },
     Command {
         id: CommandId::AnnotationColors,

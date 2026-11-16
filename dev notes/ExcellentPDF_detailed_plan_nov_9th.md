@@ -3250,6 +3250,11 @@ kind, so A.8 reuses it. The handles (step 2) wait for A.13, which gives every an
 
 **Done when:** arrow heads look the same in Acrobat.
 
+*Built (2026-11-16):* `Shape::Line` with `Annotation::ends` (A.7's `LineEnd`); the shim writes them with
+`pdf_set_annot_line_ending_styles` for lines, polylines and polygons. The canvas draws the line as it is dragged (the
+`drawing` prop, the `pageDraw` event) and asks its host whether Shift is down (`Host::shift_down`; Windows reads it,
+GTK and macOS answer no until their hosts do). Shapes take their colour from a new colour tool, `Shape` (A.3).
+
 #### Ph3: 22/49 | A.9: Rectangles and ellipses
 **P0; Phase 3; Needs:** K.14; **Code:** as A.8
 1. `PDF_ANNOT_SQUARE` and `PDF_ANNOT_CIRCLE`; `pdf_set_annot_rect`, `pdf_set_annot_interior_color`,

@@ -3,9 +3,10 @@
 //! in a small dialog. Every tool's colour and opacity (A.3) are the settings' and the colour dialog's: `colors`. A
 //! click on a markup (`pagePress`), or a markup made with the note tool, opens its note in the inspector (A.4):
 //! `note`. The sticky-note, text-box and typewriter commands wait for a click on the page and put a sticky note (A.5)
-//! or a text box (A.6) there, its note or text open in the inspector. The models are `excellent-features`'
+//! or a text box (A.6) there, its note or text open in the inspector; the line and arrow commands turn on the canvas's
+//! drawing tool (its `drawing` prop), and the line it draws (`pageDraw`) becomes one (A.8). The models are `excellent-features`'
 //! `annotate::markup`, `annotate::replace`, `annotate::colors`, `annotate::notes`, `annotate::sticky` and
-//! `annotate::freetext`.
+//! `annotate::freetext` and `annotate::shapes`.
 
 pub(crate) mod colors;
 mod note;
@@ -20,6 +21,7 @@ use excellent_features::annotate::freetext;
 use excellent_features::annotate::markup::{self, Marking};
 use excellent_features::annotate::notes::{self, Target};
 use excellent_features::annotate::replace::{self, Mode, Proposal};
+use excellent_features::annotate::shapes::{self, Drawn};
 use excellent_features::annotate::sticky::{self, Icon};
 use nsh_base::{input, theme};
 use nsh_core::JsonValue;
@@ -36,8 +38,10 @@ use crate::tabs::{Tone, action_button};
 pub(crate) enum Placing {
     /// A sticky note (A.5).
     Sticky,
-    /// A text box or typewriter text (A.6).
+    /// A text box, typewriter text or a callout (A.6, A.7).
     Text(Kind),
+    /// A line or an arrow, dragged out on the page (A.8).
+    Shape(shapes::Kind),
 }
 
 /// A pane's annotating: its document's edits, the replacement or insertion waiting for its text, the tool whose
@@ -111,6 +115,7 @@ impl AnnotateState {
             }
         };
         let (made, name) = match what {
+            Placing::Shape(_) => return,
             Placing::Sticky => (
                 sticky::place(
                     page,
@@ -140,17 +145,48 @@ impl AnnotateState {
         }
     }
 
-    /// Deletes the open text box (A.6), as one step of undo, and closes it.
-    fn delete_text_box(self) {
+    /// Deletes the open text box (A.6) or line (A.8), as one step of undo named `name`, and closes it.
+    fn delete_open(self, name: String) {
         if let Some(noting) = untracked(|| self.noting.get()) {
             let change = Change::DeleteAnnotation {
                 page: noting.target.page,
                 id: noting.target.id.clone(),
             };
-            self.editing
-                .apply(&Operation::new(t!("text.delete"), vec![change]));
+            self.editing.apply(&Operation::new(name, vec![change]));
         }
         self.noting.set(None);
+    }
+
+    /// The canvas's `drawing` prop: the drawing tool on (A.8), or `null`.
+    pub(crate) fn drawing_prop(self) -> JsonValue {
+        match self.placing.get() {
+            Some(Placing::Shape(kind)) => JsonValue::from(kind.name()),
+            _ => JsonValue::Null,
+        }
+    }
+
+    /// The canvas drew a shape (`pageDraw`): it becomes an annotation, one step of undo, and the tool goes off, its
+    /// inspector open on the new line.
+    fn drawn(self, data: &JsonValue) {
+        self.placing.set(None);
+        let Some(drawn) = Drawn::parse(data) else {
+            log::warn!("pageDraw: a shape that doesn't parse: {data}");
+            return;
+        };
+        let Some(made) = drawn.annotation(&author()) else {
+            return;
+        };
+        let target = Target {
+            page: made.page,
+            id: made.id.clone(),
+        };
+        let name = shape_name(&made);
+        if self
+            .editing
+            .apply(&Operation::new(name, vec![Change::CreateAnnotation(made)]))
+        {
+            self.open_note(&target);
+        }
     }
 
     /// Makes `change` of the open note's annotation, as it is now, one step of undo named `name`.
@@ -235,7 +271,9 @@ impl AnnotateState {
     /// A plain click on the page (`pagePress`): a sticky note or text box goes there when one is being placed; else
     /// the note of the markup or sticky note under it, or the text box's text, opens.
     fn press(self, data: &JsonValue) {
-        if let Some(what) = untracked(|| self.placing.get()) {
+        if let Some(what) = untracked(|| self.placing.get())
+            && !matches!(what, Placing::Shape(_))
+        {
             self.put(what, data);
             return;
         }
@@ -289,6 +327,7 @@ impl AnnotateState {
         match &*event.name {
             "markup" => self.mark(&event.data),
             "pagePress" => self.press(&event.data),
+            "pageDraw" => self.drawn(&event.data),
             "toolColor" => colors::on_tool_color(self.live, &event.data),
             "pickColor" => {
                 let tool = event
@@ -463,6 +502,15 @@ fn form(
 
 /// The edit's name, as undo shows it.
 /// A text box's name, or typewriter text's, for its heading and its undo step.
+/// A line's name: an arrow when it has an arrowhead.
+fn shape_name(annotation: &Annotation) -> String {
+    t!(if shapes::is_arrow(annotation) {
+        "arrow.name"
+    } else {
+        "line.name"
+    })
+}
+
 fn text_name(kind: Kind) -> String {
     t!(match kind {
         Kind::Box => "text.box_name",

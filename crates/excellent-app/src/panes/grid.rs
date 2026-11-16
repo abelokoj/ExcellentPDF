@@ -625,6 +625,7 @@ pub(crate) fn pages_view(
         .prop("bookmarks", move || bookmarks.marks_prop())
         .prop("edits", move || JsonValue::from(editing.revision()))
         .prop("annotationColors", move || annotate.colors_prop())
+        .prop("drawing", move || annotate.drawing_prop())
         .label(move || SharedString::from(label()))
         .on_native_event(move |event: &NativeEvent| {
             match &*event.name {
