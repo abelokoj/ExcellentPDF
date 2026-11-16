@@ -22,6 +22,7 @@ const ID: c_int = 1;
 const AUTHOR: c_int = 2;
 const APP_DATA: c_int = 3;
 const GROUP: c_int = 4;
+const ICON: c_int = 5;
 
 /// The subtype of a PDF annotation (PDF 2.0, table 171).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -269,6 +270,8 @@ impl Annot<'_> {
             contents: self.contents()?,
             app_data: self.text(APP_DATA)?,
             group: self.text(GROUP)?,
+            icon: self.text(ICON)?,
+            open: props.is_open != 0,
             rect: props.rect.into(),
             color: props.color[..color_n].to_vec(),
             opacity: props.opacity,
@@ -309,6 +312,11 @@ pub struct AnnotData {
     /// The id of the annotation on its page it is grouped with (`/IRT` with `/RT /Group`: a "replace text" pair,
     /// A.2); empty for none.
     pub group: String,
+    /// Its icon's name (`/Name`: a sticky note's or a stamp's, A.5), as the file has it; empty for none, which
+    /// readers show as the kind's default.
+    pub icon: String,
+    /// Whether its note shows open in other readers (`/Open`: a sticky note's own, else its popup's).
+    pub open: bool,
     /// Where it is: written for the kinds placed by a rectangle (notes, text boxes, shapes, stamps); read for all,
     /// as the area it covers.
     pub rect: PageRect,
@@ -343,12 +351,13 @@ impl AnnotData {
         let text = |s: &str| {
             CString::new(s).map_err(|_| MuError::argument("annotation text contains a NUL"))
         };
-        let (id, author, contents, app_data, group) = (
+        let (id, author, contents, app_data, group, icon) = (
             text(&self.id)?,
             text(&self.author)?,
             text(&self.contents)?,
             text(&self.app_data)?,
             text(&self.group)?,
+            text(&self.icon)?,
         );
         let count = |n: usize| c_int::try_from(n).map_err(|_| MuError::argument("too many points"));
         if self.color.len() > 4 {
@@ -376,6 +385,7 @@ impl AnnotData {
             contents: contents.as_ptr(),
             app_data: app_data.as_ptr(),
             group: group.as_ptr(),
+            icon: icon.as_ptr(),
             props: ex_annot_props {
                 type_: kind,
                 rect: self.rect.into(),
@@ -388,6 +398,7 @@ impl AnnotData {
                 quad_count: count(quads.len())?,
                 stroke_count: count(lengths.len())?,
                 point_count: count(points.len())?,
+                is_open: c_int::from(self.open),
             },
             quads: quads.as_ptr(),
             stroke_lengths: lengths.as_ptr(),

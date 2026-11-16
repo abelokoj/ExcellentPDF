@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 00:04; Ph3: 18/49 | A.5: Sticky notes
+
+- Sticky notes: the command (palette, Annotate toolbar, `Shift+S` on the pages) waits for a click on a page and puts
+  a 20-point note icon there, kept on the page, then opens its note in the inspector. Run it again to call it off.
+- In the inspector a sticky note has its icon, one of the PDF standard's seven (Comment, Note, Help, Insert, Key,
+  Paragraph, New paragraph), and whether other readers show it open. Each change is one undoable edit.
+- A click on a sticky note opens its note, as a click on a markup does (A.4).
+- The annotation model keeps the icon (`/Name`, as the file has it) and the open state (`/Open`, the note's own or
+  its popup's); the shim reads and writes both. A test saves, reopens and checks the bytes Acrobat reads.
+- The model is `excellent-features::annotate::sticky`.
+
 ### 2026-11-15 23:48; Ph3: 17/49 | A.4: Notes on highlights
 
 - A markup's note is its PDF `/Contents`; the shim gives a noted markup a `/Popup` beside it, so Acrobat and other

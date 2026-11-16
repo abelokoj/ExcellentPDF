@@ -721,6 +721,7 @@ pub struct ex_annot_props {
     pub quad_count: ::core::ffi::c_int,
     pub stroke_count: ::core::ffi::c_int,
     pub point_count: ::core::ffi::c_int,
+    pub is_open: ::core::ffi::c_int,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -748,6 +749,8 @@ const _: () = {
         [::core::mem::offset_of!(ex_annot_props, stroke_count) - 68usize];
     ["Offset of field: ex_annot_props::point_count"]
         [::core::mem::offset_of!(ex_annot_props, point_count) - 72usize];
+    ["Offset of field: ex_annot_props::is_open"]
+        [::core::mem::offset_of!(ex_annot_props, is_open) - 76usize];
 };
 unsafe extern "C" {
     pub fn ex_annot_props_of(
@@ -788,10 +791,11 @@ pub struct ex_annot_write {
     pub stroke_lengths: *const ::core::ffi::c_int,
     pub points: *const fz_point,
     pub group: *const ::core::ffi::c_char,
+    pub icon: *const ::core::ffi::c_char,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 144usize];
+    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 152usize];
     ["Alignment of ex_annot_write"][::core::mem::align_of::<ex_annot_write>() - 8usize];
     ["Offset of field: ex_annot_write::props"]
         [::core::mem::offset_of!(ex_annot_write, props) - 32usize];
@@ -801,6 +805,8 @@ const _: () = {
         [::core::mem::offset_of!(ex_annot_write, points) - 128usize];
     ["Offset of field: ex_annot_write::group"]
         [::core::mem::offset_of!(ex_annot_write, group) - 136usize];
+    ["Offset of field: ex_annot_write::icon"]
+        [::core::mem::offset_of!(ex_annot_write, icon) - 144usize];
 };
 impl Default for ex_annot_write {
     fn default() -> Self {

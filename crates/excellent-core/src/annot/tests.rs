@@ -165,27 +165,47 @@ fn annotation() -> impl Strategy<Value = Annotation> {
         text(),
         tags(),
         anchor(),
+        (
+            select(vec![
+                "",
+                "Comment",
+                "Note",
+                "Help",
+                "Insert",
+                "Key",
+                "Paragraph",
+                "NewParagraph",
+            ])
+            .prop_map(str::to_owned),
+            any::<bool>(),
+        ),
     )
         .prop_map(
-            |(page, shape, style, author, created, contents, tags, anchor)| Annotation {
-                id: new_id(),
-                page,
-                shape,
-                style,
-                author,
-                created,
-                modified: created,
-                contents,
-                tags,
-                anchor,
-                group: None,
+            |(page, shape, style, author, created, contents, tags, anchor, (icon, open))| {
+                // Only a sticky note has an icon and its own open state here.
+                let note = matches!(shape, Shape::Boxed(Boxed::Note, _));
+                Annotation {
+                    id: new_id(),
+                    page,
+                    shape,
+                    style,
+                    author,
+                    created,
+                    modified: created,
+                    contents,
+                    tags,
+                    anchor,
+                    group: None,
+                    icon: if note { icon } else { String::new() },
+                    open: note && open,
+                }
             },
         )
 }
 
 #[derive(Debug, Clone)]
 enum Action {
-    Create(Annotation),
+    Create(Box<Annotation>),
     /// The `n`th of the annotations made so far (modulo their count) restyled, rewritten and re-tagged.
     Update(usize, Style, String, Vec<String>, i64),
     Delete(usize),
@@ -193,7 +213,7 @@ enum Action {
 
 fn action() -> impl Strategy<Value = Action> {
     prop_oneof![
-        3 => annotation().prop_map(Action::Create),
+        3 => annotation().prop_map(|a| Action::Create(Box::new(a))),
         2 => (any::<usize>(), style(), text(), tags(), date())
             .prop_map(|(n, style, contents, tags, modified)| Action::Update(n, style, contents, tags, modified)),
         1 => any::<usize>().prop_map(Action::Delete),
@@ -214,7 +234,7 @@ fn run(doc: &mut Document, actions: &[Action]) -> BTreeMap<String, Annotation> {
     for action in actions {
         let ids: Vec<String> = model.keys().cloned().collect();
         let change = match action {
-            Action::Create(annotation) => Change::CreateAnnotation(annotation.clone()),
+            Action::Create(annotation) => Change::CreateAnnotation((**annotation).clone()),
             Action::Update(n, style, contents, tags, modified) => {
                 let Some(id) = (!ids.is_empty()).then(|| &ids[n % ids.len()]) else {
                     continue;
@@ -360,6 +380,8 @@ fn annotation_changes_read_back_from_the_log_as_written() {
         "Ada",
     );
     note.contents = "“Quoted”\nsecond line".into();
+    note.icon = "Help".into();
+    note.open = true;
     note.tags = vec!["todo".into()];
     note.anchor = Some(Quote {
         prefix: "a ".into(),
@@ -540,4 +562,45 @@ fn a_note_on_a_highlight_gets_a_popup_and_survives_save_and_reopen() {
     );
     let noted = read.iter().find(|a| a.id == highlight.id).expect("kept");
     assert_eq!(noted.contents, "Check the figure, then the table.");
+}
+
+#[test]
+fn a_sticky_note_keeps_its_icon_and_open_state_through_save_and_reopen() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let mut note = Annotation::new(
+        0,
+        Shape::Boxed(
+            Boxed::Note,
+            PageRect {
+                x0: 50.0,
+                y0: 60.0,
+                x1: 70.0,
+                y1: 80.0,
+            },
+        ),
+        Style::default(),
+        "Ada",
+    );
+    note.icon = "Help".into();
+    Operation::new("Sticky note", vec![Change::CreateAnnotation(note.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    note.contents = "Why this number?".into();
+    note.open = true;
+    Operation::new("Note", vec![Change::UpdateAnnotation(note.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let bytes = std::fs::read(&scratch.0).expect("read the file");
+    let has = |needle: &[u8]| bytes.windows(needle.len()).any(|w| w == needle);
+    assert!(has(b"/Name/Help"), "the icon Acrobat draws");
+    assert!(has(b"/Open true"), "the popup opens in other readers");
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0).expect("read");
+    let kept = read.iter().find(|a| a.id == note.id).expect("kept");
+    assert_eq!(
+        (kept.icon.as_str(), kept.open, kept.contents.as_str()),
+        ("Help", true, "Why this number?")
+    );
 }

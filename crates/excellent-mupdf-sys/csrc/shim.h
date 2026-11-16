@@ -245,6 +245,8 @@ typedef struct ex_annot_props {
 	int quad_count;
 	int stroke_count;
 	int point_count;
+	/* Whether its note shows open in other readers (/Open: a sticky note's own, else its popup's), A.5. */
+	int is_open;
 } ex_annot_props;
 
 /* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author), the app's private key
@@ -255,6 +257,8 @@ typedef struct ex_annot_props {
 #define EX_ANNOT_AUTHOR 2
 #define EX_ANNOT_APP_DATA 3
 #define EX_ANNOT_GROUP 4
+/* Its icon's name (/Name: a sticky note's, a stamp's), as the file has it: empty when it names none (A.5). */
+#define EX_ANNOT_ICON 5
 
 /* Reads `annot`: its properties, then its arrays into caller memory sized from them (any may be NULL to skip). */
 int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex_error *err);
@@ -278,6 +282,8 @@ typedef struct ex_annot_write {
 	const int *stroke_lengths;
 	const fz_point *points;
 	const char *group;
+	/* The icon's name for the kinds that have one; NULL or empty removes it, leaving the kind's default. */
+	const char *icon;
 } ex_annot_write;
 
 /* Annotation edits (K.14), inside an operation, on page `page` (zero-based) of a PDF. ex_annot_create adds one;

@@ -33,7 +33,7 @@ None at startup. A click reads the clicked page's annotations once.
 
 ## Design
 
-- **Model** (`annotate::notes`, pure): `Target`, `parse_press`, `markup_at`, `marked`, `normalize`, `write` (one
+- **Model** (`annotate::notes`, pure): `Target`, `parse_press`, `note_at`, `marked`, `normalize`, `write` (one
   `UpdateAnnotation`, none when unchanged), `first_line`.
 - **Shim**: writing a markup with contents and no `/Popup` adds one (`pdf_set_annot_popup`).
 - **Canvas**: `pagePress {page, x, y}` on a plain click on the pages; the markup event's `note` flag.
@@ -42,7 +42,7 @@ None at startup. A click reads the clicked page's annotations once.
 ## Acceptance tests
 
 - [x] `a_note_on_a_highlight_gets_a_popup_and_survives_save_and_reopen` (the popup other readers open).
-- [x] `a_click_opens_the_markup_under_it_the_top_one_first`, `a_press_is_read`.
+- [x] `a_click_opens_the_note_under_it_the_top_one_first`, `a_press_is_read`.
 - [x] `a_note_is_written_as_one_change_only_when_it_changes`, `the_markup_just_made_is_the_one_noted`.
 - [x] `the_first_line_is_cut_at_a_whole_character`, `the_panel_shows_the_markup_s_colour_and_text`.
 - [ ] Notes open in other readers' comment panes: not yet checked in Acrobat by hand.

@@ -2,7 +2,7 @@
 //! document, and its `textEdit` event (A.2) into a proposed replacement or insertion, once the reader types the text
 //! in a small dialog. Every tool's colour and opacity (A.3) are the settings' and the colour dialog's: `colors`. A
 //! click on a markup (`pagePress`), or a markup made with the note tool, opens its note in the inspector (A.4):
-//! `note`. The models are `excellent-features`' `annotate::markup`, `annotate::replace`, `annotate::colors` and
+//! `note`. The sticky-note command waits for a click on the page and puts a sticky note there, its note open (A.5). The models are `excellent-features`' `annotate::markup`, `annotate::replace`, `annotate::colors` and
 //! `annotate::notes`.
 
 pub(crate) mod colors;
@@ -11,11 +11,12 @@ mod note;
 pub(crate) use note::note_panel;
 
 use excellent_core::annot::{Annotation, Markup, Style, page_annotations};
-use excellent_core::edit::Operation;
+use excellent_core::edit::{Change, Operation};
 use excellent_features::annotate::colors::Tool as ColorTool;
 use excellent_features::annotate::markup::{self, Marking};
 use excellent_features::annotate::notes::{self, Target};
 use excellent_features::annotate::replace::{self, Mode, Proposal};
+use excellent_features::annotate::sticky::{self, Icon};
 use nsh_base::{input, theme};
 use nsh_core::JsonValue;
 use nsh_core::prelude::*;
@@ -42,6 +43,8 @@ pub(crate) struct AnnotateState {
     draft: Signal<String>,
     /// Counts the notes opened, so the window shows the inspector for each one.
     reveals: Signal<u64>,
+    /// Whether the next click on the page places a sticky note (A.5).
+    placing: Signal<bool>,
 }
 
 impl AnnotateState {
@@ -54,6 +57,70 @@ impl AnnotateState {
             noting: signal(None),
             draft: signal(String::new()),
             reveals: signal(0),
+            placing: signal(false),
+        }
+    }
+
+    /// The sticky-note command (A.5): the next click on the pages places one; run again, it is called off.
+    pub(crate) fn place_sticky(self) {
+        if !self.editing.can_edit() {
+            return;
+        }
+        let placing = !untracked(|| self.placing.get());
+        if placing {
+            self.close_note();
+            self.reveals.update(|count| *count += 1);
+        }
+        self.placing.set(placing);
+    }
+
+    /// Puts a sticky note where the click `data` (`pagePress`) landed, as one step of undo, and opens its note.
+    fn put_sticky(self, data: &JsonValue) {
+        self.placing.set(false);
+        let Some((page, point)) = notes::parse_press(data) else {
+            return;
+        };
+        let Some(document) = self.editing.document() else {
+            return;
+        };
+        let bounds = {
+            let Ok(shared) = document.mupdf() else {
+                return;
+            };
+            let mupdf = shared.lock().expect("document lock poisoned");
+            match mupdf.load_page(page).and_then(|loaded| loaded.bounds()) {
+                Ok(bounds) => bounds,
+                Err(err) => {
+                    log::warn!("sticky note: cannot read page {page}'s size: {err}");
+                    return;
+                }
+            }
+        };
+        let note = sticky::place(
+            page,
+            point,
+            bounds,
+            Icon::default(),
+            Style::default(),
+            &author(),
+        );
+        let target = Target {
+            page,
+            id: note.id.clone(),
+        };
+        let operation = Operation::new(t!("sticky.name"), vec![Change::CreateAnnotation(note)]);
+        if self.editing.apply(&operation) {
+            self.open_note(&target);
+        }
+    }
+
+    /// Makes `change` of the open note's annotation, as it is now, one step of undo named `name`.
+    fn change_note(self, name: String, change: impl FnOnce(&Annotation) -> Option<Change>) {
+        let Some(noting) = untracked(|| self.noting.get()) else {
+            return;
+        };
+        if let Some(change) = self.annotation(&noting.target).and_then(|a| change(&a)) {
+            self.editing.apply(&Operation::new(name, vec![change]));
         }
     }
 
@@ -114,8 +181,13 @@ impl AnnotateState {
             .find(|annotation| annotation.id == target.id)
     }
 
-    /// A plain click on the page (`pagePress`): the note of the markup under it opens.
+    /// A plain click on the page (`pagePress`): a sticky note goes there when one is being placed; else the note of
+    /// the markup or sticky note under it opens.
     fn press(self, data: &JsonValue) {
+        if untracked(|| self.placing.get()) {
+            self.put_sticky(data);
+            return;
+        }
         let Some((page, point)) = notes::parse_press(data) else {
             return;
         };
@@ -128,7 +200,7 @@ impl AnnotateState {
             };
             let mupdf = shared.lock().expect("document lock poisoned");
             let annotations = page_annotations(&mupdf, page).unwrap_or_default();
-            notes::markup_at(&annotations, point).map(|annotation| Target {
+            notes::note_at(&annotations, point).map(|annotation| Target {
                 page,
                 id: annotation.id.clone(),
             })

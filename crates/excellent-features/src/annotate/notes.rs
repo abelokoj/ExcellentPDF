@@ -2,7 +2,7 @@
 //! other readers open it in their comment panes. Which markup a click on the page opens, and the change a note's new
 //! text makes. The text is plain: what the reader types, Markdown-light marks and all, is kept as typed.
 
-use excellent_core::annot::{Annotation, Shape, now};
+use excellent_core::annot::{Annotation, Boxed, Shape, now};
 use excellent_core::edit::Change;
 use excellent_mupdf::PagePoint;
 use serde_json::Value;
@@ -33,19 +33,22 @@ pub fn parse_press(data: &Value) -> Option<(usize, PagePoint)> {
     ))
 }
 
-/// The markup under `point`: the one drawn last when several are, as the page shows it on top.
+/// The markup or sticky note (A.5) under `point`, whose note a click opens: the one drawn last when several are, as
+/// the page shows it on top.
 #[must_use]
-pub fn markup_at(annotations: &[Annotation], point: PagePoint) -> Option<&Annotation> {
-    annotations.iter().rev().find(|annotation| {
-        let Shape::Markup(_, quads) = &annotation.shape else {
-            return false;
-        };
-        quads.iter().any(|quad| {
-            let bounds = quad.bounds();
-            (bounds.x0 - SLOP..=bounds.x1 + SLOP).contains(&point.x)
-                && (bounds.y0 - SLOP..=bounds.y1 + SLOP).contains(&point.y)
+pub fn note_at(annotations: &[Annotation], point: PagePoint) -> Option<&Annotation> {
+    let near = |bounds: excellent_mupdf::PageRect| {
+        (bounds.x0 - SLOP..=bounds.x1 + SLOP).contains(&point.x)
+            && (bounds.y0 - SLOP..=bounds.y1 + SLOP).contains(&point.y)
+    };
+    annotations
+        .iter()
+        .rev()
+        .find(|annotation| match &annotation.shape {
+            Shape::Markup(_, quads) => quads.iter().any(|quad| near(quad.bounds())),
+            Shape::Boxed(Boxed::Note, rect) => near(*rect),
+            _ => false,
         })
-    })
 }
 
 /// The markup a set of changes makes or extends, last of all: the one a note written straight after marking goes on.
@@ -131,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn a_click_opens_the_markup_under_it_the_top_one_first() {
+    fn a_click_opens_the_note_under_it_the_top_one_first() {
         let below = markup(vec![line(10.0, 10.0, 100.0, 20.0)]);
         let above = markup(vec![
             line(50.0, 10.0, 150.0, 20.0),
@@ -139,31 +142,48 @@ mod tests {
         ]);
         let annotations = [below.clone(), above.clone()];
         assert_eq!(
-            markup_at(&annotations, point(20.0, 15.0)).map(|a| &a.id),
+            note_at(&annotations, point(20.0, 15.0)).map(|a| &a.id),
             Some(&below.id)
         );
         assert_eq!(
-            markup_at(&annotations, point(60.0, 15.0)).map(|a| &a.id),
+            note_at(&annotations, point(60.0, 15.0)).map(|a| &a.id),
             Some(&above.id)
         );
         assert_eq!(
-            markup_at(&annotations, point(30.0, 31.0)).map(|a| &a.id),
+            note_at(&annotations, point(30.0, 31.0)).map(|a| &a.id),
             Some(&above.id)
         );
         assert_eq!(
-            markup_at(&annotations, point(101.0, 21.0)).map(|a| &a.id),
+            note_at(&annotations, point(101.0, 21.0)).map(|a| &a.id),
             Some(&above.id)
         );
-        assert!(markup_at(&annotations, point(200.0, 15.0)).is_none());
-        let note = Annotation::new(
+        assert!(note_at(&annotations, point(200.0, 15.0)).is_none());
+        let sticky = Annotation::new(
             0,
-            Shape::Boxed(excellent_core::annot::Boxed::Note, Default::default()),
+            Shape::Boxed(
+                Boxed::Note,
+                excellent_mupdf::PageRect {
+                    x0: 300.0,
+                    y0: 0.0,
+                    x1: 320.0,
+                    y1: 20.0,
+                },
+            ),
             Style::default(),
             "me",
         );
+        let square = Annotation {
+            shape: Shape::Boxed(Boxed::Square, Default::default()),
+            ..sticky.clone()
+        };
+        let annotations = [sticky.clone(), square];
+        assert_eq!(
+            note_at(&annotations, point(310.0, 10.0)).map(|a| &a.id),
+            Some(&sticky.id)
+        );
         assert!(
-            markup_at(&[note], point(0.0, 0.0)).is_none(),
-            "only markups"
+            note_at(&annotations, point(0.0, 0.0)).is_none(),
+            "no note on a shape"
         );
     }
 

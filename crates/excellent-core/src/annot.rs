@@ -151,6 +151,11 @@ pub struct Annotation {
     pub anchor: Option<Quote>,
     /// The id of the annotation on its page it goes with: a "replace text" strikeout names its caret (A.2).
     pub group: Option<String>,
+    /// Its icon's name (PDF's `/Name`): a sticky note's (A.5) or a stamp's; empty for none, which readers draw as
+    /// the kind's default.
+    pub icon: String,
+    /// Whether other readers show its note open (PDF's `/Open`): a sticky note's own, or its popup's (A.4, A.5).
+    pub open: bool,
 }
 
 impl Annotation {
@@ -170,6 +175,8 @@ impl Annotation {
             tags: Vec::new(),
             anchor: None,
             group: None,
+            icon: String::new(),
+            open: false,
         }
     }
 
@@ -221,6 +228,8 @@ impl Annotation {
             tags,
             anchor,
             group: (!data.group.is_empty()).then(|| data.group.clone()),
+            icon: data.icon.clone(),
+            open: data.open,
         })
     }
 
@@ -243,6 +252,8 @@ impl Annotation {
             contents: self.contents.clone(),
             app_data: self.private_json(),
             group: self.group.clone().unwrap_or_default(),
+            icon: self.icon.clone(),
+            open: self.open,
             rect,
             color: self.style.color.map(Vec::from).unwrap_or_default(),
             opacity: self.style.opacity,
@@ -301,6 +312,8 @@ impl Annotation {
             "tags": self.tags,
             "anchor": self.anchor.as_ref().map(quote_to_json),
             "group": self.group,
+            "icon": self.icon,
+            "open": self.open,
         })
     }
 
@@ -363,11 +376,13 @@ impl Annotation {
                 Value::Null => None,
                 value => Some(quote_from_json(value)?),
             },
-            // Logs written before A.2 have no group.
+            // Logs written before A.2 have no group, and before A.5 no icon or open state.
             group: object
                 .get("group")
                 .and_then(Value::as_str)
                 .map(str::to_owned),
+            icon: text("icon").unwrap_or_default(),
+            open: object.get("open").and_then(Value::as_bool).unwrap_or(false),
         })
     }
 }

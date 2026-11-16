@@ -863,7 +863,7 @@ fn language_choice(live: Live) -> View {
 }
 
 /// A yes-or-no setting's switch.
-fn on_off(
+pub(crate) fn on_off(
     label: &'static str,
     on: impl Fn() -> bool + Copy + 'static,
     set: impl Fn(bool) + 'static,

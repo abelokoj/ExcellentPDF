@@ -65,6 +65,8 @@ pub(crate) enum CommandId {
     Find(FindAction),
     /// Opens the markup tools' colour dialog (A.3).
     AnnotationColors,
+    /// Places a sticky note where the page is clicked next (A.5).
+    StickyNote,
     /// Takes back the shown document's last edit (K.14).
     Undo,
     /// Makes the last undone edit again (K.14).
@@ -98,6 +100,7 @@ impl CommandId {
                     | Self::Outline(_)
                     | Self::Bookmark(_)
                     | Self::Find(_)
+                    | Self::StickyNote
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -432,6 +435,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+n"],
+    },
+    Command {
+        id: CommandId::StickyNote,
+        name: "annotate.sticky",
+        label: "command.sticky_note",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+s"],
     },
     Command {
         id: CommandId::AnnotationColors,

@@ -434,6 +434,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Outline(action) => pane.outline.run(action, pane.canvas),
             CommandId::Bookmark(action) => pane.bookmarks.run(action, pane.canvas),
             CommandId::Find(action) => pane.find.run(action),
+            CommandId::StickyNote => pane.annotate.place_sticky(),
             CommandId::AnnotationColors => pane
                 .annotate
                 .pick(excellent_features::annotate::colors::Tool::Highlight),

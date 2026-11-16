@@ -936,6 +936,7 @@ int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex
 		}
 		props.quad_count = pdf_annot_has_quad_points(ctx, annot) ? pdf_annot_quad_point_count(ctx, annot) : 0;
 		props.point_count = ex_annot_point_count(ctx, annot, &props.stroke_count);
+		props.is_open = pdf_annot_has_open(ctx, annot) ? pdf_annot_is_open(ctx, annot) : 0;
 	}
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
@@ -1003,6 +1004,11 @@ int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out,
 				text = pdf_dict_get_text_string(ctx, pdf_dict_get(ctx, obj, PDF_NAME(IRT)), PDF_NAME(NM));
 			break;
 		}
+		case EX_ANNOT_ICON:
+			/* The file's own name, not MuPDF's default for the kind, so what is read is what was written. */
+			if (pdf_annot_has_icon_name(ctx, annot))
+				text = pdf_to_name(ctx, pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(Name)));
+			break;
 		default:
 			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no annotation text %d", which);
 		}
@@ -1100,6 +1106,10 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 	if (w->contents && *w->contents && pdf_annot_has_popup(ctx, annot)
 		&& !pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(Popup)))
 		pdf_set_annot_popup(ctx, annot, ex_popup_rect(ctx, annot, w));
+	if (pdf_annot_has_icon_name(ctx, annot))
+		pdf_set_annot_icon_name(ctx, annot, w->icon && *w->icon ? w->icon : NULL);
+	if (pdf_annot_has_open(ctx, annot))
+		pdf_set_annot_is_open(ctx, annot, p->is_open);
 	ex_annot_group(ctx, annot, w->group);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))

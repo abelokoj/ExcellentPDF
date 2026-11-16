@@ -3196,7 +3196,7 @@ alpha, at least 10 %. The command is `annotate.colors` (`Shift+C`); it opens on 
 
 *Built (2026-11-15):* the shim adds the `/Popup` (200 by 120 points, right of the markup, kept on the page) when a
 markup with contents is written and has none. The canvas sends a plain click on the page as `pagePress`; the app
-finds the markup under it (`notes::markup_at`, top one first) and opens its note in the inspector, which the window
+finds the markup under it (`notes::note_at`, top one first) and opens its note in the inspector, which the window
 reveals. The markup bar's Note tool (`annotate.note`, `Shift+N`) highlights and opens the new highlight's note
 (`notes::marked`). The note is saved on Done, or when another opens, as one undoable change (`notes::write`). The
 editor is the inspector only; the separate popover waits for A.12's inspector.
@@ -3207,6 +3207,12 @@ editor is the inspector only; the separate popover waits for A.12's inspector.
    NewParagraph), `pdf_set_annot_is_open`.
 
 **Done when:** icons and open state match in Acrobat.
+
+*Built (2026-11-16):* `Annotation` has `icon` (the file's own `/Name`, empty for none, so a read gives back what was
+written; MuPDF's default name is not) and `open` (`pdf_annot_is_open`: the note's `/Open`, or its popup's once it has
+one). The command `annotate.sticky` (`Shift+S`) waits for the next `pagePress` and places the note with its top left
+at the click (`sticky::place`, 20 points, kept inside the page bounds). The note editor is A.4's, with the icon and
+the open switch added for sticky notes.
 
 #### Ph3: 19/49 | A.6: Text boxes and typewriter
 **P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/freetext.rs`
