@@ -1,6 +1,6 @@
 //! The annotation list (A.14): a panel with every annotation of the shown document, one row each (its kind's mark in
-//! its colour, its note or the text it marks, and its kind), under a heading per page. Kind and colour chips and a
-//! search field filter it as the reader types; a row's press shows its page and selects the annotation (A.13). The
+//! its colour, its note or the text it marks, and its kind and category), under a heading per page. Kind, colour and
+//! category (A.17) chips and a search field filter it as the reader types; a row's press shows its page and selects the annotation (A.13). The
 //! annotations are read on the render workers, again after every edit; the model is `excellent-features`'
 //! `annotate::list`.
 
@@ -13,6 +13,7 @@ use nsh_core::element::SharedString;
 use nsh_core::prelude::*;
 
 use super::AnnotateState;
+use super::inspector::category_chip;
 use crate::bookmarks::field;
 use crate::goto::PageState;
 use crate::settings_window::{segment_of, segmented};
@@ -132,7 +133,7 @@ pub(crate) fn annotation_list(
         )
 }
 
-/// The search field, then the kinds and the colours the document has, as chips that filter the list.
+/// The search field, then the kinds, colours and categories the document has, as chips that filter the list.
 fn filters(listing: Listing) -> impl IntoElement {
     let offered = computed(move || {
         listing
@@ -163,6 +164,27 @@ fn filters(listing: Listing) -> impl IntoElement {
                 row.child(color_chip(listing, color))
             })
     });
+    let offered_categories = computed(move || {
+        listing
+            .rows
+            .with(|rows| list::categories(rows.as_deref().unwrap_or_default()))
+    });
+    let categories = move || {
+        dynamic(move || {
+            offered_categories
+                .get()
+                .into_iter()
+                .fold(segmented(), |group, category| {
+                    group.child(category_chip(
+                        category,
+                        move || listing.filter.with(|f| f.categories.contains(&category)),
+                        move || {
+                            listing.filter.update(|f| *f = f.toggled_category(category));
+                        },
+                    ))
+                })
+        })
+    };
     view()
         .px_3()
         .pt_2()
@@ -171,6 +193,10 @@ fn filters(listing: Listing) -> impl IntoElement {
         .child(search)
         .child(kinds)
         .child(colors)
+        .child(when(
+            move || !offered_categories.with(Vec::is_empty),
+            categories,
+        ))
 }
 
 /// A colour to show alone, or all again when it is the one shown; ringed when chosen.
@@ -255,7 +281,14 @@ fn row_view(
     row: Row,
     go: impl Fn(usize) + Copy + 'static,
 ) -> impl IntoElement {
-    let kind = kind_label(row.kind);
+    let kind = match row.category {
+        Some(category) => t!(
+            "annotations.kind_category",
+            kind = kind_label(row.kind),
+            category = t!(&format!("category.{}", category.key()))
+        ),
+        None => kind_label(row.kind),
+    };
     let shown_text = if row.text.is_empty() {
         kind.clone()
     } else {

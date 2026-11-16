@@ -3376,6 +3376,11 @@ the source, reviews in a dialog (DD14) and adds the placed ones as one operation
 
 **Done when:** categories survive save and reopen and show in A.26 reports.
 
+*Built (2026-11-16):* `excellent-core::annot::Annotation::category` keeps the key in the private `/ExcellentPDF`
+JSON (and the operation log); `annotate::categories` has the seven, their colours and Lucide icon names, and
+`set_category`. The picker is in the inspector (DD15); `annotate::list` filters by category. Export and the A.26
+reports come with A.26.
+
 #### Ph3: 31/49 | A.18: Tags on annotations
 **P1; Phase 3; Needs:** A.12, K.20; **Code:** as A.17
 1. Free-form tags stored on the annotation (private key) and indexed in `library.db` for library-wide search (F.3).

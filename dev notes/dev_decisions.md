@@ -275,3 +275,20 @@ already shows every annotation once added, where any can be checked, deleted (A.
 
 - Moved annotations aren't listed before they are added; the reader checks them in the Annotations tab afterwards.
 - A review with rows and a check box each can replace the dialog without changing `annotate::transfer`.
+
+## DD15. Categories are picked in the inspector, drawn as colour dots (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.17 item 2 says "pick from the selection toolbar". The category is picked in the annotation's
+inspector, as a row of seven chips, each a dot in its colour and its name, under the note. Each category names its
+icon (Lucide: megaphone, file-check, circle-help, book-open, flask-conical, chart-column, square-check), but the chips
+draw the dot, not the icon.
+
+**Why:** the canvas has no selection toolbar of annotation actions yet; the inspector already opens on every selected
+annotation and holds its other properties (colour, author, lock). The app ships no icon set; drawing seven icons needs
+one, which belongs to the design system, not to this tag.
+
+**What it means:**
+
+- Choosing a category takes a click on the annotation, then one on the chip; no shortcut sets one.
+- When a selection toolbar or an icon set lands, both read `Category::ALL`, `color` and `icon`: no model change.
+- A locked annotation's category can't be changed, as its colour can't (A.12).

@@ -1,10 +1,11 @@
-//! The annotation list (A.14): one row per annotation of the document, grouped by page, filtered by kind and colour
-//! and searched in its note and the text it marks, as Enhanced's annotation search and filter bar do. Pure: the app
+//! The annotation list (A.14): one row per annotation of the document, grouped by page, filtered by kind, colour and
+//! category (A.17) and searched in its note and the text it marks, as Enhanced's annotation search and filter bar do. Pure: the app
 //! reads the annotations on a worker, makes the rows once, and filters them as the reader types. Each row keeps its
 //! text folded to lower case, so a filter over 10,000 rows is one pass of substring tests.
 
 use excellent_core::annot::{Annotation, Boxed, Markup, Shape};
 
+use super::categories::Category;
 use super::notes::Target;
 
 /// What kind of annotation a row is, as the list names and filters it.
@@ -86,6 +87,8 @@ pub struct Row {
     pub kind: Kind,
     /// Its colour, `0xRRGGBB`; `None` when it has none.
     pub color: Option<u32>,
+    /// Its category (A.17); `None` when it has none.
+    pub category: Option<Category>,
     /// What the row reads: its note, else the text it marks; empty when it has neither.
     pub text: String,
     /// Who made it.
@@ -111,6 +114,7 @@ impl Row {
             },
             kind: Kind::of(annotation),
             color: annotation.style.color.or(annotation.fill).map(rgb),
+            category: Category::of(annotation),
             text: one_line(text),
             author: annotation.author.clone(),
             folded: format!("{note}\n{marked}").to_lowercase(),
@@ -126,14 +130,16 @@ pub fn rows(annotations: &[Annotation]) -> Vec<Row> {
     rows
 }
 
-/// What the list shows: some kinds (none: all), one colour (none: all), and the rows whose note or marked text
-/// holds every word of the search.
+/// What the list shows: some kinds (none: all), one colour (none: all), some categories (none: all), and the rows
+/// whose note or marked text holds every word of the search.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Filter {
     /// The kinds shown; empty for every kind.
     pub kinds: Vec<Kind>,
     /// The colour shown, `0xRRGGBB`; `None` for every colour.
     pub color: Option<u32>,
+    /// The categories shown; empty for every row, with a category or not.
+    pub categories: Vec<Category>,
     /// The search as typed.
     pub query: String,
 }
@@ -142,7 +148,10 @@ impl Filter {
     /// Whether it shows every row.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.kinds.is_empty() && self.color.is_none() && self.query.trim().is_empty()
+        self.kinds.is_empty()
+            && self.color.is_none()
+            && self.categories.is_empty()
+            && self.query.trim().is_empty()
     }
 
     /// The indices of the rows of `rows` it shows, in order.
@@ -155,6 +164,8 @@ impl Filter {
             .filter(|(_, row)| {
                 (self.kinds.is_empty() || self.kinds.contains(&row.kind))
                     && self.color.is_none_or(|color| row.color == Some(color))
+                    && (self.categories.is_empty()
+                        || row.category.is_some_and(|c| self.categories.contains(&c)))
                     && words.iter().all(|word| row.folded.contains(word))
             })
             .map(|(index, _)| index)
@@ -173,6 +184,30 @@ impl Filter {
         }
         next
     }
+}
+
+impl Filter {
+    /// The filter with `category` shown or, when it was, not.
+    #[must_use]
+    pub fn toggled_category(&self, category: Category) -> Self {
+        let mut next = self.clone();
+        if let Some(at) = next.categories.iter().position(|c| *c == category) {
+            next.categories.remove(at);
+        } else {
+            next.categories.push(category);
+            next.categories.sort_unstable();
+        }
+        next
+    }
+}
+
+/// The categories of `rows`, each once and in [`Category::ALL`]'s order, for the filter to offer.
+#[must_use]
+pub fn categories(rows: &[Row]) -> Vec<Category> {
+    Category::ALL
+        .into_iter()
+        .filter(|category| rows.iter().any(|row| row.category == Some(*category)))
+        .collect()
 }
 
 /// The kinds and the colours of `rows`, each once and in order, for the filter to offer.
@@ -325,6 +360,27 @@ mod tests {
             ..notes
         };
         assert_eq!(blue.apply(&rows), vec![2]);
+    }
+
+    #[test]
+    fn the_filter_shows_the_chosen_categories_only() {
+        let mut claim = highlight(0, "the earth is round");
+        claim.category = Some("claim".to_owned());
+        let mut todo = note(1, "check the source", [1.0, 0.0, 0.0]);
+        todo.category = Some("todo".to_owned());
+        let rows = rows(&[claim, todo, note(2, "plain", [1.0, 0.0, 0.0])]);
+        assert_eq!(rows[0].category, Some(Category::Claim));
+        assert_eq!(categories(&rows), vec![Category::Claim, Category::ToDo]);
+        let claims = Filter::default().toggled_category(Category::Claim);
+        assert!(!claims.is_empty());
+        assert_eq!(claims.apply(&rows), vec![0]);
+        let both = claims.toggled_category(Category::ToDo);
+        assert_eq!(both.apply(&rows), vec![0, 1], "no category, not shown");
+        assert_eq!(
+            both.toggled_category(Category::Claim)
+                .toggled_category(Category::ToDo),
+            Filter::default()
+        );
     }
 
     #[test]

@@ -1,22 +1,37 @@
-//! The annotation inspector's own rows (A.12), under the note and its kind's controls (`note`): who made it, its
-//! colour and opacity, when it was made and changed, and its lock. Each edit is one step of undo through
+//! The annotation inspector's own rows (A.12), under the note and its kind's controls (`note`): its category (A.17),
+//! who made it, its colour and opacity, when it was made and changed, and its lock. Each edit is one step of undo through
 //! `AnnotateState::change_note`; the rows are built again from the annotation as the document has it after every
 //! edit, so an undone change shows in the next frame. A locked annotation shows its facts and its lock, and why the
 //! rest is gone. The model is `excellent-features`' `annotate::inspector`.
 
 use excellent_core::annot::{Annotation, Markup, Shape};
+use excellent_features::annotate::categories::{self, Category};
 use excellent_features::annotate::colors::{Tool, ToolStyle};
 use excellent_features::annotate::inspector::{self, Details, OPACITIES};
-use nsh_base::{button, input, theme};
+use nsh_base::{button, input, theme, toggle};
 use nsh_core::prelude::*;
 
 use super::AnnotateState;
 use crate::bookmarks::{caption, field};
 use crate::settings_window::{on_off, segment_of, segmented};
 
-/// Who made `annotation`, its colour and its opacity: what a lock keeps as it is.
+/// `annotation`'s category, who made it, its colour and its opacity: what a lock keeps as it is.
 pub(super) fn look(state: AnnotateState, annotation: &Annotation) -> View {
     let details = Details::of(annotation);
+    let category = Category::of(annotation);
+    let picker = Category::ALL
+        .into_iter()
+        .fold(segmented(), |group, choice| {
+            group.child(category_chip(
+                choice,
+                move || category == Some(choice),
+                move || {
+                    // Pressing the chosen one takes the category away.
+                    let next = (category != Some(choice)).then_some(choice);
+                    state.change_note(t!("category.edit"), |a| categories::set_category(a, next));
+                },
+            ))
+        });
     let author = signal(details.author.clone());
     let commit = move || {
         let name = untracked(|| author.get());
@@ -31,6 +46,8 @@ pub(super) fn look(state: AnnotateState, annotation: &Annotation) -> View {
         .label(t!("inspector.author"));
     let mut rows = view()
         .gap_2()
+        .child(caption("category.title"))
+        .child(picker)
         .child(caption("inspector.author"))
         .child(author_field);
     if inspector::has_color(annotation) {
@@ -122,6 +139,42 @@ pub(super) fn facts(state: AnnotateState, annotation: &Annotation) -> View {
                 },
             )),
     )
+}
+
+/// A category's chip: a dot in its colour and its name; `chosen` says whether it is pressed, and pressing it
+/// calls `choose`.
+pub(super) fn category_chip(
+    category: Category,
+    chosen: impl Fn() -> bool + Copy + 'static,
+    choose: impl Fn() + 'static,
+) -> impl IntoElement {
+    let name = t!(&format!("category.{}", category.key()));
+    toggle()
+        .pressed(chosen)
+        .accessibility_label(name.clone())
+        .on_change(move |_: &bool| choose())
+        .h(px(28.0))
+        .px_3()
+        .flex_row()
+        .gap(px(6.0))
+        .rounded(px(6.0))
+        .items_center()
+        .justify_center()
+        .pressed_style(|s| s.bg(move || theme().background).shadow_sm())
+        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(
+            view()
+                .size(px(8.0))
+                .rounded_full()
+                .bg(Hsla::from(rgb(category.color()))),
+        )
+        .child(text(name).text_size(px(13.0)).text_color(move || {
+            if chosen() {
+                theme().popover_foreground
+            } else {
+                theme().muted_foreground
+            }
+        }))
 }
 
 /// Why a locked annotation's look and place can't be changed, and how to change them.

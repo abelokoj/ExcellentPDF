@@ -6,6 +6,14 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 05:20; Ph3: 30/49 | A.17: Semantic categories
+
+- An annotation can now be a Claim, Evidence, Question, Definition, Method, Result or To do, each with its own colour.
+  Pick one in the annotation's inspector; press it again to take it away. Each change is one step of undo.
+- The category is saved inside the PDF with the annotation, so it is there after a save and a reopen.
+- The Annotations tab shows each row's category and, when the document has any, offers category chips to show only
+  those.
+
 ### 2026-11-16 05:10; Ph3: 29/49 | A.16: Transfer annotations to another version
 
 - Transfer annotations from another version (Annotate toolbar, `annotate.transfer`, Shift+V on the page) takes the

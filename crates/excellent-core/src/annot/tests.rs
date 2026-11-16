@@ -242,6 +242,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     tags,
                     anchor,
                     group: None,
+                    category: None,
                     icon: if note { icon } else { String::new() },
                     open: note && open,
                     text: if text_box { text } else { TextStyle::default() },
@@ -452,6 +453,7 @@ fn annotation_changes_read_back_from_the_log_as_written() {
     note.icon = "Help".into();
     note.open = true;
     note.tags = vec!["todo".into()];
+    note.category = Some("question".into());
     let mut typed = Annotation::new(
         0,
         Shape::Boxed(Boxed::Typewriter, PageRect::default()),
@@ -513,11 +515,11 @@ fn the_anchor_and_tags_travel_in_the_private_key() {
     );
     assert_eq!(highlight.to_data().app_data, "", "nothing to keep, no key");
     highlight.tags = vec!["a".into()];
+    highlight.category = Some("claim".into());
     let data = highlight.to_data();
-    assert_eq!(
-        Annotation::from_data(0, &data).expect("modelled").tags,
-        ["a"]
-    );
+    let read = Annotation::from_data(0, &data).expect("modelled");
+    assert_eq!(read.tags, ["a"]);
+    assert_eq!(read.category.as_deref(), Some("claim"));
     let mut link = data;
     link.kind = excellent_mupdf::AnnotKind::Link;
     assert_eq!(
@@ -525,6 +527,39 @@ fn the_anchor_and_tags_travel_in_the_private_key() {
         None,
         "links aren't modelled"
     );
+}
+
+/// A.17: an annotation's category is written to the file and read back after a save and a reopen.
+#[test]
+fn a_category_survives_save_and_reopen() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let mut highlight = Annotation::new(
+        0,
+        Shape::Markup(
+            Markup::Highlight,
+            vec![Quad {
+                ul: PagePoint { x: 40.0, y: 100.0 },
+                ur: PagePoint { x: 100.0, y: 100.0 },
+                ll: PagePoint { x: 40.0, y: 112.0 },
+                lr: PagePoint { x: 100.0, y: 112.0 },
+            }],
+        ),
+        Style::default(),
+        "Ada",
+    );
+    highlight.category = Some("evidence".into());
+    Operation::new(
+        "Highlight",
+        vec![Change::CreateAnnotation(highlight.clone())],
+    )
+    .apply(&mut doc)
+    .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0).expect("read");
+    let found = read.iter().find(|a| a.id == highlight.id).expect("kept");
+    assert_eq!(found.category.as_deref(), Some("evidence"));
 }
 
 /// A.2: a strikeout grouped with a caret ("replace text") is written as `/IRT` with `/RT /Group`, survives a save and

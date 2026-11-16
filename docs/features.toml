@@ -187,6 +187,12 @@ status = "in-progress"
 tests = ["a_preprint_s_highlights_land_on_the_published_version_95_percent", "highlights_follow_their_text_and_other_annotations_keep_their_place", "text_that_is_gone_orphans_its_highlight_and_text_in_place_is_placed"]
 open = "not tried by hand, and not on a real preprint and its published version (the test typesets one); the review is a dialog with counts and the first five not found, not a list to pick from (DD14); annotations that mark no text keep their page and place; thousands of highlights in a long book take seconds"
 
+["A.17"]
+label = "Ph3: 30/49"
+status = "in-progress"
+tests = ["a_category_survives_save_and_reopen", "the_anchor_and_tags_travel_in_the_private_key", "a_category_is_set_changed_and_taken_away_one_change_each", "the_filter_shows_the_chosen_categories_only"]
+open = "not tried by hand; picked in the inspector, not the selection toolbar (DD15); icons are named (Lucide) but drawn as colour dots until the app has an icon set; export by category and the A.26 reports wait for A.26"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

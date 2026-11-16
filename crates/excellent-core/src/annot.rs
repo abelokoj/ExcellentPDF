@@ -4,7 +4,7 @@
 //!
 //! Positions are in page space: points from the page's top-left corner, y down, before the reader's rotation, as
 //! MuPDF reports the page. An annotation is named by its id (the PDF's `/NM`), never by its place in the page's list.
-//! The anchor and tags (K.28) live in a private key of the annotation's dictionary, so they travel with the file.
+//! The anchor, tags (K.28) and category (A.17) live in a private key of the annotation's dictionary, so they travel with the file.
 //!
 //! Only the kinds the app makes are modelled; the others (links, form fields, sounds, other apps' own kinds) are left
 //! in the file as they are: [`Annotation::from_data`] gives `None` for them and the model never writes them.
@@ -224,6 +224,8 @@ pub struct Annotation {
     pub anchor: Option<Quote>,
     /// The id of the annotation on its page it goes with: a "replace text" strikeout names its caret (A.2).
     pub group: Option<String>,
+    /// Its semantic category's key (A.17), such as `claim`; `None` for none.
+    pub category: Option<String>,
     /// Its icon's name (PDF's `/Name`): a sticky note's (A.5) or a stamp's; empty for none, which readers draw as
     /// the kind's default.
     pub icon: String,
@@ -262,6 +264,7 @@ impl Annotation {
             tags: Vec::new(),
             anchor: None,
             group: None,
+            category: None,
             icon: String::new(),
             open: false,
             text: TextStyle::default(),
@@ -325,6 +328,8 @@ impl Annotation {
             .filter_map(|tag| tag.as_str().map(str::to_owned))
             .collect();
         let anchor = private.and_then(|object| quote_from_json(object.get("anchor")?));
+        let category =
+            private.and_then(|object| Some(object.get("category")?.as_str()?.to_owned()));
         let text = if data.kind == AnnotKind::FreeText {
             TextStyle {
                 font: Font::of(&data.font),
@@ -355,6 +360,7 @@ impl Annotation {
             tags,
             anchor,
             group: (!data.group.is_empty()).then(|| data.group.clone()),
+            category,
             icon: data.icon.clone(),
             open: data.open,
             text,
@@ -421,7 +427,7 @@ impl Annotation {
         }
     }
 
-    /// The private key's text: the tags and the anchor, empty when there are neither.
+    /// The private key's text: the tags, the anchor and the category, empty when there are none.
     fn private_json(&self) -> String {
         let mut object = Map::new();
         if !self.tags.is_empty() {
@@ -429,6 +435,9 @@ impl Annotation {
         }
         if let Some(anchor) = &self.anchor {
             object.insert("anchor".into(), quote_to_json(anchor));
+        }
+        if let Some(category) = &self.category {
+            object.insert("category".into(), json!(category));
         }
         if object.is_empty() {
             String::new()
@@ -472,6 +481,7 @@ impl Annotation {
             "tags": self.tags,
             "anchor": self.anchor.as_ref().map(quote_to_json),
             "group": self.group,
+            "category": self.category,
             "icon": self.icon,
             "open": self.open,
             "ends": self.ends.map(|end| format!("{end:?}")),
@@ -560,6 +570,8 @@ impl Annotation {
                 .get("group")
                 .and_then(Value::as_str)
                 .map(str::to_owned),
+            // Before A.17 none had a category.
+            category: text("category"),
             icon: text("icon").unwrap_or_default(),
             open: object.get("open").and_then(Value::as_bool).unwrap_or(false),
             // Before A.6 no text box kept a style.
