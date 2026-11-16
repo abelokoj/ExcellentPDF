@@ -195,6 +195,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
             ])
             .prop_map(str::to_owned),
             any::<bool>(),
+            any::<bool>(),
         ),
         (
             text_style(),
@@ -212,7 +213,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                 contents,
                 tags,
                 anchor,
-                (icon, open),
+                (icon, open, locked),
                 (text, start, end),
             )| {
                 // Only a sticky note has an icon and its own open state here, and only a text box a text style.
@@ -258,6 +259,8 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     cloud: closed
                         .then_some(1.0)
                         .filter(|_| matches!(start, LineEnd::Square | LineEnd::Circle)),
+                    // Any kind can be locked (A.12).
+                    locked,
                 }
             },
         )
@@ -947,4 +950,60 @@ fn a_cloud_keeps_its_border_effect_through_save_and_reopen() {
     assert_eq!(read_cloud.shape, cloud.shape);
     assert_eq!(read_polyline.cloud, None);
     assert_eq!(read_polyline.shape, polyline.shape);
+}
+
+#[test]
+fn a_lock_and_an_author_keep_through_save_and_reopen_and_other_flags_stay() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let mut square = Annotation::new(
+        0,
+        Shape::Boxed(
+            Boxed::Square,
+            PageRect {
+                x0: 100.0,
+                y0: 100.0,
+                x1: 200.0,
+                y1: 160.0,
+            },
+        ),
+        Style {
+            color: Some([0.1, 0.3, 0.8]),
+            opacity: 0.5,
+            width: 2.0,
+        },
+        "Ada",
+    );
+    square.locked = true;
+    Operation::new("Lock", vec![Change::CreateAnnotation(square.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0).expect("read");
+    let read = read.iter().find(|a| a.id == square.id).expect("kept");
+    assert!(read.locked, "locked, as other readers see it");
+    assert_eq!(read.author, "Ada");
+    assert!((read.style.opacity - 0.5).abs() < 1e-3);
+    // Unlocked again, it reads unlocked; MuPDF's Print flag, set on every new annotation, stays.
+    let mut doc = reopened;
+    let mut open = read.clone();
+    open.locked = false;
+    open.author = "Grace".to_owned();
+    Operation::new("Unlock", vec![Change::UpdateAnnotation(open.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    let again = page_annotations(&doc, 0).expect("read");
+    let again = again.iter().find(|a| a.id == square.id).expect("kept");
+    assert!(!again.locked);
+    assert_eq!(again.author, "Grace");
+    let bytes = {
+        let scratch = Scratch::new();
+        doc.save_pdf(&scratch.0).expect("save");
+        std::fs::read(&scratch.0).expect("read")
+    };
+    assert!(
+        bytes.windows(4).any(|w| w == b"/F 4") || bytes.windows(3).any(|w| w == b"/F4"),
+        "the Print flag stays when the lock goes"
+    );
 }

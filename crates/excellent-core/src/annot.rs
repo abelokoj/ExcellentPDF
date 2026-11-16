@@ -240,6 +240,9 @@ pub struct Annotation {
     pub dash: Vec<f32>,
     /// A closed shape's cloudy border's intensity, from 0 to 2; `None` for a plain border (A.10).
     pub cloud: Option<f32>,
+    /// Whether it is locked (PDF's `/F` Locked): not to be moved, resized, deleted or restyled; its note can still
+    /// be written (A.12).
+    pub locked: bool,
 }
 
 impl Annotation {
@@ -266,6 +269,7 @@ impl Annotation {
             fill: None,
             dash: Vec::new(),
             cloud: None,
+            locked: false,
         }
     }
 
@@ -358,6 +362,7 @@ impl Annotation {
             fill: rgb(&data.fill),
             dash: data.dash.clone(),
             cloud: data.cloud,
+            locked: data.locked,
         })
     }
 
@@ -403,6 +408,7 @@ impl Annotation {
             fill: self.fill.map(Vec::from).unwrap_or_default(),
             dash: self.dash.clone(),
             cloud: self.cloud,
+            locked: self.locked,
             rect,
             color: self.style.color.map(Vec::from).unwrap_or_default(),
             opacity: self.style.opacity,
@@ -471,6 +477,7 @@ impl Annotation {
             "fill": self.fill,
             "dash": self.dash,
             "cloud": self.cloud,
+            "locked": self.locked,
             "text": self.is_text_box().then(|| json!({
                 "font": self.text.font.name(),
                 "size": self.text.size,
@@ -574,6 +581,11 @@ impl Annotation {
                 .get("cloud")
                 .and_then(Value::as_f64)
                 .map(|intensity| intensity as f32),
+            // Before A.12 none was locked.
+            locked: object
+                .get("locked")
+                .and_then(Value::as_bool)
+                .unwrap_or_default(),
         })
     }
 }

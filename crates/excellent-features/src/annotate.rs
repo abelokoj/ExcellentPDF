@@ -2,6 +2,7 @@
 
 pub mod colors;
 pub mod freetext;
+pub mod inspector;
 pub mod margin;
 pub mod markup;
 pub mod notes;

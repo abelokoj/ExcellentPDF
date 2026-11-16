@@ -935,6 +935,7 @@ static void ex_annot_shape_props(fz_context *ctx, pdf_annot *annot, ex_annot_pro
 		props->cloudy = 1;
 		props->cloud_intensity = pdf_annot_border_effect_intensity(ctx, annot);
 	}
+	props->locked = (pdf_annot_flags(ctx, annot) & PDF_ANNOT_IS_LOCKED) != 0;
 }
 
 /* Writes `p`'s fill and dash pattern (A.9). The border is touched only when its dashes change, so another app's
@@ -1241,6 +1242,13 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 		pdf_set_annot_line_ending_styles(ctx, annot, (enum pdf_line_ending)p->line_start,
 			(enum pdf_line_ending)p->line_end);
 	ex_annot_write_shape(ctx, annot, p);
+	{
+		/* Only the Locked bit: the others (hidden, print, no zoom) are another app's and stay as they are (A.12). */
+		int flags = pdf_annot_flags(ctx, annot);
+		int locked = p->locked ? flags | PDF_ANNOT_IS_LOCKED : flags & ~PDF_ANNOT_IS_LOCKED;
+		if (locked != flags)
+			pdf_set_annot_flags(ctx, annot, locked);
+	}
 	ex_annot_group(ctx, annot, w->group);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))

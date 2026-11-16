@@ -10,6 +10,7 @@
 //! `annotate::freetext` and `annotate::shapes`.
 
 pub(crate) mod colors;
+mod inspector;
 pub(crate) mod margin;
 mod note;
 
@@ -20,6 +21,7 @@ use excellent_core::annot::{Annotation, Markup, Style, TextStyle, page_annotatio
 use excellent_core::edit::{Change, Operation};
 use excellent_features::annotate::colors::Tool as ColorTool;
 use excellent_features::annotate::freetext;
+use excellent_features::annotate::inspector as rules;
 use excellent_features::annotate::margin::ToScreen;
 use excellent_features::annotate::markup::{self, Marking};
 use excellent_features::annotate::notes::{self, Target};
@@ -172,6 +174,12 @@ impl AnnotateState {
     /// Deletes the open text box (A.6) or line (A.8), as one step of undo named `name`, and closes it.
     fn delete_open(self, name: String) {
         if let Some(noting) = untracked(|| self.noting.get()) {
+            if self
+                .annotation(&noting.target)
+                .is_some_and(|annotation| annotation.locked)
+            {
+                return;
+            }
             let change = Change::DeleteAnnotation {
                 page: noting.target.page,
                 id: noting.target.id.clone(),
@@ -228,7 +236,11 @@ impl AnnotateState {
         let Some(noting) = untracked(|| self.noting.get()) else {
             return;
         };
-        if let Some(change) = self.annotation(&noting.target).and_then(|a| change(&a)) {
+        // A locked annotation takes only its note and its lock (A.12).
+        if let Some(change) = self
+            .annotation(&noting.target)
+            .and_then(|a| change(&a).filter(|change| rules::allows(&a, change)))
+        {
             self.editing.apply(&Operation::new(name, vec![change]));
         }
     }

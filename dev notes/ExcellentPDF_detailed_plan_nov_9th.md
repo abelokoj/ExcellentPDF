@@ -3309,6 +3309,12 @@ edited. Setting `margin_notes`. Item 3 waits for N.3.
 
 **Done when:** every property set here is visible in the next frame and undoable.
 
+*Built (2026-11-16):* `annotate::inspector`: `Details`, `set_author`, `set_color`, `set_opacity`, `set_locked`
+(each one change), `allows` (a locked annotation takes only its note and its lock) and `date`. The lock is PDF's
+`/F` Locked bit (`ex_annot_props.locked`, in the struct's old padding). The app's rows sit under the note and the
+kind's controls, built again from the annotation after every revision. Border and font were A.6's and A.9's rows
+already. Category, tags and layer wait for A.17, A.18 and A.22; item 2 waits for A.13's selection.
+
 #### Ph3: 26/49 | A.13: Select, move, resize, copy, paste and delete
 **P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/edit.rs`
 1. Hit-test annotations in the canvas; handles for move, resize and vertices; marquee and Ctrl-click multi-select.

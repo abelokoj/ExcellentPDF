@@ -6,6 +6,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 04:08; Ph3: 25/49 | A.12: Annotation inspector
+
+- The inspector now shows every annotation's author (editable), colour (the palette's swatches), opacity (25 to
+  100 %), when it was made and last changed, and a Locked switch, under its note and its kind's own controls.
+- Each change is one step of undo, and the inspector is read again after every edit, so an undo shows at once.
+- A locked annotation (PDF's Locked flag, which other readers honour) keeps its look and can't be deleted from the
+  inspector; its note can still be written.
+- Category, tags and layer join the inspector with A.17, A.18 and A.22; editing several at once waits for A.13's
+  selection.
+
 ### 2026-11-16 03:51; Ph3: 24/49 | A.11: Margin notes and anchored note cards
 
 - Margin notes: a column beside the pages shows each note on the pages in view as a card (its colour, kind, author

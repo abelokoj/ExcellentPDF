@@ -436,7 +436,10 @@ pub fn is_arrow(annotation: &Annotation) -> bool {
 }
 
 /// `annotation` changed by `edit` and stamped now, as one change; none when `edit` changed nothing.
-fn changed(annotation: &Annotation, edit: impl FnOnce(&mut Annotation)) -> Option<Change> {
+pub(super) fn changed(
+    annotation: &Annotation,
+    edit: impl FnOnce(&mut Annotation),
+) -> Option<Change> {
     let mut new = annotation.clone();
     edit(&mut new);
     (new != *annotation).then(|| {

@@ -157,6 +157,12 @@ status = "in-progress"
 tests = ["two_hundred_notes_on_one_page_lay_out_without_overlap_within_a_frame", "overlapping_cards_spread_both_ways_round_their_notes", "a_card_alone_sits_level_with_its_note", "a_card_lines_up_with_the_top_of_its_annotation_under_any_rotation", "a_note_s_lines_are_counted_by_paragraph_and_capped"]
 open = "not tried by hand; the column sits beside the pages, not over them (DD11); Expand margins (N.3) is Phase 4's; a card's height is estimated from its text, so a long line can be cut"
 
+["A.12"]
+label = "Ph3: 25/49"
+status = "in-progress"
+tests = ["each_property_set_here_is_one_change_and_none_when_it_is_the_same", "a_locked_annotation_takes_only_its_note_and_its_lock", "a_text_box_s_colour_is_not_the_inspector_s", "dates_read_as_utc_and_a_missing_one_is_empty", "a_lock_and_an_author_keep_through_save_and_reopen_and_other_flags_stay"]
+open = "not tried by hand; category, tags and layer rows wait for A.17, A.18 and A.22; multi-selection waits for A.13's selection; dates show in UTC"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

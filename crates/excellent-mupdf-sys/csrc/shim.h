@@ -271,6 +271,9 @@ typedef struct ex_annot_props {
 	/* Whether a closed shape's border is cloudy (/BE /S /C), and how much (/BE /I, 0 to 2), A.10. */
 	int cloudy;
 	float cloud_intensity;
+	/* Whether it is locked (/F bit 8, Locked: not to be moved, resized, deleted or restyled; its note can still be
+	 * written), A.12. In the padding after `cloud_intensity`, so the struct's size is as before. */
+	int locked;
 } ex_annot_props;
 
 /* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author), the app's private key

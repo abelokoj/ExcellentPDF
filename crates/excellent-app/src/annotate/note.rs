@@ -4,8 +4,10 @@
 //! also has its icon and whether other readers show it open. A text box's (A.6) is its text, typed here so input
 //! methods work (in place on the page once U.8 gives the canvas the platform's input path), with its font, size,
 //! alignment, colour and border. A line's (A.8) has its endings; every shape's its border's width and style, and a
-//! rectangle's or ellipse's its fill (A.9). The models are `excellent-features`'
-//! `annotate::notes`, `annotate::sticky`, `annotate::freetext` and `annotate::shapes`.
+//! rectangle's or ellipse's its fill (A.9). Under them, every kind's author, colour, opacity, dates and lock (A.12,
+//! `inspector`); these controls are built again from the annotation after every edit, so undo shows at once, and a
+//! locked one keeps only its note and lock. The models are `excellent-features`' `annotate::notes`,
+//! `annotate::sticky`, `annotate::freetext`, `annotate::shapes` and `annotate::inspector`.
 
 use excellent_core::annot::{Align, Annotation, Font, LineEnd, Markup, Shape, TextStyle};
 use excellent_features::annotate::freetext::{self, Kind};
@@ -15,7 +17,7 @@ use excellent_features::annotate::sticky::{self, Icon};
 use nsh_base::{input, theme};
 use nsh_core::prelude::*;
 
-use super::{AnnotateState, Placing};
+use super::{AnnotateState, Placing, inspector};
 use crate::bookmarks::{caption, field};
 use crate::settings_window::{on_off, segment, segment_of, segmented};
 use crate::tabs::{Tone, action_button};
@@ -229,19 +231,38 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
         .placeholder(t!(placeholder))
         .label(t!(label))
         .auto_focus(true);
+    // The annotation as the document has it now: read again after every edit, and after undo (A.12).
+    let current = {
+        let target = noting.target.clone();
+        computed(move || {
+            state.editing.revision();
+            untracked(|| state.annotation(&target))
+        })
+    };
+    let locked = move || current.with(|a| a.as_ref().is_some_and(|a| a.locked));
     let mut buttons = view().flex_row().gap_2().items_center();
-    if boxed {
-        buttons = buttons.child(action_button("text.delete", Tone::Destructive, move || {
-            state.delete_open(t!("text.delete"));
-        }));
-    } else if let Some((kind, ..)) = noting.shape {
-        let delete = if kind.has_ends() {
-            "line.delete"
-        } else {
-            "shape.delete"
-        };
-        buttons = buttons.child(action_button(delete, Tone::Destructive, move || {
-            state.delete_open(t!(delete));
+    let delete = if boxed {
+        Some("text.delete")
+    } else {
+        noting.shape.map(|(kind, ..)| {
+            if kind.has_ends() {
+                "line.delete"
+            } else {
+                "shape.delete"
+            }
+        })
+    };
+    if let Some(delete) = delete {
+        // A locked annotation can't be deleted (A.12).
+        buttons = buttons.child(dynamic(move || {
+            if locked() {
+                view().into_element()
+            } else {
+                action_button(delete, Tone::Destructive, move || {
+                    state.delete_open(t!(delete));
+                })
+                .into_element()
+            }
         }));
     } else if had_note {
         buttons = buttons.child(action_button("note.delete", Tone::Destructive, move || {
@@ -249,19 +270,16 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
             state.close_note();
         }));
     }
-    if let Some((icon, open)) = noting.sticky {
-        panel = panel.child(sticky_controls(state, icon, open));
-    }
-    panel = panel.child(caption(label)).child(note);
-    if let Some((kind, style, border, end)) = noting.text {
-        panel = panel.child(text_controls(state, kind, style, border, end));
-    }
-    if let Some((kind, ends, look)) = noting.shape {
-        if kind.has_ends() {
-            panel = panel.child(line_controls(state, ends));
-        }
-        panel = panel.child(shape_controls(state, kind, look));
-    }
+    panel = panel
+        .child(caption(label))
+        .child(note)
+        .child(dynamic(move || {
+            current.with(|annotation| match annotation {
+                Some(annotation) => untracked(|| controls(state, annotation).into_element()),
+                // Undone, or the document changed: there is nothing to show.
+                None => view().into_element(),
+            })
+        }));
     panel
         .child(buttons.child(view().flex_1()).child(action_button(
             "note.close",
@@ -273,6 +291,33 @@ fn editor(state: AnnotateState, noting: Noting) -> View {
                 .text_size(px(12.0))
                 .text_color(move || theme().muted_foreground),
         )
+}
+
+/// What can be changed of `annotation` besides its note: its kind's controls and its look (or, locked, why not),
+/// then its dates and lock.
+fn controls(state: AnnotateState, annotation: &Annotation) -> View {
+    let mut controls = view().gap_3();
+    if annotation.locked {
+        controls = controls.child(inspector::locked_hint());
+    } else {
+        let noting = Noting::of(annotation);
+        if let Some((icon, open)) = noting.sticky {
+            controls = controls.child(sticky_controls(state, icon, open));
+        }
+        if let Some((kind, style, border, end)) = noting.text {
+            controls = controls.child(text_controls(state, kind, style, border, end));
+        }
+        if let Some((kind, ends, look)) = noting.shape {
+            if kind.has_ends() {
+                controls = controls.child(line_controls(state, ends));
+            }
+            controls = controls.child(shape_controls(state, kind, look));
+        }
+        controls = controls.child(inspector::look(state, annotation));
+    }
+    controls
+        .child(view().h(px(1.0)).bg(move || theme().border))
+        .child(inspector::facts(state, annotation))
 }
 
 /// The text sizes offered, in points.
@@ -617,7 +662,7 @@ fn icon_label(icon: Icon) -> &'static str {
 }
 
 /// A colour's channels, 0 to 1, as `0xrrggbb`.
-fn packed(color: [f32; 3]) -> u32 {
+pub(super) fn packed(color: [f32; 3]) -> u32 {
     color
         .iter()
         .map(|channel| (channel.clamp(0.0, 1.0) * 255.0).round() as u32)

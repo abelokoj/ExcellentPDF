@@ -737,6 +737,7 @@ pub struct ex_annot_props {
     pub dash: [f32; 8usize],
     pub cloudy: ::core::ffi::c_int,
     pub cloud_intensity: f32,
+    pub locked: ::core::ffi::c_int,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -796,6 +797,8 @@ const _: () = {
         [::core::mem::offset_of!(ex_annot_props, cloudy) - 204usize];
     ["Offset of field: ex_annot_props::cloud_intensity"]
         [::core::mem::offset_of!(ex_annot_props, cloud_intensity) - 208usize];
+    ["Offset of field: ex_annot_props::locked"]
+        [::core::mem::offset_of!(ex_annot_props, locked) - 212usize];
 };
 unsafe extern "C" {
     pub fn ex_annot_props_of(
