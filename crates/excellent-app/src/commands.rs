@@ -65,6 +65,8 @@ pub(crate) enum CommandId {
     Find(FindAction),
     /// Opens the markup tools' colour dialog (A.3).
     AnnotationColors,
+    /// Shows the notes in a column beside the pages, or hides it (A.11).
+    MarginNotes,
     /// Places a sticky note where the page is clicked next (A.5).
     StickyNote,
     /// Places a text box where the page is clicked next (A.6).
@@ -583,6 +585,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+c"],
+    },
+    Command {
+        id: CommandId::MarginNotes,
+        name: "annotate.margin_notes",
+        label: "command.margin_notes",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["m"],
     },
     Command {
         id: CommandId::Canvas("copy"),

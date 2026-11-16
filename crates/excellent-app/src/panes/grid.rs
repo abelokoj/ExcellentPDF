@@ -626,6 +626,7 @@ pub(crate) fn pages_view(
         .prop("edits", move || JsonValue::from(editing.revision()))
         .prop("annotationColors", move || annotate.colors_prop())
         .prop("drawing", move || annotate.drawing_prop())
+        .prop("margin", move || annotate.margin_prop())
         .label(move || SharedString::from(label()))
         .on_native_event(move |event: &NativeEvent| {
             match &*event.name {
@@ -651,13 +652,19 @@ pub(crate) fn pages_view(
         })
         .flex_1()
         .style_when(move || hidden() || !tabs.has_shown(), |s| s.invisible());
-    view()
+    let pages = view()
         .flex_1()
-        .style_when(move || !tabs.has_shown(), |s| s.hidden())
         .focusable(true)
         .element_ref(&focus)
         .label(move || SharedString::from(label()))
-        .child(canvas)
+        .child(canvas);
+    // The notes beside the pages (A.11), outside the focus stop so a click on a card leaves the pages' keys alone.
+    view()
+        .flex_1()
+        .flex_row()
+        .style_when(move || !tabs.has_shown(), |s| s.hidden())
+        .child(pages)
+        .child(crate::annotate::margin::margin_column(annotate))
 }
 
 /// The canvas copied the selected text (K.13): it goes on the clipboard.

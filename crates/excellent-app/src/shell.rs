@@ -451,6 +451,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
                 .annotate
                 .place(Placing::Shape(pane.annotate.regular_polygon())),
             CommandId::Star => pane.annotate.place(Placing::Shape(pane.annotate.star())),
+            CommandId::MarginNotes => pane.annotate.toggle_margin(),
             CommandId::AnnotationColors => pane
                 .annotate
                 .pick(excellent_features::annotate::colors::Tool::Highlight),

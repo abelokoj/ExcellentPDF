@@ -35,6 +35,7 @@ use crate::page::saved::SavedView;
 mod access;
 mod draw;
 mod find;
+mod margin;
 mod markbar;
 mod minimap;
 mod reading;
@@ -181,6 +182,8 @@ pub struct PageCanvas<H: Host> {
     over_text: bool,
     /// The left button's presses, for double and triple clicks.
     clicks: Clicks,
+    /// While the app shows its margin column (A.11): the pages last reported to it.
+    margin: Option<margin::Margin>,
     /// A copy is waiting for the text of selected pages that aren't read yet.
     copy_pending: bool,
     /// The link under the mouse, as last reported.
@@ -287,6 +290,7 @@ impl<H: Host> PageCanvas<H> {
             selecting: false,
             over_text: false,
             clicks: Clicks::default(),
+            margin: None,
             copy_pending: false,
             hovered: None,
             pressed: None,
@@ -1358,6 +1362,8 @@ impl<H: Host> PageCanvas<H> {
         }
         self.tiles.evict();
         self.report_page();
+        // Every frame, moving or not: the cards follow the pages as they scroll.
+        self.report_margin();
         if !moving {
             self.report_view();
         }

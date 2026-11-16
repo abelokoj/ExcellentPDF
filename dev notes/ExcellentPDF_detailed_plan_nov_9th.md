@@ -3295,6 +3295,12 @@ prop. The canvas counts clicks with K.13's click counter for the double-click; t
 
 **Done when:** 200 notes on one page lay out without overlap within one frame.
 
+*Built (2026-11-16):* the layout is `annotate::margin::layout`: cards sorted by anchor and merged into clusters
+centred on their anchors, linear after the sort. The canvas reports each page in view as a map from page points to
+the app's pixels (`margin` events, prop `margin`; `Host::ui_pixels_per_point` for the platform's UI unit); the column
+is an NSH view beside the canvas (DD11), its cards read again only when other pages come into view or the document is
+edited. Setting `margin_notes`. Item 3 waits for N.3.
+
 #### Ph3: 25/49 | A.12: Annotation inspector
 **P0; Phase 3; Needs:** K.14; **Code:** `excellent-features/annotate/inspector.rs`
 1. Right panel: type, author, dates, color, opacity, border, font, contents, category (A.17), tags (A.18), layer

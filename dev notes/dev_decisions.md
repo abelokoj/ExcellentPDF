@@ -211,3 +211,23 @@ The item's own third line ("draw overlays with Metal or Core Graphics") already 
   whether that holds 60 fps (120 on ProMotion screens).
 - If it doesn't, a `CAMetalLayer` host replaces `host.rs` alone: the view, input and component stay.
 - If the maintainer wants Metal from the start, this is the file to replace.
+
+## DD11. The margin column sits beside the page canvas, not over it (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.11 item 1 says "a margin column beside the page (canvas overlay)". The column is an NSH view
+in the pane's row, to the right of the page canvas, rather than something the canvas draws over the pages.
+
+**Why:** the canvas is a native window of its own (D5; on Windows a child window), and NSH can't lay its views over
+it. The canvas has no text drawing (`page::Host` draws fills, images and lines), and the cards need wrapped text, the
+platform's text input for writing in place, focus and screen-reader names, all of which NSH has. The canvas instead
+reports each page in view as a map from its points to the app's pixels (`margin` events, every frame the pages
+move), and the column places the cards with `excellent-features`' `annotate::margin::layout`.
+
+**What it means:**
+
+- The pages get narrower by the column's width (280 px) while it shows; fit-width zoom follows.
+- Cards are level with their notes but in their own column; there are no leader lines across the page.
+- Item 3 ("Expand margins", N.3) is Phase 4's and not built yet; when it is, the column can sit in the widened margin.
+- If the maintainer wants the cards drawn on the canvas itself, the canvas needs text drawing in all three hosts, and
+  an input path for writing in place (U.8); the layout model stays.
+

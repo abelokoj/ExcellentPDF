@@ -10,6 +10,7 @@
 //! `annotate::freetext` and `annotate::shapes`.
 
 pub(crate) mod colors;
+pub(crate) mod margin;
 mod note;
 
 pub(crate) use excellent_features::annotate::freetext::Kind;
@@ -19,6 +20,7 @@ use excellent_core::annot::{Annotation, Markup, Style, TextStyle, page_annotatio
 use excellent_core::edit::{Change, Operation};
 use excellent_features::annotate::colors::Tool as ColorTool;
 use excellent_features::annotate::freetext;
+use excellent_features::annotate::margin::ToScreen;
 use excellent_features::annotate::markup::{self, Marking};
 use excellent_features::annotate::notes::{self, Target};
 use excellent_features::annotate::polygons;
@@ -79,6 +81,9 @@ pub(crate) struct AnnotateState {
     reveals: Signal<u64>,
     /// What the next click on the page places (A.5, A.6), if anything.
     placing: Signal<Option<Placing>>,
+    /// The pages in view, whose notes the margin column shows (A.11), and how each one's points map to the screen.
+    shown_pages: Signal<Vec<usize>>,
+    page_maps: Signal<Vec<(usize, ToScreen)>>,
 }
 
 impl AnnotateState {
@@ -92,6 +97,8 @@ impl AnnotateState {
             draft: signal(String::new()),
             reveals: signal(0),
             placing: signal(None),
+            shown_pages: signal(Vec::new()),
+            page_maps: signal(Vec::new()),
         }
     }
 
@@ -355,6 +362,7 @@ impl AnnotateState {
             "markup" => self.mark(&event.data),
             "pagePress" => self.press(&event.data),
             "pageDraw" => self.drawn(&event.data),
+            "margin" => self.margin_moved(&event.data),
             "toolColor" => colors::on_tool_color(self.live, &event.data),
             "pickColor" => {
                 let tool = event

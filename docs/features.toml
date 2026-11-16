@@ -151,6 +151,12 @@ status = "in-progress"
 tests = ["a_cloud_keeps_its_border_effect_through_save_and_reopen", "random_annotation_edits_survive_save_and_reopen", "a_kind_round_trips_through_its_name_with_its_count", "a_dragged_star_or_polygon_is_a_polygon_annotation", "clicked_points_make_a_polygon_a_polyline_or_a_cloud", "a_click_hits_a_polygon_s_sides_and_a_filled_one_s_inside", "a_regular_polygon_and_a_star_fit_their_box_tip_up", "a_double_click_s_second_point_is_dropped", "distance_and_inside_follow_the_path"]
 open = "not tried by hand; clouds not opened in Acrobat; Shift snapping on Windows only; shapes can't be moved or their corners dragged until A.13"
 
+["A.11"]
+label = "Ph3: 24/49"
+status = "in-progress"
+tests = ["two_hundred_notes_on_one_page_lay_out_without_overlap_within_a_frame", "overlapping_cards_spread_both_ways_round_their_notes", "a_card_alone_sits_level_with_its_note", "a_card_lines_up_with_the_top_of_its_annotation_under_any_rotation", "a_note_s_lines_are_counted_by_paragraph_and_capped"]
+open = "not tried by hand; the column sits beside the pages, not over them (DD11); Expand margins (N.3) is Phase 4's; a card's height is estimated from its text, so a long line can be cut"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

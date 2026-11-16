@@ -40,6 +40,21 @@ pub(crate) struct Noting {
 }
 
 impl Noting {
+    /// Its annotation's colour, `0xRRGGBB`.
+    pub(super) fn color(&self) -> u32 {
+        self.color
+    }
+
+    /// What its annotation is, in the reader's words: "Highlight", "Rectangle" and so on.
+    pub(super) fn kind_name(&self) -> String {
+        match (self.kind, self.text, self.shape) {
+            (Some(kind), ..) => super::name(kind),
+            (None, Some((kind, ..)), _) => super::text_name(kind),
+            (None, None, Some((kind, ..))) => super::shape_kind_name(kind),
+            (None, None, None) => t!("sticky.name"),
+        }
+    }
+
     pub(super) fn of(annotation: &Annotation) -> Self {
         let kind = match annotation.shape {
             Shape::Markup(kind, _) => Some(kind),
@@ -160,12 +175,7 @@ fn placing(what: Placing) -> View {
 
 fn editor(state: AnnotateState, noting: Noting) -> View {
     let color = Hsla::from(rgb(noting.color));
-    let kind = match (noting.kind, noting.text, noting.shape) {
-        (Some(kind), ..) => super::name(kind),
-        (None, Some((kind, ..)), _) => super::text_name(kind),
-        (None, None, Some((kind, ..))) => super::shape_kind_name(kind),
-        (None, None, None) => t!("sticky.name"),
-    };
+    let kind = noting.kind_name();
     let heading = t!("note.heading", kind = kind, page = noting.target.page + 1);
     let mut panel = view().flex_1().p_4().gap_3().child(
         view()

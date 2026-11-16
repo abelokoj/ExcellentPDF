@@ -145,6 +145,12 @@ pub trait Host {
     /// The selected text changed.
     fn selection_changed(&self) {}
 
+    /// The app's pixels a point at 100 %: 96 / 72 where the UI is laid out in pixels of 1/96 inch (Windows, GTK),
+    /// 1 where it is in points (macOS). The margin column (A.11) is placed in them.
+    fn ui_pixels_per_point(&self) -> f32 {
+        96.0 / 72.0
+    }
+
     /// Whether Shift is held down now, for snapping a shape being drawn (A.8).
     fn shift_down(&self) -> bool {
         false

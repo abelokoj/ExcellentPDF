@@ -6,6 +6,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 03:51; Ph3: 24/49 | A.11: Margin notes and anchored note cards
+
+- Margin notes: a column beside the pages shows each note on the pages in view as a card (its colour, kind, author
+  and first lines), level with what it is about. Cards that would overlap are pushed apart round the middle of their
+  notes, and follow the pages as they scroll, zoom and turn.
+- A click on a card opens its note to write in place (and in the inspector); Done saves it as one step of undo.
+- `annotate.margin_notes` (`M` on the pages, palette, Annotate toolbar) shows or hides the column; also in Settings,
+  Annotation. Off by default.
+- The column is beside the pages rather than over them (dev decision DD11).
+
 ### 2026-11-16 03:25; Ph3: 23/49 | A.10: Polygons, polylines and clouds
 
 - Polygons, polylines and clouds: three commands (palette, Annotate toolbar, `P`, `Shift+P` and `Shift+K` on the

@@ -159,6 +159,7 @@ fn appearance_section(
 
 /// A.3: the palette the markup tools offer, and the colour dialog.
 fn annotation_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -> View {
+    use crate::annotate::margin::MARGIN_NOTES;
     use crate::annotate::{POLYGON_SIDES, STAR_POINTS, colors};
     use excellent_features::annotate::polygons::{DEFAULT_SIDES, SIDES};
     let counts = (f64::from(*SIDES.start()), f64::from(*SIDES.end()));
@@ -187,6 +188,15 @@ fn annotation_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static
             picker_button(
                 move || t!("settings.annotation_colors_choose"),
                 move || hand_over(CommandId::AnnotationColors),
+            ),
+        ))
+        .child(row(
+            "settings.margin_notes",
+            "settings.margin_notes_hint",
+            on_off(
+                "settings.margin_notes",
+                move || live.read(|s| s.flag(MARGIN_NOTES).unwrap_or(false)),
+                move |on| live.change(|s| s.set_flag(MARGIN_NOTES, on.then_some(true))),
             ),
         ))
         .child(row(

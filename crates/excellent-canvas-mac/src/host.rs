@@ -145,6 +145,11 @@ fn jobs_done(id: u64) {
 }
 
 impl Host for MacHost {
+    /// AppKit lays the UI out in points.
+    fn ui_pixels_per_point(&self) -> f32 {
+        1.0
+    }
+
     type Image = CFRetained<CGImage>;
     type Error = Infallible;
 
