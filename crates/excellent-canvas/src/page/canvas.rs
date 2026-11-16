@@ -690,6 +690,7 @@ impl<H: Host> PageCanvas<H> {
             .then(|| self.text_pos(x, y, granularity))
             .flatten();
         let had = self.selection.is_some();
+        self.markbar.caret = None;
         self.selection = start.map(|at| Selection::new(at, granularity));
         self.selecting = start.is_some();
         if had || self.selecting {
@@ -707,8 +708,9 @@ impl<H: Host> PageCanvas<H> {
         }
         if self.selecting {
             self.selecting = false;
-            if self.selection.is_some_and(|s| s.is_collapsed()) {
+            if let Some(click) = self.selection.filter(|s| s.is_collapsed()) {
                 self.selection = None;
+                self.markbar_click(click);
             }
             self.host.selection_changed();
             return true;
@@ -863,6 +865,7 @@ impl<H: Host> PageCanvas<H> {
         self.over_text = false;
         self.copy_pending = false;
         self.markbar.pending = None;
+        self.markbar.caret = None;
         self.hovered = None;
         self.pressed = None;
         self.finder.forget(true);
@@ -1156,8 +1159,8 @@ impl<H: Host> PageCanvas<H> {
             if self.copy_pending {
                 self.copy();
             }
-            if let Some(kind) = self.markbar.pending {
-                self.mark(kind);
+            if let Some(tool) = self.markbar.pending {
+                self.use_tool(tool);
             }
         }
         if read {

@@ -437,7 +437,8 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             on_page() && !dialog_open() && !reading_theme_open.get()
         });
     });
-    // Each pane's own dialogs: the group being edited, the bookmark being written, the link being asked about.
+    // Each pane's own dialogs: the group being edited, the bookmark being written, the link being asked about, the
+    // text of a proposed edit (A.2).
     let pane_dialogs = panes.slots().into_iter().fold(view(), |dialogs, pane| {
         dialogs
             .child(when(
@@ -451,6 +452,10 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             .child(when(
                 move || pane.link_state.is_asking(),
                 move || links::link_dialog(pane.link_state),
+            ))
+            .child(when(
+                move || pane.annotate.is_asking(),
+                move || crate::annotate::text_edit_dialog(pane.annotate),
             ))
     });
 

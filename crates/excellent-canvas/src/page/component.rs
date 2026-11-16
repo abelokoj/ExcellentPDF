@@ -103,6 +103,8 @@ impl<H: Host> PageCanvas<H> {
             "underline" => canvas.mark(Markup::Underline),
             "squiggly" => canvas.mark(Markup::Squiggly),
             "strikeOut" => canvas.mark(Markup::StrikeOut),
+            "replaceText" => canvas.propose_replace(),
+            "insertText" => canvas.propose_insert(),
             "selectAll" => canvas.select_page(),
             "readerPlace" => canvas.reader_place(),
             "toggleRuler" => canvas.toggle_ruler(),

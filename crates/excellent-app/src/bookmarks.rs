@@ -651,7 +651,7 @@ fn form(state: BookmarkState, draft: Draft, close: impl Fn() + Copy + 'static) -
 }
 
 /// A text field of the editor, drawn as the app's other dialogs draw theirs.
-fn field(input: Input) -> Input {
+pub(crate) fn field(input: Input) -> Input {
     input
         .min_h(px(34.0))
         .px_3()
@@ -664,7 +664,7 @@ fn field(input: Input) -> Input {
 }
 
 /// A small label over a group of controls.
-fn caption(key: &'static str) -> impl IntoElement {
+pub(crate) fn caption(key: &'static str) -> impl IntoElement {
     text(move || t!(key))
         .text_size(px(12.0))
         .text_color(move || theme().muted_foreground)

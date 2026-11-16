@@ -62,10 +62,7 @@ impl Request {
             "strikeOut" => Markup::StrikeOut,
             _ => return None,
         };
-        let color: [f32; 3] = floats(value.get("color")?)?.try_into().ok()?;
-        if color.iter().any(|c| !(0.0..=1.0).contains(c)) {
-            return None;
-        }
+        let color = color(value.get("color")?)?;
         let pages = value
             .get("pages")
             .and_then(Value::as_array)
@@ -78,7 +75,8 @@ impl Request {
 }
 
 impl PageRequest {
-    fn parse(value: &Value) -> Option<Self> {
+    /// The page in `value`: `{page, quads, quote}`, as in [`Request::parse`]. A quad that doesn't parse is left out.
+    pub(super) fn parse(value: &Value) -> Option<Self> {
         let page = usize::try_from(value.get("page")?.as_u64()?).ok()?;
         let quads: Vec<Quad> = value
             .get("quads")?
@@ -109,8 +107,17 @@ impl PageRequest {
     }
 }
 
+/// An RGB colour from 0 to 1 in `value`, `[r, g, b]`.
+pub(super) fn color(value: &Value) -> Option<[f32; 3]> {
+    let color: [f32; 3] = floats(value)?.try_into().ok()?;
+    color
+        .iter()
+        .all(|c| (0.0..=1.0).contains(c))
+        .then_some(color)
+}
+
 /// The finite numbers of a JSON array, as `f32`; `None` when one isn't.
-fn floats(value: &Value) -> Option<Vec<f32>> {
+pub(super) fn floats(value: &Value) -> Option<Vec<f32>> {
     value
         .as_array()?
         .iter()

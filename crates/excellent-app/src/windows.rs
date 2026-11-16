@@ -202,6 +202,10 @@ fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoEl
             move || pane.link_state.is_asking(),
             move || crate::links::link_dialog(pane.link_state),
         ))
+        .child(when(
+            move || pane.annotate.is_asking(),
+            move || crate::annotate::text_edit_dialog(pane.annotate),
+        ))
 }
 
 /// The button that docks the window, named with its shortcut.

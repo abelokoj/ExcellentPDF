@@ -21,6 +21,7 @@ use crate::page::Page;
 const ID: c_int = 1;
 const AUTHOR: c_int = 2;
 const APP_DATA: c_int = 3;
+const GROUP: c_int = 4;
 
 /// The subtype of a PDF annotation (PDF 2.0, table 171).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -267,6 +268,7 @@ impl Annot<'_> {
             author: self.text(AUTHOR)?,
             contents: self.contents()?,
             app_data: self.text(APP_DATA)?,
+            group: self.text(GROUP)?,
             rect: props.rect.into(),
             color: props.color[..color_n].to_vec(),
             opacity: props.opacity,
@@ -304,6 +306,9 @@ pub struct AnnotData {
     pub contents: String,
     /// The app's private key (its anchor and tags, K.28) as text; empty for none.
     pub app_data: String,
+    /// The id of the annotation on its page it is grouped with (`/IRT` with `/RT /Group`: a "replace text" pair,
+    /// A.2); empty for none.
+    pub group: String,
     /// Where it is: written for the kinds placed by a rectangle (notes, text boxes, shapes, stamps); read for all,
     /// as the area it covers.
     pub rect: PageRect,
@@ -338,11 +343,12 @@ impl AnnotData {
         let text = |s: &str| {
             CString::new(s).map_err(|_| MuError::argument("annotation text contains a NUL"))
         };
-        let (id, author, contents, app_data) = (
+        let (id, author, contents, app_data, group) = (
             text(&self.id)?,
             text(&self.author)?,
             text(&self.contents)?,
             text(&self.app_data)?,
+            text(&self.group)?,
         );
         let count = |n: usize| c_int::try_from(n).map_err(|_| MuError::argument("too many points"));
         if self.color.len() > 4 {
@@ -369,6 +375,7 @@ impl AnnotData {
             author: author.as_ptr(),
             contents: contents.as_ptr(),
             app_data: app_data.as_ptr(),
+            group: group.as_ptr(),
             props: ex_annot_props {
                 type_: kind,
                 rect: self.rect.into(),

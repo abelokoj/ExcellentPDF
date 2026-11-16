@@ -599,6 +599,7 @@ pub(crate) fn pages_view(
         bookmarks,
         find,
         editing,
+        annotate,
         ..
     } = pane;
     let reading = shared.reading;
@@ -643,7 +644,7 @@ pub(crate) fn pages_view(
             outline.on_canvas_event(event);
             bookmarks.on_canvas_event(event);
             find.on_canvas_event(event);
-            crate::annotate::on_canvas_event(editing, event);
+            annotate.on_canvas_event(event);
             copy_selection(event);
         })
         .flex_1()

@@ -3167,6 +3167,12 @@ line's height). The author is the system's user name: the plan names no setting 
 
 **Done when:** Acrobat shows the pair as one "replace text" comment.
 
+*Built (2026-11-15):* the caret is made first, then the strikeout with `/IRT` naming it and `/RT /Group`, so the
+shim finds the caret on the page by its `/NM`; `Annotation::group` carries the link through the log and the file.
+The caret's rectangle is MuPDF's 20 × 14 pt centred on the foot of the edge the text goes in at. Insert goes after
+the selection, or at the caret the last plain click in the text left. The page keys are `E` and `Insert` (`R` and
+`I` are SumatraPDF's reload and page info). A replacement across pages proposes only its last page's part.
+
 #### Ph3: 16/49 | A.3: Annotation colors
 **P0; Phase 3; Needs:** K.17; **Code:** `excellent-features/annotate/colors.rs`
 1. A default palette per tool from the theme's annotation colors (§10.3); recent colors; NSH `ColorPicker` for custom.

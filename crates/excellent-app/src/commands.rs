@@ -408,6 +408,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &["x"],
     },
     Command {
+        id: CommandId::Canvas("replaceText"),
+        name: "markup.replace",
+        label: "command.replace_text",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["e"],
+    },
+    Command {
+        id: CommandId::Canvas("insertText"),
+        name: "markup.insert",
+        label: "command.insert_text",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["insert"],
+    },
+    Command {
         id: CommandId::Canvas("copy"),
         name: "edit.copy",
         label: "command.copy",

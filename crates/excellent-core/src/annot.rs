@@ -149,6 +149,8 @@ pub struct Annotation {
     pub tags: Vec<String>,
     /// The text under it, to find it again in another version of the document (K.28).
     pub anchor: Option<Quote>,
+    /// The id of the annotation on its page it goes with: a "replace text" strikeout names its caret (A.2).
+    pub group: Option<String>,
 }
 
 impl Annotation {
@@ -167,6 +169,7 @@ impl Annotation {
             contents: String::new(),
             tags: Vec::new(),
             anchor: None,
+            group: None,
         }
     }
 
@@ -217,6 +220,7 @@ impl Annotation {
             contents: data.contents.clone(),
             tags,
             anchor,
+            group: (!data.group.is_empty()).then(|| data.group.clone()),
         })
     }
 
@@ -238,6 +242,7 @@ impl Annotation {
             author: self.author.clone(),
             contents: self.contents.clone(),
             app_data: self.private_json(),
+            group: self.group.clone().unwrap_or_default(),
             rect,
             color: self.style.color.map(Vec::from).unwrap_or_default(),
             opacity: self.style.opacity,
@@ -295,6 +300,7 @@ impl Annotation {
             "contents": self.contents,
             "tags": self.tags,
             "anchor": self.anchor.as_ref().map(quote_to_json),
+            "group": self.group,
         })
     }
 
@@ -357,6 +363,11 @@ impl Annotation {
                 Value::Null => None,
                 value => Some(quote_from_json(value)?),
             },
+            // Logs written before A.2 have no group.
+            group: object
+                .get("group")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
         })
     }
 }

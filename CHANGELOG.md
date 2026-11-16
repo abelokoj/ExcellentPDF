@@ -6,6 +6,19 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 23:04; Ph3: 15/49 | A.2: Replace and insert text
+
+- The markup bar under selected text has two more buttons after a rule: Replace (strikeout and caret) and Insert
+  (caret). Replace asks for the new text in a small dialog, starting from the selected text, and proposes it as a
+  strikeout over the selection grouped with a caret holding the new text, the pair Acrobat shows as one "replace
+  text" comment. Insert asks for text and leaves a caret holding it after the selection, or where the last click in
+  the text put the cursor.
+- Both are commands (the palette; Annotate mode's toolbar) with page keys `E` (replace) and `Insert`; each is one
+  undoable edit, saved into the PDF.
+- Annotations now keep the annotation they are grouped with (`/IRT` with `/RT /Group`) through save, reopen and the
+  operation log.
+- The model is `excellent-features::annotate::replace`; the shim writes and reads the group.
+
 ### 2026-11-15 22:34; Ph3: 14/49 | A.1: Text markup: highlight, underline, squiggly, strikeout
 
 - Selecting text in a PDF floats a small bar under the selection (over it when there's no room below): highlight,

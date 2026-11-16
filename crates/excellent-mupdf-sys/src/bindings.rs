@@ -787,10 +787,11 @@ pub struct ex_annot_write {
     pub quads: *const fz_quad,
     pub stroke_lengths: *const ::core::ffi::c_int,
     pub points: *const fz_point,
+    pub group: *const ::core::ffi::c_char,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 136usize];
+    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 144usize];
     ["Alignment of ex_annot_write"][::core::mem::align_of::<ex_annot_write>() - 8usize];
     ["Offset of field: ex_annot_write::props"]
         [::core::mem::offset_of!(ex_annot_write, props) - 32usize];
@@ -798,6 +799,8 @@ const _: () = {
         [::core::mem::offset_of!(ex_annot_write, quads) - 112usize];
     ["Offset of field: ex_annot_write::points"]
         [::core::mem::offset_of!(ex_annot_write, points) - 128usize];
+    ["Offset of field: ex_annot_write::group"]
+        [::core::mem::offset_of!(ex_annot_write, group) - 136usize];
 };
 impl Default for ex_annot_write {
     fn default() -> Self {

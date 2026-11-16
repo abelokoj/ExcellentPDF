@@ -178,6 +178,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                 contents,
                 tags,
                 anchor,
+                group: None,
             },
         )
 }
@@ -419,5 +420,73 @@ fn the_anchor_and_tags_travel_in_the_private_key() {
         Annotation::from_data(0, &link),
         None,
         "links aren't modelled"
+    );
+}
+
+/// A.2: a strikeout grouped with a caret ("replace text") is written as `/IRT` with `/RT /Group`, survives a save and
+/// a reopen, and ungrouping it takes both keys away.
+#[test]
+fn a_grouped_pair_survives_save_and_reopen() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let mut caret = Annotation::new(
+        0,
+        Shape::Boxed(
+            Boxed::Caret,
+            PageRect {
+                x0: 90.0,
+                y0: 100.0,
+                x1: 110.0,
+                y1: 114.0,
+            },
+        ),
+        Style::default(),
+        "Ada",
+    );
+    caret.contents = "new words".into();
+    let mut strike = Annotation::new(
+        0,
+        Shape::Markup(
+            Markup::StrikeOut,
+            vec![Quad {
+                ul: PagePoint { x: 40.0, y: 100.0 },
+                ur: PagePoint { x: 100.0, y: 100.0 },
+                ll: PagePoint { x: 40.0, y: 112.0 },
+                lr: PagePoint { x: 100.0, y: 112.0 },
+            }],
+        ),
+        Style::default(),
+        "Ada",
+    );
+    strike.group = Some(caret.id.clone());
+    Operation::new(
+        "Replace",
+        vec![
+            Change::CreateAnnotation(caret.clone()),
+            Change::CreateAnnotation(strike.clone()),
+        ],
+    )
+    .apply(&mut doc)
+    .expect("apply");
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0).expect("read");
+    let found = |id: &str| read.iter().find(|a| a.id == id).expect("kept").clone();
+    assert_eq!(found(&strike.id).group.as_deref(), Some(caret.id.as_str()));
+    assert_eq!(found(&caret.id).group, None);
+    assert_eq!(found(&caret.id).contents, "new words");
+
+    strike.group = None;
+    Operation::new("Ungroup", vec![Change::UpdateAnnotation(strike.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    assert_eq!(
+        page_annotations(&doc, 0)
+            .expect("read")
+            .iter()
+            .find(|a| a.id == strike.id)
+            .expect("kept")
+            .group,
+        None
     );
 }

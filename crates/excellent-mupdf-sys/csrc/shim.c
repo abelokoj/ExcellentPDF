@@ -996,6 +996,13 @@ int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out,
 		case EX_ANNOT_APP_DATA:
 			text = pdf_to_text_string(ctx, pdf_dict_gets(ctx, pdf_annot_obj(ctx, annot), EX_APP_KEY));
 			break;
+		case EX_ANNOT_GROUP:
+		{
+			pdf_obj *obj = pdf_annot_obj(ctx, annot);
+			if (pdf_name_eq(ctx, pdf_dict_get(ctx, obj, PDF_NAME(RT)), PDF_NAME(Group)))
+				text = pdf_dict_get_text_string(ctx, pdf_dict_get(ctx, obj, PDF_NAME(IRT)), PDF_NAME(NM));
+			break;
+		}
 		default:
 			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no annotation text %d", which);
 		}
@@ -1007,6 +1014,28 @@ int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out,
 		return ex_fail(ctx, err);
 	*out = buf;
 	return 0;
+}
+
+static pdf_annot *ex_find_annot(fz_context *ctx, pdf_page *page, const char *id);
+
+/* Groups `annot` with the annotation of its page whose /NM is `group` (/IRT, /RT /Group), or ungroups it when
+ * `group` is NULL or empty. A reply (an /IRT without /RT /Group) is left as it is. */
+static void ex_annot_group(fz_context *ctx, pdf_annot *annot, const char *group)
+{
+	pdf_obj *obj = pdf_annot_obj(ctx, annot);
+	if (group && *group)
+	{
+		pdf_annot *target = ex_find_annot(ctx, pdf_annot_page(ctx, annot), group);
+		if (target == annot)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "an annotation can't be grouped with itself");
+		pdf_dict_put(ctx, obj, PDF_NAME(IRT), pdf_annot_obj(ctx, target));
+		pdf_dict_put(ctx, obj, PDF_NAME(RT), PDF_NAME(Group));
+	}
+	else if (pdf_name_eq(ctx, pdf_dict_get(ctx, obj, PDF_NAME(RT)), PDF_NAME(Group)))
+	{
+		pdf_dict_del(ctx, obj, PDF_NAME(IRT));
+		pdf_dict_del(ctx, obj, PDF_NAME(RT));
+	}
 }
 
 /* Writes every property of `w` to `annot`, then rebuilds its appearance. */
@@ -1044,6 +1073,7 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 	}
 	else if (pdf_annot_has_vertices(ctx, annot))
 		pdf_set_annot_vertices(ctx, annot, p->point_count, w->points);
+	ex_annot_group(ctx, annot, w->group);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))
 		pdf_set_annot_modification_date(ctx, annot, p->modified);

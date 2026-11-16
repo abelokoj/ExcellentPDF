@@ -24,6 +24,7 @@ use excellent_features::split::Follow;
 use nsh_core::geometry::Points;
 use nsh_core::prelude::*;
 
+use crate::annotate::AnnotateState;
 use crate::bookmarks::BookmarkState;
 use crate::editing::Editing;
 use crate::find::FindState;
@@ -135,6 +136,8 @@ pub(crate) struct Pane {
     pub(crate) bookmarks: BookmarkState,
     /// Find in document (F.1): the bar over the pages and the hits they report.
     pub(crate) find: FindState,
+    /// Markups and proposed edits made from the pages (A.1, A.2).
+    pub(crate) annotate: AnnotateState,
 }
 
 impl Pane {
@@ -163,6 +166,7 @@ impl Pane {
             outline: OutlineState::new(tabs, pages, editing),
             bookmarks: BookmarkState::new(tabs, pages),
             find: FindState::new(canvas, focus),
+            annotate: AnnotateState::new(editing),
         }
     }
 
@@ -187,6 +191,7 @@ impl Pane {
             || self.link_state.is_asking()
             || self.outline.is_menu_open()
             || self.bookmarks.covers_pages()
+            || self.annotate.is_asking()
     }
 }
 

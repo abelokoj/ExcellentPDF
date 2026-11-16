@@ -247,12 +247,14 @@ typedef struct ex_annot_props {
 	int point_count;
 } ex_annot_props;
 
-/* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author) and the app's private key
- * (/ExcellentPDF, a text string holding the anchor and tags). */
+/* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author), the app's private key
+ * (/ExcellentPDF, a text string holding the anchor and tags), and the /NM of the annotation it is grouped with
+ * (its /IRT, when its /RT is /Group: a "replace text" pair, A.2). */
 #define EX_ANNOT_CONTENTS 0
 #define EX_ANNOT_ID 1
 #define EX_ANNOT_AUTHOR 2
 #define EX_ANNOT_APP_DATA 3
+#define EX_ANNOT_GROUP 4
 
 /* Reads `annot`: its properties, then its arrays into caller memory sized from them (any may be NULL to skip). */
 int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex_error *err);
@@ -263,7 +265,9 @@ int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out,
 
 /* An annotation as it is written: `props` (its type is used only to create; the arrays come from the pointers
  * here, sized by its counts) and its texts, UTF-8. `id` names it. A NULL text writes none; an empty app data
- * removes the key. Writing every property keeps the dictionary's other keys (an appearance's own, another app's). */
+ * removes the key. `group` is the /NM of an annotation on the same page to group it with (/IRT and /RT /Group);
+ * NULL or empty ungroups it, leaving a reply (an /IRT without /RT /Group) as it is. Writing every property keeps the
+ * dictionary's other keys (an appearance's own, another app's). */
 typedef struct ex_annot_write {
 	const char *id;
 	const char *author;
@@ -273,6 +277,7 @@ typedef struct ex_annot_write {
 	const fz_quad *quads;
 	const int *stroke_lengths;
 	const fz_point *points;
+	const char *group;
 } ex_annot_write;
 
 /* Annotation edits (K.14), inside an operation, on page `page` (zero-based) of a PDF. ex_annot_create adds one;
