@@ -91,6 +91,12 @@ status = "in-progress"
 tests = ["the_caret_falls_between_the_characters_either_side_of_the_pointer", "words_lines_and_paragraphs_snap_around_a_character", "a_highlight_is_one_quad_per_line", "copied_text_breaks_lines_and_separates_blocks", "a_word_hyphenated_across_lines_is_copied_whole", "a_selection_across_pages_takes_all_of_the_pages_between", "copying_a_page_gives_the_same_words_as_mupdf", "a_text_layout_covers_its_characters_in_order", "quick_presses_in_one_place_count_up"]
 open = "reading order and ICU4X normalization and words (steps 2, 3); rectangle selection; edge scrolling; select all of the document; text-quality corpus (step 5)"
 
+["A.1"]
+label = "Ph3: 14/49"
+status = "in-progress"
+tests = ["marking_text_makes_one_markup_over_its_lines", "extending_a_highlight_merges_into_it", "another_colour_or_line_stacks_instead", "bridging_two_highlights_folds_them_into_one", "the_canvas_request_is_read", "nothing_selected_marks_nothing", "the_bar_s_cells_sit_side_by_side_inside_it"]
+open = "not tried by hand; not checked in Acrobat, PDF-XChange or pdf.js (K.26); the bar isn't exposed to screen readers (its commands are); the author is the system's user name"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

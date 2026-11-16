@@ -6,6 +6,22 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-15 22:34; Ph3: 14/49 | A.1: Text markup: highlight, underline, squiggly, strikeout
+
+- Selecting text in a PDF floats a small bar under the selection (over it when there's no room below): highlight,
+  underline, squiggly underline and strikeout, then five colours (yellow, green, blue, pink, orange). A markup
+  button marks the selection in the chosen colour as one undoable edit, saved into the PDF as a standard markup
+  annotation, and clears the selection.
+- The same four are commands (the palette; Annotate mode's toolbar) with page keys `a` (as SumatraPDF), `u`,
+  `Shift+U` and `x`.
+- Marking text that touches a markup of the same kind and colour on the same line extends it instead of stacking a
+  second one; text that bridges two such markups folds them into one.
+- Each markup keeps the text under it, with a little context either side (K.28), to find it again in another
+  version of the document.
+- The page canvas now draws again the pages an edit, undo or redo changed (it kept the old drawing before).
+- The model is `excellent-features::annotate::markup`; the bar is the canvas's `markbar`; the app's side is
+  `annotate`.
+
 ### 2026-11-16 02:20; Ph3: 13/49 | W.11: Export and import
 
 - "Export workspace…" (the palette; the workspace list's actions) saves the shown workspace as a small JSON file:

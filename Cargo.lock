@@ -849,6 +849,7 @@ dependencies = [
 name = "excellent-features"
 version = "0.1.0"
 dependencies = [
+ "excellent-core",
  "excellent-mupdf",
  "excellent-text",
  "serde_json",

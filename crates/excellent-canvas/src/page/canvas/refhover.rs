@@ -407,7 +407,7 @@ fn contains(r: &Rect, x: f32, y: f32) -> bool {
 }
 
 /// Relative brightness of `rgb`, 0 to 1, to tell a dark chrome from a light one.
-fn luminance(rgb: u32) -> f32 {
+pub(super) fn luminance(rgb: u32) -> f32 {
     let channel = |shift: u32| ((rgb >> shift) & 0xff) as f32 / 255.0;
     0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
 }

@@ -26,7 +26,7 @@ use excellent_mupdf::{
 use excellent_text::{Granularity, PageText, Selection, TextPos};
 use nsh_core::JsonValue;
 
-use super::host::{Host, InkPixel, Wake, Wash};
+use super::host::{Host, InkPixel, Quad as ScreenQuad, Wake, Wash};
 use crate::page::clicks::{ClickLimits, Clicks};
 use crate::page::near::Near;
 use crate::page::placement::Placement;
@@ -34,6 +34,7 @@ use crate::page::saved::SavedView;
 
 mod access;
 mod find;
+mod markbar;
 mod minimap;
 mod reading;
 mod refhover;
@@ -127,8 +128,9 @@ struct Reflowed {
 enum List {
     /// Being recorded from the page at this revision.
     Building(Job<DisplayList>, u64),
-    /// Recorded, with its pictures for smart dark mode (listed when a tile first needs them).
-    Ready(Arc<DisplayList>, Arc<PageImages>),
+    /// Recorded from the page at this revision, with its pictures for smart dark mode (listed when a tile first
+    /// needs them).
+    Ready(Arc<DisplayList>, Arc<PageImages>, u64),
     Failed,
 }
 
@@ -204,6 +206,10 @@ pub struct PageCanvas<H: Host> {
     minimap: minimap::MiniMap,
     /// Citation and equation hover (R.25).
     refhover: refhover::RefHover<H::Image>,
+    /// The markup bar under selected text (A.1).
+    markbar: markbar::MarkBar,
+    /// The document's edit count the pages were drawn at: an edit draws the pages it changed again (A.1).
+    edits: u64,
 }
 
 /// A stroke on a page, in that page's points: it stays on the page through any layout, zoom or rotation.
@@ -287,6 +293,8 @@ impl<H: Host> PageCanvas<H> {
             finder: find::Finder::default(),
             minimap: minimap::MiniMap::default(),
             refhover: refhover::RefHover::default(),
+            markbar: markbar::MarkBar::default(),
+            edits: 0,
         }
     }
 
@@ -619,10 +627,15 @@ impl<H: Host> PageCanvas<H> {
     /// for a link out of the document; `null` for no link).
     pub fn mouse_moved(&mut self, at: Option<(i32, i32)>) {
         self.reading_mouse(at);
+        self.markbar_hover(at);
         if let Some((x, y)) = at
-            && (self.minimap_drag(y) || self.over_minimap(x, y) || self.over_popover(x, y))
+            && (self.minimap_drag(y)
+                || self.over_minimap(x, y)
+                || self.over_popover(x, y)
+                || self.over_markbar(x, y))
         {
-            // Over the mini-map (R.17) or a hover preview (R.25): no text or link under the pointer.
+            // Over the mini-map (R.17), a hover preview (R.25) or the markup bar (A.1): no text or link under the
+            // pointer.
             self.hover_moved(at, None);
             self.over_text = false;
             if self.hovered.take().is_some() {
@@ -661,7 +674,7 @@ impl<H: Host> PageCanvas<H> {
     /// second, third or fourth click. Anywhere else it clears the selection. Returns whether a selection started,
     /// when the window should capture the mouse until the button comes up.
     pub fn mouse_down(&mut self, x: i32, y: i32, time: u32, limits: ClickLimits) -> bool {
-        if self.popover_down(x, y) {
+        if self.markbar_down(x, y) || self.popover_down(x, y) {
             return false;
         }
         if self.minimap_down(x, y) {
@@ -849,6 +862,7 @@ impl<H: Host> PageCanvas<H> {
         self.selecting = false;
         self.over_text = false;
         self.copy_pending = false;
+        self.markbar.pending = None;
         self.hovered = None;
         self.pressed = None;
         self.finder.forget(true);
@@ -1142,6 +1156,9 @@ impl<H: Host> PageCanvas<H> {
             if self.copy_pending {
                 self.copy();
             }
+            if let Some(kind) = self.markbar.pending {
+                self.mark(kind);
+            }
         }
         if read {
             self.host.content_changed();
@@ -1156,7 +1173,7 @@ impl<H: Host> PageCanvas<H> {
                     if let Some(document) = &self.document {
                         document.keep_display_list(page, *revision, Arc::clone(&ready));
                     }
-                    *list = List::Ready(ready, Arc::default());
+                    *list = List::Ready(ready, Arc::default(), *revision);
                 }
                 Some(Err(err)) => {
                     if !err.is_aborted() {
@@ -1292,6 +1309,7 @@ impl<H: Host> PageCanvas<H> {
             return;
         }
         let moving = self.advance_motion();
+        self.notice_edits();
         self.update_marks();
         let needed = tiles::visible_tiles(&self.layout, &self.viewport);
         self.request(&needed);
@@ -1300,6 +1318,7 @@ impl<H: Host> PageCanvas<H> {
         let drawn = self
             .draw(&needed)
             .and_then(|()| self.draw_minimap())
+            .and_then(|()| self.draw_markbar())
             .and_then(|()| self.draw_popover())
             .and_then(|()| self.host.end());
         if let Err(err) = drawn {
@@ -1383,7 +1402,7 @@ impl<H: Host> PageCanvas<H> {
             let list = self.lists.entry(key.page).or_insert_with(|| {
                 // Another view of the document may have recorded it.
                 if let Some(list) = document.display_list(key.page) {
-                    return List::Ready(list, Arc::default());
+                    return List::Ready(list, Arc::default(), document.revision(key.page));
                 }
                 let revision = document.revision(key.page);
                 let job = pool().build_display_list(&mupdf, key.page, Priority::Visible);
@@ -1391,7 +1410,7 @@ impl<H: Host> PageCanvas<H> {
                 job.when_done(move || waker.wake());
                 List::Building(job, revision)
             });
-            let List::Ready(list, images) = list else {
+            let List::Ready(list, images, _) = list else {
                 continue;
             };
             let (Some(bounds), Some(page)) =
@@ -1428,6 +1447,7 @@ impl<H: Host> PageCanvas<H> {
         let aids = self.aids();
         let found = self.found_on_screen();
         let (paper, wash) = (self.paper(), self.wash());
+        let selected = self.selection_quads();
         let host = &mut self.host;
         host.clear(self.background);
         let screen = crate::Rect::new(0.0, 0.0, self.viewport.width(), self.viewport.height());
@@ -1473,26 +1493,8 @@ impl<H: Host> PageCanvas<H> {
                 start.elapsed().as_secs_f64() * 1000.0
             );
         }
-        if let Some(selection) = self.selection {
-            let mut quads = Vec::new();
-            for (index, _) in self.layout.pages_in(&visible) {
-                let (Some(text), Some(placement)) = (
-                    self.texts.get(index),
-                    Placement::of_page(&self.layout, &self.bounds, self.view.rotation, index),
-                ) else {
-                    continue;
-                };
-                let Some(range) = selection.range_on(index, text) else {
-                    continue;
-                };
-                for quad in text.highlight(range) {
-                    quads.push([quad.ul, quad.ur, quad.lr, quad.ll].map(|p| {
-                        let (x, y) = placement.to_layout(p);
-                        self.viewport.to_screen_point(x, y)
-                    }));
-                }
-            }
-            host.highlight(&quads, SELECTION, wash)?;
+        if !selected.is_empty() {
+            host.highlight(&selected, SELECTION, wash)?;
         }
         found.draw(host, wash)?;
         aids.draw_under(host)?;
@@ -1529,6 +1531,67 @@ impl<H: Host> PageCanvas<H> {
             self.trail.drain(..=last);
         }
         Ok(())
+    }
+
+    /// The selected text's lines on the pages on the screen, one quad per line, in client pixels.
+    fn selection_quads(&self) -> Vec<ScreenQuad> {
+        let Some(selection) = self.selection else {
+            return Vec::new();
+        };
+        let mut quads = Vec::new();
+        for (index, _) in self.layout.pages_in(&self.viewport.visible()) {
+            let (Some(text), Some(placement)) = (
+                self.texts.get(index),
+                Placement::of_page(&self.layout, &self.bounds, self.view.rotation, index),
+            ) else {
+                continue;
+            };
+            let Some(range) = selection.range_on(index, text) else {
+                continue;
+            };
+            for quad in text.highlight(range) {
+                quads.push([quad.ul, quad.ur, quad.lr, quad.ll].map(|p| {
+                    let (x, y) = placement.to_layout(p);
+                    self.viewport.to_screen_point(x, y)
+                }));
+            }
+        }
+        quads
+    }
+
+    /// Draws again the pages an edit, an undo or a redo changed (A.1): their display lists and tiles go, so they
+    /// are recorded and rendered again.
+    // shortcut: a changed page shows its paper until its new tiles arrive; keep the old tiles until then if the
+    // flash shows.
+    fn notice_edits(&mut self) {
+        let Some(document) = self.document.clone() else {
+            return;
+        };
+        let edits = document.edits();
+        if edits == self.edits {
+            return;
+        }
+        self.edits = edits;
+        let stale: Vec<usize> = self
+            .lists
+            .iter()
+            .filter(|(page, list)| match list {
+                List::Building(_, revision) | List::Ready(_, _, revision) => {
+                    *revision != document.revision(**page)
+                }
+                List::Failed => true,
+            })
+            .map(|(page, _)| *page)
+            .collect();
+        for page in stale {
+            self.lists.remove(&page);
+            self.tiles.forget_page(page);
+        }
+    }
+
+    /// The document was edited (the app's `edits` prop): the pages it changed are drawn again.
+    pub fn edited(&mut self) {
+        self.invalidate();
     }
 
     /// The device is gone: its images go with it; the next frame makes a new one.

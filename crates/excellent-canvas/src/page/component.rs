@@ -4,6 +4,7 @@
 use std::path::Path;
 use std::time::Duration;
 
+use excellent_core::annot::Markup;
 use excellent_core::darkmode::{PageColors, Pictures};
 use excellent_features::read::autoscroll::Change;
 use excellent_features::read::focus::Scope;
@@ -29,7 +30,8 @@ impl<H: Host> PageCanvas<H> {
     /// a reflowable book's text size in points (R.28); `null`: the default. `bookmarks`: the bookmarks the mini-map
     /// marks (R.17), `[{page, x, y, color}]` in page points with a `#rrggbb` colour (entries that don't parse are
     /// left out). `hoverDelay`: how long the pointer rests on a link or citation before its preview shows (R.25), in
-    /// milliseconds; `false` turns previews off; `null` or anything else: the default.
+    /// milliseconds; `false` turns previews off; `null` or anything else: the default. `edits`: a number the app
+    /// moves with every edit, undo or redo (A.1), so the pages they changed are drawn again.
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -44,6 +46,7 @@ impl<H: Host> PageCanvas<H> {
             "reflowFontSize" => {
                 self.set_reflow_font_size(value.and_then(JsonValue::as_f64).map(|size| size as f32))
             }
+            "edits" => self.edited(),
             "bookmarks" => self.set_bookmarks(value.map(bookmarks).unwrap_or_default()),
             "hoverDelay" => self.set_hover_delay(match value {
                 Some(JsonValue::Bool(false)) => None,
@@ -96,6 +99,10 @@ impl<H: Host> PageCanvas<H> {
             "firstPage" => canvas.first_page(),
             "lastPage" => canvas.last_page(),
             "copy" => canvas.copy(),
+            "highlight" => canvas.mark(Markup::Highlight),
+            "underline" => canvas.mark(Markup::Underline),
+            "squiggly" => canvas.mark(Markup::Squiggly),
+            "strikeOut" => canvas.mark(Markup::StrikeOut),
             "selectAll" => canvas.select_page(),
             "readerPlace" => canvas.reader_place(),
             "toggleRuler" => canvas.toggle_ruler(),

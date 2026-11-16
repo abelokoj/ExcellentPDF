@@ -3153,6 +3153,12 @@ step 5). Non-PDF formats keep the same model in the sidecar (§9.2).
 **Done when:** markups show correctly in Acrobat, PDF-XChange and pdf.js (K.26); they stay on the text under every
 rotation.
 
+*Built (2026-11-15):* the selection's quads come from the canvas's own text (K.13's `PageText::highlight`), already
+in page space, so rotation doesn't touch them. The bar's colours are a fixed five until A.3's palettes. Merging
+compares runs on their upright bounds (same line: heights overlap by half; touching: a gap under a quarter of the
+line's height). The author is the system's user name: the plan names no setting for it. The page keys are `a`
+(SumatraPDF's), `u`, `Shift+U` and `x`; there are no Annotate-only keys, so they work in every mode.
+
 #### Ph3: 15/49 | A.2: Replace and insert text
 **P0; Phase 3; Needs:** A.1; **Code:** as A.1
 1. Insert: a `Caret` annotation at the cursor with the proposed text as contents.

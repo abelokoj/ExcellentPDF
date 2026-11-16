@@ -8,6 +8,7 @@ repository.workspace = true
 description = "One module per feature tag: model, view and tests"
 
 [dependencies]
+excellent-core.workspace = true
 excellent-mupdf.workspace = true
 excellent-text.workspace = true
 serde_json.workspace = true

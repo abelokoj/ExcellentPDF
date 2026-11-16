@@ -252,6 +252,21 @@ impl<J, B> TileCache<J, B> {
         }
     }
 
+    /// Drops page `page`'s tiles: it changed (A.1).
+    pub fn forget_page(&mut self, page: usize) {
+        let mut freed = 0;
+        self.slots.retain(|key, slot| {
+            if key.page != page {
+                return true;
+            }
+            if let Slot::Ready { bytes, .. } = slot {
+                freed += *bytes;
+            }
+            false
+        });
+        self.bytes -= freed;
+    }
+
     /// Drops everything: another document, or the bitmaps' device was lost.
     pub fn clear(&mut self) {
         self.slots.clear();

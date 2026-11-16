@@ -598,6 +598,7 @@ pub(crate) fn pages_view(
         outline,
         bookmarks,
         find,
+        editing,
         ..
     } = pane;
     let reading = shared.reading;
@@ -621,6 +622,7 @@ pub(crate) fn pages_view(
         .prop("autoScrollSpeed", move || reading.speed_prop())
         .prop("hoverDelay", move || reading.hover_delay_prop())
         .prop("bookmarks", move || bookmarks.marks_prop())
+        .prop("edits", move || JsonValue::from(editing.revision()))
         .label(move || SharedString::from(label()))
         .on_native_event(move |event: &NativeEvent| {
             match &*event.name {
@@ -641,6 +643,7 @@ pub(crate) fn pages_view(
             outline.on_canvas_event(event);
             bookmarks.on_canvas_event(event);
             find.on_canvas_event(event);
+            crate::annotate::on_canvas_event(editing, event);
             copy_selection(event);
         })
         .flex_1()

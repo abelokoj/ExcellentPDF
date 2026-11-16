@@ -337,7 +337,7 @@ mod tests {
             ["view.sidebar"]
             keys = ["f11", "mod+nokey", "f12"]
             ["no.such_command"]
-            keys = ["x"]
+            keys = ["mod+alt+shift+9"]
             ["view.inspector"]
             keys = "mod+i"
             ["view.theme"]
@@ -346,7 +346,7 @@ mod tests {
         );
         assert_eq!(runs(&keymap, "f12"), Some(CommandId::ToggleSidebar));
         assert_eq!(runs(&keymap, "f11"), None);
-        assert_eq!(runs(&keymap, "x"), None);
+        assert_eq!(runs(&keymap, "mod+alt+shift+9"), None);
         assert_eq!(runs(&keymap, "mod+alt+b"), Some(CommandId::ToggleInspector));
         let problems = keymap.problems();
         assert_eq!(problems.len(), 5, "{problems:?}");
