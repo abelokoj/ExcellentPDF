@@ -3414,6 +3414,12 @@ keep every annotation (DD17).
 
 **Done when:** stamps look the same in Acrobat; dynamic fields show the placement time.
 
+*Built (2026-11-16):* `annotate::stamps` (standard, dynamic, library); `Change::StampArt` sets a stamp's art after its
+`CreateAnnotation` in the same operation, through the shim's `ex_annot_set_stamp_art` (a one-page PDF's display list
+as the appearance, or `pdf_set_annot_stamp_image`). Dynamic stamps are HTML laid out by MuPDF's story engine
+(`html_to_pdf`); a PDF imported to the library is its first page written by `Page::to_pdf`. Images stay images in
+the library and times are UTC (DD18).
+
 #### Ph3: 34/49 | A.21: Comment threads with replies and resolve
 **P1; Phase 3; Needs:** A.4; **Code:** `excellent-features/annotate/threads.rs`
 1. A reply is a `Text` annotation with `/IRT` pointing to its parent and no visible icon.

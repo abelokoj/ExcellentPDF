@@ -2,7 +2,7 @@
 //! applies them. One [`Operation`] is one step of undo, however many changes it holds (B.5: a move of several
 //! entries undoes at once).
 
-use excellent_mupdf::{Edit, NewOutlineEntry, OutlineChange, OutlineStyle};
+use excellent_mupdf::{Edit, NewOutlineEntry, OutlineChange, OutlineStyle, StampArt};
 use serde_json::{Map, Value, json};
 
 use crate::annot::Annotation;
@@ -63,6 +63,16 @@ pub enum Change {
         /// Its id.
         id: String,
     },
+    /// The stamp with id `id` on page `page` drawn as `art` (A.20): after the stamp's
+    /// [`Change::CreateAnnotation`], in the same operation.
+    StampArt {
+        /// Its page, counting from zero.
+        page: usize,
+        /// Its id.
+        id: String,
+        /// What it is drawn as.
+        art: StampArt,
+    },
 }
 
 /// Changes made, and undone, together: one step of the undo history.
@@ -81,7 +91,7 @@ impl Change {
             Self::CreateAnnotation(annotation) | Self::UpdateAnnotation(annotation) => {
                 Some(annotation.page)
             }
-            Self::DeleteAnnotation { page, .. } => Some(*page),
+            Self::DeleteAnnotation { page, .. } | Self::StampArt { page, .. } => Some(*page),
             Self::InsertOutlineEntry { .. }
             | Self::UpdateOutlineEntry { .. }
             | Self::StyleOutlineEntry { .. }
@@ -119,6 +129,7 @@ impl Change {
                 edit.update_annot(annotation.page, &annotation.to_data())
             }
             Self::DeleteAnnotation { page, id } => edit.delete_annot(*page, id),
+            Self::StampArt { page, id, art } => edit.set_stamp_art(*page, id, art),
         }
     }
 
@@ -152,6 +163,14 @@ impl Change {
             }
             Self::DeleteAnnotation { page, id } => {
                 json!({"kind": "annot.delete", "target": id, "page": page})
+            }
+            Self::StampArt { page, id, art } => {
+                let (kind, bytes) = match art {
+                    StampArt::Page(bytes) => ("page", bytes),
+                    StampArt::Image(bytes) => ("image", bytes),
+                };
+                json!({"kind": "annot.stamp_art", "target": id, "page": page, "art": kind,
+                    "bytes": to_hex(bytes)})
             }
         }
     }
@@ -196,6 +215,18 @@ impl Change {
                 page: usize::try_from(object.get("page")?.as_u64()?).ok()?,
                 id: text("target")?,
             },
+            "annot.stamp_art" => {
+                let bytes = from_hex(object.get("bytes")?.as_str()?)?;
+                Self::StampArt {
+                    page: usize::try_from(object.get("page")?.as_u64()?).ok()?,
+                    id: text("target")?,
+                    art: match object.get("art")?.as_str()? {
+                        "page" => StampArt::Page(bytes),
+                        "image" => StampArt::Image(bytes),
+                        _ => return None,
+                    },
+                }
+            }
             _ => return None,
         })
     }
@@ -248,6 +279,28 @@ impl Operation {
             .collect::<Option<Vec<_>>>()?;
         Some(Self { name, changes })
     }
+}
+
+/// Bytes as the log writes them: two lower-case hex digits each.
+fn to_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut text, byte| {
+            let _ = write!(text, "{byte:02x}");
+            text
+        })
+}
+
+/// The bytes the log wrote with [`to_hex`].
+fn from_hex(text: &str) -> Option<Vec<u8>> {
+    if !text.len().is_multiple_of(2) {
+        return None;
+    }
+    (0..text.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(text.get(at..at + 2)?, 16).ok())
+        .collect()
 }
 
 /// A colour as the log writes it: `#rrggbb`.
@@ -306,6 +359,16 @@ mod tests {
                 from: vec![0],
                 to: vec![0, 3],
             },
+            Change::StampArt {
+                page: 2,
+                id: "stamp-1".into(),
+                art: StampArt::Page(vec![0, 0x25, 0xff, 7]),
+            },
+            Change::StampArt {
+                page: 0,
+                id: "stamp-2".into(),
+                art: StampArt::Image(Vec::new()),
+            },
         ];
         let operation = Operation::new("Several", changes);
         let mut record = Map::new();
@@ -322,6 +385,8 @@ mod tests {
     fn an_unknown_change_is_not_read() {
         let value = json!({"kind": "page.rotate", "target": [0]});
         assert_eq!(Change::from_json(&value), None);
+        let value = json!({"kind": "annot.stamp_art", "target": "a", "page": 0, "art": "page", "bytes": "abc"});
+        assert_eq!(Change::from_json(&value), None, "odd hex");
         let value = json!({"kind": "outline.delete", "target": [-1]});
         assert_eq!(Change::from_json(&value), None);
         let value = json!({"kind": "outline.style", "target": [0], "bold": true, "italic": false, "color": "red"});

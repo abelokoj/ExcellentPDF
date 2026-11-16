@@ -471,6 +471,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
                 .annotate
                 .place(Placing::Shape(pane.annotate.regular_polygon())),
             CommandId::Star => pane.annotate.place(Placing::Shape(pane.annotate.star())),
+            CommandId::Stamp => pane.annotate.place(Placing::Stamp),
             CommandId::MarginNotes => pane.annotate.toggle_margin(),
             CommandId::TransferAnnotations => pane.annotate.transfer(),
             CommandId::AnnotationList => {

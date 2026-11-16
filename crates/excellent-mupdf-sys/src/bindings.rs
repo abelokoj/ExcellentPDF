@@ -946,6 +946,36 @@ unsafe extern "C" {
     pub fn ex_drop_buffer(ctx: *mut fz_context, buf: *mut fz_buffer);
 }
 unsafe extern "C" {
+    pub fn ex_annot_set_stamp_art(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        page: ::core::ffi::c_int,
+        id: *const ::core::ffi::c_char,
+        kind: ::core::ffi::c_int,
+        art: *const ::core::ffi::c_uchar,
+        len: usize,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_page_to_pdf(
+        ctx: *mut fz_context,
+        page: *mut fz_page,
+        out: *mut *mut fz_buffer,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_html_to_pdf(
+        ctx: *mut fz_context,
+        html: *const ::core::ffi::c_char,
+        css: *const ::core::ffi::c_char,
+        width: f32,
+        out: *mut *mut fz_buffer,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn ex_open_pdf(
         ctx: *mut fz_context,
         path: *const ::core::ffi::c_char,

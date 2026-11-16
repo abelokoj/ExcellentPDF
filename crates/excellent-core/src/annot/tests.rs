@@ -1106,3 +1106,75 @@ fn a_lock_and_an_author_keep_through_save_and_reopen_and_other_flags_stay() {
         "the Print flag stays when the lock goes"
     );
 }
+
+#[test]
+fn a_stamp_is_drawn_as_its_art_and_keeps_it_when_moved() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let rect = PageRect {
+        x0: 100.0,
+        y0: 100.0,
+        x1: 200.0,
+        y1: 140.0,
+    };
+    let mut stamp = Annotation::new(0, Shape::Boxed(Boxed::Stamp, rect), Style::default(), "Ada");
+    stamp.icon = "CustomSeal".into();
+    let art = excellent_mupdf::html_to_pdf(
+        "<div style=\"background-color: #ff0000; height: 40pt\"></div>",
+        "body { margin: 0 }",
+        100.0,
+    )
+    .expect("art");
+    let id = stamp.id.clone();
+    Operation::new(
+        "Stamp",
+        vec![
+            Change::CreateAnnotation(stamp.clone()),
+            Change::StampArt {
+                page: 0,
+                id: id.clone(),
+                art: excellent_mupdf::StampArt::Page(art),
+            },
+        ],
+    )
+    .apply(&mut doc)
+    .expect("apply");
+    let red = |doc: &Document| {
+        let pixmap = doc
+            .load_page(0)
+            .expect("page")
+            .display_list(None)
+            .expect("list")
+            .render(
+                &excellent_mupdf::Matrix::IDENTITY,
+                excellent_mupdf::Background::White,
+            )
+            .expect("render");
+        let channels = pixmap.samples().len() / (pixmap.width() * pixmap.height()) as usize;
+        pixmap
+            .samples()
+            .chunks(channels)
+            .filter(|px| px[0] > 200 && px[1] < 60 && px[2] < 60)
+            .count()
+    };
+    let drawn = red(&doc);
+    assert!(
+        drawn > 2000,
+        "the art is drawn, not the name: {drawn} red pixels"
+    );
+    let moved = Annotation {
+        shape: Shape::Boxed(
+            Boxed::Stamp,
+            PageRect {
+                x0: 300.0,
+                x1: 400.0,
+                ..rect
+            },
+        ),
+        ..stamp
+    };
+    Operation::new("Move", vec![Change::UpdateAnnotation(moved)])
+        .apply(&mut doc)
+        .expect("move");
+    let kept = red(&doc);
+    assert!(kept > 2000, "moving keeps the art: {kept}");
+}

@@ -91,6 +91,8 @@ pub(crate) enum CommandId {
     RegularPolygon,
     /// Draws a star by the next drag on the pages (A.10).
     Star,
+    /// Places the stamp chosen in the inspector where the page is clicked next (A.20).
+    Stamp,
     /// Draws a polygon by the next clicks on the pages, corner by corner (A.10).
     Polygon,
     /// Draws a polyline by the next clicks on the pages (A.10).
@@ -146,6 +148,7 @@ impl CommandId {
                     | Self::Ellipse
                     | Self::RegularPolygon
                     | Self::Star
+                    | Self::Stamp
                     | Self::Polygon
                     | Self::PolyLine
                     | Self::Cloud
@@ -591,6 +594,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.annotate",
         keys: &[],
         page_keys: &["shift+x"],
+    },
+    Command {
+        id: CommandId::Stamp,
+        name: "annotate.stamp",
+        label: "command.stamp",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["shift+m"],
     },
     Command {
         id: CommandId::CutAnnotations,

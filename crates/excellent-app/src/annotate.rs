@@ -15,6 +15,7 @@ mod list;
 pub(crate) mod margin;
 mod note;
 mod select;
+mod stamps;
 pub(crate) mod tag_index;
 mod transfer;
 
@@ -69,6 +70,8 @@ pub(crate) enum Placing {
     /// A line, an arrow (A.8), a rectangle or an ellipse (A.9), a regular polygon or a star dragged out on the page,
     /// or a polygon, a polyline or a cloud clicked corner by corner (A.10).
     Shape(shapes::Kind),
+    /// The stamp chosen in the inspector (A.20).
+    Stamp,
 }
 
 /// A pane's annotating: its document's edits, the replacement or insertion waiting for its text, the tool whose
@@ -96,6 +99,9 @@ pub(crate) struct AnnotateState {
     selected: Signal<Vec<Target>>,
     /// The annotation list (A.14).
     listing: list::Listing,
+    /// The stamp the Stamp command places, and the reader's library of stamps (A.20).
+    stamp: Signal<stamps::Choice>,
+    stamps: Signal<Vec<excellent_features::annotate::stamps::Item>>,
 }
 
 impl AnnotateState {
@@ -113,6 +119,8 @@ impl AnnotateState {
             page_maps: signal(Vec::new()),
             selected: signal(Vec::new()),
             listing: list::Listing::new(),
+            stamp: signal(stamps::Choice::default()),
+            stamps: signal(Vec::new()),
         }
     }
 
@@ -126,6 +134,9 @@ impl AnnotateState {
         if placing.is_some() {
             self.close_note();
             self.reveals.update(|count| *count += 1);
+        }
+        if placing == Some(Placing::Stamp) {
+            self.load_stamps();
         }
         self.placing.set(placing);
     }
@@ -152,7 +163,7 @@ impl AnnotateState {
                 }
             }
         };
-        let (made, name) = match what {
+        let (made, name, art) = match what {
             Placing::Shape(_) => return,
             Placing::Sticky => (
                 sticky::place(
@@ -164,17 +175,31 @@ impl AnnotateState {
                     &author(),
                 ),
                 t!("sticky.name"),
+                None,
             ),
             Placing::Text(kind) => (
                 freetext::place(page, point, bounds, kind, TextStyle::default(), &author()),
                 text_name(kind),
+                None,
             ),
+            Placing::Stamp => {
+                let choice = untracked(|| self.stamp.get());
+                match stamps::made(&choice, page, point, bounds, &author()) {
+                    Ok((made, art)) => (made, t!("annotations.kind.stamp"), art),
+                    Err(err) => {
+                        crate::editing::show_message(t!("stamps.failed"), err.to_string());
+                        return;
+                    }
+                }
+            }
         };
         let target = Target {
             page,
             id: made.id.clone(),
         };
-        let operation = Operation::new(name, vec![Change::CreateAnnotation(made)]);
+        // A stamp drawn from art is made and drawn in one operation, so one step of undo (A.20).
+        let changes = excellent_features::annotate::stamps::changes(made, art);
+        let operation = Operation::new(name, changes);
         if self.editing.apply(&operation) {
             self.open_note(&target);
             // A text box left empty when the reader is done is taken away again, as Acrobat does.

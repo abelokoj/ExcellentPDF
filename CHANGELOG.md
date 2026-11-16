@@ -6,6 +6,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-16 08:23; Ph3: 33/49 | A.20: Stamps library with dynamic fields
+
+- A Stamp command (toolbar, Shift+M on a page, the palette) puts a stamp where the page is clicked next. While it
+  waits, the inspector offers the PDF standard's fourteen stamps, five dynamic stamps that carry the reader's name,
+  the date, the time (UTC) and the page, and the reader's own stamps.
+- Import adds a PDF's first page or a PNG or JPEG image to the library, kept in the app's data folder under `stamps`;
+  Remove takes the chosen one out again.
+- A stamp and its art are one step of undo. Dynamic and library stamps keep their own appearance in the file, so
+  other readers show them as drawn.
+
 ### 2026-11-16 05:56; Ph3: 32/49 | A.19: Filters by color, tag, author and date
 
 - The Annotations tab filters by tag, by author (when a file has more than one) and by when an annotation last

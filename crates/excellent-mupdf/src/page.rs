@@ -5,8 +5,8 @@ use core::ptr::{self, NonNull};
 
 use excellent_mupdf_sys::{
     ex_drop_page, ex_error, ex_new_contents_display_list, ex_new_display_list,
-    ex_new_display_list_without, ex_new_stext_page, ex_page_bounds, ex_render_page, fz_context,
-    fz_cookie, fz_display_list, fz_page, fz_rect,
+    ex_new_display_list_without, ex_new_stext_page, ex_page_bounds, ex_page_to_pdf, ex_render_page,
+    fz_context, fz_cookie, fz_display_list, fz_page, fz_rect,
 };
 
 /// The shape of the shim's display-list makers.
@@ -105,6 +105,21 @@ impl Page<'_> {
     /// MuPDF fails to run the page, or `cookie` was aborted.
     pub fn contents_display_list(&self, cookie: Option<&Cookie>) -> Result<DisplayList> {
         self.record(ex_new_contents_display_list, cookie)
+    }
+
+    /// The page as a one-page PDF of its own, annotations and all (A.20: a library stamp made from a page).
+    ///
+    /// # Errors
+    ///
+    /// MuPDF fails to run the page or write the PDF.
+    pub fn to_pdf(&self) -> Result<Vec<u8>> {
+        with_context(|ctx| {
+            let mut buf = ptr::null_mut();
+            // SAFETY: the page is live and on its own thread; `buf` receives a new buffer.
+            check(|err| unsafe { ex_page_to_pdf(ctx, self.raw.as_ptr(), &mut buf, err) })?;
+            // SAFETY: `buf` is a new buffer we own.
+            Ok(unsafe { crate::buffer::into_vec(ctx, buf) })
+        })
     }
 
     /// Records the page as [`Page::display_list`] does, without the annotations whose ids (`/NM`) are in `hidden`

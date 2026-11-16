@@ -205,6 +205,12 @@ status = "in-progress"
 tests = ["filters_combine_with_and_and_choices_with_or", "a_filter_is_kept_per_file", "a_filter_is_kept_as_json_and_read_back", "show_only_matching_hides_the_rest_on_the_page", "a_hidden_annotation_is_left_out_of_the_page", "hiding_annotations_redraws_once_and_leaves_the_file"]
 open = "not tried by hand; show only matching hides annotations in the page views and thumbnails, not in printing or export (DD17), and takes effect once the Annotations tab has read the file"
 
+["A.20"]
+label = "Ph3: 33/49"
+status = "in-progress"
+tests = ["standard_stamps_are_the_standard_s_fourteen_names", "a_stamp_is_centred_on_the_click_inside_the_page", "dynamic_fields_are_filled_when_placed", "a_dynamic_stamp_is_drawn_as_wide_as_set_and_as_tall_as_its_text", "a_drawn_stamp_is_one_operation_of_two_changes", "library_names_are_safe_and_kept_apart", "a_library_stamp_is_imported_listed_drawn_and_removed", "html_becomes_a_page_as_tall_as_its_text", "changes_read_back_as_they_were_written", "a_stamp_is_drawn_as_its_art_and_keeps_it_when_moved"]
+open = "not tried by hand and not opened in Acrobat; dynamic stamps write the time in UTC; image stamps are kept as images in the library (DD18)"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

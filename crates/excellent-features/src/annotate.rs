@@ -12,6 +12,7 @@ pub mod notes;
 pub mod polygons;
 pub mod replace;
 pub mod shapes;
+pub mod stamps;
 pub mod sticky;
 pub mod tags;
 pub mod transfer;

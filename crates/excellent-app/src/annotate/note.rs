@@ -53,7 +53,8 @@ impl Noting {
             (Some(kind), ..) => super::name(kind),
             (None, Some((kind, ..)), _) => super::text_name(kind),
             (None, None, Some((kind, ..))) => super::shape_kind_name(kind),
-            (None, None, None) => t!("sticky.name"),
+            (None, None, None) if self.sticky.is_some() => t!("sticky.name"),
+            (None, None, None) => t!("annotations.kind.stamp"),
         }
     }
 
@@ -104,6 +105,7 @@ const QUOTE: usize = 160;
 /// note or text, or what the inspector will show.
 pub(crate) fn note_panel(state: AnnotateState) -> impl IntoElement {
     dynamic(move || match (state.placing.get(), state.noting.get()) {
+        (Some(Placing::Stamp), _) => super::stamps::picker(state).into_element(),
         (Some(what), _) => placing(what).into_element(),
         (None, Some(noting)) => untracked(|| editor(state, noting).into_element()),
         (None, None) => {
@@ -168,6 +170,7 @@ fn placing(what: Placing) -> View {
             "callout.placing_hint",
             CommandId::Callout,
         ),
+        Placing::Stamp => ("stamps.placing", "stamps.placing_hint", CommandId::Stamp),
     };
     crate::shell::empty_message(
         move || t!(title),

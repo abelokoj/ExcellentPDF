@@ -9,10 +9,10 @@ use std::ffi::CString;
 use std::path::Path;
 
 use excellent_mupdf_sys::{
-    ex_abandon_operation, ex_annot_create, ex_annot_delete, ex_annot_update, ex_begin_operation,
-    ex_end_operation, ex_is_pdf, ex_link_uri, ex_outline_delete, ex_outline_edit,
-    ex_outline_insert, ex_outline_move, ex_outline_style, ex_outline_update, ex_redo, ex_save_pdf,
-    ex_undo, ex_undo_state,
+    ex_abandon_operation, ex_annot_create, ex_annot_delete, ex_annot_set_stamp_art,
+    ex_annot_update, ex_begin_operation, ex_end_operation, ex_is_pdf, ex_link_uri,
+    ex_outline_delete, ex_outline_edit, ex_outline_insert, ex_outline_move, ex_outline_style,
+    ex_outline_update, ex_redo, ex_save_pdf, ex_undo, ex_undo_state,
 };
 
 use crate::annot::AnnotData;
@@ -21,6 +21,16 @@ use crate::document::{Document, c_path};
 use crate::error::{MuError, Result};
 use crate::geometry::PagePoint;
 use crate::outline::OutlineStyle;
+
+/// What a stamp is drawn as (A.20), besides the standard stamps MuPDF draws from their names.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StampArt {
+    /// The first page of a PDF: a library stamp or a dynamic one. The stamp's name must not be a standard one, or
+    /// MuPDF would draw that name over it.
+    Page(Vec<u8>),
+    /// An image file's bytes (PNG, JPEG and the other kinds MuPDF reads).
+    Image(Vec<u8>),
+}
 
 /// Where a PDF is in its undo history: `position` of `steps` operations are applied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -409,6 +419,35 @@ impl Edit<'_> {
                 check(|err| unsafe {
                     ex_annot_update(ctx, self.doc.raw().as_ptr(), page, raw, err)
                 })
+            })
+        })
+    }
+
+    /// Draws the stamp of page `page` whose id is `id` as `art` (A.20).
+    ///
+    /// # Errors
+    ///
+    /// No stamp has the id on the page, the art isn't a PDF or an image MuPDF reads, or MuPDF can't write it.
+    pub fn set_stamp_art(&mut self, page: usize, id: &str, art: &StampArt) -> Result<()> {
+        let page = c_page(page)?;
+        let id = c_text(id)?;
+        let (kind, bytes) = match art {
+            StampArt::Page(bytes) => (0, bytes),
+            StampArt::Image(bytes) => (1, bytes),
+        };
+        with_context(|ctx| {
+            // SAFETY: as for `create_annot`; `id` is NUL-terminated and `bytes` outlives the call, which copies it.
+            check(|err| unsafe {
+                ex_annot_set_stamp_art(
+                    ctx,
+                    self.doc.raw().as_ptr(),
+                    page,
+                    id.as_ptr(),
+                    kind,
+                    bytes.as_ptr(),
+                    bytes.len(),
+                    err,
+                )
             })
         })
     }

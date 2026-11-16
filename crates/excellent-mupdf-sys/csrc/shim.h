@@ -399,6 +399,17 @@ int ex_link_uri(fz_context *ctx, fz_document *doc, int page, float x, float y, f
 int ex_save_pdf(fz_context *ctx, fz_document *doc, const char *path, int *incremental, ex_error *err);
 
 /* Buffers: `*data` points into the buffer and is valid until it is dropped. */
+/* A.20: the stamp of page `page` whose /NM is `id` drawn as the `len` bytes of `art`: with `kind` 0 the first page
+ * of a PDF (its appearance, kept by MuPDF because the stamp's name is not a standard one), with 1 an image
+ * (pdf_set_annot_stamp_image). */
+int ex_annot_set_stamp_art(fz_context *ctx, fz_document *doc, int page, const char *id, int kind,
+	const unsigned char *art, size_t len, ex_error *err);
+/* A.20: `page` written as a one-page PDF, into a new buffer. */
+int ex_page_to_pdf(fz_context *ctx, fz_page *page, fz_buffer **out, ex_error *err);
+/* A.20: the HTML `html`, styled by `css`, laid out `width` points wide and written as a one-page PDF as tall as it,
+ * into a new buffer. */
+int ex_html_to_pdf(fz_context *ctx, const char *html, const char *css, float width, fz_buffer **out,
+	ex_error *err);
 void ex_buffer_data(fz_context *ctx, fz_buffer *buf, const unsigned char **data, size_t *len);
 void ex_drop_buffer(fz_context *ctx, fz_buffer *buf);
 

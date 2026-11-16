@@ -325,3 +325,19 @@ dialog's annotation choices if the maintainer wants it.
 - Reopening a file whose saved filter has "show only matching" on draws every annotation until the Annotations tab
   is shown.
 - An annotation made while the filter is on and that doesn't match it leaves the page once the list reads it again.
+
+## DD18. Stamp library keeps images as images; dynamic stamps say UTC (2026-11-16; agent's call, flagged)
+
+**Decision (agent):** A.20's library holds one-page PDFs (a PDF's first page, written again by MuPDF) and, for an
+imported PNG or JPEG, the image file itself rather than a PDF wrapping it. A dynamic stamp's date and time are UTC and
+say so, as A.12's dates are. Dynamic and library stamps get a `/Name` that is not one of the standard's
+(`DynamicApproved`, `Custom<name>`), because MuPDF draws a standard name over any appearance it is given.
+
+**Why:** an image placed as an image stamp (`pdf_set_annot_stamp_image`) is what the plan names for images, and
+keeping the file as it came needs no conversion. The app has no time-zone support yet (U.7's formats).
+
+**What it means:**
+
+- Plan step 4 says "saved as small PDF files": images are the exception.
+- A dynamic stamp placed at 09:00 in New York reads 14:00 UTC, until U.7 brings local time.
+- Other readers that redraw stamps from `/Name` (rare) would show the custom name's text; Acrobat keeps the appearance.

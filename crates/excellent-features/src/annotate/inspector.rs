@@ -108,7 +108,7 @@ pub fn allows(before: &Annotation, change: &Change) -> bool {
             kept.modified = before.modified;
             kept == *before
         }
-        Change::DeleteAnnotation { id, .. } => *id != before.id,
+        Change::DeleteAnnotation { id, .. } | Change::StampArt { id, .. } => *id != before.id,
         _ => true,
     }
 }

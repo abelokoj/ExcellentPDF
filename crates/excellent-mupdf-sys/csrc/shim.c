@@ -1392,6 +1392,121 @@ int ex_annot_delete(fz_context *ctx, fz_document *doc, int page, const char *id,
 	return 0;
 }
 
+int ex_annot_set_stamp_art(fz_context *ctx, fz_document *doc, int page, const char *id, int kind,
+	const unsigned char *art, size_t len, ex_error *err)
+{
+	pdf_page *p = NULL;
+	fz_buffer *buf = NULL;
+	fz_document *src = NULL;
+	fz_page *first = NULL;
+	fz_display_list *list = NULL;
+	fz_image *image = NULL;
+	fz_var(p);
+	fz_var(buf);
+	fz_var(src);
+	fz_var(first);
+	fz_var(list);
+	fz_var(image);
+	fz_try(ctx)
+	{
+		pdf_annot *annot;
+		p = ex_pdf_page(ctx, doc, page);
+		annot = ex_find_annot(ctx, p, id);
+		if (pdf_annot_type(ctx, annot) != PDF_ANNOT_STAMP)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "annotation %s is not a stamp", id);
+		buf = fz_new_buffer_from_copied_data(ctx, art, len);
+		if (kind == 0)
+		{
+			src = fz_open_document_with_buffer(ctx, "application/pdf", buf);
+			first = fz_load_page(ctx, src, 0);
+			list = fz_new_display_list_from_page(ctx, first);
+			pdf_set_annot_appearance_from_display_list(ctx, annot, "N", NULL, fz_identity, list);
+		}
+		else
+		{
+			image = fz_new_image_from_buffer(ctx, buf);
+			pdf_set_annot_stamp_image(ctx, annot, image);
+		}
+	}
+	fz_always(ctx)
+	{
+		fz_drop_image(ctx, image);
+		fz_drop_display_list(ctx, list);
+		fz_drop_page(ctx, first);
+		fz_drop_document(ctx, src);
+		fz_drop_buffer(ctx, buf);
+		fz_drop_page(ctx, (fz_page *)p);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+/* Runs `draw` (a page, or a placed story) onto one page of a new PDF `box` big, into a new buffer. */
+static fz_buffer *ex_one_page_pdf(fz_context *ctx, fz_rect box, fz_page *page, fz_story *story)
+{
+	fz_buffer *buf = NULL;
+	fz_document_writer *wri = NULL;
+	fz_var(buf);
+	fz_var(wri);
+	fz_try(ctx)
+	{
+		fz_device *dev;
+		buf = fz_new_buffer(ctx, 4096);
+		wri = fz_new_pdf_writer_with_output(ctx, fz_new_output_with_buffer(ctx, buf), "compress");
+		dev = fz_begin_page(ctx, wri, box);
+		if (page)
+			fz_run_page(ctx, page, dev, fz_identity, NULL);
+		else
+			fz_draw_story(ctx, story, dev, fz_identity);
+		fz_end_page(ctx, wri);
+		fz_close_document_writer(ctx, wri);
+	}
+	fz_always(ctx)
+		fz_drop_document_writer(ctx, wri);
+	fz_catch(ctx)
+	{
+		fz_drop_buffer(ctx, buf);
+		fz_rethrow(ctx);
+	}
+	return buf;
+}
+
+int ex_page_to_pdf(fz_context *ctx, fz_page *page, fz_buffer **out, ex_error *err)
+{
+	fz_try(ctx)
+		*out = ex_one_page_pdf(ctx, fz_bound_page(ctx, page), page, NULL);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_html_to_pdf(fz_context *ctx, const char *html, const char *css, float width, fz_buffer **out,
+	ex_error *err)
+{
+	fz_buffer *text = NULL;
+	fz_story *story = NULL;
+	fz_var(text);
+	fz_var(story);
+	fz_try(ctx)
+	{
+		fz_rect filled = fz_empty_rect;
+		text = fz_new_buffer_from_copied_data(ctx, (const unsigned char *)html, strlen(html));
+		story = fz_new_story(ctx, text, css, 12, NULL);
+		/* A stamp is short: what doesn't fit in a tall page is left out. */
+		fz_place_story(ctx, story, fz_make_rect(0, 0, width, 2000), &filled);
+		*out = ex_one_page_pdf(ctx, fz_make_rect(0, 0, width, fz_max(filled.y1, 1)), NULL, story);
+	}
+	fz_always(ctx)
+	{
+		fz_drop_story(ctx, story);
+		fz_drop_buffer(ctx, text);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
 int ex_new_document_writer(fz_context *ctx, const char *path, const char *format, const char *options,
 	fz_document_writer **out, ex_error *err)
 {
