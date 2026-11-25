@@ -476,3 +476,16 @@ the app takes text now.
 
 **What it means:** Chinese, Japanese and Korean input works wherever the app takes text today; U.8 stays in progress
 until N.6 lands, and is checked then on each desktop.
+
+## DD27. The pack signing key is the maintainer's to make (2026-11-25; agent's call, flagged)
+
+**Decision (agent):** K.21's manager takes the public key it trusts as an argument; the app holds none yet. The
+maintainer makes the Ed25519 key pair, keeps the private half offline, and gives the public half to the app (a
+constant in `excellent-app`) and the private half to the release tool that signs the index and each `.expack`
+(`excellent_packs::file::sign`).
+
+**Why:** a key made by the agent would be a secret in this repository or on this machine, and whoever holds it can
+sign packs every copy of the app installs.
+
+**What it means:** packs can be built and tested now (tests sign with their own keys); the first published pack needs
+the maintainer's key.

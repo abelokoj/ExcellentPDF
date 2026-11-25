@@ -6,6 +6,14 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 10:26; Ph4: 1/44 | K.21: Pack manager (Phase 4 part)
+
+- The pack manager (`excellent-packs`) behind optional downloads such as dictionaries, fonts and voices: a signed list
+  of what is offered, downloads that resume after a dropped connection, every pack checked by its size, its hash and
+  its own Ed25519 signature before it is installed, installs that are all or nothing, removal that leaves no files,
+  and install from a file for machines that are offline.
+- Not yet in the app: the Settings page and the publishing key (the maintainer's to make, DD27) come in Phase 5.
+
 ### 2026-11-25 10:17; Ph3: 49/49 | U.8: Input methods on the canvas (deferred, DD26)
 
 - Not built yet: the page canvas takes no typed text today, so there is nothing for an input method to compose into.

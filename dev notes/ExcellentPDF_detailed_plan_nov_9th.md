@@ -2232,6 +2232,11 @@ database sits next to `settings.toml` (the app's data folder, or the program's f
 4. Offline: a pack file can be installed from disk.
 
 **Done when:** a tampered pack is rejected; interrupted downloads resume; removing a pack leaves no files.
+
+*Built (2026-11-25, Phase 4 part):* `crates/excellent-packs`: the signed index, the self-signed pack file (`.expack`:
+signature then zip), resumable HTTPS download checked by size, hash and signature, atomic install into the pack's own
+folder, removal, install from disk. The trusted key waits for the maintainer (DD27); the Settings page comes in
+Phase 5.
 **Links:** ed25519-dalek <https://github.com/dalek-cryptography/curve25519-dalek>
 
 #### Ph0: 8/13 | K.22: Out-of-process engine and sandbox
