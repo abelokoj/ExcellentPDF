@@ -268,6 +268,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     // Any kind keeps PDF 2.0's blend mode (H.3).
                     multiply: open,
                     widths: Vec::new(),
+                    tape: locked && closed,
                 }
             },
         )

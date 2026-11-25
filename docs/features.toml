@@ -690,3 +690,9 @@ label = "Ph4: 2/44"
 status = "in-progress"
 tests = ["the_grain_is_light_and_varied_and_the_same_every_time", "the_grain_tiles_without_a_seam"]
 open = "scroll frame time with the grain not measured; one texture"
+
+["H.4"]
+label = "Ph4: 3/44"
+status = "in-progress"
+tests = ["tape_toggles_with_one_tap_and_survives_save", "tape_is_an_opaque_filled_square_marked_as_tape", "a_tap_reveals_and_another_hides_again", "only_tape_and_unlocked_tape_answer_a_tap"]
+open = "no reveal or cover all; model in excellent-features rather than excellent-ink"

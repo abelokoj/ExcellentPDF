@@ -44,6 +44,7 @@ use excellent_features::annotate::polygons;
 use excellent_features::annotate::replace::{self, Mode, Proposal};
 use excellent_features::annotate::shapes::{self, Drawn};
 use excellent_features::annotate::sticky::{self, Icon};
+use excellent_features::annotate::tape;
 use excellent_ink::erase::Eraser;
 
 use nsh_base::{input, theme};
@@ -83,6 +84,8 @@ pub(crate) enum Placing {
     Shape(shapes::Kind),
     /// The stamp chosen in the inspector (A.20).
     Stamp,
+    /// A strip of tape dragged out over what it hides (H.4).
+    Tape,
 }
 
 /// A pane's annotating: its document's edits, the replacement or insertion waiting for its text, the tool whose
@@ -184,7 +187,7 @@ impl AnnotateState {
             }
         };
         let (made, name, art) = match what {
-            Placing::Shape(_) => return,
+            Placing::Shape(_) | Placing::Tape => return,
             Placing::Sticky => (
                 sticky::place(
                     page,
@@ -250,6 +253,8 @@ impl AnnotateState {
     pub(crate) fn drawing_prop(self) -> JsonValue {
         match self.placing.get() {
             Some(Placing::Shape(kind)) => JsonValue::from(kind.to_string()),
+            // Tape is dragged out as a rectangle is (H.4).
+            Some(Placing::Tape) => JsonValue::from(shapes::Kind::Rectangle.to_string()),
             _ => JsonValue::Null,
         }
     }
@@ -276,6 +281,7 @@ impl AnnotateState {
             }
             CommandId::Eraser(eraser) => self.eraser.get() == Some(eraser),
             CommandId::Lasso => self.lasso.get(),
+            CommandId::Tape => self.placing.get() == Some(Placing::Tape),
             _ => false,
         }
     }
@@ -293,6 +299,7 @@ impl AnnotateState {
     /// The canvas drew a shape (`pageDraw`): it becomes an annotation, one step of undo, and the tool goes off, its
     /// inspector open on the new shape.
     fn drawn(self, data: &JsonValue) {
+        let taping = untracked(|| self.placing.get()) == Some(Placing::Tape);
         self.placing.set(None);
         let Some(drawn) = Drawn::parse(data) else {
             log::warn!("pageDraw: a shape that doesn't parse: {data}");
@@ -301,6 +308,20 @@ impl AnnotateState {
         let Some(made) = drawn.annotation(&author()) else {
             return;
         };
+        // Tape (H.4): the rectangle dragged out becomes a strip over what it hides, with no note to open.
+        if taping {
+            if let excellent_core::annot::Shape::Boxed(_, rect) = made.shape {
+                self.editing.apply(&Operation::new(
+                    t!("tape.edit"),
+                    vec![Change::CreateAnnotation(tape::tape(
+                        made.page,
+                        rect,
+                        &author(),
+                    ))],
+                ));
+            }
+            return;
+        }
         let target = Target {
             page: made.page,
             id: made.id.clone(),
@@ -438,7 +459,7 @@ impl AnnotateState {
     /// the selection, or leaves it, and no note opens.
     fn press(self, data: &JsonValue) {
         if let Some(what) = untracked(|| self.placing.get())
-            && !matches!(what, Placing::Shape(_))
+            && !matches!(what, Placing::Shape(_) | Placing::Tape)
         {
             self.put(what, data);
             return;
@@ -449,22 +470,32 @@ impl AnnotateState {
         let Some(document) = self.editing.document() else {
             return;
         };
-        let target = {
+        let add = data
+            .get("add")
+            .and_then(JsonValue::as_bool)
+            .unwrap_or(false);
+        let (target, tapped) = {
             let Ok(shared) = document.mupdf() else {
                 return;
             };
             let mupdf = shared.lock().expect("document lock poisoned");
             // What a hidden layer holds isn't on the page to press (A.22).
             let annotations = layers::shown_on_page(&mupdf, page);
-            edit::hit(&annotations, point).map(|annotation| Target {
-                page,
-                id: annotation.id.clone(),
-            })
+            let hit = edit::hit(&annotations, point);
+            (
+                hit.map(|annotation| Target {
+                    page,
+                    id: annotation.id.clone(),
+                }),
+                // A plain click on tape reveals it or hides it again (H.4); Ctrl still selects it.
+                hit.filter(|_| !add).and_then(tape::tapped),
+            )
         };
-        let add = data
-            .get("add")
-            .and_then(JsonValue::as_bool)
-            .unwrap_or(false);
+        if let Some(change) = tapped {
+            self.editing
+                .apply(&Operation::new(t!("tape.tap"), vec![change]));
+            return;
+        }
         if self.select_press(target.clone(), add) {
             return;
         }

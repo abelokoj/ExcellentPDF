@@ -174,6 +174,7 @@ fn placing(what: Placing) -> View {
             CommandId::Callout,
         ),
         Placing::Stamp => ("stamps.placing", "stamps.placing_hint", CommandId::Stamp),
+        Placing::Tape => ("tape.placing", "tape.placing_hint", CommandId::Tape),
     };
     crate::shell::empty_message(
         move || t!(title),

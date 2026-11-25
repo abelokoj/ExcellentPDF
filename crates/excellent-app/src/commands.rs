@@ -117,6 +117,8 @@ pub(crate) enum CommandId {
     Eraser(Eraser),
     /// Turns the lasso on or off: a drag on the pages draws a loop that selects what it encloses (H.6).
     Lasso,
+    /// Lays tape: the next drag on a page covers that strip; a click on tape reveals it or hides it again (H.4).
+    Tape,
     /// Turns the selected annotations a quarter turn anticlockwise (H.6).
     RotateLeft,
     /// Turns the selected annotations a quarter turn clockwise (H.6).
@@ -728,6 +730,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.ink",
         keys: &[],
         page_keys: &["0"],
+    },
+    Command {
+        id: CommandId::Tape,
+        name: "ink.tape",
+        label: "command.tape",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["alt+t"],
     },
     Command {
         id: CommandId::Lasso,

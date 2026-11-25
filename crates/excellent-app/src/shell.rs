@@ -488,6 +488,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Pen(kind) => pane.annotate.choose_pen(kind),
             CommandId::Eraser(eraser) => pane.annotate.choose_eraser(eraser),
             CommandId::Lasso => pane.annotate.toggle_lasso(),
+            CommandId::Tape => pane.annotate.place(Placing::Tape),
             CommandId::RotateLeft => pane.annotate.rotate_selection(-90.0),
             CommandId::RotateRight => pane.annotate.rotate_selection(90.0),
             CommandId::Thinner => pane.annotate.scale_selection_width(lasso::THINNER),

@@ -4,7 +4,7 @@
 //!
 //! Positions are in page space: points from the page's top-left corner, y down, before the reader's rotation, as
 //! MuPDF reports the page. An annotation is named by its id (the PDF's `/NM`), never by its place in the page's list.
-//! The anchor, tags (K.28) and category (A.17) live in a private key of the annotation's dictionary, so they travel with the file.
+//! The anchor, tags (K.28), category (A.17) and tape mark (H.4) live in a private key of the annotation's dictionary, so they travel with the file.
 //!
 //! Only the kinds the app makes are modelled; the others (links, form fields, sounds, other apps' own kinds) are left
 //! in the file as they are: [`Annotation::from_data`] gives `None` for them and the model never writes them.
@@ -319,6 +319,9 @@ pub struct Annotation {
     /// stroke, saved with an appearance that follows it. An empty list, or one that doesn't match its stroke's
     /// points, is a stroke of the style's one width.
     pub widths: Vec<Vec<f32>>,
+    /// Whether it is tape (H.4): an opaque strip over what it hides, revealed and hidden again with a tap. Kept in the
+    /// private key: other readers show a plain bar.
+    pub tape: bool,
 }
 
 impl Annotation {
@@ -352,6 +355,7 @@ impl Annotation {
             locked: false,
             multiply: false,
             widths: Vec::new(),
+            tape: false,
         }
     }
 
@@ -415,6 +419,9 @@ impl Annotation {
         let anchor = private.and_then(|object| quote_from_json(object.get("anchor")?));
         let category =
             private.and_then(|object| Some(object.get("category")?.as_str()?.to_owned()));
+        let tape = private
+            .and_then(|object| object.get("tape")?.as_bool())
+            .unwrap_or(false);
         let text = if data.kind == AnnotKind::FreeText {
             TextStyle {
                 font: Font::of(&data.font),
@@ -459,6 +466,7 @@ impl Annotation {
             locked: data.locked,
             multiply: data.multiply,
             widths: ink_widths(&data.strokes, &data.widths),
+            tape,
         })
     }
 
@@ -538,6 +546,9 @@ impl Annotation {
         if let Some(category) = &self.category {
             object.insert("category".into(), json!(category));
         }
+        if self.tape {
+            object.insert("tape".into(), json!(true));
+        }
         if object.is_empty() {
             String::new()
         } else {
@@ -593,6 +604,7 @@ impl Annotation {
             "locked": self.locked,
             "multiply": self.multiply,
             "widths": self.widths,
+            "tape": self.tape,
             "text": self.is_text_box().then(|| json!({
                 "font": self.text.font.name(),
                 "size": self.text.size,
@@ -719,6 +731,11 @@ impl Annotation {
                 .get("widths")
                 .and_then(Value::as_array)
                 .map(|strokes| strokes.iter().filter_map(floats).collect())
+                .unwrap_or_default(),
+            // Before H.4 nothing was tape.
+            tape: object
+                .get("tape")
+                .and_then(Value::as_bool)
                 .unwrap_or_default(),
         })
     }

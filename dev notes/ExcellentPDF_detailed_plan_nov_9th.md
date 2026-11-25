@@ -3574,6 +3574,10 @@ to text lines is not built yet.
 
 **Done when:** tape toggles with one tap and survives save.
 
+*Built (2026-11-25):* `excellent-features::annotate::tape` (a filled Square with the private `tape` mark; a tap is one
+undoable opacity change between covering and revealed) and the Tape tool on the Write toolbar. The model sits with
+the annotation models: it has no ink geometry for `excellent-ink`.
+
 #### Ph3: 41/49 | H.5: Erasers
 **P0; Phase 3; Needs:** H.1; **Code:** `excellent-ink::erase`
 1. Stroke eraser (removes whole strokes it touches), area eraser (splits strokes at the eraser outline),

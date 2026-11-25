@@ -6,6 +6,12 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 11:07; Ph4: 3/44 | H.4: Tape
+
+- Tape (Write toolbar, Alt+T on the pages, the palette): drag over a definition or an answer to cover it with a soft
+  blue strip. Click the strip to see what is under it, and click again to cover it. Other PDF readers show a plain
+  bar; Ctrl-click, the marquee and the lasso still select tape to move or delete it.
+
 ### 2026-11-25 11:00; Ph4: 2/44 | R.23: Paper textures
 
 - "Paper texture" (Settings, Reading; off by default) lays a faint paper grain over the pages, which scrolls and zooms

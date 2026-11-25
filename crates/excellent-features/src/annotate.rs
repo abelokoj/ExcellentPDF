@@ -19,6 +19,7 @@ pub mod shapes;
 pub mod stamps;
 pub mod sticky;
 pub mod tags;
+pub mod tape;
 pub mod threads;
 pub mod transfer;
 pub mod w3c;
