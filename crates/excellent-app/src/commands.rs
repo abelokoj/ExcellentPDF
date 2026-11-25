@@ -127,6 +127,8 @@ pub(crate) enum CommandId {
     Thicker,
     /// Duplicates the selected annotations (H.6).
     DuplicateSelection,
+    /// Turns snapshot mode on: a drag on a page renders that region, to copy or save (O.23).
+    Snapshot,
     /// Saves the pen in hand again as a new favourite and opens it to edit (H.7).
     SavePen,
     /// Opens the pen in hand to edit its kind, colour, width and pressure (H.7).
@@ -804,6 +806,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         label: "command.import_pens",
         group: "command.group.ink",
         keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Snapshot,
+        name: "tools.snapshot",
+        label: "command.snapshot",
+        group: "command.group.read",
+        keys: &["alt+s"],
         page_keys: &[],
     },
     Command {

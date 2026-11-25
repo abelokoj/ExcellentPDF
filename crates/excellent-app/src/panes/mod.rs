@@ -38,6 +38,7 @@ use crate::reading::Reading;
 use crate::recent::RecentState;
 use crate::session::Restored;
 use crate::settings::Live;
+use crate::snapshot::SnapshotState;
 use crate::tabs::{self, Closed, Step, TabState, Tabs};
 use crate::thumbnails::Thumbnails;
 use crate::windows::Windows;
@@ -138,6 +139,8 @@ pub(crate) struct Pane {
     pub(crate) find: FindState,
     /// Markups and proposed edits made from the pages (A.1, A.2).
     pub(crate) annotate: AnnotateState,
+    /// Region snapshots of the pages (O.23).
+    pub(crate) snapshot: SnapshotState,
 }
 
 impl Pane {
@@ -167,6 +170,7 @@ impl Pane {
             bookmarks: BookmarkState::new(tabs, pages),
             find: FindState::new(canvas, focus),
             annotate: AnnotateState::new(editing, live),
+            snapshot: SnapshotState::new(editing),
         }
     }
 

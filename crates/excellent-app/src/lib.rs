@@ -30,6 +30,7 @@ mod session;
 mod settings;
 mod settings_window;
 mod shell;
+mod snapshot;
 mod tabs;
 mod theme;
 mod thumbnails;

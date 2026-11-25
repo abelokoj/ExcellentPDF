@@ -45,6 +45,8 @@ pub(super) struct Selected {
     marquee: Option<Marquee>,
     /// The lasso is on (H.6): a drag on a page draws a loop rather than a marquee.
     lasso: bool,
+    /// Snapshot mode is on (O.23): a drag on a page marks a region to render, on any document.
+    snapshot: bool,
     /// A loop under way.
     looping: Option<Loop>,
     /// Whether the pointer is over a grip or an item it would move, for the cursor.
@@ -105,9 +107,15 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
-    /// Whether the lasso is on: the pen leaves its strokes to the mouse's handling, which draws the loop.
+    /// Whether the lasso or snapshot mode is on: the pen leaves its strokes to the mouse's handling, which draws the
+    /// loop or the region.
     pub(super) fn lasso_on(&self) -> bool {
-        self.selected.lasso
+        self.selected.lasso || self.selected.snapshot
+    }
+
+    /// Whether a drag on a page marks a region to snapshot (the `snapshot` prop, O.23).
+    pub(crate) fn set_snapshot(&mut self, on: bool) {
+        self.selected.snapshot = on;
     }
 
     /// Whether the pointer would take hold of the selection, or has, for the cursor.
@@ -138,13 +146,14 @@ impl<H: Host> PageCanvas<H> {
     /// The left button went down at client pixel (`x`, `y`) on a page, away from text and links: a marquee starts,
     /// when the document can take annotations. Returns whether it did.
     pub(super) fn marquee_down(&mut self, x: i32, y: i32) -> bool {
-        if !self.can_mark() || self.reflow.is_some() {
+        // A snapshot is of any document; selecting annotations needs one that takes them.
+        if !(self.selected.snapshot || self.can_mark()) || self.reflow.is_some() {
             return false;
         }
         let Some((page, from)) = self.page_point(x, y) else {
             return false;
         };
-        if self.selected.lasso {
+        if self.selected.lasso && !self.selected.snapshot {
             self.selected.looping = Some(Loop {
                 page,
                 points: vec![from],
@@ -254,6 +263,16 @@ impl<H: Host> PageCanvas<H> {
                 return true;
             }
             let to = self.point_on(marquee.page, x, y).unwrap_or(marquee.to);
+            if self.selected.snapshot {
+                self.emit(
+                    "snapshot",
+                    serde_json::json!({
+                        "page": marquee.page,
+                        "rect": [marquee.from.x, marquee.from.y, to.x, to.y],
+                    }),
+                );
+                return true;
+            }
             self.emit(
                 "annotMarquee",
                 serde_json::json!({

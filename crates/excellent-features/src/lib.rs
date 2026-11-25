@@ -11,4 +11,5 @@ pub mod onboarding;
 pub mod outline;
 pub mod read;
 pub mod search;
+pub mod snapshot;
 pub mod split;

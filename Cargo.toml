@@ -67,6 +67,8 @@ log = "0.4"
 serde_json = "1"
 # XFDF import and export (A.24).
 quick-xml = "0.42"
+# A snapshot goes on the clipboard as a `data:` URI (O.23); NSH already has this version.
+base64 = "0.22"
 toml = "1"
 # The library database (K.20, D7). Bundled: one SQLite on every platform, with FTS5. `fallible_uint`: positions
 # and counts are stored from `usize`.

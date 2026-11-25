@@ -4521,6 +4521,10 @@ rather than dialog controls (DD6); "print as image" is how every page prints. ma
 
 **Done when:** a 600 DPI snapshot of a vector figure is sharp.
 
+*Built (2026-11-25):* `excellent-features::snapshot` (render from the display list at 96 to 600 dpi, capped at 40
+megapixels), snapshot mode on the canvas, and the dialog (Copy as image, Save PNG). Enhanced's screenshots grab the
+screen; only the quick command and the ready file name carry over. "Make a card" waits for S.1.
+
 #### Ph7: 32/32 | O.24: Color-accurate and print-production view
 **P2; Phase 7; Needs:** K.7; **Code:** `excellent-features/prepress` (Appendix D.4)
 1. Color management with lcms2 (`fz_enable_icc`); the display's ICC profile from the OS; output intents from

@@ -604,6 +604,7 @@ pub(crate) fn pages_view(
         find,
         editing,
         annotate,
+        snapshot,
         ..
     } = pane;
     let reading = shared.reading;
@@ -633,6 +634,7 @@ pub(crate) fn pages_view(
         .prop("pen", move || annotate.pen_prop())
         .prop("eraser", move || annotate.eraser_prop())
         .prop("lasso", move || annotate.lasso_prop())
+        .prop("snapshot", move || snapshot.prop())
         .prop("fingerDraws", move || annotate.finger_draws_prop())
         .prop("selected", move || annotate.selected_prop())
         .prop("margin", move || annotate.margin_prop())
@@ -645,6 +647,7 @@ pub(crate) fn pages_view(
                         modes.pen_contact();
                     }
                 }
+                "snapshot" => snapshot.taken(&event.data),
                 _ => {}
             }
             on_event(event);

@@ -48,6 +48,7 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "|",
             "find.open",
             "view.reading_theme",
+            "tools.snapshot",
             "view.full_screen",
         ],
         Mode::Annotate => &[
@@ -515,9 +516,12 @@ fn tools(
         |row, item| match item {
             Item::Separator => row.child(rule()),
             Item::Command(name) => match commands::find(name) {
-                Some(id @ (CommandId::Pen(_) | CommandId::Eraser(_) | CommandId::Lasso)) => {
-                    row.child(choice_button(id, short_label(name), move || on(id), run))
-                }
+                Some(
+                    id @ (CommandId::Pen(_)
+                    | CommandId::Eraser(_)
+                    | CommandId::Lasso
+                    | CommandId::Snapshot),
+                ) => row.child(choice_button(id, short_label(name), move || on(id), run)),
                 Some(id) => row.child(tool_button(id, short_label(name), has_document, run)),
                 None => row,
             },

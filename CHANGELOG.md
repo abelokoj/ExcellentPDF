@@ -6,6 +6,12 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 09:32; Ph3: 47/49 | O.23: Screenshots and region snapshots
+
+- Snapshot (Read toolbar, Alt+S, the palette): drag a box on a page, choose 96, 150, 300 or 600 dpi, and copy it as an
+  image or save it as PNG. The region is rendered afresh from the document, not grabbed from the screen, so text and
+  vector figures stay sharp at print resolution (tested at 600 dpi). Works on any document the pages show.
+
 ### 2026-11-25 07:58; Ph3: 46/49 | H.10: Shape recognition (hold to snap)
 
 - Draw a line, an arrow, a triangle, a rectangle, a polygon, a circle or an ellipse by hand and keep the pen still for

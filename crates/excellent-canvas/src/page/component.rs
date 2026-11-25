@@ -43,7 +43,8 @@ impl<H: Host> PageCanvas<H> {
     /// pen strokes draw with (H.2), see [`pen`]. `eraser`: the eraser the pen uses instead (H.5), an `Eraser`'s
     /// name; anything else: the pen draws. Erasing sends `erase` (`{page, eraser, radius, points}`, page points).
     /// `lasso`: `true` while the lasso is on (H.6): a drag on a page draws a loop (`annotLasso`). `fingerDraws`:
-    /// `true` when a finger that isn't a resting hand draws ink rather than panning (H.8).
+    /// `true` when a finger that isn't a resting hand draws ink rather than panning (H.8). `snapshot`: `true` while
+    /// a drag on a page marks a region to render (O.23), sent as `snapshot` (`{page, rect}`, page points).
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -69,6 +70,7 @@ impl<H: Host> PageCanvas<H> {
             "fingerDraws" => {
                 self.set_finger_draws(value.and_then(JsonValue::as_bool).unwrap_or(false))
             }
+            "snapshot" => self.set_snapshot(value.and_then(JsonValue::as_bool).unwrap_or(false)),
             "margin" => self.set_margin(value.and_then(JsonValue::as_bool).unwrap_or(false)),
             "selected" => self.set_selected(value),
             "bookmarks" => self.set_bookmarks(value.map(bookmarks).unwrap_or_default()),

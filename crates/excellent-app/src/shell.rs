@@ -493,6 +493,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Thinner => pane.annotate.scale_selection_width(lasso::THINNER),
             CommandId::Thicker => pane.annotate.scale_selection_width(lasso::THICKER),
             CommandId::DuplicateSelection => pane.annotate.duplicate_selection(),
+            CommandId::Snapshot => pane.snapshot.toggle(),
             CommandId::SavePen => pane.annotate.save_pen(),
             CommandId::EditPen => pane.annotate.edit_pen(),
             CommandId::RemovePen => pane.annotate.remove_pen(),
@@ -604,7 +605,10 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             modes,
             move || panes.active().pages.count() > 0,
             move || full_screen.is_on(),
-            move |id| panes.slots()[panes.active_cell()].annotate.is_on(id),
+            move |id| {
+                let pane = panes.slots()[panes.active_cell()];
+                pane.annotate.is_on(id) || id == CommandId::Snapshot && pane.snapshot.is_on()
+            },
             run,
             // H.7: the favourite pens lead the Write mode's toolbar.
             move || {
@@ -647,6 +651,9 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
         .child(modes::customize_dialog(modes))
         .child(of_active(panes, |pane| {
             crate::annotate::favorites::pen_dialog(pane.annotate)
+        }))
+        .child(of_active(panes, |pane| {
+            crate::snapshot::snapshot_dialog(pane.snapshot)
         }))
         .child(onboarding::guide_dialog(onboarding, run))
 }
