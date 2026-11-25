@@ -63,6 +63,9 @@ const COMPACT_BELOW: Points = px(900.0);
 /// A workspace window's size before the platform keeps one of its own (W.8).
 const WINDOW_SIZE: (f32, f32) = (1100.0, 800.0);
 
+/// The main window's size the first time it opens, in points; after that it opens where it was left.
+const MAIN_WINDOW_SIZE: (f32, f32) = (1280.0, 800.0);
+
 /// How often the system's high contrast is looked at (U.4).
 const SYSTEM_CONTRAST_POLL: std::time::Duration = std::time::Duration::from_secs(2);
 
@@ -268,7 +271,6 @@ pub(crate) fn shell() -> impl IntoElement {
     let (shown, restored) = workspaces::opening();
     let panes = Panes::new(live, app.recent, restored);
     let workspaces = Workspaces::new(app, panes, shown, MAIN);
-    workspaces.set_window(current_window());
     // W.8: the windows open when the app last quit, once the main window is up.
     spawn(async move {
         next_frame().await;
@@ -276,7 +278,17 @@ pub(crate) fn shell() -> impl IntoElement {
             open_workspace_window(app, id);
         }
     });
-    window_shell(app, panes, workspaces, Role::Main)
+    // NSH 0.7's window model: the app host never shows, so the main window is declared like the others, and opens
+    // where the reader left it.
+    nsh_core::element::desktop::window()
+        .id("main")
+        .title("ExcellentPDF".to_owned())
+        .default_size(size(px(MAIN_WINDOW_SIZE.0), px(MAIN_WINDOW_SIZE.1)))
+        .restore_bounds(true)
+        .content(move || {
+            workspaces.set_window(current_window());
+            window_shell(app, panes, workspaces, Role::Main)
+        })
 }
 
 /// Opens workspace `id` in a window of its own (W.8), with every part of the main window. The caller checked that no

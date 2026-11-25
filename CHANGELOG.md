@@ -6,6 +6,13 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 07:02; Fix: the main window shows again on NSH 0.7
+
+- Since the NSH 0.7.0 update the app started without a window: NSH 0.7's window model makes the platform's host
+  invisible, and a Rust app now declares its windows. The main window is declared (`window().id("main")`, 1280 by
+  800 points the first time, then where the reader left it), as the workspace windows already were. Found by the
+  Windows budget check ("no window within 15 s"), which had failed since the update; confirmed on a local build.
+
 ### 2026-11-25 06:46; Ph3: 43/49 | H.7: Favourite pens bar and presets
 
 - The Write toolbar starts with a bar of favourite pens: a dot per pen in its colour and width, the one in hand
