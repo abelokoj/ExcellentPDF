@@ -6,6 +6,13 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 10:17; Ph3: 49/49 | U.8: Input methods on the canvas (deferred, DD26)
+
+- Not built yet: the page canvas takes no typed text today, so there is nothing for an input method to compose into.
+  Every place the app takes text (text boxes in the inspector, notes, tags, the palette, dialogs) is an NSH field,
+  which already works with Chinese, Japanese and Korean input methods on Windows, macOS and Linux. The canvas's own
+  path comes with N.6 (typed text blocks, Phase 4), the first editor that types on the page.
+
 ### 2026-11-25 10:15; Ph3: 48/49 | O.25: Attachments
 
 - Attachments (Read toolbar, Ctrl+Alt+A, the palette) lists a PDF's attached files, those of the document and those

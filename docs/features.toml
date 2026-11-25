@@ -307,6 +307,12 @@ status = "in-progress"
 tests = ["names_with_dot_dot_cannot_write_outside_the_chosen_folder", "an_embedded_file_is_listed_saved_and_undone", "names_are_kept_where_they_are_safe", "a_used_name_gets_a_number", "programs_are_never_opened"]
 open = "page attachment annotations not added; no removal; /Kids trees get a new leaf"
 
+["U.8"]
+label = "Ph3: 49/49"
+status = "in-progress"
+tests = []
+open = "the canvas's own IME path waits for N.6, the first in-canvas editor (DD26); all text entry today is NSH's, which composes on every desktop"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

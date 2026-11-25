@@ -4805,6 +4805,9 @@ speaker; vertical CJK text waits for the ebook work.
 3. All in-canvas text editing (A.6, N.6, O.5, O.11) uses this path.
 
 **Done when:** Chinese, Japanese and Korean input works in text boxes and form fields on every desktop.
+
+*Status (2026-11-25):* not built yet (DD26). The canvas takes no text; text boxes and every other field are NSH's,
+which compose with each desktop's input method. The canvas path comes with N.6, the first in-canvas editor.
 **Links:** IME on Windows <https://learn.microsoft.com/en-us/windows/win32/intl/input-method-manager>;
 NSTextInputClient <https://developer.apple.com/documentation/appkit/nstextinputclient>
 

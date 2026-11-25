@@ -463,3 +463,16 @@ the fountain pen.
 **Update (2026-11-25, H.7):** the pen in hand is now the favourites bar's, kept in `settings.toml` and shared by every
 pane, with its own colour, width and pressure response. Texture and blend in the saved appearance still wait for H.9.
 
+## DD26. U.8's input methods on the canvas wait for the first in-canvas editor (2026-11-25; agent's call, flagged)
+
+**Decision (agent):** the canvas takes no text today: text boxes (A.6), notes, tags, the palette and every dialog are
+edited in NSH text fields, which already compose with each desktop's input method (Windows `text_input.rs` with
+IMM32 and TSF, macOS `NSTextInputClient`, GTK's IM context, in NSH 0.7.0). U.8's own path, composition messages to
+the page canvas with the candidate window at the caret, is built with the first editor that types on the page: N.6
+(typed text blocks, Phase 4), then O.5 and O.11 (Phase 7).
+
+**Why:** a composition path with nothing typing into it can't be tested or used, and NSH's fields cover every place
+the app takes text now.
+
+**What it means:** Chinese, Japanese and Korean input works wherever the app takes text today; U.8 stays in progress
+until N.6 lands, and is checked then on each desktop.
