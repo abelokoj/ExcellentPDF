@@ -24,6 +24,8 @@ use excellent_ink::pens::{Blend, Pen};
 use excellent_ink::predict::predict;
 use excellent_ink::sample::{Sample, Tilt, Tool};
 use excellent_ink::session::Session;
+use excellent_ink::shapes;
+use excellent_ink::stroke::InkPoint;
 use excellent_ink::stroke::Stroke;
 use excellent_mupdf::{
     DeviceRect, DisplayList, Link, PageBox, PagePoint, PageRect, Pixmap, Reflow, Target, TextLayout,
@@ -68,6 +70,8 @@ const PREDICT_MS: f64 = 16.0;
 const PREDICT_MAX_PX: f32 = 24.0;
 /// How many of the newest samples prediction looks at.
 const RECENT_SAMPLES: usize = 8;
+/// How far the pen may wander, in pixels, and still be held still (H.10): a hand resting the pen trembles.
+const STILL_PX: f32 = 3.0;
 /// How closely a finished stroke's curve is followed, in page points (plan §8.2, step 4); the pen says how much it is
 /// steadied.
 const SMOOTH_TOLERANCE: f32 = 0.1;
@@ -271,6 +275,9 @@ struct PenStroke {
     started: std::time::Instant,
     /// The newest samples in the view's pixels, for prediction.
     recent: Vec<Sample>,
+    /// When the pen last moved (a little more than a hand's tremor): held still long enough before it lifts, the
+    /// stroke becomes the shape it was meant to be (H.10).
+    last_moved: std::time::Instant,
 }
 
 /// Input-to-present times of one stroke's frames, in milliseconds: from the newest sample's time stamp to the frame
@@ -1144,6 +1151,7 @@ impl<H: Host> PageCanvas<H> {
             latency: Latency::default(),
             started: std::time::Instant::now(),
             recent: Vec::with_capacity(RECENT_SAMPLES + 1),
+            last_moved: std::time::Instant::now(),
         });
         self.trail.clear();
         // The system's trail draws opaque: a highlighter's stroke is drawn by our frames alone, so text shows through.
@@ -1192,6 +1200,13 @@ impl<H: Host> PageCanvas<H> {
             pen.with.push(&mut pen.stroke, ink);
             let width = pen.stroke.points().last().map_or(0.0, |point| point.width);
             on_screen.push((sx, sy, width * scale));
+            if pen
+                .recent
+                .last()
+                .is_none_or(|last| (last.x - sx).hypot(last.y - sy) >= STILL_PX)
+            {
+                pen.last_moved = std::time::Instant::now();
+            }
             pen.recent.push(Sample {
                 x: sx,
                 y: sy,
@@ -1246,11 +1261,17 @@ impl<H: Host> PageCanvas<H> {
             );
         }
         if !pen.stroke.is_empty() {
-            self.commit_ink(&pen);
+            let held = pen.last_moved.elapsed().as_secs_f64() * 1000.0 >= shapes::HOLD_MS;
+            let finished = finished_points(&pen, held);
+            self.commit_ink(&pen, &finished);
             // Shown until the annotation it becomes is drawn with its page.
+            let mut shown = Stroke::new();
+            for point in finished {
+                shown.push(point);
+            }
             self.ink.push(PageStroke {
                 page: pen.page,
-                stroke: pen.stroke,
+                stroke: shown,
                 with: pen.with,
             });
         }
@@ -1260,12 +1281,11 @@ impl<H: Host> PageCanvas<H> {
     /// Sends the app the finished stroke (`ink`: `{page, points: [[x, y, width]], color, opacity}`, its points
     /// smoothed as its pen does, in page points), to commit as one step of undo (plan §8.2, step 6), and records it
     /// when asked to.
-    fn commit_ink(&self, pen: &PenStroke) {
+    fn commit_ink(&self, pen: &PenStroke, finished: &[InkPoint]) {
         let PenStroke {
             page, stroke, with, ..
         } = pen;
-        let points: Vec<[f32; 3]> = with
-            .finish(stroke, SMOOTH_TOLERANCE)
+        let points: Vec<[f32; 3]> = finished
             .iter()
             .map(|point| [point.x, point.y, point.width])
             .collect();
@@ -1953,6 +1973,33 @@ fn record_ink(dir: std::path::PathBuf, samples: Vec<Sample>) {
             log::warn!("ink: cannot record {}: {err}", path.display());
         }
     });
+}
+
+/// The points `pen`'s stroke is saved with: smoothed as its pen does, or, when the pen was `held` still at its end
+/// and the stroke is a shape drawn by hand, that shape drawn true at the stroke's mean width (H.10).
+fn finished_points(pen: &PenStroke, held: bool) -> Vec<InkPoint> {
+    let smoothed = pen.with.finish(&pen.stroke, SMOOTH_TOLERANCE);
+    if !held {
+        return smoothed;
+    }
+    let outline: Vec<excellent_ink::erase::Point> = smoothed
+        .iter()
+        .map(|p| excellent_ink::erase::Point { x: p.x, y: p.y })
+        .collect();
+    let Some(shape) = shapes::recognize(&outline) else {
+        return smoothed;
+    };
+    let width = smoothed.iter().map(|p| p.width).sum::<f32>() / smoothed.len().max(1) as f32;
+    log::debug!("ink: held still, drawn as a {:?}", shape.kind());
+    shape
+        .path()
+        .into_iter()
+        .map(|p| InkPoint {
+            x: p.x,
+            y: p.y,
+            width,
+        })
+        .collect()
 }
 
 /// A stroke through `points` as quads, one per segment, each as wide as its first point (a lone point is a square): a

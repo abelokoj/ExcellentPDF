@@ -289,6 +289,12 @@ status = "in-progress"
 tests = ["a_pressure_stroke_is_saved_and_drawn_as_written", "a_tapering_stroke_is_as_wide_as_each_point", "the_ends_bulge_outwards", "a_dot_is_round_and_nothing_is_nothing", "even_strokes_are_told_apart_from_pressure_strokes"]
 open = "Acrobat, PDF-XChange and pdf.js not checked (K.26); raw samples key not built; pencil grain not in the appearance; erased pieces lose widths"
 
+["H.10"]
+label = "Ph3: 46/49"
+status = "in-progress"
+tests = ["recognizes_at_least_95_percent_of_500_hand_drawn_shapes", "a_scribble_stays_a_scribble", "shapes_draw_true"]
+open = "synthetic shape set (DD24); no preview while the pen is held; shapes saved as ink"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

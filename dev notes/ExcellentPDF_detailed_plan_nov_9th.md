@@ -3636,6 +3636,10 @@ checked yet.
 2. Replace the stroke with the fitted shape if the error is under a threshold; keep pen style.
 
 **Done when:** recognition accuracy is at least 95 % on a recorded set of 500 shapes.
+
+*Built (2026-11-25):* `excellent-ink::shapes` (line, arrow, triangle, rectangle, polygon up to eight corners, circle,
+ellipse; scribbles refused) and the canvas's hold (500 ms still before the pen lifts). 99.4 % on a seeded set of 500
+synthetic hand-drawn shapes; a recorded set is still to come.
 **Links:** $-family recognizers <https://depts.washington.edu/acelab/proj/dollar/index.html>
 
 #### Ph4: 4/44 | H.11: Ruler, protractor and compass
