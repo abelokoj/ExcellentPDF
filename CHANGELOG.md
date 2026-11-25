@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 10:15; Ph3: 48/49 | O.25: Attachments
+
+- Attachments (Read toolbar, Ctrl+Alt+A, the palette) lists a PDF's attached files, those of the document and those
+  on its pages, with their sizes. Save one, save them all into a folder, open one after confirming, or attach a file
+  of your own (one step of undo).
+- Attachment names come from the file and are never trusted: a name such as `../../x` or `C:\x` is saved inside the
+  folder you chose, under a safe name, never over another file. Programs and scripts are never opened, only saved.
+- MuPDF patch `0095`: embedding a file left MuPDF's undo history inside an operation, so undo refused afterwards.
+
 ### 2026-11-25 09:32; Ph3: 47/49 | O.23: Screenshots and region snapshots
 
 - Snapshot (Read toolbar, Alt+S, the palette): drag a box on a page, choose 96, 150, 300 or 600 dpi, and copy it as an

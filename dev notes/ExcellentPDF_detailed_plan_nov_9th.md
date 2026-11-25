@@ -4545,6 +4545,10 @@ screen; only the quick command and the ready file name carry over. "Make a card"
 
 **Done when:** names with `../` can't write outside the chosen folder (test).
 
+*Built (2026-11-25):* listing (name tree and page annotations), Save, Save all into a folder with safe names, Open
+after asking and never for programs, and Add (`pdf_add_embedded_file`, one undoable operation; MuPDF patch `0095`
+makes undo work after it). Adding a page's file attachment annotation is not built.
+
 ### 27.15 Sync and sharing (Y)
 
 #### Ph9: 9/13 | Y.1: Folder sync with CRDT merge
