@@ -359,6 +359,15 @@ unsafe extern "C" {
     pub fn ex_drop_pixmap(ctx: *mut fz_context, pix: *mut fz_pixmap);
 }
 unsafe extern "C" {
+    pub fn ex_new_pixmap_rgb(
+        ctx: *mut fz_context,
+        width: ::core::ffi::c_int,
+        height: ::core::ffi::c_int,
+        out: *mut *mut fz_pixmap,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn ex_new_display_list(
         ctx: *mut fz_context,
         page: *mut fz_page,

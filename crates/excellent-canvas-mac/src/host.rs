@@ -267,6 +267,15 @@ impl Host for MacHost {
         CGContext::restore_g_state(c);
     }
 
+    fn faint_image(&mut self, image: &CFRetained<CGImage>, dest: &Rect, opacity: f32) {
+        let c = self.cg();
+        CGContext::save_g_state(c);
+        CGContext::set_alpha(c, f64::from(opacity.clamp(0.0, 1.0)).into());
+        self.image(image, dest);
+        let c = self.cg();
+        CGContext::restore_g_state(c);
+    }
+
     fn highlight(&mut self, quads: &[Quad], rgb: u32, wash: Wash) -> Result<(), Infallible> {
         if quads.is_empty() {
             return Ok(());

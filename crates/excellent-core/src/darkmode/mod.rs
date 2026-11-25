@@ -10,6 +10,7 @@
 //! `themes` holds the reading themes (R.15), the ink and paper the pages can be drawn in.
 
 mod page;
+pub mod paper;
 mod recolor;
 mod region;
 mod stats;

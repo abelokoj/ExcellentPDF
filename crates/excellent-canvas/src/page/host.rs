@@ -103,6 +103,9 @@ pub trait Host {
     /// Draws `image` stretched over `dest`.
     fn image(&mut self, image: &Self::Image, dest: &Rect);
 
+    /// Draws `image` stretched over `dest` at `opacity` (0 to 1) over what is there: the paper's grain (R.23).
+    fn faint_image(&mut self, image: &Self::Image, dest: &Rect, opacity: f32);
+
     /// Fills `quads` with `rgb` the way a highlighter marks paper, laid as `wash` says (with [`Wash::Darkest`],
     /// each pixel keeps the darker of itself and `rgb`, channel by channel).
     ///

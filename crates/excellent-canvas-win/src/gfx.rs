@@ -450,13 +450,18 @@ pub(crate) fn fill(context: &ID2D1DeviceContext, dest: &D2D_RECT_F, rgb: u32) ->
 }
 
 /// Draws `bitmap` stretched into `dest`.
-pub(crate) fn draw_bitmap(context: &ID2D1DeviceContext, bitmap: &ID2D1Bitmap1, dest: &D2D_RECT_F) {
+pub(crate) fn draw_bitmap(
+    context: &ID2D1DeviceContext,
+    bitmap: &ID2D1Bitmap1,
+    dest: &D2D_RECT_F,
+    opacity: f32,
+) {
     // SAFETY: drawing between `begin` and `end` with live objects.
     unsafe {
         context.DrawBitmap(
             bitmap,
             Some(std::ptr::from_ref(dest)),
-            1.0,
+            opacity,
             D2D1_INTERPOLATION_MODE_LINEAR,
             None,
             None,

@@ -226,6 +226,12 @@ impl Host for GtkHost {
             .append_scaled_texture(image, gsk::ScalingFilter::Linear, &bounds(dest));
     }
 
+    fn faint_image(&mut self, image: &gdk::Texture, dest: &Rect, opacity: f32) {
+        self.frame.push_opacity(f64::from(opacity.clamp(0.0, 1.0)));
+        self.image(image, dest);
+        self.frame.pop();
+    }
+
     fn highlight(&mut self, quads: &[Quad], rgb: u32, wash: Wash) -> Result<(), Infallible> {
         if quads.is_empty() {
             return Ok(());

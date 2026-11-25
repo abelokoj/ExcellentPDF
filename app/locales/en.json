@@ -1053,6 +1053,8 @@
   "settings.section.modes": "Modes and toolbars",
   "settings.pen_to_write": "Pen switches to Write",
   "settings.pen_to_write_hint": "Touching a page with a pen switches to Write mode, once Write has tools",
+  "settings.paper_texture": "Paper texture",
+  "settings.paper_texture_hint": "A faint paper grain over the pages, as on printed paper. The document itself is unchanged",
   "settings.finger_draws": "Finger draws",
   "settings.finger_draws_hint": "A finger draws ink on the page instead of scrolling. A hand resting on the screen while you write never does",
   "settings.toolbar": "Toolbars",

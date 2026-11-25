@@ -97,6 +97,8 @@ int ex_page_bounds(fz_context *ctx, fz_page *page, fz_rect *out, ex_error *err);
 int ex_render_page(fz_context *ctx, fz_page *page, fz_matrix ctm, int alpha, fz_pixmap **out, ex_error *err);
 void ex_pixmap_info_of(fz_context *ctx, fz_pixmap *pix, ex_pixmap_info *out);
 void ex_drop_pixmap(fz_context *ctx, fz_pixmap *pix);
+/* A new RGB pixmap of `width` by `height`, without alpha, filled white: for pictures the app draws itself (R.23). */
+int ex_new_pixmap_rgb(fz_context *ctx, int width, int height, fz_pixmap **out, ex_error *err);
 
 /* Display lists: a page recorded once, then rendered any number of times, from any thread (each with its own cloned
  * context). ex_render_display_list draws the part of the page that `ctm` maps into `area` (device pixels) into a new

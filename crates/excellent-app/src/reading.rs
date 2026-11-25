@@ -38,6 +38,9 @@ pub(crate) const READING_INK: &str = "reading_ink";
 pub(crate) const READING_PAPER: &str = "reading_paper";
 pub(crate) const REFLOW_FONT_SIZE: &str = "reflow_font_size";
 pub(crate) const REF_PREVIEW: &str = "ref_preview";
+
+/// The settings flag for the paper's grain over the pages (R.23); off by default.
+pub(crate) const PAPER_TEXTURE: &str = "paper_texture";
 pub(crate) const REF_PREVIEW_DELAY: &str = "ref_preview_delay";
 /// How long the pointer rests before a preview shows, in milliseconds: Enhanced's `CitationHoverDelay`.
 pub(crate) const DEFAULT_PREVIEW_DELAY: f64 = 300.0;
@@ -100,6 +103,16 @@ impl Reading {
     }
 
     /// The canvas's `hoverDelay` prop (R.25): the delay in milliseconds, or `false` when previews are off.
+    /// The canvas's `paperTexture` prop: the grain's strength, or 0 while the setting is off (R.23).
+    pub(crate) fn paper_texture_prop(self) -> JsonValue {
+        let on = self.live.read(|s| s.flag(PAPER_TEXTURE).unwrap_or(false));
+        JsonValue::from(if on {
+            excellent_core::darkmode::paper::DEFAULT_STRENGTH
+        } else {
+            0.0
+        })
+    }
+
     pub(crate) fn hover_delay_prop(self) -> JsonValue {
         self.live.read(|settings| {
             if settings.flag(REF_PREVIEW) == Some(false) {

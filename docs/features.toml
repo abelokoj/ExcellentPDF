@@ -684,3 +684,9 @@ label = "Ph4: 1/44"
 status = "in-progress"
 tests = ["a_tampered_pack_is_rejected", "an_interrupted_download_resumes_where_it_stopped", "removing_a_pack_leaves_no_files", "an_archive_that_escapes_its_folder_is_refused", "an_index_is_read_only_when_its_signature_verifies", "plain_http_and_bad_hashes_are_refused", "ids_are_safe_folder_names"]
 open = "trusted key is the maintainer's to make (DD27); Settings page, index address and signing tools in Phase 5"
+
+["R.23"]
+label = "Ph4: 2/44"
+status = "in-progress"
+tests = ["the_grain_is_light_and_varied_and_the_same_every_time", "the_grain_tiles_without_a_seam"]
+open = "scroll frame time with the grain not measured; one texture"

@@ -22,8 +22,8 @@ use crate::panes::{CLOSE_PANE_TABS, ClosingTabs, SYNC_SCROLL, SYNC_ZOOM};
 use crate::print::{PRINT_ANNOTATIONS, PRINT_SCALING};
 use crate::reading::{
     AUTO_SCROLL_SPEED, DEFAULT_PREVIEW_DELAY, DocumentColors, FOCUS_SCOPE, MAX_PREVIEW_DELAY,
-    READING_INK, READING_PAPER, REF_PREVIEW, REF_PREVIEW_DELAY, REFLOW_FONT_SIZE, RULER_COLOR,
-    RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
+    PAPER_TEXTURE, READING_INK, READING_PAPER, REF_PREVIEW, REF_PREVIEW_DELAY, REFLOW_FONT_SIZE,
+    RULER_COLOR, RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
 };
 use crate::reading_theme_bar;
 use crate::settings::{self, Live};
@@ -353,6 +353,15 @@ fn reading_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -
             "settings.document_colors",
             "settings.document_colors_hint",
             document_colors,
+        ))
+        .child(row(
+            "settings.paper_texture",
+            "settings.paper_texture_hint",
+            on_off(
+                "settings.paper_texture",
+                move || live.read(|s| s.flag(PAPER_TEXTURE).unwrap_or(false)),
+                move |on| live.change(|s| s.set_flag(PAPER_TEXTURE, on.then_some(true))),
+            ),
         ))
         .child(row(
             "settings.reading_theme",

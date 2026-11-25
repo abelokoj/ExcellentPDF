@@ -2871,3 +2871,16 @@ int ex_attachment_add(fz_context *ctx, fz_document *doc, const char *name, const
 		return ex_fail(ctx, err);
 	return 0;
 }
+
+int ex_new_pixmap_rgb(fz_context *ctx, int width, int height, fz_pixmap **out, ex_error *err)
+{
+	*out = NULL;
+	fz_try(ctx)
+	{
+		*out = fz_new_pixmap(ctx, fz_device_rgb(ctx), width, height, NULL, 0);
+		fz_clear_pixmap_with_value(ctx, *out, 255);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}

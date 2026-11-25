@@ -1053,6 +1053,8 @@
   "settings.section.modes": "الأوضاع وأشرطة الأدوات",
   "settings.pen_to_write": "القلم ينتقل إلى الكتابة",
   "settings.pen_to_write_hint": "لمس الصفحة بالقلم ينقل إلى وضع الكتابة، متى صارت له أدوات",
+  "settings.paper_texture": "ملمس الورق",
+  "settings.paper_texture_hint": "حبيبات ورق خفيفة فوق الصفحات كما على الورق المطبوع. لا يتغير المستند نفسه",
   "settings.finger_draws": "الإصبع يرسم",
   "settings.finger_draws_hint": "يرسم الإصبع حبرًا على الصفحة بدل التمرير. اليد المستندة إلى الشاشة أثناء الكتابة لا ترسم أبدًا",
   "settings.toolbar": "أشرطة الأدوات",

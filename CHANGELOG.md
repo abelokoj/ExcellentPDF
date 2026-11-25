@@ -6,6 +6,11 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 11:00; Ph4: 2/44 | R.23: Paper textures
+
+- "Paper texture" (Settings, Reading; off by default) lays a faint paper grain over the pages, which scrolls and zooms
+  with them. It is drawn over the page on screen only: the document, search, copy, print and export are unchanged.
+
 ### 2026-11-25 10:26; Ph4: 1/44 | K.21: Pack manager (Phase 4 part)
 
 - The pack manager (`excellent-packs`) behind optional downloads such as dictionaries, fonts and voices: a signed list

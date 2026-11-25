@@ -44,6 +44,32 @@ unsafe impl Send for Pixmap {}
 unsafe impl Sync for Pixmap {}
 
 impl Pixmap {
+    /// A new RGB pixmap of `width` by `height` pixels, white, without alpha: for pictures the app draws itself, such
+    /// as paper grain (R.23).
+    ///
+    /// # Errors
+    ///
+    /// A size of zero or one MuPDF can't allocate.
+    pub fn new_rgb(width: u32, height: u32) -> Result<Self> {
+        let (Ok(w), Ok(h)) = (
+            core::ffi::c_int::try_from(width),
+            core::ffi::c_int::try_from(height),
+        ) else {
+            return Err(crate::error::MuError::argument("a pixmap that large"));
+        };
+        if w == 0 || h == 0 {
+            return Err(crate::error::MuError::argument("a pixmap has an area"));
+        }
+        let mut raw = ptr::null_mut();
+        // SAFETY: plain allocation; `raw` receives a new pixmap we own.
+        with_context(|ctx| {
+            check(|err| unsafe { excellent_mupdf_sys::ex_new_pixmap_rgb(ctx, w, h, &mut raw, err) })
+        })?;
+        Ok(Self::new(
+            NonNull::new(raw).expect("ex_new_pixmap_rgb succeeded with a pixmap"),
+        ))
+    }
+
     pub(crate) fn new(raw: NonNull<fz_pixmap>) -> Self {
         let mut info = ex_pixmap_info::default();
         // A pixmap's fields can't fail to read; with_context fails only if MuPDF never started, and then no pixmap

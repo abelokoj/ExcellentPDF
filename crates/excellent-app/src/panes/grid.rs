@@ -627,6 +627,7 @@ pub(crate) fn pages_view(
         .prop("focusScope", move || reading.focus_scope_prop())
         .prop("autoScrollSpeed", move || reading.speed_prop())
         .prop("hoverDelay", move || reading.hover_delay_prop())
+        .prop("paperTexture", move || reading.paper_texture_prop())
         .prop("bookmarks", move || bookmarks.marks_prop())
         .prop("edits", move || JsonValue::from(editing.revision()))
         .prop("annotationColors", move || annotate.colors_prop())

@@ -2690,6 +2690,10 @@ current tile path is what it scrolls. Setting: `auto_scroll_speed`.
 
 **Done when:** no measurable effect on scroll frame time.
 
+*Built (2026-11-25):* `excellent-core::darkmode::paper` (a seamless 512-pixel grain) drawn by the canvas over each page
+at 6 % through `Host::faint_image`, after the tiles, never in them; "Paper texture" in Settings, Reading. Frame time
+not measured yet.
+
 #### Ph5: 3/45 | R.24: Two-column auto-detect
 **P2; Phase 5; Needs:** K.13; **Code:** `excellent-features/read/columns.rs`
 1. Detect column layout from K.13 blocks; "column mode" scrolls down one column, then jumps to the top of the next.

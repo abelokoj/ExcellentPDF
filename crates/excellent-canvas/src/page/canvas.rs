@@ -188,6 +188,10 @@ pub struct PageCanvas<H: Host> {
     erasers: erase::Erasers,
     /// Which touches count (H.8): none while the pen is about, none too wide for a finger.
     palms: crate::page::gestures::Palms,
+    /// How strongly the paper's grain shows over the pages (R.23), 0 for none.
+    paper_texture: f32,
+    /// The grain, uploaded once it is wanted; dropped with the device.
+    grain: Option<H::Image>,
     /// The pen the next stroke draws with (H.2).
     ink_pen: Pen,
     /// Tokens of the points handed to the host's ink trail that it still draws, oldest first.
@@ -325,6 +329,8 @@ impl<H: Host> PageCanvas<H> {
             ink_pen: Pen::default(),
             erasers: erase::Erasers::default(),
             palms: crate::page::gestures::Palms::default(),
+            paper_texture: 0.0,
+            grain: None,
             trail: Vec::new(),
             reported_page: None,
             reported_view: None,
@@ -1527,6 +1533,7 @@ impl<H: Host> PageCanvas<H> {
         let moving = self.advance_motion();
         self.notice_edits();
         self.update_marks();
+        self.upload_grain();
         let needed = tiles::visible_tiles(&self.layout, &self.viewport);
         self.request(&needed);
         self.tiles.begin_frame();
@@ -1709,6 +1716,10 @@ impl<H: Host> PageCanvas<H> {
                     host.image(image, &dest);
                 }
             }
+            // The paper's grain over the page, one picture stretched with it, never in its tiles (R.23).
+            if let Some(grain) = self.grain.as_ref().filter(|_| self.paper_texture > 0.0) {
+                host.faint_image(grain, &on_screen, self.paper_texture);
+            }
         }
         if first_complete == Some(true)
             && let Some(start) = self.opened_at.take()
@@ -1844,8 +1855,29 @@ impl<H: Host> PageCanvas<H> {
     /// The device is gone: its images go with it; the next frame makes a new one.
     fn lose_device(&mut self) {
         self.host.lose_device();
+        self.grain = None;
         self.tiles.clear();
         self.refhover.forget();
+    }
+
+    /// How strongly the paper's grain shows over the pages (R.23): 0 for none, up to 1 (the `paperTexture` prop).
+    pub fn set_paper_texture(&mut self, strength: f32) {
+        let strength = strength.clamp(0.0, 1.0);
+        if strength != self.paper_texture {
+            self.paper_texture = strength;
+            self.invalidate();
+        }
+    }
+
+    /// Uploads the grain when it is wanted and isn't there yet (first use, or a new device).
+    fn upload_grain(&mut self) {
+        if self.paper_texture <= 0.0 || self.grain.is_some() || !self.host.can_upload() {
+            return;
+        }
+        match excellent_core::darkmode::paper::grain_pixmap() {
+            Ok(pixmap) => self.grain = self.host.upload(&pixmap).map(|(image, _)| image),
+            Err(err) => log::warn!("paper texture: {err}"),
+        }
     }
 
     /// Draws `rgb` (`0xRRGGBB`) behind the pages: the theme's page area (K.17).

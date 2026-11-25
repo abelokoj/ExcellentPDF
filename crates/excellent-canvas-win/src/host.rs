@@ -155,7 +155,16 @@ impl Host for WinHost {
     }
 
     fn image(&mut self, image: &ID2D1Bitmap1, dest: &Rect) {
-        gfx::draw_bitmap(self.gfx().context(), image, &gfx::rect(dest));
+        gfx::draw_bitmap(self.gfx().context(), image, &gfx::rect(dest), 1.0);
+    }
+
+    fn faint_image(&mut self, image: &ID2D1Bitmap1, dest: &Rect, opacity: f32) {
+        gfx::draw_bitmap(
+            self.gfx().context(),
+            image,
+            &gfx::rect(dest),
+            opacity.clamp(0.0, 1.0),
+        );
     }
 
     fn highlight(&mut self, quads: &[Quad], rgb: u32, wash: Wash) -> windows::core::Result<()> {
