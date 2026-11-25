@@ -132,6 +132,7 @@ try {
         InstallUISequence      = '`Action` CHAR(72) NOT NULL, `Condition` CHAR(255), `Sequence` SHORT PRIMARY KEY `Action`'
         AdminExecuteSequence   = '`Action` CHAR(72) NOT NULL, `Condition` CHAR(255), `Sequence` SHORT PRIMARY KEY `Action`'
         AdminUISequence        = '`Action` CHAR(72) NOT NULL, `Condition` CHAR(255), `Sequence` SHORT PRIMARY KEY `Action`'
+        Icon                   = '`Name` CHAR(72) NOT NULL, `Data` OBJECT NOT NULL PRIMARY KEY `Name`'
     }
     foreach ($table in $tables.Keys) { Invoke-Sql "CREATE TABLE ``$table`` ($($tables[$table]))" }
 
@@ -160,6 +161,7 @@ try {
         Manufacturer           = 'ExcellentPDF'
         UpgradeCode            = $UpgradeCode
         ARPNOMODIFY            = '1'
+        ARPPRODUCTICON         = 'AppIcon.ico'
         SecureCustomProperties = 'OLDERFOUND;NEWERFOUND'
     }
     foreach ($key in $properties.Keys) { Add-Row Property @($key, $properties[$key]) }
@@ -230,6 +232,14 @@ try {
     foreach ($action in 'CostInitialize', 'FileCost', 'CostFinalize', 'ExecuteAction') {
         Add-Row AdminUISequence @($action, $null, $ui[$action])
     }
+
+    # The icon Settings > Apps shows; the shortcut takes the one embedded in the exe (crates/excellent-app/build.rs).
+    $icons = Invoke-Com $db 'OpenView' @('SELECT `Name`, `Data` FROM `Icon`')
+    $record = Invoke-Com $installer 'CreateRecord' @(2)
+    Set-ComProperty $record 'StringData' @(1, 'AppIcon.ico')
+    [void] (Invoke-Com $record 'SetStream' @(2, (Join-Path $root 'packaging/windows/excellentpdf.ico')))
+    [void] (Invoke-Com $icons 'Modify' @(1, $record)) # msiViewModifyInsert
+    [void] (Invoke-Com $icons 'Close')
 
     $streams = Invoke-Com $db 'OpenView' @('SELECT `Name`, `Data` FROM `_Streams`')
     $record = Invoke-Com $installer 'CreateRecord' @(2)

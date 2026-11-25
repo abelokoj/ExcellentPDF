@@ -489,3 +489,18 @@ sign packs every copy of the app installs.
 
 **What it means:** packs can be built and tested now (tests sign with their own keys); the first published pack needs
 the maintainer's key.
+
+## DD28. The app icon, "Marginalia" (2026-11-25; agent's design at the maintainer's request, flagged)
+
+**Decision (agent):** the maintainer asked for an icon, since the installed app showed none. The mark is a pale sheet
+with a folded corner and grey text bars, crossed by one broad-nib stroke in the ink blue of `DESIGN.md` (`#1a3d8f`): a
+cursive "e" whose exit stroke runs out past the page's right edge, as a margin note does. The philosophy is
+`design/icon/philosophy.md`; `design/icon/render_icon.py` draws every size on its own pixel grid (16 and 20 show only
+the swash), writes `design/icon/png/` and `packaging/windows/excellentpdf.ico`, and the specimen sheet
+`design/icon/excellentpdf-icon-sheet.png`. `crates/excellent-app/build.rs` embeds the .ico as icon group 1 (what NSH's
+window class loads); the MSI shows it in Settings > Apps.
+
+**Why:** an installed app with no icon looks broken in the Start menu, the taskbar and Explorer.
+
+**What it means:** the maintainer may replace the design; re-running the script regenerates every file. macOS
+(`.icns`) and Linux (hicolor PNGs) take theirs from `design/icon/png/` when their packages are built.

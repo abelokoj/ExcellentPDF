@@ -6,6 +6,12 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 11:36; App icon
+
+- ExcellentPDF has an icon ("Marginalia", DD28): a pale page crossed by one blue broad-nib stroke that runs past its
+  edge, drawn separately for each size from 16 to 1024 pixels. It is embedded in `excellentpdf.exe` (Explorer, the
+  Start menu shortcut, the window and the taskbar) and shown for the app in Settings > Apps.
+
 ### 2026-11-25 11:23; Ph4: 5/44 | H.12: Zoom writing pad
 
 - Zoom pad (Write toolbar, Alt+Z on the pages): the bottom third of the view becomes a pad. Write large in it and the
