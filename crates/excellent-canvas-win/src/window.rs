@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Once;
 
+use excellent_canvas::page::gestures::Verdict;
 use excellent_canvas::page::{ClickLimits, Cursor, PenSample, Tilt};
 use nsh_platform_windows::ComponentContext;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
@@ -26,8 +27,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SetWindowLongPtrW, WINDOW_EX_STYLE, WM_CAPTURECHANGED, WM_DPICHANGED_AFTERPARENT,
     WM_ERASEBKGND, WM_GETOBJECT, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MOUSEHWHEEL,
     WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_PAINT, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN,
-    WM_POINTERUP, WM_POINTERUPDATE, WM_SETCURSOR, WM_SIZE, WM_XBUTTONUP, WNDCLASSEXW,
-    WS_CLIPCHILDREN, WS_POPUP,
+    WM_POINTERLEAVE, WM_POINTERUP, WM_POINTERUPDATE, WM_SETCURSOR, WM_SIZE, WM_XBUTTONUP,
+    WNDCLASSEXW, WS_CLIPCHILDREN, WS_POPUP,
 };
 use windows::core::BOOL;
 use windows::core::{Result, w};
@@ -309,36 +310,72 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
             // The message wants TRUE when handled.
             LRESULT(1)
         }
-        // The pen draws (plan §7.3). Touch and anything the canvas doesn't take go to the default handling, which
-        // turns them into mouse messages.
-        WM_POINTERDOWN | WM_POINTERUPDATE | WM_POINTERUP | WM_POINTERCAPTURECHANGED => {
+        // The pen draws (plan §7.3). Touch passes the palm rejection first (H.8): a resting hand is swallowed, a
+        // finger draws when "finger draws" is on; the rest goes to the default handling, which makes mouse messages.
+        WM_POINTERDOWN
+        | WM_POINTERUPDATE
+        | WM_POINTERUP
+        | WM_POINTERCAPTURECHANGED
+        | WM_POINTERLEAVE => {
             let id = pointer::id(wparam.0);
             if msg == WM_POINTERDOWN {
                 canvas.pressed();
             }
-            let taken = match msg {
-                WM_POINTERDOWN => {
-                    match pointer::read(id).filter(|s| s.device == Device::Pen && s.contact) {
-                        Some(sample) => {
-                            // K.18: the app may switch to Write mode.
-                            canvas.pen_contact();
+            let sample = pointer::read(id);
+            let device = sample.map(|s| s.device);
+            // SAFETY: a plain query of the current message.
+            let now = unsafe { GetMessageTime() } as u32;
+            let time = f64::from(sample.map_or(now, |s| s.time));
+            if device == Some(Device::Pen) {
+                if msg == WM_POINTERLEAVE {
+                    canvas.pen_gone(time);
+                } else {
+                    canvas.pen_near(time);
+                }
+            }
+            let taken = match (msg, device) {
+                (WM_POINTERDOWN, Some(Device::Pen)) => match sample.filter(|s| s.contact) {
+                    Some(sample) => {
+                        // K.18: the app may switch to Write mode.
+                        canvas.pen_contact();
+                        canvas.pen_down(&pen_sample(&sample, client_origin(hwnd)))
+                    }
+                    None => false,
+                },
+                (WM_POINTERDOWN, Some(Device::Touch)) => {
+                    let width = pointer::touch_width(id).map(|px| millimetres(px, hwnd));
+                    match canvas.touch_down(id, time, width) {
+                        Verdict::Ignore => true,
+                        Verdict::Pass => false,
+                        Verdict::Draw => sample.is_some_and(|sample| {
                             canvas.pen_down(&pen_sample(&sample, client_origin(hwnd)))
-                        }
-                        None => false,
+                        }),
                     }
                 }
-                WM_POINTERUPDATE if canvas.is_drawing(id) => {
+                (WM_POINTERUPDATE, _) if canvas.is_drawing(id) => {
                     let origin = client_origin(hwnd);
-                    let samples: Vec<PenSample> = pointer::pen_history(id)
-                        .iter()
-                        .map(|sample| pen_sample(sample, origin))
-                        .collect();
+                    let history = pointer::pen_history(id);
+                    // A finger has no pen history: its message's own sample.
+                    let samples: Vec<PenSample> = if history.is_empty() {
+                        sample.iter().map(|s| pen_sample(s, origin)).collect()
+                    } else {
+                        history.iter().map(|s| pen_sample(s, origin)).collect()
+                    };
                     canvas.pen_moved(&samples);
                     true
                 }
-                WM_POINTERUP | WM_POINTERCAPTURECHANGED if canvas.is_drawing(id) => {
+                (WM_POINTERUP | WM_POINTERCAPTURECHANGED, _) if canvas.is_drawing(id) => {
                     canvas.pen_up();
+                    canvas.touch_up(id);
                     true
+                }
+                (WM_POINTERUP | WM_POINTERCAPTURECHANGED, Some(Device::Touch)) => {
+                    let ignored = canvas.touch_verdict(id) == Verdict::Ignore;
+                    canvas.touch_up(id);
+                    ignored
+                }
+                (WM_POINTERUPDATE, Some(Device::Touch)) => {
+                    canvas.touch_verdict(id) == Verdict::Ignore
                 }
                 _ => false,
             };
@@ -369,6 +406,13 @@ fn client_origin(hwnd: HWND) -> POINT {
     // SAFETY: a plain call on our live window; `origin` lives for it.
     let _ = unsafe { ClientToScreen(hwnd, &mut origin) };
     origin
+}
+
+/// `pixels` on this window's screen in millimetres (H.8's contact widths).
+fn millimetres(pixels: i32, hwnd: HWND) -> f32 {
+    // SAFETY: a plain query on our live window.
+    let dpi = unsafe { GetDpiForWindow(hwnd) }.max(1);
+    pixels as f32 * 25.4 / dpi as f32
 }
 
 /// A pen sample as the shared canvas takes it: in the window's pixels.

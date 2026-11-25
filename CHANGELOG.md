@@ -6,6 +6,15 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 07:04; Ph3: 44/49 | H.8: Palm rejection and "finger draws"
+
+- A hand resting on the screen while you write does nothing: touches are ignored while the pen is near the screen or
+  on it and for half a second after it leaves, and so is any contact wider than a fingertip. Before, on Windows, a
+  resting palm became a mouse press on the page.
+- "Finger draws" (Settings, Modes; off by default) makes a finger that isn't a resting hand draw ink instead of
+  scrolling.
+- Windows only for now; tested with a synthetic session of a resting palm, the side of the hand and a knuckle.
+
 ### 2026-11-25 07:02; Fix: the main window shows again on NSH 0.7
 
 - Since the NSH 0.7.0 update the app started without a window: NSH 0.7's window model makes the platform's host

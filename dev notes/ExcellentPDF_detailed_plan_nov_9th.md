@@ -3610,6 +3610,11 @@ or remove, `+` to save the pen in hand), its edit dialog, and Export / Import in
 
 **Done when:** writing with the hand resting on a touch screen leaves no stray marks in a recorded test.
 
+*Built (2026-11-25):* `excellent-canvas::page::gestures` (touches ignored while the pen is near or on the screen
+and 500 ms after, or wider than 16 mm; a verdict kept until the touch lifts), fed by the Windows canvas
+(`WM_POINTER*` pen hover and leave, `GetPointerTouchInfo` contact width); "Finger draws" in Settings, Modes. The
+recorded test is a synthetic session; macOS and Linux hosts are not wired yet.
+
 #### Ph3: 45/49 | H.9: Save ink as standard PDF
 **P0; Phase 3; Needs:** H.1, K.14; **Code:** `excellent-ink::pdf`
 1. InkList with `pdf_add_annot_ink_list` (smoothed points) (§8.3).

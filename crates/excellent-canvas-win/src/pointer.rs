@@ -3,12 +3,13 @@
 //! message, `GetPointerPenInfoHistory`.
 
 use windows::Win32::UI::Input::Pointer::{
-    GetPointerInfo, GetPointerPenInfo, GetPointerPenInfoHistory, GetPointerType,
-    POINTER_FLAG_INCONTACT, POINTER_INFO, POINTER_PEN_INFO,
+    GetPointerInfo, GetPointerPenInfo, GetPointerPenInfoHistory, GetPointerTouchInfo,
+    GetPointerType, POINTER_FLAG_INCONTACT, POINTER_INFO, POINTER_PEN_INFO, POINTER_TOUCH_INFO,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     PEN_FLAG_BARREL, PEN_FLAG_ERASER, PEN_FLAG_INVERTED, PEN_MASK_PRESSURE, PEN_MASK_ROTATION,
     PEN_MASK_TILT_X, PEN_MASK_TILT_Y, POINTER_INPUT_TYPE, PT_MOUSE, PT_PEN, PT_TOUCH,
+    TOUCH_MASK_CONTACTAREA,
 };
 
 /// The highest pressure Windows reports.
@@ -127,6 +128,19 @@ pub(crate) fn read(id: u32) -> Option<Sample> {
     // SAFETY: plain query; `info` lives for the call.
     unsafe { GetPointerInfo(id, &mut info) }.ok()?;
     Some(normalize(&info, None))
+}
+
+/// How wide touch `id`'s contact is, in screen pixels (the wider of its sides); `None` when it isn't a touch or the
+/// digitizer doesn't say (H.8: a palm is wider than a fingertip).
+pub(crate) fn touch_width(id: u32) -> Option<i32> {
+    let mut touch = POINTER_TOUCH_INFO::default();
+    // SAFETY: plain query; `touch` lives for the call.
+    unsafe { GetPointerTouchInfo(id, &mut touch) }.ok()?;
+    if touch.touchMask & TOUCH_MASK_CONTACTAREA == 0 {
+        return None;
+    }
+    let contact = touch.rcContact;
+    Some((contact.right - contact.left).max(contact.bottom - contact.top))
 }
 
 /// Every sample pen `id` made since the last message, oldest first (the newest is the message's own). Empty if the

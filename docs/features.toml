@@ -277,6 +277,12 @@ status = "in-progress"
 tests = ["the_bar_goes_through_settings_unchanged", "export_and_import_give_the_same_pens", "reordering_keeps_the_pen_in_hand", "the_bar_keeps_one_pen_and_at_most_max", "a_kind_command_takes_its_first_pen_or_saves_one", "a_pen_takes_its_colour_and_response", "the_pen_prop_takes_a_favourite_s_colour_and_pressure"]
 open = "Y.2 sync is Phase 9 (export and import until then); palette colours only"
 
+["H.8"]
+label = "Ph3: 44/49"
+status = "in-progress"
+tests = ["writing_with_the_hand_resting_leaves_no_stray_marks", "without_finger_draws_a_finger_pans", "a_palm_is_ignored_with_no_pen_about_and_keeps_its_verdict"]
+open = "synthetic session (DD24); Windows only, macOS and Linux hosts not wired; real hardware untested"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

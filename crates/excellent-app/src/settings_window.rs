@@ -16,7 +16,7 @@ use crate::commands::{COMMANDS, CommandId};
 use crate::keymap::{self, Scope};
 use crate::links::PROTOCOLS_KEY;
 use crate::list_dialog::{card, list_dialog};
-use crate::modes::PEN_TO_WRITE;
+use crate::modes::{FINGER_DRAWS, PEN_TO_WRITE};
 use crate::onboarding::SHOW_TIPS;
 use crate::panes::{CLOSE_PANE_TABS, ClosingTabs, SYNC_SCROLL, SYNC_ZOOM};
 use crate::print::{PRINT_ANNOTATIONS, PRINT_SCALING};
@@ -237,6 +237,15 @@ fn modes_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -> 
                 "settings.pen_to_write",
                 move || live.read(|s| s.flag(PEN_TO_WRITE).unwrap_or(true)),
                 move |on| live.change(|s| s.set_flag(PEN_TO_WRITE, (!on).then_some(false))),
+            ),
+        ))
+        .child(row(
+            "settings.finger_draws",
+            "settings.finger_draws_hint",
+            on_off(
+                "settings.finger_draws",
+                move || live.read(|s| s.flag(FINGER_DRAWS).unwrap_or(false)),
+                move |on| live.change(|s| s.set_flag(FINGER_DRAWS, on.then_some(true))),
             ),
         ))
         .child(row(

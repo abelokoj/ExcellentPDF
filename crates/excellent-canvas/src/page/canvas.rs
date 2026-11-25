@@ -9,6 +9,7 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::Instant;
 
 use crate::layout::{Axis, Direction, Layout, PageSize};
+use crate::page::gestures::Verdict;
 use crate::tiles::{self, TileCache, TileKey};
 use crate::view::history::Place;
 use crate::view::{Effect, View, ViewCommand};
@@ -181,6 +182,8 @@ pub struct PageCanvas<H: Host> {
     pen: Option<PenStroke>,
     /// The erasers (H.5): the chosen one and a pass under way.
     erasers: erase::Erasers,
+    /// Which touches count (H.8): none while the pen is about, none too wide for a finger.
+    palms: crate::page::gestures::Palms,
     /// The pen the next stroke draws with (H.2).
     ink_pen: Pen,
     /// Tokens of the points handed to the host's ink trail that it still draws, oldest first.
@@ -314,6 +317,7 @@ impl<H: Host> PageCanvas<H> {
             pen: None,
             ink_pen: Pen::default(),
             erasers: erase::Erasers::default(),
+            palms: crate::page::gestures::Palms::default(),
             trail: Vec::new(),
             reported_page: None,
             reported_view: None,
@@ -1282,6 +1286,41 @@ impl<H: Host> PageCanvas<H> {
         if let Some(dir) = std::env::var_os(RECORD_INK) {
             record_ink(std::path::PathBuf::from(dir), stroke.samples().to_vec());
         }
+    }
+
+    /// The pen is near the screen or on it, at `time` (the platform's input clock, milliseconds): touches are a
+    /// resting hand until it has been away a while (H.8).
+    pub fn pen_near(&mut self, time: f64) {
+        self.palms.pen_near(time);
+    }
+
+    /// The pen left the screen's range at `time` (H.8).
+    pub fn pen_gone(&mut self, time: f64) {
+        self.palms.pen_gone(time);
+    }
+
+    /// Touch `id` came down at `time`, `width` millimetres across: whether it is ignored, passes to the platform, or
+    /// draws (H.8). With no document every touch passes.
+    pub fn touch_down(&mut self, id: u32, time: f64, width: Option<f32>) -> Verdict {
+        if self.document.is_none() {
+            return Verdict::Pass;
+        }
+        self.palms.touch_down(id, time, width)
+    }
+
+    /// Touch `id`'s verdict while it is down.
+    pub fn touch_verdict(&self, id: u32) -> Verdict {
+        self.palms.verdict(id)
+    }
+
+    /// Touch `id` lifted.
+    pub fn touch_up(&mut self, id: u32) {
+        self.palms.touch_up(id);
+    }
+
+    /// Whether a finger that counts draws ink ("finger draws", the `fingerDraws` prop) or pans and zooms (H.8).
+    pub fn set_finger_draws(&mut self, on: bool) {
+        self.palms.set_finger_draws(on);
     }
 
     /// The pen the next stroke draws with (H.2); a stroke under way keeps its own.

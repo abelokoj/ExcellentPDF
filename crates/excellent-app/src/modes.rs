@@ -23,6 +23,9 @@ use crate::settings::{self, Live};
 pub(crate) const MODE_KEY: &str = "mode";
 /// `pen_switches_to_write`: a pen touching a page switches to Write mode (default on).
 pub(crate) const PEN_TO_WRITE: &str = "pen_switches_to_write";
+
+/// The settings flag for "finger draws" (H.8): a finger that is not a resting hand draws ink rather than panning.
+pub(crate) const FINGER_DRAWS: &str = "finger_draws";
 /// The height of a row in the customize dialog's list: dragging a row moves it one place per row height.
 const ROW_HEIGHT: f32 = 36.0;
 

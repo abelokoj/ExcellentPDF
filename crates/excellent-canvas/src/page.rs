@@ -8,6 +8,7 @@
 mod canvas;
 mod clicks;
 mod component;
+pub mod gestures;
 pub mod host;
 mod near;
 mod placement;

@@ -72,6 +72,14 @@ impl AnnotateState {
         })
     }
 
+    /// The canvas's `fingerDraws` prop (H.8): whether a finger that isn't a resting hand draws ink.
+    pub(crate) fn finger_draws_prop(self) -> JsonValue {
+        JsonValue::from(
+            self.live
+                .read(|s| s.flag(crate::modes::FINGER_DRAWS).unwrap_or(false)),
+        )
+    }
+
     /// The pen in hand's kind (H.2's toolbar shows it pressed).
     pub(super) fn kind_in_hand(self) -> PenKind {
         favorites(self.live).in_hand().kind
