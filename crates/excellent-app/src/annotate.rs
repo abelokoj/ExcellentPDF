@@ -127,6 +127,8 @@ pub(crate) struct AnnotateState {
     guide: Signal<Option<guides::GuideKind>>,
     /// What the last stroke along the guide measured, in the reader's words.
     reading: Signal<Option<String>>,
+    /// The zoom writing pad is on (H.12).
+    zoom_pad: Signal<bool>,
 }
 
 impl AnnotateState {
@@ -151,6 +153,7 @@ impl AnnotateState {
             lasso: signal(false),
             guide: signal(None),
             reading: signal(None),
+            zoom_pad: signal(false),
         }
     }
 
@@ -256,6 +259,16 @@ impl AnnotateState {
         self.noting.set(None);
     }
 
+    /// Turns the zoom writing pad on or off (H.12).
+    pub(crate) fn toggle_zoom_pad(self) {
+        self.zoom_pad.update(|on| *on = !*on);
+    }
+
+    /// The canvas's `zoomPad` prop.
+    pub(crate) fn zoom_pad_prop(self) -> JsonValue {
+        JsonValue::from(self.zoom_pad.get())
+    }
+
     /// The canvas's `drawing` prop: the drawing tool on (A.8), or `null`.
     pub(crate) fn drawing_prop(self) -> JsonValue {
         match self.placing.get() {
@@ -289,6 +302,7 @@ impl AnnotateState {
             CommandId::Eraser(eraser) => self.eraser.get() == Some(eraser),
             CommandId::Lasso => self.lasso.get(),
             CommandId::Tape => self.placing.get() == Some(Placing::Tape),
+            CommandId::ZoomPad => self.zoom_pad.get(),
             CommandId::Ruler => self.guide_on(guides::GuideKind::Ruler),
             CommandId::Protractor => self.guide_on(guides::GuideKind::Protractor),
             CommandId::Compass => self.guide_on(guides::GuideKind::Compass),

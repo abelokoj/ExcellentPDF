@@ -48,6 +48,8 @@ impl<H: Host> PageCanvas<H> {
     /// `paperTexture`: how strongly the paper's grain shows over the pages (R.23), 0 to 1; anything else: none.
     /// `guide`: the drawing guide on the page (H.11), `ruler`, `protractor` or `compass`; anything else: none. A stroke
     /// along it is drawn true on it, and `guideReading` (`{kind, length, degrees, radius}`) says what it measures.
+    /// `zoomPad`: `true` while the zoom writing pad is on (H.12): pen strokes in the bottom third land small in a box
+    /// on the page, which steps on by itself.
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -75,6 +77,7 @@ impl<H: Host> PageCanvas<H> {
             }
             "snapshot" => self.set_snapshot(value.and_then(JsonValue::as_bool).unwrap_or(false)),
             "guide" => self.set_guide(text),
+            "zoomPad" => self.set_zoom_pad(value.and_then(JsonValue::as_bool).unwrap_or(false)),
             "paperTexture" => {
                 self.set_paper_texture(value.and_then(JsonValue::as_f64).map_or(0.0, |s| s as f32))
             }

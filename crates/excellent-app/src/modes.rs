@@ -102,6 +102,7 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "ink.ruler",
             "ink.protractor",
             "ink.compass",
+            "ink.zoom_pad",
             "|",
             "edit.undo",
             "edit.redo",
@@ -529,6 +530,7 @@ fn tools(
                     | CommandId::Ruler
                     | CommandId::Protractor
                     | CommandId::Compass
+                    | CommandId::ZoomPad
                     | CommandId::Snapshot),
                 ) => row.child(choice_button(id, short_label(name), move || on(id), run)),
                 Some(id) => row.child(tool_button(id, short_label(name), has_document, run)),

@@ -3673,6 +3673,10 @@ moves wait for the canvas's touch gestures.
 
 **Done when:** writing a paragraph in the pad needs no manual box moves.
 
+*Built (2026-11-25):* `excellent-ink::zoompad` (a box at a third of the pad's size that steps along the line and wraps
+to the next) and the canvas's pad (the bottom third of the view; strokes land in the box with widths scaled down; the
+box's writing shown magnified). The model sits in `excellent-ink`, as pen geometry.
+
 #### Ph4: 6/44 | H.13: Handwriting straightening
 **P1; Phase 4; Needs:** H.6; **Code:** `excellent-ink::straighten`
 1. For a selection of handwriting: find each line's baseline (regression on stroke bottoms) and rotate and shift

@@ -119,6 +119,8 @@ pub(crate) enum CommandId {
     Lasso,
     /// Lays tape: the next drag on a page covers that strip; a click on tape reveals it or hides it again (H.4).
     Tape,
+    /// Turns the zoom writing pad on or off: write large at the bottom, it lands small on the page (H.12).
+    ZoomPad,
     /// Lays a ruler on the page, or puts it away: strokes along it are drawn straight (H.11).
     Ruler,
     /// Lays a protractor on the page, or puts it away: strokes out from its centre land on a whole degree (H.11).
@@ -736,6 +738,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.ink",
         keys: &[],
         page_keys: &["0"],
+    },
+    Command {
+        id: CommandId::ZoomPad,
+        name: "ink.zoom_pad",
+        label: "command.zoom_pad",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["alt+z"],
     },
     Command {
         id: CommandId::Ruler,

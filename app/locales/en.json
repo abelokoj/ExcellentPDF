@@ -404,6 +404,8 @@
   "select.duplicate": "Duplicate",
   "lasso.selected": "%{count} selected",
   "lasso.arrange": "Arrange",
+  "command.zoom_pad": "Zoom writing pad",
+  "toolbar.short.zoom_pad": "Zoom pad",
   "command.ruler": "Ruler",
   "command.protractor": "Protractor",
   "command.compass": "Compass",

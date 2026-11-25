@@ -490,6 +490,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Eraser(eraser) => pane.annotate.choose_eraser(eraser),
             CommandId::Lasso => pane.annotate.toggle_lasso(),
             CommandId::Tape => pane.annotate.place(Placing::Tape),
+            CommandId::ZoomPad => pane.annotate.toggle_zoom_pad(),
             CommandId::Ruler => pane.annotate.toggle_guide(GuideKind::Ruler),
             CommandId::Protractor => pane.annotate.toggle_guide(GuideKind::Protractor),
             CommandId::Compass => pane.annotate.toggle_guide(GuideKind::Compass),

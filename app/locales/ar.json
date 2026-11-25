@@ -404,6 +404,8 @@
   "select.duplicate": "تكرار",
   "lasso.selected": "%{count} محدد",
   "lasso.arrange": "ترتيب",
+  "command.zoom_pad": "لوحة الكتابة المكبّرة",
+  "toolbar.short.zoom_pad": "لوحة مكبّرة",
   "command.ruler": "مسطرة",
   "command.protractor": "منقلة",
   "command.compass": "فرجار",

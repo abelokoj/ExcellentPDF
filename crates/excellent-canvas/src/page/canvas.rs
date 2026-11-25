@@ -50,6 +50,7 @@ mod minimap;
 mod reading;
 mod refhover;
 mod select;
+mod zoompad;
 
 pub(super) use refhover::DEFAULT_DELAY as DEFAULT_HOVER_DELAY;
 
@@ -195,6 +196,8 @@ pub struct PageCanvas<H: Host> {
     grain: Option<H::Image>,
     /// The ruler, protractor or compass on the page (H.11).
     guides: guides::Guides,
+    /// The zoom writing pad, while it is on (H.12).
+    pad: Option<zoompad::Pad>,
     /// The pen the next stroke draws with (H.2).
     ink_pen: Pen,
     /// Tokens of the points handed to the host's ink trail that it still draws, oldest first.
@@ -285,6 +288,8 @@ struct PenStroke {
     /// When the pen last moved (a little more than a hand's tremor): held still long enough before it lifts, the
     /// stroke becomes the shape it was meant to be (H.10).
     last_moved: std::time::Instant,
+    /// Written in the zoom pad (H.12): its samples land in the pad's box on the page.
+    in_pad: bool,
 }
 
 /// Input-to-present times of one stroke's frames, in milliseconds: from the newest sample's time stamp to the frame
@@ -335,6 +340,7 @@ impl<H: Host> PageCanvas<H> {
             paper_texture: 0.0,
             grain: None,
             guides: guides::Guides::default(),
+            pad: None,
             trail: Vec::new(),
             reported_page: None,
             reported_view: None,
@@ -1152,9 +1158,10 @@ impl<H: Host> PageCanvas<H> {
         if self.lasso_on() {
             return false;
         }
-        // Ink belongs to a page: a stroke starts only on one.
+        // Ink belongs to a page: a stroke starts only on one, or in the zoom pad, which writes on its page (H.12).
+        let in_pad = self.pad_page(sample);
         let (x, y) = self.viewport.to_layout_point(sample.x, sample.y);
-        let Some(page) = self.layout.page_at(x, y) else {
+        let Some(page) = in_pad.or_else(|| self.layout.page_at(x, y)) else {
             return false;
         };
         self.pen = Some(PenStroke {
@@ -1166,6 +1173,7 @@ impl<H: Host> PageCanvas<H> {
             started: std::time::Instant::now(),
             recent: Vec::with_capacity(RECENT_SAMPLES + 1),
             last_moved: std::time::Instant::now(),
+            in_pad: in_pad.is_some(),
         });
         self.trail.clear();
         // The system's trail draws opaque: a highlighter's stroke is drawn by our frames alone, so text shows through.
@@ -1190,16 +1198,26 @@ impl<H: Host> PageCanvas<H> {
         else {
             return;
         };
+        // In the zoom pad, samples land in its box (H.12); worked out before the stroke is taken to write.
+        let in_pad = self.pen.as_ref().is_some_and(|pen| pen.in_pad);
+        let pad_points: Vec<Option<PagePoint>> = samples
+            .iter()
+            .map(|s| in_pad.then(|| self.pad_point(s.x, s.y)).flatten())
+            .collect();
         let Some(pen) = &mut self.pen else {
             return;
         };
         let scale = self.viewport.scale();
         let mut on_screen = Vec::with_capacity(samples.len());
         let mut newest = None;
-        for sample in samples.iter().filter(|s| s.id == pen.id && s.contact) {
+        for (sample, pad_point) in samples
+            .iter()
+            .zip(pad_points)
+            .filter(|(s, _)| s.id == pen.id && s.contact)
+        {
             let (sx, sy) = (sample.x, sample.y);
             let (x, y) = self.viewport.to_layout_point(sx, sy);
-            let on_page = placement.to_page(x, y);
+            let on_page = pad_point.unwrap_or_else(|| placement.to_page(x, y));
             let time = sample
                 .time
                 .unwrap_or_else(|| pen.started.elapsed().as_secs_f64() * 1000.0);
@@ -1279,6 +1297,12 @@ impl<H: Host> PageCanvas<H> {
             let finished = finished_points(&pen, held);
             // Along a guide, the stroke is drawn true on it (H.11).
             let finished = self.guided(pen.page, &finished).unwrap_or(finished);
+            // From the zoom pad, it comes down to the page's scale and the box steps on (H.12).
+            let finished = if pen.in_pad {
+                self.pad_done(finished, pen.with.color)
+            } else {
+                finished
+            };
             self.commit_ink(&pen, &finished);
             // Shown until the annotation it becomes is drawn with its page.
             let mut shown = Stroke::new();
@@ -1691,6 +1715,7 @@ impl<H: Host> PageCanvas<H> {
         let (paper, wash) = (self.paper(), self.wash());
         let swath = self.eraser_swath();
         let guide = self.guide_shapes();
+        let pad = self.pad_shapes();
         let selected = self.selection_quads();
         let host = &mut self.host;
         host.clear(self.background);
@@ -1789,6 +1814,7 @@ impl<H: Host> PageCanvas<H> {
             host.highlight(quads, *color, wash)?;
         }
         Self::draw_guide(host, guide)?;
+        Self::draw_pad(host, pad)?;
         aids.draw_over(host)?;
         // This frame shows every point the trail has. While the pen draws, the trail keeps the newest batch, so its
         // next points join on to it; once the stroke is done, the trail empties.

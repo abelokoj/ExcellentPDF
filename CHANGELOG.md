@@ -6,6 +6,12 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 11:23; Ph4: 5/44 | H.12: Zoom writing pad
+
+- Zoom pad (Write toolbar, Alt+Z on the pages): the bottom third of the view becomes a pad. Write large in it and the
+  writing lands at a third of the size in a box on the page, which steps along the line and onto the next by itself,
+  so a paragraph needs no moves by hand.
+
 ### 2026-11-25 11:14; Ph4: 4/44 | H.11: Ruler, protractor and compass
 
 - Ruler, Protractor and Compass on the Write toolbar (Alt+R, Alt+P, Alt+C on the pages): a guide lies on the page;

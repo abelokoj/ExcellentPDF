@@ -702,3 +702,9 @@ label = "Ph4: 4/44"
 status = "in-progress"
 tests = ["a_stroke_along_the_ruler_is_exactly_straight", "a_stroke_off_the_ruler_is_left_alone", "a_stroke_round_the_compass_is_an_exact_arc", "a_stroke_from_the_protractor_lands_on_a_whole_degree"]
 open = "two-finger moves wait for canvas touch gestures; one guide, not kept across runs"
+
+["H.12"]
+label = "Ph4: 5/44"
+status = "in-progress"
+tests = ["writing_a_paragraph_needs_no_manual_box_moves", "the_pad_shows_the_page_magnified", "the_box_stays_on_the_page_at_its_foot"]
+open = "the pad shows only this session's writing in the box; no manual box move or new-line key; page turn at the foot is the reader's"
