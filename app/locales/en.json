@@ -383,6 +383,8 @@
   "toolbar.short.pen_brush": "Brush",
   "toolbar.short.pen_calligraphy": "Calligraphy",
   "toolbar.short.pen_marker": "Marker",
+  "command.pen_highlighter": "Highlighter pen",
+  "toolbar.short.pen_highlighter": "Highlighter",
   "command.note": "Note on the selection",
   "toolbar.short.note": "Note",
   "note.heading": "%{kind} on page %{page}",

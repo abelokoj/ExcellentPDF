@@ -789,6 +789,8 @@ fn finish(done: Pending, spaces: &[PageSpace]) -> Option<Annotation> {
         },
         cloud: (attr("style") == "cloudy").then(|| attr("intensity").parse().unwrap_or(1.0)),
         locked: flags.contains(&"locked"),
+        // XFDF has no blend mode: a highlighter's ink comes back plain (DD26).
+        multiply: false,
         ends: [end("head"), end("tail")],
         callout: parse_points(attr("callout"), space)
             .into_iter()

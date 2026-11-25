@@ -265,6 +265,8 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                         .filter(|_| matches!(start, LineEnd::Square | LineEnd::Circle)),
                     // Any kind can be locked (A.12).
                     locked,
+                    // Any kind keeps PDF 2.0's blend mode (H.3).
+                    multiply: open,
                 }
             },
         )

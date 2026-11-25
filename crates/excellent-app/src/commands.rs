@@ -669,6 +669,14 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &["6"],
     },
     Command {
+        id: CommandId::Pen(PenKind::Highlighter),
+        name: "ink.pen_highlighter",
+        label: "command.pen_highlighter",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["7"],
+    },
+    Command {
         id: CommandId::CutAnnotations,
         name: "annotate.cut",
         label: "command.cut_annotations",

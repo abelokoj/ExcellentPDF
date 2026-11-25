@@ -416,6 +416,7 @@ impl Annot<'_> {
             dash: props.dash[..count(props.dash_count).min(8)].to_vec(),
             cloud: (props.cloudy != 0).then_some(props.cloud_intensity),
             locked: props.locked != 0,
+            multiply: props.multiply != 0,
             rect: props.rect.into(),
             color: props.color[..color_n].to_vec(),
             opacity: props.opacity,
@@ -488,6 +489,8 @@ pub struct AnnotData {
     pub cloud: Option<f32>,
     /// Whether it is locked (`/F` Locked): not to be moved, resized, deleted or restyled (A.12).
     pub locked: bool,
+    /// Whether it darkens what is under it (PDF 2.0's `/BM /Multiply`): a highlighter pen's ink (H.3).
+    pub multiply: bool,
     /// A line's, polyline's or polygon's start and end (`/LE`); a callout's arrow at its tip first (A.7, A.8).
     pub ends: [LineEnd; 2],
     /// A callout's leader line, its tip first (`/CL`): read whole, written from its tip alone (MuPDF draws the rest
@@ -619,6 +622,7 @@ impl AnnotData {
                 cloudy: self.cloud.is_some().into(),
                 cloud_intensity: self.cloud.unwrap_or_default(),
                 locked: self.locked.into(),
+                multiply: self.multiply.into(),
             },
             quads: quads.as_ptr(),
             stroke_lengths: lengths.as_ptr(),

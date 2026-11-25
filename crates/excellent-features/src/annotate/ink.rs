@@ -22,10 +22,13 @@ pub struct Inked {
     pub color: [f32; 3],
     /// From 0 to 1.
     pub opacity: f32,
+    /// Whether it darkens what is under it rather than covering it: a highlighter's ink (H.3).
+    pub multiply: bool,
 }
 
 impl Inked {
-    /// The stroke in `value`, the event's data: `{page, points: [[x, y, width]], color: [r, g, b], opacity}`.
+    /// The stroke in `value`, the event's data: `{page, points: [[x, y, width]], color: [r, g, b], opacity,
+    /// blend}`, `blend` `"multiply"` for a highlighter's.
     /// `None` when the page or colour is missing, a point doesn't parse, or there are no points.
     #[must_use]
     pub fn parse(value: &Value) -> Option<Self> {
@@ -47,6 +50,7 @@ impl Inked {
             points,
             color: color(value.get("color")?)?,
             opacity: opacity(value),
+            multiply: value.get("blend").and_then(Value::as_str) == Some("multiply"),
         })
     }
 
@@ -56,7 +60,7 @@ impl Inked {
         let mean =
             self.points.iter().map(|(_, width)| width).sum::<f32>() / self.points.len() as f32;
         let path = self.points.iter().map(|(point, _)| *point).collect();
-        Annotation::new(
+        let mut annotation = Annotation::new(
             self.page,
             Shape::Ink(vec![path]),
             Style {
@@ -65,7 +69,9 @@ impl Inked {
                 width: mean.max(MIN_WIDTH),
             },
             author,
-        )
+        );
+        annotation.multiply = self.multiply;
+        annotation
     }
 }
 

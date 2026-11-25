@@ -19,7 +19,7 @@ use excellent_core::formats;
 use excellent_core::render::{Job, Note, Priority, Recolor};
 use excellent_core::shared::{pool, registry};
 use excellent_core::transform::Transform;
-use excellent_ink::pens::Pen;
+use excellent_ink::pens::{Blend, Pen};
 use excellent_ink::predict::predict;
 use excellent_ink::sample::{Sample, Tilt, Tool};
 use excellent_ink::session::Session;
@@ -60,9 +60,6 @@ const LIST_REACH: usize = 8;
 const SIDE_STEP: f32 = 0.1;
 /// How much of a screen "screen down" moves; the rest stays on screen to keep the reader's place.
 const SCREEN_STEP: f32 = 0.9;
-/// Ink colour.
-// shortcut: one colour for every pen until H.7's favourites give the toolbar a colour picker.
-const INK: u32 = 0x1a3d8f;
 /// How far ahead of the pen the preview draws (plan §8.2, step 3), in milliseconds: about one frame at 60 Hz.
 const PREDICT_MS: f64 = 16.0;
 /// The furthest the preview runs ahead of the pen, in pixels, so a sudden stop never overshoots far.
@@ -253,6 +250,7 @@ pub struct PageCanvas<H: Host> {
 struct PageStroke {
     page: usize,
     stroke: Stroke,
+    with: Pen,
 }
 
 /// A stroke being drawn, the pointer drawing it, and how long its samples took to reach the screen.
@@ -1133,7 +1131,10 @@ impl<H: Host> PageCanvas<H> {
             recent: Vec::with_capacity(RECENT_SAMPLES + 1),
         });
         self.trail.clear();
-        self.host.trail_start(INK);
+        // The system's trail draws opaque: a highlighter's stroke is drawn by our frames alone, so text shows through.
+        if self.ink_pen.blend == Blend::Normal {
+            self.host.trail_start(self.ink_pen.color);
+        }
         self.pen_moved(std::slice::from_ref(sample));
         true
     }
@@ -1185,7 +1186,11 @@ impl<H: Host> PageCanvas<H> {
         let Some(input) = newest else {
             return;
         };
-        if let Some(token) = self.host.trail_add(&on_screen) {
+        let trailed = self
+            .pen
+            .as_ref()
+            .is_some_and(|pen| pen.with.blend == Blend::Normal);
+        if let Some(token) = trailed.then(|| self.host.trail_add(&on_screen)).flatten() {
             self.trail.push(token);
         }
         let ready = self.host.frame_ready();
@@ -1225,6 +1230,7 @@ impl<H: Host> PageCanvas<H> {
             self.ink.push(PageStroke {
                 page: pen.page,
                 stroke: pen.stroke,
+                with: pen.with,
             });
         }
         self.invalidate();
@@ -1242,7 +1248,7 @@ impl<H: Host> PageCanvas<H> {
             .iter()
             .map(|point| [point.x, point.y, point.width])
             .collect();
-        let channel = |shift: u32| f32::from(((INK >> shift) & 0xff) as u8) / 255.0;
+        let channel = |shift: u32| f32::from(((with.color >> shift) & 0xff) as u8) / 255.0;
         self.emit(
             "ink",
             serde_json::json!({
@@ -1250,6 +1256,10 @@ impl<H: Host> PageCanvas<H> {
                 "points": points,
                 "color": [channel(16), channel(8), channel(0)],
                 "opacity": with.opacity,
+                "blend": match with.blend {
+                    Blend::Normal => "normal",
+                    Blend::Multiply => "multiply",
+                },
             }),
         );
         if let Some(dir) = std::env::var_os(RECORD_INK) {
@@ -1646,9 +1656,13 @@ impl<H: Host> PageCanvas<H> {
         let strokes = self
             .ink
             .iter()
-            .map(|ink| (ink.page, &ink.stroke, None))
-            .chain(self.pen.as_ref().map(|pen| (pen.page, &pen.stroke, ahead)));
-        for (page, stroke, ahead) in strokes {
+            .map(|ink| (ink.page, &ink.stroke, ink.with, None))
+            .chain(
+                self.pen
+                    .as_ref()
+                    .map(|pen| (pen.page, &pen.stroke, pen.with, ahead)),
+            );
+        for (page, stroke, with, ahead) in strokes {
             let Some(placement) =
                 Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page)
             else {
@@ -1666,7 +1680,11 @@ impl<H: Host> PageCanvas<H> {
             if let (Some((x, y)), Some(&(_, _, width))) = (ahead, points.last()) {
                 points.push((x, y, width));
             }
-            host.polyline(&points, INK)?;
+            match with.blend {
+                Blend::Normal => host.polyline(&points, with.color)?,
+                // Darkest wins, as a highlight does: text under the stroke stays readable while it is drawn.
+                Blend::Multiply => host.highlight(&segment_quads(&points), with.color, wash)?,
+            }
         }
         aids.draw_over(host)?;
         // This frame shows every point the trail has. While the pen draws, the trail keeps the newest batch, so its
@@ -1875,4 +1893,51 @@ fn record_ink(dir: std::path::PathBuf, samples: Vec<Sample>) {
             log::warn!("ink: cannot record {}: {err}", path.display());
         }
     });
+}
+
+/// A stroke through `points` as quads, one per segment, each as wide as its first point (a lone point is a square): a
+/// highlighter's chisel, drawn darkest-wins so overlapping quads don't darken twice.
+fn segment_quads(points: &[InkPixel]) -> Vec<ScreenQuad> {
+    let quad = |(x0, y0, w): InkPixel, (x1, y1): (f32, f32)| {
+        let (dx, dy) = (x1 - x0, y1 - y0);
+        let length = dx.hypot(dy);
+        let half = w / 2.0;
+        let (ux, uy) = if length > 0.0 {
+            (dx / length * half, dy / length * half)
+        } else {
+            (half, 0.0)
+        };
+        // Across the segment, and half a width past each end, so joins have no gaps.
+        let (nx, ny) = (-uy, ux);
+        [
+            (x0 - ux + nx, y0 - uy + ny),
+            (x1 + ux + nx, y1 + uy + ny),
+            (x1 + ux - nx, y1 + uy - ny),
+            (x0 - ux - nx, y0 - uy - ny),
+        ]
+    };
+    match points {
+        [] => Vec::new(),
+        [only] => vec![quad(*only, (only.0, only.1))],
+        _ => points
+            .windows(2)
+            .map(|pair| quad(pair[0], (pair[1].0, pair[1].1)))
+            .collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::segment_quads;
+
+    #[test]
+    fn a_highlighter_preview_covers_each_segment() {
+        let quads = segment_quads(&[(0.0, 0.0, 4.0), (10.0, 0.0, 4.0)]);
+        assert_eq!(
+            quads,
+            vec![[(-2.0, 2.0), (12.0, 2.0), (12.0, -2.0), (-2.0, -2.0)]]
+        );
+        assert_eq!(segment_quads(&[(5.0, 5.0, 2.0)]).len(), 1);
+        assert!(segment_quads(&[]).is_empty());
+    }
 }

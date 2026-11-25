@@ -311,6 +311,9 @@ pub struct Annotation {
     /// Whether it is locked (PDF's `/F` Locked): not to be moved, resized, deleted or restyled; its note can still
     /// be written (A.12).
     pub locked: bool,
+    /// Whether it darkens what is under it (PDF 2.0's `/BM /Multiply`), so text under it stays as dark: a
+    /// highlighter pen's ink (H.3).
+    pub multiply: bool,
 }
 
 impl Annotation {
@@ -342,6 +345,7 @@ impl Annotation {
             dash: Vec::new(),
             cloud: None,
             locked: false,
+            multiply: false,
         }
     }
 
@@ -447,6 +451,7 @@ impl Annotation {
             dash: data.dash.clone(),
             cloud: data.cloud,
             locked: data.locked,
+            multiply: data.multiply,
         })
     }
 
@@ -499,6 +504,7 @@ impl Annotation {
             dash: self.dash.clone(),
             cloud: self.cloud,
             locked: self.locked,
+            multiply: self.multiply,
             rect,
             color: self.style.color.map(Vec::from).unwrap_or_default(),
             opacity: self.style.opacity,
@@ -576,6 +582,7 @@ impl Annotation {
             "dash": self.dash,
             "cloud": self.cloud,
             "locked": self.locked,
+            "multiply": self.multiply,
             "text": self.is_text_box().then(|| json!({
                 "font": self.text.font.name(),
                 "size": self.text.size,
@@ -690,6 +697,11 @@ impl Annotation {
             // Before A.12 none was locked.
             locked: object
                 .get("locked")
+                .and_then(Value::as_bool)
+                .unwrap_or_default(),
+            // Before H.3 none multiplied.
+            multiply: object
+                .get("multiply")
                 .and_then(Value::as_bool)
                 .unwrap_or_default(),
         })

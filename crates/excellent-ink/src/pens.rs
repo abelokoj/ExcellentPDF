@@ -1,6 +1,6 @@
-//! Pen types (H.2, plan §8.4): fountain pen, ballpoint, pencil, brush, calligraphy and marker, each a preset of
-//! width curve, steadying, texture, blend and, for calligraphy, a nib angle. A pen turns a stroke's samples into its
-//! points ([`Pen::stroke`]); [`crate::raster`] draws them as that pen does.
+//! Pen types (H.2, plan §8.4): fountain pen, ballpoint, pencil, brush, calligraphy, marker and the highlighter
+//! (H.3), each a preset of width curve, steadying, texture, blend, colour and, for calligraphy, a nib angle. A pen
+//! turns a stroke's samples into its points ([`Pen::stroke`]); [`crate::raster`] draws them as that pen does.
 
 use std::fmt;
 
@@ -10,6 +10,12 @@ use crate::width::WidthCurve;
 
 /// A pen's size, in points, until the reader picks another.
 pub const DEFAULT_SIZE: f32 = 2.4;
+/// The pens' ink, `0xRRGGBB`: a deep blue.
+pub const INK: u32 = 0x1a3d8f;
+/// The highlighter's: a warm yellow, light enough that black text multiplied by it stays black on bright paper.
+pub const HIGHLIGHTER: u32 = 0xffd84d;
+/// How much wider than its size a highlighter draws: about a line of text at the default size.
+const HIGHLIGHTER_SPAN: f32 = 4.0;
 
 /// The kinds of pen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -27,17 +33,20 @@ pub enum PenKind {
     Calligraphy,
     /// A felt marker: broad, even and opaque.
     Marker,
+    /// A broad chisel of light ink that darkens rather than covers, so the text under it stays readable (H.3).
+    Highlighter,
 }
 
 impl PenKind {
     /// Every kind, in the toolbar's order.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Fountain,
         Self::Ballpoint,
         Self::Pencil,
         Self::Brush,
         Self::Calligraphy,
         Self::Marker,
+        Self::Highlighter,
     ];
 
     /// The kind named `name` (as [`fmt::Display`] writes it).
@@ -54,6 +63,7 @@ impl PenKind {
             Self::Brush => "brush",
             Self::Calligraphy => "calligraphy",
             Self::Marker => "marker",
+            Self::Highlighter => "highlighter",
         }
     }
 
@@ -75,6 +85,7 @@ impl PenKind {
             texture: Texture::Smooth,
             blend: Blend::Normal,
             opacity: 1.0,
+            color: INK,
             nib: None,
         };
         match self {
@@ -108,6 +119,19 @@ impl PenKind {
                 steadiness: 0.1,
                 ..pen
             },
+            Self::Highlighter => Pen {
+                curve: WidthCurve {
+                    min: size * HIGHLIGHTER_SPAN,
+                    max: size * HIGHLIGHTER_SPAN,
+                    exponent: 1.0,
+                    tilt: 0.0,
+                    speed: 0.0,
+                },
+                steadiness: 0.3,
+                blend: Blend::Multiply,
+                color: HIGHLIGHTER,
+                ..pen
+            },
         }
     }
 }
@@ -139,6 +163,20 @@ pub enum Blend {
     Normal,
     /// Darkens it, so text under it stays readable (the highlighter, H.3).
     Multiply,
+}
+
+impl Blend {
+    /// `ink` laid over `under` (RGB from 0 to 1) at `alpha`, as PDF composites them.
+    #[must_use]
+    pub fn over(self, under: [f32; 3], ink: [f32; 3], alpha: f32) -> [f32; 3] {
+        std::array::from_fn(|i| {
+            let mixed = match self {
+                Self::Normal => ink[i],
+                Self::Multiply => under[i] * ink[i],
+            };
+            under[i] + (mixed - under[i]) * alpha
+        })
+    }
 }
 
 /// A flat nib (calligraphy): the line is broadest moving across the nib and thinnest moving along it.
@@ -177,6 +215,9 @@ pub struct Pen {
     pub blend: Blend,
     /// 0 (clear) to 1.
     pub opacity: f32,
+    /// Its colour, `0xRRGGBB`.
+    // shortcut: each pen's own colour until H.7's favourites let the reader pick one.
+    pub color: u32,
     /// A flat nib's angle, for calligraphy.
     pub nib: Option<Nib>,
 }
@@ -272,6 +313,19 @@ mod tests {
             Sample::at(20.0, 0.0, 16.0),
         ]);
         assert!(along.points()[1].width * 3.0 < across.points()[1].width);
+    }
+
+    #[test]
+    fn multiply_keeps_dark_text_dark_where_normal_covers_it() {
+        let yellow = [1.0, 0.85, 0.3];
+        assert_eq!(Blend::Multiply.over([0.0; 3], yellow, 1.0), [0.0; 3]);
+        assert_eq!(Blend::Multiply.over([1.0; 3], yellow, 1.0), yellow);
+        assert_eq!(Blend::Normal.over([0.0; 3], yellow, 1.0), yellow);
+        let half = Blend::Normal.over([0.0; 3], [1.0; 3], 0.5);
+        assert_eq!(half, [0.5; 3]);
+        let highlighter = PenKind::Highlighter.pen(3.0);
+        assert_eq!(highlighter.blend, Blend::Multiply);
+        assert!(highlighter.curve.width(Some(0.1), None, 0.0) >= 12.0);
     }
 
     #[test]

@@ -749,10 +749,11 @@ pub struct ex_annot_props {
     pub cloudy: ::core::ffi::c_int,
     pub cloud_intensity: f32,
     pub locked: ::core::ffi::c_int,
+    pub multiply: ::core::ffi::c_int,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_annot_props"][::core::mem::size_of::<ex_annot_props>() - 216usize];
+    ["Size of ex_annot_props"][::core::mem::size_of::<ex_annot_props>() - 224usize];
     ["Alignment of ex_annot_props"][::core::mem::align_of::<ex_annot_props>() - 8usize];
     ["Offset of field: ex_annot_props::type_"]
         [::core::mem::offset_of!(ex_annot_props, type_) - 0usize];
@@ -810,6 +811,8 @@ const _: () = {
         [::core::mem::offset_of!(ex_annot_props, cloud_intensity) - 208usize];
     ["Offset of field: ex_annot_props::locked"]
         [::core::mem::offset_of!(ex_annot_props, locked) - 212usize];
+    ["Offset of field: ex_annot_props::multiply"]
+        [::core::mem::offset_of!(ex_annot_props, multiply) - 216usize];
 };
 unsafe extern "C" {
     pub fn ex_annot_props_of(
@@ -858,26 +861,35 @@ pub struct ex_annot_write {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 320usize];
+    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 328usize];
     ["Alignment of ex_annot_write"][::core::mem::align_of::<ex_annot_write>() - 8usize];
+    ["Offset of field: ex_annot_write::id"][::core::mem::offset_of!(ex_annot_write, id) - 0usize];
+    ["Offset of field: ex_annot_write::author"]
+        [::core::mem::offset_of!(ex_annot_write, author) - 8usize];
+    ["Offset of field: ex_annot_write::contents"]
+        [::core::mem::offset_of!(ex_annot_write, contents) - 16usize];
+    ["Offset of field: ex_annot_write::app_data"]
+        [::core::mem::offset_of!(ex_annot_write, app_data) - 24usize];
     ["Offset of field: ex_annot_write::props"]
         [::core::mem::offset_of!(ex_annot_write, props) - 32usize];
     ["Offset of field: ex_annot_write::quads"]
-        [::core::mem::offset_of!(ex_annot_write, quads) - 248usize];
+        [::core::mem::offset_of!(ex_annot_write, quads) - 256usize];
+    ["Offset of field: ex_annot_write::stroke_lengths"]
+        [::core::mem::offset_of!(ex_annot_write, stroke_lengths) - 264usize];
     ["Offset of field: ex_annot_write::points"]
-        [::core::mem::offset_of!(ex_annot_write, points) - 264usize];
+        [::core::mem::offset_of!(ex_annot_write, points) - 272usize];
     ["Offset of field: ex_annot_write::group"]
-        [::core::mem::offset_of!(ex_annot_write, group) - 272usize];
+        [::core::mem::offset_of!(ex_annot_write, group) - 280usize];
     ["Offset of field: ex_annot_write::icon"]
-        [::core::mem::offset_of!(ex_annot_write, icon) - 280usize];
+        [::core::mem::offset_of!(ex_annot_write, icon) - 288usize];
     ["Offset of field: ex_annot_write::font"]
-        [::core::mem::offset_of!(ex_annot_write, font) - 288usize];
+        [::core::mem::offset_of!(ex_annot_write, font) - 296usize];
     ["Offset of field: ex_annot_write::reply_to"]
-        [::core::mem::offset_of!(ex_annot_write, reply_to) - 296usize];
+        [::core::mem::offset_of!(ex_annot_write, reply_to) - 304usize];
     ["Offset of field: ex_annot_write::state"]
-        [::core::mem::offset_of!(ex_annot_write, state) - 304usize];
+        [::core::mem::offset_of!(ex_annot_write, state) - 312usize];
     ["Offset of field: ex_annot_write::layer"]
-        [::core::mem::offset_of!(ex_annot_write, layer) - 312usize];
+        [::core::mem::offset_of!(ex_annot_write, layer) - 320usize];
 };
 impl Default for ex_annot_write {
     fn default() -> Self {
@@ -942,65 +954,6 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn ex_drop_document_writer(ctx: *mut fz_context, wri: *mut fz_document_writer);
-}
-unsafe extern "C" {
-    pub fn ex_buffer_data(
-        ctx: *mut fz_context,
-        buf: *mut fz_buffer,
-        data: *mut *const ::core::ffi::c_uchar,
-        len: *mut usize,
-    );
-}
-unsafe extern "C" {
-    pub fn ex_drop_buffer(ctx: *mut fz_context, buf: *mut fz_buffer);
-}
-unsafe extern "C" {
-    pub fn ex_layers(
-        ctx: *mut fz_context,
-        doc: *mut fz_document,
-        out: *mut *mut fz_buffer,
-        err: *mut ex_error,
-    ) -> ::core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn ex_layer_set(
-        ctx: *mut fz_context,
-        doc: *mut fz_document,
-        name: *const ::core::ffi::c_char,
-        visible: ::core::ffi::c_int,
-        locked: ::core::ffi::c_int,
-        err: *mut ex_error,
-    ) -> ::core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn ex_annot_set_stamp_art(
-        ctx: *mut fz_context,
-        doc: *mut fz_document,
-        page: ::core::ffi::c_int,
-        id: *const ::core::ffi::c_char,
-        kind: ::core::ffi::c_int,
-        art: *const ::core::ffi::c_uchar,
-        len: usize,
-        err: *mut ex_error,
-    ) -> ::core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn ex_page_to_pdf(
-        ctx: *mut fz_context,
-        page: *mut fz_page,
-        out: *mut *mut fz_buffer,
-        err: *mut ex_error,
-    ) -> ::core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn ex_html_to_pdf(
-        ctx: *mut fz_context,
-        html: *const ::core::ffi::c_char,
-        css: *const ::core::ffi::c_char,
-        width: f32,
-        out: *mut *mut fz_buffer,
-        err: *mut ex_error,
-    ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
     pub fn ex_open_pdf(
@@ -1111,6 +1064,15 @@ unsafe extern "C" {
     ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn ex_outline_delete(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        path: *const ::core::ffi::c_int,
+        depth: ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn ex_outline_style(
         ctx: *mut fz_context,
         doc: *mut fz_document,
@@ -1118,15 +1080,6 @@ unsafe extern "C" {
         depth: ::core::ffi::c_int,
         flags: ::core::ffi::c_int,
         color: ::core::ffi::c_int,
-        err: *mut ex_error,
-    ) -> ::core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn ex_outline_delete(
-        ctx: *mut fz_context,
-        doc: *mut fz_document,
-        path: *const ::core::ffi::c_int,
-        depth: ::core::ffi::c_int,
         err: *mut ex_error,
     ) -> ::core::ffi::c_int;
 }
@@ -1151,6 +1104,33 @@ unsafe extern "C" {
         zoom: f32,
         buf: *mut ::core::ffi::c_char,
         size: ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_save_pdf(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        path: *const ::core::ffi::c_char,
+        incremental: *mut ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_layers(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        out: *mut *mut fz_buffer,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_layer_set(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        name: *const ::core::ffi::c_char,
+        visible: ::core::ffi::c_int,
+        locked: ::core::ffi::c_int,
         err: *mut ex_error,
     ) -> ::core::ffi::c_int;
 }
@@ -1190,11 +1170,43 @@ unsafe extern "C" {
     ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn ex_save_pdf(
+    pub fn ex_annot_set_stamp_art(
         ctx: *mut fz_context,
         doc: *mut fz_document,
-        path: *const ::core::ffi::c_char,
-        incremental: *mut ::core::ffi::c_int,
+        page: ::core::ffi::c_int,
+        id: *const ::core::ffi::c_char,
+        kind: ::core::ffi::c_int,
+        art: *const ::core::ffi::c_uchar,
+        len: usize,
         err: *mut ex_error,
     ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_page_to_pdf(
+        ctx: *mut fz_context,
+        page: *mut fz_page,
+        out: *mut *mut fz_buffer,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_html_to_pdf(
+        ctx: *mut fz_context,
+        html: *const ::core::ffi::c_char,
+        css: *const ::core::ffi::c_char,
+        width: f32,
+        out: *mut *mut fz_buffer,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_buffer_data(
+        ctx: *mut fz_context,
+        buf: *mut fz_buffer,
+        data: *mut *const ::core::ffi::c_uchar,
+        len: *mut usize,
+    );
+}
+unsafe extern "C" {
+    pub fn ex_drop_buffer(ctx: *mut fz_context, buf: *mut fz_buffer);
 }

@@ -993,6 +993,7 @@ static void ex_annot_shape_props(fz_context *ctx, pdf_annot *annot, ex_annot_pro
 		props->cloud_intensity = pdf_annot_border_effect_intensity(ctx, annot);
 	}
 	props->locked = (pdf_annot_flags(ctx, annot) & PDF_ANNOT_IS_LOCKED) != 0;
+	props->multiply = pdf_name_eq(ctx, pdf_dict_get(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(BM)), PDF_NAME(Multiply));
 }
 
 /* Writes `p`'s fill and dash pattern (A.9). The border is touched only when its dashes change, so another app's
@@ -1520,6 +1521,17 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 		int locked = p->locked ? flags | PDF_ANNOT_IS_LOCKED : flags & ~PDF_ANNOT_IS_LOCKED;
 		if (locked != flags)
 			pdf_set_annot_flags(ctx, annot, locked);
+	}
+	{
+		/* PDF 2.0's /BM, Multiply or none (H.3); the appearance is drawn again when it changes. */
+		pdf_obj *obj = pdf_annot_obj(ctx, annot);
+		int multiply = pdf_name_eq(ctx, pdf_dict_get(ctx, obj, PDF_NAME(BM)), PDF_NAME(Multiply));
+		if (p->multiply && !multiply)
+			pdf_dict_put(ctx, obj, PDF_NAME(BM), PDF_NAME(Multiply));
+		else if (!p->multiply && multiply)
+			pdf_dict_del(ctx, obj, PDF_NAME(BM));
+		if (!p->multiply != !multiply)
+			pdf_dirty_annot(ctx, annot);
 	}
 	ex_annot_group(ctx, annot, w->group);
 	/* A group's /IRT is the group's (A.2). */

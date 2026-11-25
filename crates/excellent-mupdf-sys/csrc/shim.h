@@ -279,6 +279,8 @@ typedef struct ex_annot_props {
 	/* Whether it is locked (/F bit 8, Locked: not to be moved, resized, deleted or restyled; its note can still be
 	 * written), A.12. In the padding after `cloud_intensity`, so the struct's size is as before. */
 	int locked;
+	/* Whether it blends Multiply (PDF 2.0's /BM /Multiply): a highlighter pen's ink, H.3. */
+	int multiply;
 } ex_annot_props;
 
 /* The texts an annotation carries, for ex_annot_text: /Contents, /NM, /T (author), the app's private key

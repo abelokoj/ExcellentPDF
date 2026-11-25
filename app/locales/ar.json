@@ -383,6 +383,8 @@
   "toolbar.short.pen_brush": "فرشاة",
   "toolbar.short.pen_calligraphy": "خط",
   "toolbar.short.pen_marker": "تحديد",
+  "command.pen_highlighter": "قلم تظليل",
+  "toolbar.short.pen_highlighter": "تظليل",
   "command.note": "ملاحظة على التحديد",
   "toolbar.short.note": "ملاحظة",
   "note.heading": "%{kind} في الصفحة %{page}",

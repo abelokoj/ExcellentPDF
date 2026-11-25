@@ -253,6 +253,12 @@ status = "in-progress"
 tests = ["each_pen_matches_its_golden_image", "every_kind_has_its_own_name", "a_nib_is_broad_across_and_thin_along", "calligraphy_changes_width_with_direction", "a_marker_is_even_and_a_brush_follows_the_hand", "a_line_covers_its_band_and_nothing_else", "grain_and_opacity_lighten_a_pencil", "pgm_goes_out_and_back", "read_and_present_show_only_their_own_tools"]
 open = "golden images from the synthetic session; texture and blend not in the saved appearance until H.9; pen per pane, one colour and size until H.7 (DD25)"
 
+["H.3"]
+label = "Ph3: 40/49"
+status = "in-progress"
+tests = ["text_under_the_highlighter_stays_readable_in_every_theme", "multiply_keeps_dark_text_dark_where_normal_covers_it", "each_pen_matches_its_golden_image", "a_highlighter_preview_covers_each_segment"]
+open = "no snap to text lines (K.13); one colour until H.7 (DD25)"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

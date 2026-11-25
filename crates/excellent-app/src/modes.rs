@@ -94,6 +94,7 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "ink.pen_brush",
             "ink.pen_calligraphy",
             "ink.pen_marker",
+            "ink.pen_highlighter",
             "|",
             "edit.undo",
             "edit.redo",
@@ -554,6 +555,7 @@ fn short_label(name: &str) -> Option<&'static str> {
         "ink.pen_brush" => Some("toolbar.short.pen_brush"),
         "ink.pen_calligraphy" => Some("toolbar.short.pen_calligraphy"),
         "ink.pen_marker" => Some("toolbar.short.pen_marker"),
+        "ink.pen_highlighter" => Some("toolbar.short.pen_highlighter"),
         "go.screen_down" => Some("toolbar.short.screen_down"),
         _ => None,
     }

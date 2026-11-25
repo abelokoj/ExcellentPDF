@@ -1,6 +1,6 @@
 # MuPDF patches for ExcellentPDF
 
-`third_party/mupdf` is MuPDF **1.28.5** (tag `1.28.5`, commit `8ad45e92f`) plus the 76 patches in this directory, and
+`third_party/mupdf` is MuPDF **1.28.5** (tag `1.28.5`, commit `8ad45e92f`) plus the 77 patches in this directory, and
 nothing else. Every change to `third_party/mupdf` is a patch here, added in the same commit, with a row in the table
 below (plan §6.1, `AGENTS.md` §6).
 
@@ -129,6 +129,7 @@ relative to `ext/mupdf`, so `-p1` from inside that directory.
 | `0091-pdf-pinned-note-appearance` | *(Enhanced 0051)* pinned-paper appearance for `Text` annotations with the `Note` icon |
 | `0092-pdf-arrowhead-appearance` | *(Enhanced 0052)* sharp arrowhead strokes |
 | `0093-pdf-filled-arrowhead-appearance` | *(Enhanced 0053)* compact filled arrowheads and annotation-aware fill colours |
+| `0094-pdf-ink-blend-mode` | *(ours, H.3)* ink annotations' appearance honours PDF 2.0's `/BM /Multiply`, for the highlighter pen |
 
 That is the whole list: `ext/mupdf` is byte-for-byte `1.28.5` plus these
 patches, and nothing else.

@@ -3553,6 +3553,11 @@ until H.7 (DD25).
 
 **Done when:** text under the highlighter stays fully readable in light and dark mode.
 
+*Built (2026-11-25):* `PenKind::Highlighter` (a 12 pt chisel, `Blend::Multiply`, yellow) on the Write toolbar (key 7);
+the shim writes and reads `/BM /Multiply` on the Ink annotation, and MuPDF patch `0094` makes its ink appearance
+honour it. The live preview skips the system trail (it draws opaque) and draws segment quads darkest-wins. Snapping
+to text lines is not built yet.
+
 #### Ph4: 3/44 | H.4: Tape
 **P1; Phase 4; Needs:** H.2; **Code:** `excellent-ink::tape`
 1. An opaque strip that hides what is under it; tap to reveal or hide (for self-testing); saved as a Square
