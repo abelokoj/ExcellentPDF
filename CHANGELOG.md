@@ -6,6 +6,13 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 11:14; Ph4: 4/44 | H.11: Ruler, protractor and compass
+
+- Ruler, Protractor and Compass on the Write toolbar (Alt+R, Alt+P, Alt+C on the pages): a guide lies on the page;
+  drag it to move it, drag its grip to turn it or set the compass's radius. A pen stroke along the ruler comes out
+  exactly straight, one out from the protractor's centre lands on a whole degree, and one round the compass comes out
+  an exact arc. The title bar shows the length and angle, or the radius and sweep, in millimetres and degrees.
+
 ### 2026-11-25 11:07; Ph4: 3/44 | H.4: Tape
 
 - Tape (Write toolbar, Alt+T on the pages, the palette): drag over a definition or an answer to cover it with a soft

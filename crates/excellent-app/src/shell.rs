@@ -29,6 +29,7 @@ use nsh_core::geometry::Points;
 use nsh_core::JsonValue;
 use nsh_core::prelude::*;
 
+use crate::annotate::guides::GuideKind;
 use crate::annotate::{Kind, Placing};
 use crate::bookmarks::{self, BookmarkAction};
 use crate::commands::{self, CommandId};
@@ -489,6 +490,9 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Eraser(eraser) => pane.annotate.choose_eraser(eraser),
             CommandId::Lasso => pane.annotate.toggle_lasso(),
             CommandId::Tape => pane.annotate.place(Placing::Tape),
+            CommandId::Ruler => pane.annotate.toggle_guide(GuideKind::Ruler),
+            CommandId::Protractor => pane.annotate.toggle_guide(GuideKind::Protractor),
+            CommandId::Compass => pane.annotate.toggle_guide(GuideKind::Compass),
             CommandId::RotateLeft => pane.annotate.rotate_selection(-90.0),
             CommandId::RotateRight => pane.annotate.rotate_selection(90.0),
             CommandId::Thinner => pane.annotate.scale_selection_width(lasso::THINNER),
@@ -739,6 +743,9 @@ fn window_bar(
         // exists.
         .child(of_active(panes, |pane| {
             links::link_hint(pane.link_state, pane.pages)
+        }))
+        .child(of_active(panes, |pane| {
+            crate::annotate::guides::reading_line(pane.annotate)
         }))
         .child(of_active(panes, move |pane| {
             goto::page_button(pane.pages, move || run(CommandId::GoToPage))

@@ -99,6 +99,9 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "ink.eraser_highlighter",
             "ink.lasso",
             "ink.tape",
+            "ink.ruler",
+            "ink.protractor",
+            "ink.compass",
             "|",
             "edit.undo",
             "edit.redo",
@@ -523,6 +526,9 @@ fn tools(
                     | CommandId::Eraser(_)
                     | CommandId::Lasso
                     | CommandId::Tape
+                    | CommandId::Ruler
+                    | CommandId::Protractor
+                    | CommandId::Compass
                     | CommandId::Snapshot),
                 ) => row.child(choice_button(id, short_label(name), move || on(id), run)),
                 Some(id) => row.child(tool_button(id, short_label(name), has_document, run)),

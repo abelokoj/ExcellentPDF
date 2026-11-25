@@ -635,6 +635,7 @@ pub(crate) fn pages_view(
         .prop("pen", move || annotate.pen_prop())
         .prop("eraser", move || annotate.eraser_prop())
         .prop("lasso", move || annotate.lasso_prop())
+        .prop("guide", move || annotate.guide_prop())
         .prop("snapshot", move || snapshot.prop())
         .prop("fingerDraws", move || annotate.finger_draws_prop())
         .prop("selected", move || annotate.selected_prop())

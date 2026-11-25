@@ -46,6 +46,8 @@ impl<H: Host> PageCanvas<H> {
     /// `true` when a finger that isn't a resting hand draws ink rather than panning (H.8). `snapshot`: `true` while
     /// a drag on a page marks a region to render (O.23), sent as `snapshot` (`{page, rect}`, page points).
     /// `paperTexture`: how strongly the paper's grain shows over the pages (R.23), 0 to 1; anything else: none.
+    /// `guide`: the drawing guide on the page (H.11), `ruler`, `protractor` or `compass`; anything else: none. A stroke
+    /// along it is drawn true on it, and `guideReading` (`{kind, length, degrees, radius}`) says what it measures.
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -72,6 +74,7 @@ impl<H: Host> PageCanvas<H> {
                 self.set_finger_draws(value.and_then(JsonValue::as_bool).unwrap_or(false))
             }
             "snapshot" => self.set_snapshot(value.and_then(JsonValue::as_bool).unwrap_or(false)),
+            "guide" => self.set_guide(text),
             "paperTexture" => {
                 self.set_paper_texture(value.and_then(JsonValue::as_f64).map_or(0.0, |s| s as f32))
             }

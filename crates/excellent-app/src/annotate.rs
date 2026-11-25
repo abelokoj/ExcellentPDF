@@ -13,6 +13,7 @@ pub(crate) mod colors;
 mod exchange;
 pub(crate) mod favorites;
 mod flatten;
+pub(crate) mod guides;
 mod inspector;
 mod lasso;
 mod layers;
@@ -122,6 +123,10 @@ pub(crate) struct AnnotateState {
     eraser: Signal<Option<Eraser>>,
     /// The lasso is on (H.6): a drag on the pages draws a loop.
     lasso: Signal<bool>,
+    /// The drawing guide on the page (H.11).
+    guide: Signal<Option<guides::GuideKind>>,
+    /// What the last stroke along the guide measured, in the reader's words.
+    reading: Signal<Option<String>>,
 }
 
 impl AnnotateState {
@@ -144,6 +149,8 @@ impl AnnotateState {
             editing_pen: signal(None),
             eraser: signal(None),
             lasso: signal(false),
+            guide: signal(None),
+            reading: signal(None),
         }
     }
 
@@ -282,6 +289,9 @@ impl AnnotateState {
             CommandId::Eraser(eraser) => self.eraser.get() == Some(eraser),
             CommandId::Lasso => self.lasso.get(),
             CommandId::Tape => self.placing.get() == Some(Placing::Tape),
+            CommandId::Ruler => self.guide_on(guides::GuideKind::Ruler),
+            CommandId::Protractor => self.guide_on(guides::GuideKind::Protractor),
+            CommandId::Compass => self.guide_on(guides::GuideKind::Compass),
             _ => false,
         }
     }
@@ -535,6 +545,7 @@ impl AnnotateState {
             "pageDraw" => self.drawn(&event.data),
             "ink" => self.inked(&event.data),
             "erase" => self.erased(&event.data),
+            "guideReading" => self.guide_reading(&event.data),
             "annotDrag" => self.selection_dragged(&event.data),
             "annotMarquee" => self.marquee(&event.data),
             "annotLasso" => self.looped(&event.data),

@@ -43,6 +43,7 @@ mod access;
 mod draw;
 mod erase;
 mod find;
+mod guides;
 mod margin;
 mod markbar;
 mod minimap;
@@ -192,6 +193,8 @@ pub struct PageCanvas<H: Host> {
     paper_texture: f32,
     /// The grain, uploaded once it is wanted; dropped with the device.
     grain: Option<H::Image>,
+    /// The ruler, protractor or compass on the page (H.11).
+    guides: guides::Guides,
     /// The pen the next stroke draws with (H.2).
     ink_pen: Pen,
     /// Tokens of the points handed to the host's ink trail that it still draws, oldest first.
@@ -331,6 +334,7 @@ impl<H: Host> PageCanvas<H> {
             palms: crate::page::gestures::Palms::default(),
             paper_texture: 0.0,
             grain: None,
+            guides: guides::Guides::default(),
             trail: Vec::new(),
             reported_page: None,
             reported_view: None,
@@ -698,7 +702,7 @@ impl<H: Host> PageCanvas<H> {
     /// for a link out of the document; `null` for no link).
     pub fn mouse_moved(&mut self, at: Option<(i32, i32)>) {
         self.reading_mouse(at);
-        if self.draw_moved(at) || self.select_moved(at) {
+        if self.guide_moved(at) || self.draw_moved(at) || self.select_moved(at) {
             return;
         }
         self.markbar_hover(at);
@@ -752,7 +756,11 @@ impl<H: Host> PageCanvas<H> {
         if self.markbar_down(x, y) || self.popover_down(x, y) {
             return false;
         }
-        if self.minimap_down(x, y) || self.draw_down(x, y, time, limits) || self.select_down(x, y) {
+        if self.minimap_down(x, y)
+            || self.guide_down(x, y)
+            || self.draw_down(x, y, time, limits)
+            || self.select_down(x, y)
+        {
             return true;
         }
         let clicks = self.clicks.press(time, x, y, limits);
@@ -790,7 +798,7 @@ impl<H: Host> PageCanvas<H> {
     /// which decides whether to open it. A plain click that did neither goes to the app as `pagePress` (A.4).
     /// Returns whether a selection ended, when the window lets the mouse go.
     pub fn mouse_up(&mut self, x: i32, y: i32) -> bool {
-        if self.minimap_up() || self.draw_up(x, y) || self.select_up(x, y) {
+        if self.minimap_up() || self.guide_up() || self.draw_up(x, y) || self.select_up(x, y) {
             return true;
         }
         if self.selecting {
@@ -1269,6 +1277,8 @@ impl<H: Host> PageCanvas<H> {
         if !pen.stroke.is_empty() {
             let held = pen.last_moved.elapsed().as_secs_f64() * 1000.0 >= shapes::HOLD_MS;
             let finished = finished_points(&pen, held);
+            // Along a guide, the stroke is drawn true on it (H.11).
+            let finished = self.guided(pen.page, &finished).unwrap_or(finished);
             self.commit_ink(&pen, &finished);
             // Shown until the annotation it becomes is drawn with its page.
             let mut shown = Stroke::new();
@@ -1680,6 +1690,7 @@ impl<H: Host> PageCanvas<H> {
         let found = self.found_on_screen();
         let (paper, wash) = (self.paper(), self.wash());
         let swath = self.eraser_swath();
+        let guide = self.guide_shapes();
         let selected = self.selection_quads();
         let host = &mut self.host;
         host.clear(self.background);
@@ -1777,6 +1788,7 @@ impl<H: Host> PageCanvas<H> {
         if let Some((quads, color)) = &swath {
             host.highlight(quads, *color, wash)?;
         }
+        Self::draw_guide(host, guide)?;
         aids.draw_over(host)?;
         // This frame shows every point the trail has. While the pen draws, the trail keeps the newest batch, so its
         // next points join on to it; once the stroke is done, the trail empties.

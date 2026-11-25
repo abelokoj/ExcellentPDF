@@ -696,3 +696,9 @@ label = "Ph4: 3/44"
 status = "in-progress"
 tests = ["tape_toggles_with_one_tap_and_survives_save", "tape_is_an_opaque_filled_square_marked_as_tape", "a_tap_reveals_and_another_hides_again", "only_tape_and_unlocked_tape_answer_a_tap"]
 open = "no reveal or cover all; model in excellent-features rather than excellent-ink"
+
+["H.11"]
+label = "Ph4: 4/44"
+status = "in-progress"
+tests = ["a_stroke_along_the_ruler_is_exactly_straight", "a_stroke_off_the_ruler_is_left_alone", "a_stroke_round_the_compass_is_an_exact_arc", "a_stroke_from_the_protractor_lands_on_a_whole_degree"]
+open = "two-finger moves wait for canvas touch gestures; one guide, not kept across runs"

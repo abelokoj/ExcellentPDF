@@ -3662,6 +3662,10 @@ synthetic hand-drawn shapes; a recorded set is still to come.
 
 **Done when:** a stroke along the ruler is exactly straight.
 
+*Built (2026-11-25):* `excellent-ink::guides` (ruler, protractor at whole degrees, compass arcs) and the canvas's guide
+(drawn over the page, moved and turned with the mouse, strokes fitted on pen-up, readings in the title bar). Two-finger
+moves wait for the canvas's touch gestures.
+
 #### Ph4: 5/44 | H.12: Zoom writing pad
 **P1; Phase 4; Needs:** H.1; **Code:** `excellent-features/ink/zoompad.rs`
 1. A magnified strip at the bottom; writing in it lands small in a moving box on the page; auto-advance at the end

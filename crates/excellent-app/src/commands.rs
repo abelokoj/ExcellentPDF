@@ -119,6 +119,12 @@ pub(crate) enum CommandId {
     Lasso,
     /// Lays tape: the next drag on a page covers that strip; a click on tape reveals it or hides it again (H.4).
     Tape,
+    /// Lays a ruler on the page, or puts it away: strokes along it are drawn straight (H.11).
+    Ruler,
+    /// Lays a protractor on the page, or puts it away: strokes out from its centre land on a whole degree (H.11).
+    Protractor,
+    /// Lays a compass on the page, or puts it away: strokes round it are drawn as exact arcs (H.11).
+    Compass,
     /// Turns the selected annotations a quarter turn anticlockwise (H.6).
     RotateLeft,
     /// Turns the selected annotations a quarter turn clockwise (H.6).
@@ -730,6 +736,30 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.ink",
         keys: &[],
         page_keys: &["0"],
+    },
+    Command {
+        id: CommandId::Ruler,
+        name: "ink.ruler",
+        label: "command.ruler",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["alt+r"],
+    },
+    Command {
+        id: CommandId::Protractor,
+        name: "ink.protractor",
+        label: "command.protractor",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["alt+p"],
+    },
+    Command {
+        id: CommandId::Compass,
+        name: "ink.compass",
+        label: "command.compass",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["alt+c"],
     },
     Command {
         id: CommandId::Tape,
