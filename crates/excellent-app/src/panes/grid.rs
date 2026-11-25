@@ -678,6 +678,6 @@ fn copy_selection(event: &NativeEvent) {
     if &*event.name == "copy"
         && let Some(text) = event.data.get("text").and_then(JsonValue::as_str)
     {
-        set_clipboard(text);
+        drop(set_clipboard(text)); // the write happens whether or not the answer is awaited
     }
 }

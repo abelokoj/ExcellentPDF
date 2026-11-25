@@ -31,5 +31,7 @@ use nsh_core::element::__private::no_native_module as __nsh_native_module;
 fn app_root() -> nsh_core::element::Root {
     nsh_core::element::Root::of::<app_excellent_app::App>()
         .app_id("com.excellentpdf.app")
+        .app_info_json("{\"id\":\"com.excellentpdf.app\",\"name\":\"ExcellentPDF\",\"version\":\"0.1.0\",\"build\":1,\"development\":true}")
         .translations_json(include_str!("C:\\dev\\ExcellentPDF\\app\\.nsh/rust\\translations.json"))
+        .capabilities_json("{\"network\":{\"hosts\":[],\"http\":[]},\"process\":{\"execute\":[],\"exit\":false,\"env\":[]},\"fs\":{\"read\":[],\"write\":[]},\"statusBar\":false,\"clipboard\":true,\"picker\":false,\"openUrl\":true,\"windows\":{\"kinds\":[\"normal\"]}}")
 }

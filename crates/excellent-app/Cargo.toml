@@ -25,7 +25,7 @@ excellent-store.workspace = true
 log.workspace = true
 nsh-core.workspace = true
 nsh-base.workspace = true
-# Only for the system's data folder, as NSH's own files use it (`nsh_engine::data_dir`); the platforms build it anyway.
+# Only for the system's data folder, as NSH's own files use it (`nsh_engine::support_dir`); the platforms build it anyway.
 nsh-engine.workspace = true
 serde_json.workspace = true
 toml.workspace = true

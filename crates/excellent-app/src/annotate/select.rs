@@ -165,7 +165,7 @@ impl AnnotateState {
         if clip.is_empty() {
             return;
         }
-        set_clipboard(clip.text());
+        drop(set_clipboard(clip.text())); // the write happens whether or not the answer is awaited
         *CLIP.lock().expect("clipboard lock poisoned") = Some(clip);
     }
 

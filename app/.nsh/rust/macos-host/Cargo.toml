@@ -9,10 +9,10 @@ name = "nsh-app-excellent-app-macos-host"
 path = "main.rs"
 
 [dependencies]
-nsh-macos-host = { version = "=0.5.1" }
-nsh-core = { version = "=0.5.1" }
-nsh-base = { version = "=0.5.1", features = ["highlight"] }
+nsh-macos-host = { version = "=0.7.0" }
+nsh-core = { version = "=0.7.0" }
+nsh-base = { version = "=0.7.0", features = ["highlight"] }
 app_excellent_app = { package = "excellent-app", path = "C:\\dev\\ExcellentPDF\\crates\\excellent-app" }
-
+workspace-hack = { package = "nsh-app-excellent-app-hack", path = "../hack" }
 [target.'cfg(target_os = "macos")'.dependencies]
-nsh-platform-macos = { version = "=0.5.1" }
+nsh-platform-macos = { version = "=0.7.0" }

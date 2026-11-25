@@ -10,10 +10,25 @@ path = "lib.rs"
 crate-type = ["cdylib"]
 
 [features]
+default = ["js", "shader", "editor", "emoji-picker", "highlight", "math", "plot", "rich-editor", "term", "zlib", "crypto", "websocket", "updater", "svg"]
 dev = ["nsh-platform-android/dev"]
+js = ["nsh-platform-android/js"]
+shader = ["nsh-platform-android/shader"]
+editor = ["nsh-platform-android/editor"]
+emoji-picker = ["nsh-platform-android/emoji-picker"]
+highlight = ["nsh-platform-android/highlight"]
+math = ["nsh-platform-android/math"]
+plot = ["nsh-platform-android/plot"]
+rich-editor = ["nsh-platform-android/rich-editor"]
+term = ["nsh-platform-android/term"]
+zlib = ["nsh-platform-android/zlib"]
+crypto = ["nsh-platform-android/crypto"]
+websocket = ["nsh-platform-android/websocket"]
+updater = ["nsh-platform-android/updater"]
+svg = ["nsh-platform-android/svg"]
 
 [dependencies]
-nsh-core = { version = "=0.5.1" }
-nsh-platform-android = { version = "=0.5.1" }
-nsh-base = { version = "=0.5.1", features = ["highlight"] }
+nsh-core = { version = "=0.7.0" }
+nsh-platform-android = { version = "=0.7.0", default-features = false }
+nsh-base = { version = "=0.7.0", default-features = false }
 app_excellent_app = { package = "excellent-app", path = "C:\\dev\\ExcellentPDF\\crates\\excellent-app" }

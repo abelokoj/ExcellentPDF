@@ -247,7 +247,7 @@ fn location() -> Option<PathBuf> {
 /// Where the app keeps its files (settings, `library.db`): next to the executable when a settings file is there
 /// (portable mode), else the app's data folder. `None` when the system has no data folder for the app.
 pub(crate) fn folder() -> Option<PathBuf> {
-    portable_folder().or_else(|| Some(nsh_engine::data_dir()?.join(APP_ID)))
+    portable_folder().or_else(|| Some(nsh_engine::support_dir()?.join(APP_ID)))
 }
 
 /// The executable's folder, when the app runs portable from it (a settings file is there).

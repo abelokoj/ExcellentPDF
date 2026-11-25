@@ -16,3 +16,6 @@ fn set_app_excellent_app() -> nsh_core::element::Registry {
 // Without the entry: nsh's stand-in, which fails the build saying what to add.
 #[allow(unused_imports)]
 use nsh_core::element::__private::no_native_module as __nsh_native_module;
+
+// The features the app's programs share (`.nsh/rust/hack`).
+use workspace_hack as _;

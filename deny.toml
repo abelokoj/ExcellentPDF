@@ -6,11 +6,11 @@ all-features = true
 [advisories]
 # Fail on known vulnerabilities and unmaintained or yanked crates.
 yanked = "deny"
-# Unmaintained, not vulnerable, and only reachable through NSH 0.5.0's SVG renderer (resvg/usvg). Pinned by D2;
-# remove these when an NSH update drops them.
+# Unmaintained, not vulnerable, and only reachable through NSH 0.7.0. Pinned by D2; remove these when an NSH update
+# drops them.
 ignore = [
-    { id = "RUSTSEC-2026-0206", reason = "rustybuzz unmaintained; via nsh-core -> resvg, pinned by D2" },
-    { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained; via nsh-core -> resvg, pinned by D2" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained; via nsh-core, pinned by D2" },
+    { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained, no successor release; via nsh-core and nsh-base, pinned by D2" },
 ]
 
 [licenses]

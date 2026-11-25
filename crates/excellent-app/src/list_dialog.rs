@@ -44,6 +44,12 @@ pub(crate) fn list_dialog(
     cancel: impl Fn() + Copy + 'static,
     list: impl IntoElement,
 ) -> impl IntoElement {
+    // Since NSH 0.7 a focused text field keeps Escape from the dialog's own cancel: bind it in text fields too.
+    let in_fields = KeyOptions {
+        when: nsh_core::keymap::When::Always,
+        ..KeyOptions::default()
+    };
+    on_key_with("escape", in_fields, move |_| cancel());
     dialog()
         .label(label)
         .animation(ModalAnimation::Fade)

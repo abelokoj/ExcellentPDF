@@ -21,13 +21,13 @@ bindgen = "0.73"
 
 # UI: NSH, pinned to the installed CLI's version (AGENTS D2). No default features: we use NSH's Rust components
 # only, so neither QuickJS nor the optional components (editor, plots, terminal, ...) are built in.
-nsh-core = "=0.5.1"
-nsh-base = { version = "=0.5.1", default-features = false }
-nsh-platform-windows = { version = "=0.5.1", default-features = false }
-nsh-platform-macos = { version = "=0.5.1", default-features = false }
-nsh-platform-linux = { version = "=0.5.1", default-features = false }
-nsh-engine = { version = "=0.5.1", default-features = false }
-nsh-testing = { version = "=0.5.1", default-features = false }
+nsh-core = "=0.7.0"
+nsh-base = { version = "=0.7.0", default-features = false }
+nsh-platform-windows = { version = "=0.7.0", default-features = false }
+nsh-platform-macos = { version = "=0.7.0", default-features = false }
+nsh-platform-linux = { version = "=0.7.0", default-features = false }
+nsh-engine = { version = "=0.7.0", default-features = false }
+nsh-testing = { version = "=0.7.0", default-features = false }
 # The macOS page canvas (K.9): the AppKit, Core Graphics and dispatch crates NSH's macOS backend already uses, at
 # its versions, with the parts the canvas calls.
 objc2 = "0.6.5"
@@ -73,7 +73,7 @@ toml = "1"
 rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }
 # Property tests (plan K.6). No default features: no forking test runner.
 proptest = { version = "1", default-features = false, features = ["std"] }
-# Win32 for the page canvas (D5): the version NSH 0.5.1 uses, so one copy is built.
+# Win32 for the page canvas (D5): the version NSH 0.7.0 uses, so one copy is built.
 windows = { version = "0.62", features = [
     "std",
     "Wdk_System_SystemServices",

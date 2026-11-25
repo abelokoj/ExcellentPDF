@@ -9,5 +9,6 @@ name = "nsh-app-excellent-app-describe"
 path = "main.rs"
 
 [dependencies]
-nsh-core = { version = "=0.5.1", features = ["declarations"] }
+nsh-core = { version = "=0.7.0", features = ["declarations"] }
 app_excellent_app = { package = "excellent-app", path = "C:\\dev\\ExcellentPDF\\crates\\excellent-app" }
+workspace-hack = { package = "nsh-app-excellent-app-hack", path = "../hack" }
