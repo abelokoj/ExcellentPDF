@@ -283,6 +283,12 @@ status = "in-progress"
 tests = ["writing_with_the_hand_resting_leaves_no_stray_marks", "without_finger_draws_a_finger_pans", "a_palm_is_ignored_with_no_pen_about_and_keeps_its_verdict"]
 open = "synthetic session (DD24); Windows only, macOS and Linux hosts not wired; real hardware untested"
 
+["H.9"]
+label = "Ph3: 45/49"
+status = "in-progress"
+tests = ["a_pressure_stroke_is_saved_and_drawn_as_written", "a_tapering_stroke_is_as_wide_as_each_point", "the_ends_bulge_outwards", "a_dot_is_round_and_nothing_is_nothing", "even_strokes_are_told_apart_from_pressure_strokes"]
+open = "Acrobat, PDF-XChange and pdf.js not checked (K.26); raw samples key not built; pencil grain not in the appearance; erased pieces lose widths"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

@@ -3624,6 +3624,11 @@ recorded test is a synthetic session; macOS and Linux hosts are not wired yet.
 
 **Done when:** ink looks identical in Acrobat, PDF-XChange and pdf.js (K.26).
 
+*Built (2026-11-25):* step 1 as before; step 2 with `excellent-ink::outline` and the shim (constant-width pens keep
+MuPDF's appearance; pressure pens' outlines are filled through a display list, with `/ExcellentWidths` holding each
+point's width so every later write draws them again). Step 3 (raw samples) is not built. The three readers are not
+checked yet.
+
 #### Ph3: 46/49 | H.10: Shape recognition (hold to snap)
 **P1; Phase 3; Needs:** H.1; **Code:** `excellent-ink::shapes`
 1. When the pen stays still for 500 ms at the end of a stroke, fit: line, arrow, rectangle, triangle, polygon (corner

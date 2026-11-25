@@ -833,6 +833,16 @@ unsafe extern "C" {
     ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn ex_annot_ink_widths(
+        ctx: *mut fz_context,
+        annot: *mut pdf_annot,
+        widths: *mut f32,
+        capacity: ::core::ffi::c_int,
+        count: *mut ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn ex_annot_text(
         ctx: *mut fz_context,
         annot: *mut pdf_annot,
@@ -858,10 +868,15 @@ pub struct ex_annot_write {
     pub reply_to: *const ::core::ffi::c_char,
     pub state: *const ::core::ffi::c_char,
     pub layer: *const ::core::ffi::c_char,
+    pub widths: *const f32,
+    pub width_count: ::core::ffi::c_int,
+    pub outline_lengths: *const ::core::ffi::c_int,
+    pub outline: *const fz_point,
+    pub outline_count: ::core::ffi::c_int,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 328usize];
+    ["Size of ex_annot_write"][::core::mem::size_of::<ex_annot_write>() - 368usize];
     ["Alignment of ex_annot_write"][::core::mem::align_of::<ex_annot_write>() - 8usize];
     ["Offset of field: ex_annot_write::id"][::core::mem::offset_of!(ex_annot_write, id) - 0usize];
     ["Offset of field: ex_annot_write::author"]
@@ -890,6 +905,16 @@ const _: () = {
         [::core::mem::offset_of!(ex_annot_write, state) - 312usize];
     ["Offset of field: ex_annot_write::layer"]
         [::core::mem::offset_of!(ex_annot_write, layer) - 320usize];
+    ["Offset of field: ex_annot_write::widths"]
+        [::core::mem::offset_of!(ex_annot_write, widths) - 328usize];
+    ["Offset of field: ex_annot_write::width_count"]
+        [::core::mem::offset_of!(ex_annot_write, width_count) - 336usize];
+    ["Offset of field: ex_annot_write::outline_lengths"]
+        [::core::mem::offset_of!(ex_annot_write, outline_lengths) - 344usize];
+    ["Offset of field: ex_annot_write::outline"]
+        [::core::mem::offset_of!(ex_annot_write, outline) - 352usize];
+    ["Offset of field: ex_annot_write::outline_count"]
+        [::core::mem::offset_of!(ex_annot_write, outline_count) - 360usize];
 };
 impl Default for ex_annot_write {
     fn default() -> Self {

@@ -307,6 +307,9 @@ typedef struct ex_annot_props {
 int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex_error *err);
 int ex_annot_arrays(fz_context *ctx, pdf_annot *annot, fz_quad *quads, int *stroke_lengths, fz_point *points,
 	ex_error *err);
+/* An ink annotation's point widths (H.9, the private /ExcellentWidths key): `*count` of them, copied into `widths`
+ * when it is not NULL, at most `capacity`; 0 when it has none. */
+int ex_annot_ink_widths(fz_context *ctx, pdf_annot *annot, float *widths, int capacity, int *count, ex_error *err);
 /* One of the EX_ANNOT_* texts, copied into a new buffer; empty when the annotation has none. */
 int ex_annot_text(fz_context *ctx, pdf_annot *annot, int which, fz_buffer **out, ex_error *err);
 
@@ -336,6 +339,15 @@ typedef struct ex_annot_write {
 	/* The name of the layer to put it on (A.22), made when the document has none of that name; NULL or empty for
 	 * none. */
 	const char *layer;
+	/* Ink (H.9): each point's width, `width_count` of them in the order of `points` (0 for none, which removes the
+	 * private /ExcellentWidths key); and each stroke's outline, filled in the annotation's colour, opacity and blend
+	 * as its appearance in place of MuPDF's constant-width line: `outline_count` closed rings of `outline_lengths`
+	 * points each, page space (0 keeps MuPDF's appearance). */
+	const float *widths;
+	int width_count;
+	const int *outline_lengths;
+	const fz_point *outline;
+	int outline_count;
 } ex_annot_write;
 
 /* Annotation edits (K.14), inside an operation, on page `page` (zero-based) of a PDF. ex_annot_create adds one;

@@ -11,6 +11,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use excellent_ink::stroke::InkPoint;
 pub use excellent_mupdf::{Align, LineEnd};
 use excellent_mupdf::{AnnotData, AnnotKind, Document, Intent, PagePoint, PageRect, Quad};
 use serde_json::{Map, Value, json};
@@ -314,6 +315,10 @@ pub struct Annotation {
     /// Whether it darkens what is under it (PDF 2.0's `/BM /Multiply`), so text under it stays as dark: a
     /// highlighter pen's ink (H.3).
     pub multiply: bool,
+    /// An ink drawing's width at each point, one list per stroke of its [`Shape::Ink`] (H.9): a pressure pen's
+    /// stroke, saved with an appearance that follows it. An empty list, or one that doesn't match its stroke's
+    /// points, is a stroke of the style's one width.
+    pub widths: Vec<Vec<f32>>,
 }
 
 impl Annotation {
@@ -346,6 +351,7 @@ impl Annotation {
             cloud: None,
             locked: false,
             multiply: false,
+            widths: Vec::new(),
         }
     }
 
@@ -452,6 +458,7 @@ impl Annotation {
             cloud: data.cloud,
             locked: data.locked,
             multiply: data.multiply,
+            widths: ink_widths(&data.strokes, &data.widths),
         })
     }
 
@@ -511,6 +518,8 @@ impl Annotation {
             border: self.style.width,
             created: self.created,
             modified: self.modified,
+            widths: flat_widths(&strokes, &self.widths, self.style.width),
+            outline: ink_outline(&strokes, &self.widths, self.style.width),
             quads,
             strokes,
             points,
@@ -583,6 +592,7 @@ impl Annotation {
             "cloud": self.cloud,
             "locked": self.locked,
             "multiply": self.multiply,
+            "widths": self.widths,
             "text": self.is_text_box().then(|| json!({
                 "font": self.text.font.name(),
                 "size": self.text.size,
@@ -704,8 +714,87 @@ impl Annotation {
                 .get("multiply")
                 .and_then(Value::as_bool)
                 .unwrap_or_default(),
+            // Before H.9 every stroke had one width.
+            widths: object
+                .get("widths")
+                .and_then(Value::as_array)
+                .map(|strokes| strokes.iter().filter_map(floats).collect())
+                .unwrap_or_default(),
         })
     }
+}
+
+/// The widths `flat` holds (one per point of `strokes`, in order, as the file keeps them), one list per stroke; none
+/// when it doesn't hold one per point.
+fn ink_widths(strokes: &[Vec<PagePoint>], flat: &[f32]) -> Vec<Vec<f32>> {
+    if flat.is_empty() || flat.len() != strokes.iter().map(Vec::len).sum::<usize>() {
+        return Vec::new();
+    }
+    let mut rest = flat;
+    strokes
+        .iter()
+        .map(|stroke| {
+            let (widths, after) = rest.split_at(stroke.len());
+            rest = after;
+            widths.to_vec()
+        })
+        .collect()
+}
+
+/// Each point of `strokes` with its width: its stroke's own from `widths` when it has one per point, else `even`.
+fn ink_points(strokes: &[Vec<PagePoint>], widths: &[Vec<f32>], even: f32) -> Vec<Vec<InkPoint>> {
+    strokes
+        .iter()
+        .enumerate()
+        .map(|(at, stroke)| {
+            let own = widths.get(at).filter(|w| w.len() == stroke.len());
+            stroke
+                .iter()
+                .enumerate()
+                .map(|(k, p)| InkPoint {
+                    x: p.x,
+                    y: p.y,
+                    width: own.map_or(even, |w| w[k]),
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// Whether any stroke of `strokes` changes width along it: a pressure pen's, which the file keeps point by point.
+fn varies(strokes: &[Vec<PagePoint>], widths: &[Vec<f32>], even: f32) -> bool {
+    ink_points(strokes, widths, even)
+        .iter()
+        .any(|stroke| !excellent_ink::outline::is_even(stroke))
+}
+
+/// The widths the file keeps (H.9): every point's, in order, when a stroke changes width along it; none otherwise.
+fn flat_widths(strokes: &[Vec<PagePoint>], widths: &[Vec<f32>], even: f32) -> Vec<f32> {
+    if !varies(strokes, widths, even) {
+        return Vec::new();
+    }
+    ink_points(strokes, widths, even)
+        .iter()
+        .flatten()
+        .map(|p| p.width)
+        .collect()
+}
+
+/// The outlines an ink drawing's appearance fills (H.9), when a stroke changes width along it; none leaves the
+/// reader's constant-width line.
+fn ink_outline(strokes: &[Vec<PagePoint>], widths: &[Vec<f32>], even: f32) -> Vec<Vec<PagePoint>> {
+    if !varies(strokes, widths, even) {
+        return Vec::new();
+    }
+    ink_points(strokes, widths, even)
+        .iter()
+        .map(|stroke| {
+            excellent_ink::outline::outline(stroke)
+                .into_iter()
+                .map(|(x, y)| PagePoint { x, y })
+                .collect()
+        })
+        .collect()
 }
 
 /// The annotations the model keeps on page `page` of `document`, in the page's order, the replies in comment threads

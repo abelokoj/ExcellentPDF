@@ -746,6 +746,8 @@ fn finish(done: Pending, spaces: &[PageSpace]) -> Option<Annotation> {
     };
     let mut data = AnnotData {
         kind,
+        widths: Vec::new(),
+        outline: Vec::new(),
         id: attr("name").to_owned(),
         author: attr("title").to_owned(),
         contents: if done.contents.is_empty() {

@@ -7,8 +7,8 @@ use std::ffi::CString;
 
 use excellent_mupdf_sys::{
     self as sys, PDF_ANNOT_UNKNOWN, ex_annot_arrays, ex_annot_contents, ex_annot_info,
-    ex_annot_props, ex_annot_props_of, ex_annot_text, ex_drop_annot, ex_first_annot, ex_next_annot,
-    fz_point, fz_quad, fz_rect, pdf_annot,
+    ex_annot_ink_widths, ex_annot_props, ex_annot_props_of, ex_annot_text, ex_drop_annot,
+    ex_first_annot, ex_next_annot, fz_point, fz_quad, fz_rect, pdf_annot,
 };
 
 use crate::buffer;
@@ -371,6 +371,11 @@ impl Annot<'_> {
         })?;
         let points: Vec<PagePoint> = points.into_iter().map(PagePoint::from).collect();
         let kind = AnnotKind::from_raw(props.type_);
+        let widths = if kind == AnnotKind::Ink {
+            self.ink_widths()?
+        } else {
+            Vec::new()
+        };
         let (strokes, points) = if kind == AnnotKind::Ink {
             let mut rest = points.as_slice();
             let strokes = lengths
@@ -426,6 +431,35 @@ impl Annot<'_> {
             quads: quads.into_iter().map(Quad::from).collect(),
             strokes,
             points,
+            widths,
+            outline: Vec::new(),
+        })
+    }
+
+    /// An ink annotation's point widths (H.9), as many as its points; empty when it has none.
+    fn ink_widths(&self) -> Result<Vec<f32>> {
+        with_context(|ctx| {
+            let mut count: c_int = 0;
+            // SAFETY: the annotation is live and on its page's thread; no array is written with a capacity of 0.
+            check(|err| unsafe {
+                ex_annot_ink_widths(ctx, self.raw.as_ptr(), ptr::null_mut(), 0, &mut count, err)
+            })?;
+            let mut widths = vec![0.0_f32; usize::try_from(count).unwrap_or(0)];
+            if widths.is_empty() {
+                return Ok(widths);
+            }
+            // SAFETY: as above; `widths` holds `count` floats and the shim writes at most that many.
+            check(|err| unsafe {
+                ex_annot_ink_widths(
+                    ctx,
+                    self.raw.as_ptr(),
+                    widths.as_mut_ptr(),
+                    count,
+                    &mut count,
+                    err,
+                )
+            })?;
+            Ok(widths)
         })
     }
 
@@ -513,6 +547,12 @@ pub struct AnnotData {
     pub quads: Vec<Quad>,
     /// Ink strokes.
     pub strokes: Vec<Vec<PagePoint>>,
+    /// An ink annotation's width at each point of its strokes, in their order (the private `/ExcellentWidths`
+    /// key, H.9); empty for none.
+    pub widths: Vec<f32>,
+    /// The outlines an ink annotation's appearance fills instead of a constant-width line (H.9), page space; empty
+    /// leaves MuPDF's appearance. Written only: reading gives none.
+    pub outline: Vec<Vec<PagePoint>>,
     /// A line's two ends, or a polygon's or polyline's vertices.
     pub points: Vec<PagePoint>,
 }
@@ -582,6 +622,25 @@ impl AnnotData {
             .copied()
             .map(fz_point::from)
             .collect();
+        if !self.widths.is_empty()
+            && self.widths.len() != self.strokes.iter().map(Vec::len).sum::<usize>()
+        {
+            return Err(MuError::argument(
+                "an ink annotation has one width per point",
+            ));
+        }
+        let outline_lengths = self
+            .outline
+            .iter()
+            .map(|ring| count(ring.len()))
+            .collect::<Result<Vec<c_int>>>()?;
+        let outline: Vec<fz_point> = self
+            .outline
+            .iter()
+            .flatten()
+            .copied()
+            .map(fz_point::from)
+            .collect();
         let raw = sys::ex_annot_write {
             id: id.as_ptr(),
             author: author.as_ptr(),
@@ -627,6 +686,11 @@ impl AnnotData {
             quads: quads.as_ptr(),
             stroke_lengths: lengths.as_ptr(),
             points: points.as_ptr(),
+            widths: self.widths.as_ptr(),
+            width_count: count(self.widths.len())?,
+            outline_lengths: outline_lengths.as_ptr(),
+            outline: outline.as_ptr(),
+            outline_count: count(outline_lengths.len())?,
         };
         write(&raw)
     }

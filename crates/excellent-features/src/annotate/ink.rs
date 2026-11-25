@@ -1,6 +1,6 @@
 //! A pen stroke the page canvas finished (H.1, its `ink` event): committed on pen-up as an ink annotation, one step
-//! of undo. A PDF ink annotation has one width, so it takes the stroke's mean; H.9 writes the per-point widths into
-//! its appearance.
+//! of undo. A PDF ink annotation has one width, the stroke's mean; the widths point by point go with it (H.9), so
+//! its saved appearance follows the pen.
 
 use excellent_core::annot::{Annotation, Shape, Style};
 use excellent_mupdf::PagePoint;
@@ -71,6 +71,7 @@ impl Inked {
             author,
         );
         annotation.multiply = self.multiply;
+        annotation.widths = vec![self.points.iter().map(|(_, width)| *width).collect()];
         annotation
     }
 }

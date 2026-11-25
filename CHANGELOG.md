@@ -6,6 +6,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 07:52; Ph3: 45/49 | H.9: Save ink as standard PDF
+
+- A pressure pen's stroke is saved as it was written: its appearance in the PDF is the stroke's outline, thin where
+  the pen pressed lightly and broad where it pressed hard, with round ends, instead of one line of its mean width. It
+  keeps its shape after a move, a resize, a turn, undo and redo, and when the file is reopened.
+- Constant-width pens (ballpoint, marker, highlighter) keep the reader's own line, as before.
+- Each point's width is kept in a private key of the annotation; other readers draw the saved appearance. Checked
+  with MuPDF before and after saving; Acrobat, PDF-XChange and pdf.js are still to be checked.
+- Not built yet: the raw pen samples for replay (H.22) and a pencil's grain in the saved appearance.
+
 ### 2026-11-25 07:04; Ph3: 44/49 | H.8: Palm rejection and "finger draws"
 
 - A hand resting on the screen while you write does nothing: touches are ignored while the pen is near the screen or

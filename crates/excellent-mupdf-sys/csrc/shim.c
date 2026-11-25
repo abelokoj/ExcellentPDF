@@ -955,6 +955,8 @@ void ex_drop_annot(fz_context *ctx, pdf_annot *annot)
 
 /* The annotation model's private key: a text string the app owns (anchor and tags). */
 #define EX_APP_KEY "ExcellentPDF"
+/* The private key holding an ink annotation's point widths (H.9). */
+#define EX_WIDTHS_KEY "ExcellentWidths"
 
 /* Ink strokes, line ends or vertices: whichever of them the annotation's type has. */
 static int ex_annot_point_count(fz_context *ctx, pdf_annot *annot, int *strokes)
@@ -1082,6 +1084,21 @@ int ex_annot_props_of(fz_context *ctx, pdf_annot *annot, ex_annot_props *out, ex
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
 	*out = props;
+	return 0;
+}
+
+int ex_annot_ink_widths(fz_context *ctx, pdf_annot *annot, float *widths, int capacity, int *count, ex_error *err)
+{
+	fz_try(ctx)
+	{
+		pdf_obj *list = pdf_dict_gets(ctx, pdf_annot_obj(ctx, annot), EX_WIDTHS_KEY);
+		int i, n = pdf_is_array(ctx, list) ? pdf_array_len(ctx, list) : 0;
+		*count = n;
+		for (i = 0; widths && i < n && i < capacity; i++)
+			widths[i] = pdf_array_get_real(ctx, list, i);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
 	return 0;
 }
 
@@ -1450,6 +1467,91 @@ static void ex_annot_text_style(fz_context *ctx, pdf_annot *annot, const ex_anno
 }
 
 /* Writes every property of `w` to `annot`, then rebuilds its appearance. */
+
+
+/* Writes `w`'s point widths into `annot`, or removes them when it has none (H.9). */
+static void ex_ink_widths(fz_context *ctx, pdf_annot *annot, const ex_annot_write *w)
+{
+	pdf_obj *obj = pdf_annot_obj(ctx, annot);
+	pdf_obj *widths;
+	int i;
+	if (w->width_count <= 0 || !w->widths)
+	{
+		pdf_dict_dels(ctx, obj, EX_WIDTHS_KEY);
+		return;
+	}
+	widths = pdf_new_array(ctx, pdf_get_bound_document(ctx, obj), w->width_count);
+	pdf_dict_puts_drop(ctx, obj, EX_WIDTHS_KEY, widths);
+	for (i = 0; i < w->width_count; i++)
+		pdf_array_push_real(ctx, widths, w->widths[i]);
+}
+
+/* `annot`'s appearance: `w`'s outlines filled in its colour and opacity, multiplied for a highlighter (H.3), in place
+ * of MuPDF's constant-width line (H.9). The outlines come in page space; the appearance is drawn in the page's
+ * unrotated PDF space, y down as a display list is, and /Rect becomes their bounds, so every reader places it as
+ * MuPDF draws it. */
+static void ex_ink_appearance(fz_context *ctx, pdf_annot *annot, const ex_annot_write *w)
+{
+	const ex_annot_props *p = &w->props;
+	fz_display_list *list = NULL;
+	fz_device *dev = NULL;
+	fz_path *path = NULL;
+	fz_var(list);
+	fz_var(dev);
+	fz_var(path);
+	if (p->color_n <= 0)
+		return;
+	fz_try(ctx)
+	{
+		fz_matrix page_ctm, to_pdf;
+		fz_rect bounds = fz_empty_rect;
+		fz_rect area;
+		fz_colorspace *cs = p->color_n == 1 ? fz_device_gray(ctx) : p->color_n == 4 ? fz_device_cmyk(ctx) : fz_device_rgb(ctx);
+		int i, k, at = 0;
+		pdf_page_transform(ctx, pdf_annot_page(ctx, annot), NULL, &page_ctm);
+		to_pdf = fz_invert_matrix(page_ctm);
+		path = fz_new_path(ctx);
+		for (i = 0; i < w->outline_count; i++)
+		{
+			for (k = 0; k < w->outline_lengths[i]; k++)
+			{
+				fz_point q = fz_transform_point(w->outline[at + k], to_pdf);
+				bounds = fz_include_point_in_rect(bounds, q);
+				if (k == 0)
+					fz_moveto(ctx, path, q.x, -q.y);
+				else
+					fz_lineto(ctx, path, q.x, -q.y);
+			}
+			if (w->outline_lengths[i] > 0)
+				fz_closepath(ctx, path);
+			at += w->outline_lengths[i];
+		}
+		if (fz_is_empty_rect(bounds))
+			break;
+		/* The list's bounds are the form's bounding box: the outlines', y down. */
+		area = fz_make_rect(bounds.x0, -bounds.y1, bounds.x1, -bounds.y0);
+		list = fz_new_display_list(ctx, area);
+		dev = fz_new_list_device(ctx, list);
+		if (p->multiply)
+			fz_begin_group(ctx, dev, area, NULL, 0, 0, FZ_BLEND_MULTIPLY, 1);
+		/* Nonzero winding: where a stroke crosses itself it stays filled. */
+		fz_fill_path(ctx, dev, path, 0, fz_identity, cs, p->color, p->opacity, fz_default_color_params);
+		if (p->multiply)
+			fz_end_group(ctx, dev);
+		fz_close_device(ctx, dev);
+		pdf_dict_put_rect(ctx, pdf_annot_obj(ctx, annot), PDF_NAME(Rect), bounds);
+		pdf_set_annot_appearance_from_display_list(ctx, annot, "N", NULL, fz_identity, list);
+	}
+	fz_always(ctx)
+	{
+		fz_drop_device(ctx, dev);
+		fz_drop_display_list(ctx, list);
+		fz_drop_path(ctx, path);
+	}
+	fz_catch(ctx)
+		fz_rethrow(ctx);
+}
+
 static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_write *w)
 {
 	const ex_annot_props *p = &w->props;
@@ -1538,10 +1640,15 @@ static void ex_annot_write_to(fz_context *ctx, pdf_annot *annot, const ex_annot_
 	if (!(w->group && *w->group))
 		ex_annot_reply(ctx, annot, w->reply_to, w->state);
 	ex_annot_layer(ctx, annot, w->layer);
+	if (pdf_annot_type(ctx, annot) == PDF_ANNOT_INK)
+		ex_ink_widths(ctx, annot, w);
 	/* Last: every setter above stamps the modification date with the time now. */
 	if (pdf_annot_has_author(ctx, annot))
 		pdf_set_annot_modification_date(ctx, annot, p->modified);
 	pdf_update_annot(ctx, annot);
+	/* After MuPDF's own: a pressure pen's strokes are its outlines (H.9), drawn again on every write. */
+	if (pdf_annot_type(ctx, annot) == PDF_ANNOT_INK && w->outline_count > 0)
+		ex_ink_appearance(ctx, annot, w);
 }
 
 /* Page `page` of the PDF behind `doc`, a new reference. */

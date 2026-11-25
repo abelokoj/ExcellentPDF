@@ -72,8 +72,10 @@ fn erase(pass: &Pass, annotation: &Annotation) -> Option<Change> {
         return None;
     };
     let mut left: Vec<Vec<PagePoint>> = Vec::with_capacity(strokes.len());
+    // Each stroke left keeps its widths (H.9); a cut one's pieces are drawn at the annotation's one width.
+    let mut widths: Vec<Vec<f32>> = Vec::with_capacity(strokes.len());
     let mut touched = false;
-    for stroke in strokes {
+    for (at, stroke) in strokes.iter().enumerate() {
         let path: Vec<Point> = stroke.iter().map(|p| point(*p)).collect();
         let target = Target {
             path: &path,
@@ -81,16 +83,22 @@ fn erase(pass: &Pass, annotation: &Annotation) -> Option<Change> {
             highlighter: annotation.multiply,
         };
         match pass.cut(target) {
-            Cut::Kept => left.push(stroke.clone()),
+            Cut::Kept => {
+                left.push(stroke.clone());
+                widths.push(annotation.widths.get(at).cloned().unwrap_or_default());
+            }
             Cut::Removed => touched = true,
             Cut::Split(pieces) => {
                 touched = true;
-                left.extend(pieces.into_iter().map(|piece| {
-                    piece
-                        .into_iter()
-                        .map(|p| PagePoint { x: p.x, y: p.y })
-                        .collect()
-                }));
+                for piece in pieces {
+                    left.push(
+                        piece
+                            .into_iter()
+                            .map(|p| PagePoint { x: p.x, y: p.y })
+                            .collect(),
+                    );
+                    widths.push(Vec::new());
+                }
             }
         }
     }
@@ -105,6 +113,7 @@ fn erase(pass: &Pass, annotation: &Annotation) -> Option<Change> {
     }
     let mut after = annotation.clone();
     after.shape = Shape::Ink(left);
+    after.widths = widths;
     Some(Change::UpdateAnnotation(after))
 }
 

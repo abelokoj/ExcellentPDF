@@ -267,6 +267,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     locked,
                     // Any kind keeps PDF 2.0's blend mode (H.3).
                     multiply: open,
+                    widths: Vec::new(),
                 }
             },
         )
@@ -1491,5 +1492,78 @@ fn a_flattened_copy_looks_the_same_and_holds_no_annotations() {
             .iter()
             .any(|a| a.id == square.id),
         "the open document keeps its annotation"
+    );
+}
+
+/// H.9: a pressure pen's stroke is saved point by point and drawn as it was written, thin where it started and broad
+/// where it ended, by MuPDF now and from the file once it is reopened; the widths come back with it.
+#[test]
+fn a_pressure_stroke_is_saved_and_drawn_as_written() {
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    let stroke: Vec<PagePoint> = (0..=20)
+        .map(|i| PagePoint {
+            x: 100.0 + i as f32 * 10.0,
+            y: 400.0,
+        })
+        .collect();
+    // From 1 point wide to 15; the style's one width, the mean, is 8.
+    let widths: Vec<f32> = (0..=20).map(|i| 1.0 + i as f32 * 0.7).collect();
+    let mut ink = Annotation::new(
+        0,
+        Shape::Ink(vec![stroke]),
+        Style {
+            color: Some([0.85, 0.0, 0.0]),
+            opacity: 1.0,
+            width: 8.0,
+        },
+        "Ada",
+    );
+    ink.widths = vec![widths.clone()];
+    Operation::new("Ink", vec![Change::CreateAnnotation(ink.clone())])
+        .apply(&mut doc)
+        .expect("apply");
+    // How many pixels down the column at `x` the stroke covers.
+    let thickness = |doc: &Document, x: usize| {
+        let pixmap = doc
+            .load_page(0)
+            .expect("page")
+            .render(
+                &excellent_mupdf::Matrix::IDENTITY,
+                excellent_mupdf::Background::White,
+            )
+            .expect("render");
+        let width = pixmap.width() as usize;
+        let channels = pixmap.samples().len() / (width * pixmap.height() as usize);
+        (370..430)
+            .filter(|&y| {
+                let px = &pixmap.samples()[(y * width + x) * channels..][..3];
+                px[0] > 150 && px[1] < 110 && px[2] < 110
+            })
+            .count()
+    };
+    let (thin, broad) = (thickness(&doc, 110), thickness(&doc, 290));
+    assert!(
+        thin <= 4 && broad >= 12,
+        "thin at the start ({thin} px), broad at the end ({broad} px)"
+    );
+
+    let scratch = Scratch::new();
+    doc.save_pdf(&scratch.0).expect("save");
+    let reopened = Document::open_pdf(&scratch.0).expect("reopen");
+    let read = page_annotations(&reopened, 0).expect("read");
+    let back = read.iter().find(|a| a.id == ink.id).expect("the stroke");
+    assert_eq!(back.widths.len(), 1, "one stroke's widths");
+    assert!(
+        back.widths[0]
+            .iter()
+            .zip(&widths)
+            .all(|(a, b)| (a - b).abs() < 1e-3),
+        "{:?}",
+        back.widths
+    );
+    let (thin, broad) = (thickness(&reopened, 110), thickness(&reopened, 290));
+    assert!(
+        thin <= 4 && broad >= 12,
+        "from the file: {thin} px and {broad} px"
     );
 }
