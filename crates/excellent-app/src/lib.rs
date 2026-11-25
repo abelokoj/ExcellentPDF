@@ -4,6 +4,7 @@
 //! [`root`], which adds the app's translations.
 
 mod annotate;
+mod attachments;
 mod bookmarks;
 mod commands;
 mod editing;

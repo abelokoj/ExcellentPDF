@@ -459,6 +459,17 @@ int ex_save_flattened(fz_context *ctx, fz_document *doc, const char *path, int f
  * (pdf_set_annot_stamp_image). */
 int ex_annot_set_stamp_art(fz_context *ctx, fz_document *doc, int page, const char *id, int kind,
 	const unsigned char *art, size_t len, ex_error *err);
+
+/* Attachments (O.25): the document's own embedded files (/EmbeddedFiles, in name order), then each page's file
+ * attachment annotations, in page order; `index` counts them all. ex_attachment_info gives one's file name (UTF-8,
+ * as the file names it: untrusted), its size in bytes (-1 when unknown) and its page (-1 for the document's own).
+ * ex_attachment_add embeds `len` bytes as file `name` in /EmbeddedFiles (inside an operation). */
+int ex_attachment_count(fz_context *ctx, fz_document *doc, int *count, ex_error *err);
+int ex_attachment_info(fz_context *ctx, fz_document *doc, int index, fz_buffer **name, int *size, int *page,
+	ex_error *err);
+int ex_attachment_contents(fz_context *ctx, fz_document *doc, int index, fz_buffer **out, ex_error *err);
+int ex_attachment_add(fz_context *ctx, fz_document *doc, const char *name, const unsigned char *data, size_t len,
+	ex_error *err);
 /* A.20: `page` written as a one-page PDF, into a new buffer. */
 int ex_page_to_pdf(fz_context *ctx, fz_page *page, fz_buffer **out, ex_error *err);
 /* A.20: the HTML `html`, styled by `css`, laid out `width` points wide and written as a one-page PDF as tall as it,

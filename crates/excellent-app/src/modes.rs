@@ -49,6 +49,7 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "find.open",
             "view.reading_theme",
             "tools.snapshot",
+            "document.attachments",
             "view.full_screen",
         ],
         Mode::Annotate => &[

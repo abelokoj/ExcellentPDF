@@ -25,6 +25,7 @@ use nsh_core::geometry::Points;
 use nsh_core::prelude::*;
 
 use crate::annotate::AnnotateState;
+use crate::attachments::AttachmentState;
 use crate::bookmarks::BookmarkState;
 use crate::editing::Editing;
 use crate::find::FindState;
@@ -141,6 +142,8 @@ pub(crate) struct Pane {
     pub(crate) annotate: AnnotateState,
     /// Region snapshots of the pages (O.23).
     pub(crate) snapshot: SnapshotState,
+    /// The PDF's attachments (O.25).
+    pub(crate) attachments: AttachmentState,
 }
 
 impl Pane {
@@ -171,6 +174,7 @@ impl Pane {
             find: FindState::new(canvas, focus),
             annotate: AnnotateState::new(editing, live),
             snapshot: SnapshotState::new(editing),
+            attachments: AttachmentState::new(editing),
         }
     }
 

@@ -130,6 +130,7 @@ relative to `ext/mupdf`, so `-p1` from inside that directory.
 | `0092-pdf-arrowhead-appearance` | *(Enhanced 0052)* sharp arrowhead strokes |
 | `0093-pdf-filled-arrowhead-appearance` | *(Enhanced 0053)* compact filled arrowheads and annotation-aware fill colours |
 | `0094-pdf-ink-blend-mode` | *(ours, H.3)* ink annotations' appearance honours PDF 2.0's `/BM /Multiply`, for the highlighter pen |
+| `0095-pdf-embedded-file-operation` | *(ours, O.25)* `pdf_add_embedded_file` ends the operation it begins when it succeeds; without it undo refuses after an embed |
 
 That is the whole list: `ext/mupdf` is byte-for-byte `1.28.5` plus these
 patches, and nothing else.

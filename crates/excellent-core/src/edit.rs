@@ -82,6 +82,13 @@ pub enum Change {
         /// Whether readers keep it from being shown or hidden.
         locked: bool,
     },
+    /// The file `name`'s bytes embedded among the document's own attachments (O.25).
+    AddAttachment {
+        /// Its file name.
+        name: String,
+        /// Its contents.
+        bytes: Vec<u8>,
+    },
 }
 
 /// The pages whose look an operation changes: what is drawn again when it is made, undone or redone.
@@ -116,7 +123,8 @@ impl Change {
             | Self::StyleOutlineEntry { .. }
             | Self::DeleteOutlineEntry { .. }
             | Self::MoveOutlineEntry { .. }
-            | Self::SetLayer { .. } => None,
+            | Self::SetLayer { .. }
+            | Self::AddAttachment { .. } => None,
         }
     }
 
@@ -155,6 +163,7 @@ impl Change {
                 visible,
                 locked,
             } => edit.set_layer(name, *visible, *locked),
+            Self::AddAttachment { name, bytes } => edit.add_attachment(name, bytes),
         }
     }
 
@@ -203,6 +212,9 @@ impl Change {
                 locked,
             } => {
                 json!({"kind": "layer.set", "target": name, "visible": visible, "locked": locked})
+            }
+            Self::AddAttachment { name, bytes } => {
+                json!({"kind": "attachment.add", "target": name, "bytes": to_hex(bytes)})
             }
         }
     }
@@ -263,6 +275,10 @@ impl Change {
                 name: text("target")?,
                 visible: object.get("visible")?.as_bool()?,
                 locked: object.get("locked")?.as_bool()?,
+            },
+            "attachment.add" => Self::AddAttachment {
+                name: text("target")?,
+                bytes: from_hex(object.get("bytes")?.as_str()?)?,
             },
             _ => return None,
         })

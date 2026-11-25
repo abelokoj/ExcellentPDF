@@ -494,6 +494,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Thicker => pane.annotate.scale_selection_width(lasso::THICKER),
             CommandId::DuplicateSelection => pane.annotate.duplicate_selection(),
             CommandId::Snapshot => pane.snapshot.toggle(),
+            CommandId::Attachments => pane.attachments.show(),
             CommandId::SavePen => pane.annotate.save_pen(),
             CommandId::EditPen => pane.annotate.edit_pen(),
             CommandId::RemovePen => pane.annotate.remove_pen(),
@@ -654,6 +655,9 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
         }))
         .child(of_active(panes, |pane| {
             crate::snapshot::snapshot_dialog(pane.snapshot)
+        }))
+        .child(of_active(panes, |pane| {
+            crate::attachments::attachments_dialog(pane.attachments)
         }))
         .child(onboarding::guide_dialog(onboarding, run))
 }

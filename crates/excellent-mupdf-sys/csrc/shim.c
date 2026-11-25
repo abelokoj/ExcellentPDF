@@ -2680,3 +2680,194 @@ int ex_save_flattened(fz_context *ctx, fz_document *doc, const char *path, int f
 		return ex_fail(ctx, err);
 	return 0;
 }
+
+
+/* The attachment `index` counts to (see ex_attachment_count), kept, and its page (-1 for the document's own); NULL
+ * past the last. With `index` -1, counts them into `*count`. */
+static pdf_obj *ex_nth_attachment(fz_context *ctx, pdf_document *pdf, int index, int *page_out, int *count)
+{
+	pdf_obj *tree = NULL;
+	pdf_obj *found = NULL;
+	pdf_page *page = NULL;
+	int at = 0, p, n, i;
+	fz_var(tree);
+	fz_var(page);
+	fz_var(found);
+	fz_try(ctx)
+	{
+		tree = pdf_load_name_tree(ctx, pdf, PDF_NAME(EmbeddedFiles));
+		n = pdf_dict_len(ctx, tree);
+		for (i = 0; i < n && !found; i++)
+		{
+			pdf_obj *fs = pdf_dict_get_val(ctx, tree, i);
+			if (!pdf_is_filespec(ctx, fs))
+				continue;
+			if (at++ == index)
+			{
+				found = pdf_keep_obj(ctx, fs);
+				*page_out = -1;
+			}
+		}
+		for (p = 0; p < pdf_count_pages(ctx, pdf) && !found; p++)
+		{
+			pdf_annot *annot;
+			page = pdf_load_page(ctx, pdf, p);
+			for (annot = pdf_first_annot(ctx, page); annot && !found; annot = pdf_next_annot(ctx, annot))
+			{
+				pdf_obj *fs;
+				if (pdf_annot_type(ctx, annot) != PDF_ANNOT_FILE_ATTACHMENT)
+					continue;
+				fs = pdf_annot_filespec(ctx, annot);
+				if (!pdf_is_filespec(ctx, fs))
+					continue;
+				if (at++ == index)
+				{
+					found = pdf_keep_obj(ctx, fs);
+					*page_out = p;
+				}
+			}
+			fz_drop_page(ctx, (fz_page *)page);
+			page = NULL;
+		}
+		if (count)
+			*count = at;
+	}
+	fz_always(ctx)
+	{
+		fz_drop_page(ctx, (fz_page *)page);
+		pdf_drop_obj(ctx, tree);
+	}
+	fz_catch(ctx)
+	{
+		pdf_drop_obj(ctx, found);
+		fz_rethrow(ctx);
+	}
+	return found;
+}
+
+static pdf_document *ex_attachment_pdf(fz_context *ctx, fz_document *doc)
+{
+	pdf_document *pdf = pdf_specifics(ctx, doc);
+	if (!pdf)
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "only a PDF has attachments");
+	return pdf;
+}
+
+int ex_attachment_count(fz_context *ctx, fz_document *doc, int *count, ex_error *err)
+{
+	fz_try(ctx)
+	{
+		int page;
+		*count = 0;
+		/* Not a PDF: none. */
+		if (pdf_specifics(ctx, doc))
+			pdf_drop_obj(ctx, ex_nth_attachment(ctx, ex_attachment_pdf(ctx, doc), -1, &page, count));
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_attachment_info(fz_context *ctx, fz_document *doc, int index, fz_buffer **name, int *size, int *page,
+	ex_error *err)
+{
+	pdf_obj *fs = NULL;
+	fz_var(fs);
+	*name = NULL;
+	fz_try(ctx)
+	{
+		pdf_filespec_params params;
+		fs = ex_nth_attachment(ctx, ex_attachment_pdf(ctx, doc), index, page, NULL);
+		if (!fs)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no attachment %d", index);
+		pdf_get_filespec_params(ctx, fs, &params);
+		*size = params.size;
+		*name = fz_new_buffer_from_copied_data(ctx, (const unsigned char *)(params.filename ? params.filename : ""),
+			params.filename ? strlen(params.filename) : 0);
+	}
+	fz_always(ctx)
+		pdf_drop_obj(ctx, fs);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_attachment_contents(fz_context *ctx, fz_document *doc, int index, fz_buffer **out, ex_error *err)
+{
+	pdf_obj *fs = NULL;
+	fz_var(fs);
+	*out = NULL;
+	fz_try(ctx)
+	{
+		int page;
+		fs = ex_nth_attachment(ctx, ex_attachment_pdf(ctx, doc), index, &page, NULL);
+		if (!fs)
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "no attachment %d", index);
+		if (!pdf_is_embedded_file(ctx, fs))
+			fz_throw(ctx, FZ_ERROR_ARGUMENT, "attachment %d names a file outside the PDF", index);
+		*out = pdf_load_embedded_file_contents(ctx, fs);
+	}
+	fz_always(ctx)
+		pdf_drop_obj(ctx, fs);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}
+
+int ex_attachment_add(fz_context *ctx, fz_document *doc, const char *name, const unsigned char *data, size_t len,
+	ex_error *err)
+{
+	fz_buffer *buf = NULL;
+	pdf_obj *fs = NULL;
+	fz_var(buf);
+	fz_var(fs);
+	fz_try(ctx)
+	{
+		pdf_document *pdf = ex_attachment_pdf(ctx, doc);
+		pdf_obj *root = pdf_dict_get(ctx, pdf_trailer(ctx, pdf), PDF_NAME(Root));
+		pdf_obj *names = pdf_dict_get(ctx, root, PDF_NAME(Names));
+		pdf_obj *tree, *list;
+		int at, n;
+		if (!names)
+			names = pdf_dict_put_dict(ctx, root, PDF_NAME(Names), 1);
+		tree = pdf_dict_get(ctx, names, PDF_NAME(EmbeddedFiles));
+		if (!tree)
+			tree = pdf_dict_put_dict(ctx, names, PDF_NAME(EmbeddedFiles), 1);
+		list = pdf_dict_get(ctx, tree, PDF_NAME(Names));
+		if (!list)
+		{
+			/* A tree of /Kids gets one more leaf of its own, so the others stay as they are. */
+			pdf_obj *kids = pdf_dict_get(ctx, tree, PDF_NAME(Kids));
+			if (pdf_is_array(ctx, kids))
+			{
+				pdf_obj *leaf = pdf_add_new_dict(ctx, pdf, 2);
+				pdf_obj *limits;
+				/* The array keeps the leaf; `leaf` stays valid while it does. */
+				pdf_array_push_drop(ctx, kids, leaf);
+				list = pdf_dict_put_array(ctx, leaf, PDF_NAME(Names), 2);
+				limits = pdf_dict_put_array(ctx, leaf, PDF_NAME(Limits), 2);
+				pdf_array_push_text_string(ctx, limits, name);
+				pdf_array_push_text_string(ctx, limits, name);
+			}
+			else
+				list = pdf_dict_put_array(ctx, tree, PDF_NAME(Names), 2);
+		}
+		buf = fz_new_buffer_from_copied_data(ctx, data, len);
+		fs = pdf_add_embedded_file(ctx, pdf, name, NULL, buf, -1, -1, 1);
+		/* A name tree's keys stay in order. */
+		n = pdf_array_len(ctx, list);
+		for (at = 0; at + 1 < n; at += 2)
+			if (strcmp(pdf_to_text_string(ctx, pdf_array_get(ctx, list, at)), name) > 0)
+				break;
+		pdf_array_insert_drop(ctx, list, pdf_new_text_string(ctx, name), at);
+		pdf_array_insert(ctx, list, fs, at + 1);
+	}
+	fz_always(ctx)
+	{
+		pdf_drop_obj(ctx, fs);
+		fz_drop_buffer(ctx, buf);
+	}
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
+	return 0;
+}

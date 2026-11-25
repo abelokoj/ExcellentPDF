@@ -1207,6 +1207,44 @@ unsafe extern "C" {
     ) -> ::core::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn ex_attachment_count(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        count: *mut ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_attachment_info(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        index: ::core::ffi::c_int,
+        name: *mut *mut fz_buffer,
+        size: *mut ::core::ffi::c_int,
+        page: *mut ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_attachment_contents(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        index: ::core::ffi::c_int,
+        out: *mut *mut fz_buffer,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_attachment_add(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        name: *const ::core::ffi::c_char,
+        data: *const ::core::ffi::c_uchar,
+        len: usize,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn ex_page_to_pdf(
         ctx: *mut fz_context,
         page: *mut fz_page,

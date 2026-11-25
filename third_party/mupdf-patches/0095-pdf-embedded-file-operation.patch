@@ -1,0 +1,15 @@
+pdf_add_embedded_file ends the operation it begins when it succeeds (O.25): it only abandoned it on failure, so
+every embed left the journal inside an operation and undo refused.
+Base: patch 0094.
+
+diff --git a/source/pdf/pdf-link.c b/source/pdf/pdf-link.c
+--- a/source/pdf/pdf-link.c
++++ b/source/pdf/pdf-link.c
+@@ -506,6 +506,7 @@
+ 		}
+ 
+ 		filespec = pdf_add_filespec(ctx, doc, filename, file);
++		pdf_end_operation(ctx, doc);
+ 	}
+ 	fz_always(ctx)
+ 		pdf_drop_obj(ctx, file);

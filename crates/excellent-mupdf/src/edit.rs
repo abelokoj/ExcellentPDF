@@ -486,6 +486,30 @@ impl Edit<'_> {
         })
     }
 
+    /// Embeds `bytes` as the file `name` among the document's own attachments (O.25).
+    ///
+    /// # Errors
+    ///
+    /// The document isn't a PDF, the name contains a NUL, or MuPDF can't write it.
+    pub fn add_attachment(&mut self, name: &str, bytes: &[u8]) -> Result<()> {
+        let name = std::ffi::CString::new(name)
+            .map_err(|_| MuError::argument("a file name contains a NUL"))?;
+        with_context(|ctx| {
+            // SAFETY: the document is live and in an operation; `name` is NUL-terminated and `bytes` outlives the
+            // call, which copies it.
+            check(|err| unsafe {
+                excellent_mupdf_sys::ex_attachment_add(
+                    ctx,
+                    self.doc.raw().as_ptr(),
+                    name.as_ptr(),
+                    bytes.as_ptr(),
+                    bytes.len(),
+                    err,
+                )
+            })
+        })
+    }
+
     /// Shows or hides, locks or unlocks, the layer named `name` (A.22) in the file's default configuration, which
     /// other readers open with.
     ///

@@ -16,6 +16,7 @@
 //! | [`Pixmap`] | yes | yes | owned pixels |
 
 mod annot;
+mod attachment;
 mod buffer;
 mod context;
 mod cookie;
@@ -37,6 +38,7 @@ mod text;
 mod writer;
 
 pub use annot::{Align, Annot, AnnotData, AnnotKind, Intent, LineEnd};
+pub use attachment::Attachment;
 pub use cookie::Cookie;
 pub use display_list::DisplayList;
 pub use document::{Document, Reflow};
