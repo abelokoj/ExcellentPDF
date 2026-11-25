@@ -211,7 +211,7 @@ pub fn grips(annotation: &Annotation) -> Vec<(Grip, PagePoint)> {
 }
 
 /// `rect`'s corners, clockwise from the top left.
-fn corners(rect: PageRect) -> [PagePoint; 4] {
+pub fn corners(rect: PageRect) -> [PagePoint; 4] {
     [
         PagePoint {
             x: rect.x0,
@@ -358,7 +358,7 @@ fn normalized(rect: PageRect) -> PageRect {
 
 /// `old` with corner `index` dragged to `to`, the opposite corner kept, no side shorter than [`MIN_SIZE`]. The
 /// dragged corner may cross the kept one: the box flips.
-fn resized(old: PageRect, index: usize, to: PagePoint) -> PageRect {
+pub(super) fn resized(old: PageRect, index: usize, to: PagePoint) -> PageRect {
     let kept = corners(old)[(index + 2) % 4];
     let away = |from: f32, to: f32| {
         if (to - from).abs() >= MIN_SIZE {
@@ -378,7 +378,7 @@ fn resized(old: PageRect, index: usize, to: PagePoint) -> PageRect {
 }
 
 /// `point` in `old` mapped to the same place in `new`.
-fn scale(point: PagePoint, old: PageRect, new: PageRect) -> PagePoint {
+pub(super) fn scale(point: PagePoint, old: PageRect, new: PageRect) -> PagePoint {
     let along = |p: f32, a0: f32, a1: f32, b0: f32, b1: f32| {
         if (a1 - a0).abs() < f32::EPSILON {
             b0 + (p - a0)
@@ -401,7 +401,7 @@ fn moved_shape(shape: &Shape, dx: f32, dy: f32) -> Shape {
 }
 
 /// `shape` with every point mapped by `map`; a box's rectangle stays upright.
-fn map_shape(shape: &Shape, map: impl Fn(PagePoint) -> PagePoint) -> Shape {
+pub(super) fn map_shape(shape: &Shape, map: impl Fn(PagePoint) -> PagePoint) -> Shape {
     let rect = |r: &PageRect| {
         let (a, b) = (
             map(PagePoint { x: r.x0, y: r.y0 }),

@@ -1123,6 +1123,10 @@ impl<H: Host> PageCanvas<H> {
         if sample.eraser || self.erasing_chosen() {
             return self.erase_down(sample);
         }
+        // The lasso (H.6) is drawn the way the mouse draws it.
+        if self.lasso_on() {
+            return false;
+        }
         // Ink belongs to a page: a stroke starts only on one.
         let (x, y) = self.viewport.to_layout_point(sample.x, sample.y);
         let Some(page) = self.layout.page_at(x, y) else {

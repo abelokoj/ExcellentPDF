@@ -108,6 +108,9 @@ pub(crate) fn note_panel(state: AnnotateState) -> impl IntoElement {
         (Some(Placing::Stamp), _) => super::stamps::picker(state).into_element(),
         (Some(what), _) => placing(what).into_element(),
         (None, Some(noting)) => untracked(|| editor(state, noting).into_element()),
+        (None, None) if state.selected.with(|s| s.len() > 1) => {
+            untracked(|| super::lasso::selection_panel(state)).into_element()
+        }
         (None, None) => {
             crate::shell::empty_message(|| t!("inspector.empty"), || t!("note.empty_hint"))
                 .into_element()

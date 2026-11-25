@@ -115,6 +115,18 @@ pub(crate) enum CommandId {
     Pen(PenKind),
     /// The eraser the pen uses from now on, instead of drawing (H.5).
     Eraser(Eraser),
+    /// Turns the lasso on or off: a drag on the pages draws a loop that selects what it encloses (H.6).
+    Lasso,
+    /// Turns the selected annotations a quarter turn anticlockwise (H.6).
+    RotateLeft,
+    /// Turns the selected annotations a quarter turn clockwise (H.6).
+    RotateRight,
+    /// Makes the selected annotations' lines thinner (H.6).
+    Thinner,
+    /// Makes the selected annotations' lines thicker (H.6).
+    Thicker,
+    /// Duplicates the selected annotations (H.6).
+    DuplicateSelection,
     /// Copies the selected annotations and deletes them (A.13).
     CutAnnotations,
     /// Pastes the copied annotations onto the page shown (A.13).
@@ -702,6 +714,55 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.ink",
         keys: &[],
         page_keys: &["0"],
+    },
+    Command {
+        id: CommandId::Lasso,
+        name: "ink.lasso",
+        label: "command.lasso",
+        group: "command.group.ink",
+        // V, the selection tool's key in drawing apps.
+        keys: &[],
+        page_keys: &["v"],
+    },
+    Command {
+        id: CommandId::RotateLeft,
+        name: "select.rotate_left",
+        label: "command.rotate_left",
+        group: "command.group.annotate",
+        keys: &["mod+shift+["],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::RotateRight,
+        name: "select.rotate_right",
+        label: "command.rotate_right",
+        group: "command.group.annotate",
+        keys: &["mod+shift+]"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Thinner,
+        name: "select.thinner",
+        label: "command.thinner",
+        group: "command.group.annotate",
+        keys: &["alt+["],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Thicker,
+        name: "select.thicker",
+        label: "command.thicker",
+        group: "command.group.annotate",
+        keys: &["alt+]"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::DuplicateSelection,
+        name: "select.duplicate",
+        label: "command.duplicate_selection",
+        group: "command.group.annotate",
+        keys: &["mod+shift+d"],
+        page_keys: &[],
     },
     Command {
         id: CommandId::CutAnnotations,

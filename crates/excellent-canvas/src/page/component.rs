@@ -42,6 +42,7 @@ impl<H: Host> PageCanvas<H> {
     /// annotations selected (A.13), `{page, items: [{id, bounds, grips, locked}]}`; anything else: none. `pen`: the
     /// pen strokes draw with (H.2), see [`pen`]. `eraser`: the eraser the pen uses instead (H.5), an `Eraser`'s
     /// name; anything else: the pen draws. Erasing sends `erase` (`{page, eraser, radius, points}`, page points).
+    /// `lasso`: `true` while the lasso is on (H.6): a drag on a page draws a loop (`annotLasso`).
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -63,6 +64,7 @@ impl<H: Host> PageCanvas<H> {
             "drawing" => self.set_drawing(text.and_then(Kind::parse)),
             "pen" => self.set_pen(value.map_or_else(Pen::default, pen)),
             "eraser" => self.set_eraser(text.and_then(Eraser::from_name)),
+            "lasso" => self.set_lasso(value.and_then(JsonValue::as_bool).unwrap_or(false)),
             "margin" => self.set_margin(value.and_then(JsonValue::as_bool).unwrap_or(false)),
             "selected" => self.set_selected(value),
             "bookmarks" => self.set_bookmarks(value.map(bookmarks).unwrap_or_default()),

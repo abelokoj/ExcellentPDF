@@ -632,6 +632,7 @@ pub(crate) fn pages_view(
         .prop("drawing", move || annotate.drawing_prop())
         .prop("pen", move || annotate.pen_prop())
         .prop("eraser", move || annotate.eraser_prop())
+        .prop("lasso", move || annotate.lasso_prop())
         .prop("selected", move || annotate.selected_prop())
         .prop("margin", move || annotate.margin_prop())
         .label(move || SharedString::from(label()))

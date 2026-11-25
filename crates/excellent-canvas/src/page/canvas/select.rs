@@ -3,7 +3,9 @@
 //! move one of its corners, showing the outline as it goes. When the button comes up, the drag goes to the app
 //! (`annotDrag`: `{page, id, grip, index, from: [x, y], to: [x, y]}`, page points), which makes the edit. A drag that
 //! starts on the page away from text and from the selection draws a marquee (`annotMarquee`: `{page, rect: [x0, y0,
-//! x1, y1], add}`); a short one is a click. The model is `excellent-features`' `annotate::edit`.
+//! x1, y1], add}`); a short one is a click. With the lasso on (H.6, the `lasso` prop) the drag draws a freeform loop
+//! instead (`annotLasso`: `{page, path: [[x, y]], add}`). The models are `excellent-features`' `annotate::edit` and
+//! `annotate::lasso`.
 
 use excellent_features::annotate::edit::Grip;
 use excellent_mupdf::{PagePoint, PageRect};
@@ -41,6 +43,10 @@ pub(super) struct Selected {
     items: Vec<Item>,
     drag: Option<Drag>,
     marquee: Option<Marquee>,
+    /// The lasso is on (H.6): a drag on a page draws a loop rather than a marquee.
+    lasso: bool,
+    /// A loop under way.
+    looping: Option<Loop>,
     /// Whether the pointer is over a grip or an item it would move, for the cursor.
     hover: bool,
 }
@@ -55,6 +61,16 @@ struct Drag {
     /// Where it started, client pixels: a short drag is a click.
     start: (i32, i32),
     moved: bool,
+}
+
+/// A lasso's loop on page `page`, page points, as drawn.
+#[derive(Debug, Clone)]
+struct Loop {
+    page: usize,
+    points: Vec<PagePoint>,
+    start: (i32, i32),
+    moved: bool,
+    add: bool,
 }
 
 /// A marquee on page `page`, page points.
@@ -79,6 +95,19 @@ impl<H: Host> PageCanvas<H> {
             self.selected.drag = None;
             self.invalidate();
         }
+    }
+
+    /// Whether a drag on a page draws a lasso's loop rather than a marquee (the `lasso` prop, H.6).
+    pub(crate) fn set_lasso(&mut self, on: bool) {
+        self.selected.lasso = on;
+        if !on && self.selected.looping.take().is_some() {
+            self.invalidate();
+        }
+    }
+
+    /// Whether the lasso is on: the pen leaves its strokes to the mouse's handling, which draws the loop.
+    pub(super) fn lasso_on(&self) -> bool {
+        self.selected.lasso
     }
 
     /// Whether the pointer would take hold of the selection, or has, for the cursor.
@@ -115,6 +144,16 @@ impl<H: Host> PageCanvas<H> {
         let Some((page, from)) = self.page_point(x, y) else {
             return false;
         };
+        if self.selected.lasso {
+            self.selected.looping = Some(Loop {
+                page,
+                points: vec![from],
+                start: (x, y),
+                moved: false,
+                add: self.host.ctrl_down(),
+            });
+            return true;
+        }
         self.selected.marquee = Some(Marquee {
             page,
             from,
@@ -154,6 +193,17 @@ impl<H: Host> PageCanvas<H> {
             }
             return true;
         }
+        if let Some(mut looping) = self.selected.looping.take() {
+            if let Some((x, y)) = at
+                && let Some(to) = self.point_on(looping.page, x, y)
+            {
+                looping.moved |= far(looping.start, (x, y));
+                looping.points.push(to);
+                self.invalidate();
+            }
+            self.selected.looping = Some(looping);
+            return true;
+        }
         let hover = at.is_some_and(|(x, y)| self.grip_at(x, y).is_some());
         self.selected.hover = hover;
         false
@@ -184,6 +234,19 @@ impl<H: Host> PageCanvas<H> {
             }
             return true;
         }
+        if let Some(looping) = self.selected.looping.take() {
+            self.invalidate();
+            if !looping.moved || looping.points.len() < 3 {
+                self.page_press(x, y);
+                return true;
+            }
+            let path: Vec<[f32; 2]> = looping.points.iter().map(|p| [p.x, p.y]).collect();
+            self.emit(
+                "annotLasso",
+                serde_json::json!({ "page": looping.page, "path": path, "add": looping.add }),
+            );
+            return true;
+        }
         if let Some(marquee) = self.selected.marquee.take() {
             self.invalidate();
             if !marquee.moved {
@@ -206,7 +269,10 @@ impl<H: Host> PageCanvas<H> {
 
     /// Something else took the mouse: a drag or a marquee is dropped.
     pub(super) fn select_cancel(&mut self) {
-        if self.selected.drag.take().is_some() || self.selected.marquee.take().is_some() {
+        if self.selected.drag.take().is_some()
+            | self.selected.marquee.take().is_some()
+            | self.selected.looping.take().is_some()
+        {
             self.invalidate();
         }
     }
@@ -243,6 +309,10 @@ impl<H: Host> PageCanvas<H> {
 
     /// Draws the selection: each item's outline and grips, a drag's outline where it would go, and a marquee.
     pub(super) fn draw_selected(&mut self) -> Result<(), H::Error> {
+        if let Some(looping) = self.selected.looping.as_ref().filter(|l| l.moved) {
+            let (page, points) = (looping.page, looping.points.clone());
+            self.trace(page, &points)?;
+        }
         if let Some(marquee) = self.selected.marquee.filter(|m| m.moved) {
             let rect = PageRect {
                 x0: marquee.from.x,
@@ -255,8 +325,10 @@ impl<H: Host> PageCanvas<H> {
         let page = self.selected.page;
         let drag = self.selected.drag.filter(|drag| drag.moved);
         for (at, item) in self.selected.items.clone().iter().enumerate() {
+            // A move takes every unlocked one along, as the app will (H.6: a lasso's selection moves whole).
             let bounds = match drag {
                 Some(drag) if drag.item == at => dragged_bounds(item, drag),
+                Some(drag) if drag.grip == Grip::Move && !item.locked => dragged_bounds(item, drag),
                 _ => item.bounds,
             };
             self.outline(page, bounds)?;
@@ -268,6 +340,25 @@ impl<H: Host> PageCanvas<H> {
             }
         }
         Ok(())
+    }
+
+    /// The loop through `points` on page `page`, closed back to its start.
+    fn trace(&mut self, page: usize, points: &[PagePoint]) -> Result<(), H::Error> {
+        let Some(placement) =
+            Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page)
+        else {
+            return Ok(());
+        };
+        let ring: Vec<InkPixel> = points
+            .iter()
+            .chain(points.first())
+            .map(|&p| {
+                let (lx, ly) = placement.to_layout(p);
+                let (sx, sy) = self.viewport.to_screen_point(lx, ly);
+                (sx, sy, 1.5)
+            })
+            .collect();
+        self.host.polyline(&ring, OUTLINE)
     }
 
     /// `rect` on page `page`, outlined.

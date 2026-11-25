@@ -30,13 +30,18 @@ impl AnnotateState {
         let Some(page) = selected.first().map(|target| target.page) else {
             return JsonValue::Null;
         };
-        let items: Vec<JsonValue> = untracked(|| self.page(page))
+        // Several selected: their own box comes first, so its corners scale them all (H.6), and theirs give way.
+        let group = untracked(|| self.group_item());
+        let own_grips = group.is_none();
+        let annotations = untracked(|| self.page(page));
+        let each = annotations
             .iter()
             .filter(|annotation| selected.iter().any(|target| target.id == annotation.id))
             .filter_map(|annotation| {
                 let bounds = edit::bounds(annotation)?;
                 let grips: Vec<JsonValue> = edit::grips(annotation)
                     .into_iter()
+                    .filter(|_| own_grips)
                     .map(|(grip, at)| serde_json::json!([grip.name(), grip.index(), at.x, at.y]))
                     .collect();
                 Some(serde_json::json!({
@@ -45,8 +50,8 @@ impl AnnotateState {
                     "grips": grips,
                     "locked": !edit::can_move(annotation),
                 }))
-            })
-            .collect();
+            });
+        let items: Vec<JsonValue> = group.into_iter().chain(each).collect();
         serde_json::json!({ "page": page, "items": items })
     }
 
@@ -89,6 +94,9 @@ impl AnnotateState {
             log::warn!("annotDrag: a drag that doesn't parse: {data}");
             return;
         };
+        if self.group_dragged(&drag) {
+            return;
+        }
         let selected = untracked(|| self.selected.get());
         let changes: Vec<Change> = self
             .page(drag.page)
@@ -210,7 +218,7 @@ impl AnnotateState {
     }
 
     /// The selected annotations as the shown document has them now.
-    fn selection(self) -> Vec<Annotation> {
+    pub(super) fn selection(self) -> Vec<Annotation> {
         let selected = untracked(|| self.selected.get());
         let Some(page) = selected.first().map(|target| target.page) else {
             return Vec::new();
@@ -222,7 +230,7 @@ impl AnnotateState {
     }
 
     /// Page `page`'s annotations in the shown document; none when it can't be read.
-    fn page(self, page: usize) -> Vec<Annotation> {
+    pub(super) fn page(self, page: usize) -> Vec<Annotation> {
         let Some(document) = self.editing.document() else {
             return Vec::new();
         };
@@ -235,7 +243,7 @@ impl AnnotateState {
     }
 
     /// Makes `changes` one step of undo named `name`; nothing for none. Returns whether it was made.
-    fn apply(self, name: String, changes: Vec<Change>) -> bool {
+    pub(super) fn apply(self, name: String, changes: Vec<Change>) -> bool {
         !changes.is_empty() && self.editing.apply(&Operation::new(name, changes))
     }
 }

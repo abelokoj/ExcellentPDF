@@ -99,6 +99,7 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "ink.eraser_stroke",
             "ink.eraser_area",
             "ink.eraser_highlighter",
+            "ink.lasso",
             "|",
             "edit.undo",
             "edit.redo",
@@ -501,7 +502,7 @@ fn tools(
         |row, item| match item {
             Item::Separator => row.child(rule()),
             Item::Command(name) => match commands::find(name) {
-                Some(id @ (CommandId::Pen(_) | CommandId::Eraser(_))) => {
+                Some(id @ (CommandId::Pen(_) | CommandId::Eraser(_) | CommandId::Lasso)) => {
                     row.child(choice_button(id, short_label(name), move || on(id), run))
                 }
                 Some(id) => row.child(tool_button(id, short_label(name), has_document, run)),

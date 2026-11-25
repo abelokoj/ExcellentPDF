@@ -7,6 +7,7 @@ pub mod erase;
 pub mod freetext;
 pub mod ink;
 pub mod inspector;
+pub mod lasso;
 pub mod layers;
 pub mod list;
 pub mod margin;

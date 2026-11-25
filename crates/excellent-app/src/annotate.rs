@@ -13,6 +13,7 @@ pub(crate) mod colors;
 mod exchange;
 mod flatten;
 mod inspector;
+mod lasso;
 mod layers;
 mod list;
 pub(crate) mod margin;
@@ -116,6 +117,8 @@ pub(crate) struct AnnotateState {
     pen: Signal<PenKind>,
     /// The eraser the pen uses instead of drawing (H.5); `None`: the pen draws.
     eraser: Signal<Option<Eraser>>,
+    /// The lasso is on (H.6): a drag on the pages draws a loop.
+    lasso: Signal<bool>,
 }
 
 impl AnnotateState {
@@ -137,6 +140,7 @@ impl AnnotateState {
             stamps: signal(Vec::new()),
             pen: signal(PenKind::default()),
             eraser: signal(None),
+            lasso: signal(false),
         }
     }
 
@@ -254,11 +258,13 @@ impl AnnotateState {
     pub(crate) fn choose_pen(self, kind: PenKind) {
         self.pen.set(kind);
         self.eraser.set(None);
+        self.lasso.set(false);
     }
 
     /// Erases with `eraser` from now on (H.5): the pen erases until a pen is chosen again.
     pub(crate) fn choose_eraser(self, eraser: Eraser) {
         self.eraser.set(Some(eraser));
+        self.lasso.set(false);
     }
 
     /// The canvas's `eraser` prop: the chosen eraser's name, or `null` while the pen draws (H.5).
@@ -277,8 +283,11 @@ impl AnnotateState {
     /// chosen, or the eraser (H.5).
     pub(crate) fn is_on(self, id: CommandId) -> bool {
         match id {
-            CommandId::Pen(kind) => self.eraser.get().is_none() && kind == self.pen.get(),
+            CommandId::Pen(kind) => {
+                self.eraser.get().is_none() && !self.lasso.get() && kind == self.pen.get()
+            }
             CommandId::Eraser(eraser) => self.eraser.get() == Some(eraser),
+            CommandId::Lasso => self.lasso.get(),
             _ => false,
         }
     }
@@ -509,6 +518,7 @@ impl AnnotateState {
             "erase" => self.erased(&event.data),
             "annotDrag" => self.selection_dragged(&event.data),
             "annotMarquee" => self.marquee(&event.data),
+            "annotLasso" => self.looped(&event.data),
             "margin" => self.margin_moved(&event.data),
             "toolColor" => colors::on_tool_color(self.live, &event.data),
             "pickColor" => {

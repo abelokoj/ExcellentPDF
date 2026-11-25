@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 06:33; Ph3: 42/49 | H.6: Lasso
+
+- The lasso (Write toolbar, V on the pages, the palette): draw a loop around handwriting or annotations with the pen
+  or the mouse and what it encloses is selected (Ctrl adds). Ink counts when every point is inside, anything else when
+  its four corners are, as in SumatraPDF Enhanced.
+- Several selected show one box with corner grips: a corner scales them all, the inside moves them all, and every
+  outline follows the move. The inspector shows how many, the palette's colours, and Rotate left and right, Thinner,
+  Thicker and Duplicate; the same commands have keys (Ctrl+Shift+[ and ], Alt+[ and ], Ctrl+Shift+D).
+- Each is one step of undo; locked annotations stay. A release build selects 1,000 strokes in 0.9 ms and computes
+  their move in 1.6 ms. Not built yet: a free-turning handle, copy as image, convert to text.
+
 ### 2026-11-25 06:17; Ph3: 41/49 | H.5: Erasers
 
 - Three erasers on the Write toolbar (keys 8, 9 and 0 on the pages, and the palette): the stroke eraser removes each

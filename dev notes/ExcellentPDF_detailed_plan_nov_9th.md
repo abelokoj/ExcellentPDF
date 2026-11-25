@@ -3586,6 +3586,12 @@ canvas's `eraser` prop and eraser end with an `erase` event on pen-up, and `ink.
 
 **Done when:** a lasso move of 1,000 strokes stays at 60 fps.
 
+*Built (2026-11-25):* `excellent-ink::lasso` (Enhanced's even-odd loop and turning, ported; Enhanced has no lasso
+tests, so the tests are new), `excellent-features::annotate::lasso` (ink taken when wholly inside, others by their
+corners; group resize from the selection's own box, quarter turns, widths × 0.8 or × 1.25, recolour, duplicate),
+the canvas's `lasso` prop and `annotLasso`, and the inspector's selection panel. The rectangle lasso is A.13's
+marquee. Not built: a free-turning handle, copy as image (O.23), convert to text (H.24).
+
 #### Ph3: 43/49 | H.7: Favourite pens bar and presets
 **P0; Phase 3; Needs:** H.2; **Code:** `excellent-features/ink/favorites.rs`
 1. A bar of saved pens (type, color, width, curve); drag to reorder; export and import as JSON.
