@@ -38,6 +38,7 @@ use crate::page::saved::SavedView;
 
 mod access;
 mod draw;
+mod erase;
 mod find;
 mod margin;
 mod markbar;
@@ -178,6 +179,8 @@ pub struct PageCanvas<H: Host> {
     ink: Vec<PageStroke>,
     /// The stroke the pen is drawing.
     pen: Option<PenStroke>,
+    /// The erasers (H.5): the chosen one and a pass under way.
+    erasers: erase::Erasers,
     /// The pen the next stroke draws with (H.2).
     ink_pen: Pen,
     /// Tokens of the points handed to the host's ink trail that it still draws, oldest first.
@@ -310,6 +313,7 @@ impl<H: Host> PageCanvas<H> {
             ink: Vec::new(),
             pen: None,
             ink_pen: Pen::default(),
+            erasers: erase::Erasers::default(),
             trail: Vec::new(),
             reported_page: None,
             reported_view: None,
@@ -1110,11 +1114,14 @@ impl<H: Host> PageCanvas<H> {
         });
     }
 
-    /// The pen touched down. Returns whether the canvas takes it: not the eraser end, and only over a document.
+    /// The pen touched down. Returns whether the canvas takes it: only over a document's page. With the eraser end,
+    /// or an eraser chosen, it erases (H.5).
     pub fn pen_down(&mut self, sample: &PenSample) -> bool {
-        // shortcut: the eraser end does nothing until H.5's erasers.
-        if sample.eraser || self.document.is_none() {
+        if self.document.is_none() {
             return false;
+        }
+        if sample.eraser || self.erasing_chosen() {
+            return self.erase_down(sample);
         }
         // Ink belongs to a page: a stroke starts only on one.
         let (x, y) = self.viewport.to_layout_point(sample.x, sample.y);
@@ -1142,6 +1149,9 @@ impl<H: Host> PageCanvas<H> {
     /// The pen moved through `samples`, oldest first. The host's ink trail, if it has one, gets them at once; our
     /// frame with them is drawn now if the host takes one without waiting, else as soon as it does.
     pub fn pen_moved(&mut self, samples: &[PenSample]) {
+        if self.erase_moved(samples) {
+            return;
+        }
         let Some(page) = self.pen.as_ref().map(|pen| pen.page) else {
             return;
         };
@@ -1209,6 +1219,9 @@ impl<H: Host> PageCanvas<H> {
 
     /// The pen lifted (or the system took the pointer away): the stroke is finished.
     pub fn pen_up(&mut self) {
+        if self.erase_up() {
+            return;
+        }
         let Some(pen) = self.pen.take() else {
             return;
         };
@@ -1274,7 +1287,7 @@ impl<H: Host> PageCanvas<H> {
 
     /// Whether pointer `id` is drawing a stroke.
     pub fn is_drawing(&self, id: u32) -> bool {
-        self.pen.as_ref().is_some_and(|pen| pen.id == id)
+        self.pen.as_ref().is_some_and(|pen| pen.id == id) || self.is_erasing(id)
     }
 
     /// A worker finished something: take what is done.
@@ -1596,6 +1609,7 @@ impl<H: Host> PageCanvas<H> {
         let aids = self.aids();
         let found = self.found_on_screen();
         let (paper, wash) = (self.paper(), self.wash());
+        let swath = self.eraser_swath();
         let selected = self.selection_quads();
         let host = &mut self.host;
         host.clear(self.background);
@@ -1685,6 +1699,9 @@ impl<H: Host> PageCanvas<H> {
                 // Darkest wins, as a highlight does: text under the stroke stays readable while it is drawn.
                 Blend::Multiply => host.highlight(&segment_quads(&points), with.color, wash)?,
             }
+        }
+        if let Some((quads, color)) = &swath {
+            host.highlight(quads, *color, wash)?;
         }
         aids.draw_over(host)?;
         // This frame shows every point the trail has. While the pen draws, the trail keeps the newest batch, so its

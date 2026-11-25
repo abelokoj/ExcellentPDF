@@ -12,6 +12,7 @@ use excellent_features::read::autoscroll::Change;
 use excellent_features::read::focus::Scope;
 use excellent_features::read::ruler::{Step, Style};
 use excellent_features::search::find::{Case, Direction, HitId, Marks, Options, Words};
+use excellent_ink::erase::Eraser;
 use excellent_ink::pens::{DEFAULT_SIZE, Pen, PenKind};
 use excellent_mupdf::PagePoint;
 use nsh_core::JsonValue;
@@ -38,7 +39,9 @@ impl<H: Host> PageCanvas<H> {
     /// tools' colours (A.3), as `excellent-features`' `Colors::to_json` writes them; `null`: the defaults. `drawing`: the
     /// drawing tool on (A.8, A.9, A.10), a `shapes::Kind`'s name; anything else: none. `margin`: `true` while the app
     /// shows its margin column (A.11), when the canvas reports where its pages are (`margin` events). `selected`: the
-    /// annotations selected (A.13), `{page, items: [{id, bounds, grips, locked}]}`; anything else: none.
+    /// annotations selected (A.13), `{page, items: [{id, bounds, grips, locked}]}`; anything else: none. `pen`: the
+    /// pen strokes draw with (H.2), see [`pen`]. `eraser`: the eraser the pen uses instead (H.5), an `Eraser`'s
+    /// name; anything else: the pen draws. Erasing sends `erase` (`{page, eraser, radius, points}`, page points).
     pub fn set_prop(&mut self, name: &str, value: Option<&JsonValue>) {
         let text = value.and_then(JsonValue::as_str);
         match name {
@@ -59,6 +62,7 @@ impl<H: Host> PageCanvas<H> {
             }
             "drawing" => self.set_drawing(text.and_then(Kind::parse)),
             "pen" => self.set_pen(value.map_or_else(Pen::default, pen)),
+            "eraser" => self.set_eraser(text.and_then(Eraser::from_name)),
             "margin" => self.set_margin(value.and_then(JsonValue::as_bool).unwrap_or(false)),
             "selected" => self.set_selected(value),
             "bookmarks" => self.set_bookmarks(value.map(bookmarks).unwrap_or_default()),

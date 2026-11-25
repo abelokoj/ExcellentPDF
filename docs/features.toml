@@ -259,6 +259,12 @@ status = "in-progress"
 tests = ["text_under_the_highlighter_stays_readable_in_every_theme", "multiply_keeps_dark_text_dark_where_normal_covers_it", "each_pen_matches_its_golden_image", "a_highlighter_preview_covers_each_segment"]
 open = "no snap to text lines (K.13); one colour until H.7 (DD25)"
 
+["H.5"]
+label = "Ph3: 41/49"
+status = "in-progress"
+tests = ["area_erasing_through_a_stroke_leaves_two_strokes_undone_in_one_step", "area_erasing_through_a_stroke_leaves_two_correct_strokes", "a_stroke_eraser_removes_what_it_touches_and_nothing_else", "the_highlighter_eraser_leaves_pen_ink", "erasing_an_end_shortens_the_stroke_and_erasing_all_removes_it", "crumbs_go_with_the_cut", "a_segment_meets_a_capsule_in_one_exact_interval", "area_erasing_through_a_stroke_leaves_two_strokes_in_one_change", "a_stroke_eraser_deletes_and_leaves_other_annotations", "one_stroke_of_two_goes_and_the_annotation_stays", "locked_and_highlighter_rules_hold", "a_broken_pass_is_refused"]
+open = "ink goes on pen-up, not live; area pieces stay in one annotation until H.6; fixed eraser size until H.7"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

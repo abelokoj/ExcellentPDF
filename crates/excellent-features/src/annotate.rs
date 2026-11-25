@@ -3,6 +3,7 @@
 pub mod categories;
 pub mod colors;
 pub mod edit;
+pub mod erase;
 pub mod freetext;
 pub mod ink;
 pub mod inspector;

@@ -851,6 +851,7 @@ name = "excellent-features"
 version = "0.1.0"
 dependencies = [
  "excellent-core",
+ "excellent-ink",
  "excellent-mupdf",
  "excellent-text",
  "quick-xml",

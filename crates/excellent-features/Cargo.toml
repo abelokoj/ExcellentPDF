@@ -9,6 +9,7 @@ description = "One module per feature tag: model, view and tests"
 
 [dependencies]
 excellent-core.workspace = true
+excellent-ink.workspace = true
 excellent-mupdf.workspace = true
 excellent-text.workspace = true
 quick-xml.workspace = true

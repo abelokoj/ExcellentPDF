@@ -3573,6 +3573,11 @@ to text lines is not built yet.
 
 **Done when:** area-erasing through a stroke leaves two correct strokes, both undoable in one step.
 
+*Built (2026-11-25):* `excellent-ink::erase` (capsule geometry: whole strokes, exact area cuts, highlighter ink only),
+`excellent-features::annotate::erase` (one operation of updates and deletions; locked and hidden-layer ink kept), the
+canvas's `eraser` prop and eraser end with an `erase` event on pen-up, and `ink.eraser_*` on the Write toolbar (keys
+8, 9, 0). Ink goes on pen-up rather than live; an area eraser's pieces stay in their one annotation.
+
 #### Ph3: 42/49 | H.6: Lasso
 **P0; Phase 3; Needs:** H.5, A.13; **Code:** `excellent-ink::lasso`
 1. Freeform or rectangle lasso (Enhanced's `LassoRectangular`) selects strokes and annotations inside the path.

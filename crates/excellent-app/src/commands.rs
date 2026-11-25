@@ -12,6 +12,7 @@ use nsh_base::CommandItem;
 use nsh_core::prelude::*;
 
 use excellent_features::split::Follow;
+use excellent_ink::erase::Eraser;
 use excellent_ink::pens::PenKind;
 
 use crate::bookmarks::BookmarkAction;
@@ -112,6 +113,8 @@ pub(crate) enum CommandId {
     Cloud,
     /// The pen ink draws with from now on (H.2).
     Pen(PenKind),
+    /// The eraser the pen uses from now on, instead of drawing (H.5).
+    Eraser(Eraser),
     /// Copies the selected annotations and deletes them (A.13).
     CutAnnotations,
     /// Pastes the copied annotations onto the page shown (A.13).
@@ -675,6 +678,30 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.ink",
         keys: &[],
         page_keys: &["7"],
+    },
+    Command {
+        id: CommandId::Eraser(Eraser::Stroke),
+        name: "ink.eraser_stroke",
+        label: "command.eraser_stroke",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["8"],
+    },
+    Command {
+        id: CommandId::Eraser(Eraser::Area),
+        name: "ink.eraser_area",
+        label: "command.eraser_area",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["9"],
+    },
+    Command {
+        id: CommandId::Eraser(Eraser::Highlighter),
+        name: "ink.eraser_highlighter",
+        label: "command.eraser_highlighter",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &["0"],
     },
     Command {
         id: CommandId::CutAnnotations,

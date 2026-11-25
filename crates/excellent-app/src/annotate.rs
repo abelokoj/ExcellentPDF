@@ -31,6 +31,7 @@ use excellent_core::annot::{Annotation, Markup, Style, TextStyle, page_annotatio
 use excellent_core::edit::{Change, Operation};
 use excellent_features::annotate::colors::Tool as ColorTool;
 use excellent_features::annotate::edit;
+use excellent_features::annotate::erase::Erased;
 use excellent_features::annotate::freetext;
 use excellent_features::annotate::ink::Inked;
 use excellent_features::annotate::inspector as rules;
@@ -41,6 +42,7 @@ use excellent_features::annotate::polygons;
 use excellent_features::annotate::replace::{self, Mode, Proposal};
 use excellent_features::annotate::shapes::{self, Drawn};
 use excellent_features::annotate::sticky::{self, Icon};
+use excellent_ink::erase::Eraser;
 use excellent_ink::pens::{DEFAULT_SIZE, PenKind};
 use nsh_base::{input, theme};
 use nsh_core::JsonValue;
@@ -112,6 +114,8 @@ pub(crate) struct AnnotateState {
     /// The pen ink draws with (H.2).
     // shortcut: one per pane and forgotten on quitting; H.7's favourites keep the reader's pens.
     pen: Signal<PenKind>,
+    /// The eraser the pen uses instead of drawing (H.5); `None`: the pen draws.
+    eraser: Signal<Option<Eraser>>,
 }
 
 impl AnnotateState {
@@ -132,6 +136,7 @@ impl AnnotateState {
             stamp: signal(stamps::Choice::default()),
             stamps: signal(Vec::new()),
             pen: signal(PenKind::default()),
+            eraser: signal(None),
         }
     }
 
@@ -245,9 +250,22 @@ impl AnnotateState {
         }
     }
 
-    /// Draws ink with `kind` from now on (H.2).
+    /// Draws ink with `kind` from now on (H.2), putting any eraser away.
     pub(crate) fn choose_pen(self, kind: PenKind) {
         self.pen.set(kind);
+        self.eraser.set(None);
+    }
+
+    /// Erases with `eraser` from now on (H.5): the pen erases until a pen is chosen again.
+    pub(crate) fn choose_eraser(self, eraser: Eraser) {
+        self.eraser.set(Some(eraser));
+    }
+
+    /// The canvas's `eraser` prop: the chosen eraser's name, or `null` while the pen draws (H.5).
+    pub(crate) fn eraser_prop(self) -> JsonValue {
+        self.eraser
+            .get()
+            .map_or(JsonValue::Null, |eraser| JsonValue::from(eraser.name()))
     }
 
     /// The canvas's `pen` prop, `{kind, size}` (H.2).
@@ -255,9 +273,14 @@ impl AnnotateState {
         serde_json::json!({ "kind": self.pen.get().to_string(), "size": DEFAULT_SIZE })
     }
 
-    /// Whether `id` is the tool now chosen, so its toolbar button shows pressed (H.2: the pen).
+    /// Whether `id` is the tool now chosen, so its toolbar button shows pressed: the pen (H.2) while no eraser is
+    /// chosen, or the eraser (H.5).
     pub(crate) fn is_on(self, id: CommandId) -> bool {
-        matches!(id, CommandId::Pen(kind) if kind == self.pen.get())
+        match id {
+            CommandId::Pen(kind) => self.eraser.get().is_none() && kind == self.pen.get(),
+            CommandId::Eraser(eraser) => self.eraser.get() == Some(eraser),
+            _ => false,
+        }
     }
 
     /// The regular-polygon tool, with as many sides as the settings say (A.10).
@@ -305,6 +328,29 @@ impl AnnotateState {
             t!("ink.edit"),
             vec![Change::CreateAnnotation(made)],
         ));
+    }
+
+    /// The eraser went over a page (`erase`, H.5): the ink it crossed is deleted or cut back, all one step of undo.
+    fn erased(self, data: &JsonValue) {
+        let Some(erased) = Erased::parse(data) else {
+            log::warn!("erase: a pass that doesn't parse: {data}");
+            return;
+        };
+        let Some(document) = self.editing.document() else {
+            return;
+        };
+        let changes = {
+            let Ok(shared) = document.mupdf() else {
+                return;
+            };
+            let mupdf = shared.lock().expect("document lock poisoned");
+            // What a hidden layer holds isn't on the page to erase (A.22).
+            erased.changes(&layers::shown_on_page(&mupdf, erased.page))
+        };
+        if !changes.is_empty() {
+            self.editing
+                .apply(&Operation::new(t!("ink.erase"), changes));
+        }
     }
 
     /// Makes `change` of the open note's annotation, as it is now, one step of undo named `name`.
@@ -460,6 +506,7 @@ impl AnnotateState {
             "pagePress" => self.press(&event.data),
             "pageDraw" => self.drawn(&event.data),
             "ink" => self.inked(&event.data),
+            "erase" => self.erased(&event.data),
             "annotDrag" => self.selection_dragged(&event.data),
             "annotMarquee" => self.marquee(&event.data),
             "margin" => self.margin_moved(&event.data),

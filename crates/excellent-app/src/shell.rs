@@ -473,6 +473,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Star => pane.annotate.place(Placing::Shape(pane.annotate.star())),
             CommandId::Stamp => pane.annotate.place(Placing::Stamp),
             CommandId::Pen(kind) => pane.annotate.choose_pen(kind),
+            CommandId::Eraser(eraser) => pane.annotate.choose_eraser(eraser),
             CommandId::MarginNotes => pane.annotate.toggle_margin(),
             CommandId::TransferAnnotations => pane.annotate.transfer(),
             CommandId::ExportAnnotations => pane.annotate.export_annotations(),

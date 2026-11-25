@@ -96,6 +96,10 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "ink.pen_marker",
             "ink.pen_highlighter",
             "|",
+            "ink.eraser_stroke",
+            "ink.eraser_area",
+            "ink.eraser_highlighter",
+            "|",
             "edit.undo",
             "edit.redo",
         ],
@@ -497,7 +501,7 @@ fn tools(
         |row, item| match item {
             Item::Separator => row.child(rule()),
             Item::Command(name) => match commands::find(name) {
-                Some(id @ CommandId::Pen(_)) => {
+                Some(id @ (CommandId::Pen(_) | CommandId::Eraser(_))) => {
                     row.child(choice_button(id, short_label(name), move || on(id), run))
                 }
                 Some(id) => row.child(tool_button(id, short_label(name), has_document, run)),
@@ -556,6 +560,9 @@ fn short_label(name: &str) -> Option<&'static str> {
         "ink.pen_calligraphy" => Some("toolbar.short.pen_calligraphy"),
         "ink.pen_marker" => Some("toolbar.short.pen_marker"),
         "ink.pen_highlighter" => Some("toolbar.short.pen_highlighter"),
+        "ink.eraser_stroke" => Some("toolbar.short.eraser_stroke"),
+        "ink.eraser_area" => Some("toolbar.short.eraser_area"),
+        "ink.eraser_highlighter" => Some("toolbar.short.eraser_highlighter"),
         "go.screen_down" => Some("toolbar.short.screen_down"),
         _ => None,
     }

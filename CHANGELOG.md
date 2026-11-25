@@ -6,6 +6,17 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 06:17; Ph3: 41/49 | H.5: Erasers
+
+- Three erasers on the Write toolbar (keys 8, 9 and 0 on the pages, and the palette): the stroke eraser removes each
+  stroke it touches, the area eraser takes away only what it passes over (a stroke crossed in the middle becomes two),
+  and the highlighter eraser removes highlighter ink and leaves handwriting alone.
+- The stylus's eraser end, or the pen turned over, erases with the last eraser chosen (the stroke eraser at first),
+  whatever tool is on the toolbar. A light grey swath shows the eraser's path; on pen-up the ink goes, all of it one
+  step of undo.
+- Locked annotations and ink on hidden layers are not erased. Tested end to end on a real PDF: two strokes saved, and
+  one undo gives the whole stroke back.
+
 ### 2026-11-25 05:53; Ph3: 40/49 | H.3: Highlighter pen
 
 - A seventh pen, the highlighter (Write toolbar, key 7, the palette): a broad 12 pt chisel of yellow ink that
