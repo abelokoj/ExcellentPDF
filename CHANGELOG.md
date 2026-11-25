@@ -6,6 +6,18 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 06:46; Ph3: 43/49 | H.7: Favourite pens bar and presets
+
+- The Write toolbar starts with a bar of favourite pens: a dot per pen in its colour and width, the one in hand
+  pressed. Press one to take it, drag it along the bar to reorder, right-click to edit or remove it, `+`
+  (Ctrl+Alt+P) to save the pen in hand as a new one. Up to 12 pens; the last one always stays.
+- The pen dialog (Ctrl+Alt+K) sets a pen's kind, colour, width and pressure response (Light, Normal, Firm); each choice
+  shows at once. Keys 1 to 7 take the first saved pen of that kind.
+- The bar lives in `settings.toml` under `[ink]`, the same in every pane and window, so it travels with the settings
+  (Y.2). Export favourite pens… and Import favourite pens… move it as a JSON file; a file from a newer app, or with no
+  pens this app knows, is refused with the reason.
+- The pen kinds left the default Write toolbar (the bar replaces them); customized toolbars keep theirs.
+
 ### 2026-11-25 06:33; Ph3: 42/49 | H.6: Lasso
 
 - The lasso (Write toolbar, V on the pages, the palette): draw a loop around handwriting or annotations with the pen

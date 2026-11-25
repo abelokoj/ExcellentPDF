@@ -11,6 +11,7 @@
 
 pub(crate) mod colors;
 mod exchange;
+pub(crate) mod favorites;
 mod flatten;
 mod inspector;
 mod lasso;
@@ -44,7 +45,7 @@ use excellent_features::annotate::replace::{self, Mode, Proposal};
 use excellent_features::annotate::shapes::{self, Drawn};
 use excellent_features::annotate::sticky::{self, Icon};
 use excellent_ink::erase::Eraser;
-use excellent_ink::pens::{DEFAULT_SIZE, PenKind};
+
 use nsh_base::{input, theme};
 use nsh_core::JsonValue;
 use nsh_core::prelude::*;
@@ -112,9 +113,8 @@ pub(crate) struct AnnotateState {
     /// The stamp the Stamp command places, and the reader's library of stamps (A.20).
     stamp: Signal<stamps::Choice>,
     stamps: Signal<Vec<excellent_features::annotate::stamps::Item>>,
-    /// The pen ink draws with (H.2).
-    // shortcut: one per pane and forgotten on quitting; H.7's favourites keep the reader's pens.
-    pen: Signal<PenKind>,
+    /// The saved pen open in the edit dialog (H.7), by its place on the bar.
+    editing_pen: Signal<Option<usize>>,
     /// The eraser the pen uses instead of drawing (H.5); `None`: the pen draws.
     eraser: Signal<Option<Eraser>>,
     /// The lasso is on (H.6): a drag on the pages draws a loop.
@@ -138,7 +138,7 @@ impl AnnotateState {
             listing: list::Listing::new(),
             stamp: signal(stamps::Choice::default()),
             stamps: signal(Vec::new()),
-            pen: signal(PenKind::default()),
+            editing_pen: signal(None),
             eraser: signal(None),
             lasso: signal(false),
         }
@@ -254,13 +254,6 @@ impl AnnotateState {
         }
     }
 
-    /// Draws ink with `kind` from now on (H.2), putting any eraser away.
-    pub(crate) fn choose_pen(self, kind: PenKind) {
-        self.pen.set(kind);
-        self.eraser.set(None);
-        self.lasso.set(false);
-    }
-
     /// Erases with `eraser` from now on (H.5): the pen erases until a pen is chosen again.
     pub(crate) fn choose_eraser(self, eraser: Eraser) {
         self.eraser.set(Some(eraser));
@@ -274,17 +267,12 @@ impl AnnotateState {
             .map_or(JsonValue::Null, |eraser| JsonValue::from(eraser.name()))
     }
 
-    /// The canvas's `pen` prop, `{kind, size}` (H.2).
-    pub(crate) fn pen_prop(self) -> JsonValue {
-        serde_json::json!({ "kind": self.pen.get().to_string(), "size": DEFAULT_SIZE })
-    }
-
     /// Whether `id` is the tool now chosen, so its toolbar button shows pressed: the pen (H.2) while no eraser is
     /// chosen, or the eraser (H.5).
     pub(crate) fn is_on(self, id: CommandId) -> bool {
         match id {
             CommandId::Pen(kind) => {
-                self.eraser.get().is_none() && !self.lasso.get() && kind == self.pen.get()
+                self.eraser.get().is_none() && !self.lasso.get() && kind == self.kind_in_hand()
             }
             CommandId::Eraser(eraser) => self.eraser.get() == Some(eraser),
             CommandId::Lasso => self.lasso.get(),

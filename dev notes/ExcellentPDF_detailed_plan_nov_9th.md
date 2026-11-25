@@ -3598,6 +3598,11 @@ marquee. Not built: a free-turning handle, copy as image (O.23), convert to text
 
 **Done when:** the bar syncs through settings (Y.2).
 
+*Built (2026-11-25):* `excellent-features::ink::favorites` (up to 12 pens: kind, colour, width, pressure response;
+settings JSON and export files), the bar at the start of the Write toolbar (press, drag to reorder, right-click to edit
+or remove, `+` to save the pen in hand), its edit dialog, and Export / Import in the palette. It lives in
+`settings.toml` under `[ink]`, so it syncs with the settings (Y.2, Phase 9). This ends DD25's per-pane pen.
+
 #### Ph3: 44/49 | H.8: Palm rejection and "finger draws"
 **P0; Phase 3; Needs:** H.1; **Code:** `excellent-canvas::gestures`
 1. While a pen is in range or down, ignore touches; ignore large contact areas.

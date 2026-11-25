@@ -481,6 +481,11 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Thinner => pane.annotate.scale_selection_width(lasso::THINNER),
             CommandId::Thicker => pane.annotate.scale_selection_width(lasso::THICKER),
             CommandId::DuplicateSelection => pane.annotate.duplicate_selection(),
+            CommandId::SavePen => pane.annotate.save_pen(),
+            CommandId::EditPen => pane.annotate.edit_pen(),
+            CommandId::RemovePen => pane.annotate.remove_pen(),
+            CommandId::ExportPens => pane.annotate.export_pens(),
+            CommandId::ImportPens => pane.annotate.import_pens(),
             CommandId::MarginNotes => pane.annotate.toggle_margin(),
             CommandId::TransferAnnotations => pane.annotate.transfer(),
             CommandId::ExportAnnotations => pane.annotate.export_annotations(),
@@ -589,6 +594,13 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             move || full_screen.is_on(),
             move |id| panes.slots()[panes.active_cell()].annotate.is_on(id),
             run,
+            // H.7: the favourite pens lead the Write mode's toolbar.
+            move || {
+                crate::annotate::favorites::favorites_bar(
+                    panes.slots()[panes.active_cell()].annotate,
+                )
+                .into_element()
+            },
         ))
         .child(
             view()
@@ -621,6 +633,9 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             goto::goto_dialog(goto_open, pane.pages, move |index| pane.go_to(index))
         }))
         .child(modes::customize_dialog(modes))
+        .child(of_active(panes, |pane| {
+            crate::annotate::favorites::pen_dialog(pane.annotate)
+        }))
         .child(onboarding::guide_dialog(onboarding, run))
 }
 

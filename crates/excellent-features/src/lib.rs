@@ -5,6 +5,7 @@
 pub mod annotate;
 pub mod bookmarks;
 pub mod home;
+pub mod ink;
 pub mod modes;
 pub mod onboarding;
 pub mod outline;

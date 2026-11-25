@@ -313,8 +313,8 @@ fn parse_rgb(text: &str) -> Option<u32> {
     u32::from_str_radix(hex, 16).ok()
 }
 
-/// The `pen` prop, `{kind, size}` (H.2): the kind by name, the size in points; what is missing or unknown comes as
-/// the default pen has it.
+/// The `pen` prop, `{kind, size, color, pressure}` (H.2, H.7): the kind by name, the size in points, the colour as
+/// `#rrggbb` and what the width curve's exponent is multiplied by; what is missing or unknown comes as the kind has it.
 fn pen(value: &JsonValue) -> Pen {
     let kind = value
         .get("kind")
@@ -322,14 +322,25 @@ fn pen(value: &JsonValue) -> Pen {
         .and_then(PenKind::parse)
         .unwrap_or_default();
     let size = value.get("size").and_then(JsonValue::as_f64);
-    kind.pen(size.map_or(DEFAULT_SIZE, |size| size as f32))
+    let mut pen = kind.pen(size.map_or(DEFAULT_SIZE, |size| size as f32));
+    if let Some(color) = value
+        .get("color")
+        .and_then(JsonValue::as_str)
+        .and_then(parse_rgb)
+    {
+        pen.color = color;
+    }
+    if let Some(pressure) = value.get("pressure").and_then(JsonValue::as_f64) {
+        pen.curve.exponent *= (pressure as f32).clamp(0.25, 4.0);
+    }
+    pen
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
         Case, HitId, Marks, Options, PageColors, PagePoint, Pictures, Style, Words, bookmarks,
-        find_options, hit_id, page_colors, parse_rgb, ruler_style,
+        find_options, hit_id, page_colors, parse_rgb, pen, ruler_style,
     };
 
     #[test]
@@ -410,5 +421,19 @@ mod tests {
         assert_eq!(style.color, 0xff0000);
         assert_eq!(style.opacity, Style::default().opacity);
         assert!(!style.invert);
+    }
+
+    #[test]
+    fn the_pen_prop_takes_a_favourite_s_colour_and_pressure() {
+        use excellent_ink::pens::PenKind;
+        let plain = PenKind::Pencil.pen(3.0);
+        let read = pen(&serde_json::json!({
+            "kind": "pencil", "size": 3.0, "color": "#aa3300", "pressure": 1.6,
+        }));
+        assert_eq!(read.kind, PenKind::Pencil);
+        assert_eq!(read.color, 0xaa3300);
+        assert!((read.curve.exponent - plain.curve.exponent * 1.6).abs() < 1e-5);
+        let bare = pen(&serde_json::json!({"kind": "pencil", "size": 3.0}));
+        assert_eq!(bare.color, plain.color, "the kind's own colour");
     }
 }

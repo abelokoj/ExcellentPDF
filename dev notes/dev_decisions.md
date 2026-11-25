@@ -460,3 +460,6 @@ and blend belong. The golden images test the presets themselves, so they stay va
 **What it means:** until H.9, a pencil saves as a slightly translucent plain line; until H.7, every pane starts with
 the fountain pen.
 
+**Update (2026-11-25, H.7):** the pen in hand is now the favourites bar's, kept in `settings.toml` and shared by every
+pane, with its own colour, width and pressure response. Texture and blend in the saved appearance still wait for H.9.
+

@@ -271,6 +271,12 @@ status = "in-progress"
 tests = ["a_lasso_move_of_a_thousand_strokes_fits_a_frame", "a_loop_holds_what_is_inside_it", "a_concave_loop_leaves_its_notch_out", "two_points_enclose_nothing", "turning_goes_clockwise_on_the_page_and_back", "a_loop_takes_ink_wholly_inside_and_boxes_by_their_corners", "a_loop_needs_three_points", "the_selection_scales_from_its_own_box", "turning_goes_about_the_centre_and_needs_every_one_to_turn", "widths_step_within_their_limits_and_colours_change", "locked_ones_stay"]
 open = "quarter turns only, no free-turning handle; copy as image (O.23) and convert to text (H.24) not built; Enhanced has no lasso tests to port"
 
+["H.7"]
+label = "Ph3: 43/49"
+status = "in-progress"
+tests = ["the_bar_goes_through_settings_unchanged", "export_and_import_give_the_same_pens", "reordering_keeps_the_pen_in_hand", "the_bar_keeps_one_pen_and_at_most_max", "a_kind_command_takes_its_first_pen_or_saves_one", "a_pen_takes_its_colour_and_response", "the_pen_prop_takes_a_favourite_s_colour_and_pressure"]
+open = "Y.2 sync is Phase 9 (export and import until then); palette colours only"
+
 ["B.1"]
 label = "Ph1: 31/60"
 status = "in-progress"

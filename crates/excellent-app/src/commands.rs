@@ -127,6 +127,16 @@ pub(crate) enum CommandId {
     Thicker,
     /// Duplicates the selected annotations (H.6).
     DuplicateSelection,
+    /// Saves the pen in hand again as a new favourite and opens it to edit (H.7).
+    SavePen,
+    /// Opens the pen in hand to edit its kind, colour, width and pressure (H.7).
+    EditPen,
+    /// Removes the pen in hand from the favourites bar (H.7).
+    RemovePen,
+    /// Saves the favourites bar to a JSON file (H.7).
+    ExportPens,
+    /// Replaces the favourites bar with the pens of a JSON file (H.7).
+    ImportPens,
     /// Copies the selected annotations and deletes them (A.13).
     CutAnnotations,
     /// Pastes the copied annotations onto the page shown (A.13).
@@ -754,6 +764,46 @@ pub(crate) const COMMANDS: &[Command] = &[
         label: "command.thicker",
         group: "command.group.annotate",
         keys: &["alt+]"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::SavePen,
+        name: "ink.save_pen",
+        label: "command.save_pen",
+        group: "command.group.ink",
+        keys: &["mod+alt+p"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::EditPen,
+        name: "ink.edit_pen",
+        label: "command.edit_pen",
+        group: "command.group.ink",
+        keys: &["mod+alt+k"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::RemovePen,
+        name: "ink.remove_pen",
+        label: "command.remove_pen",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExportPens,
+        name: "ink.export_pens",
+        label: "command.export_pens",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ImportPens,
+        name: "ink.import_pens",
+        label: "command.import_pens",
+        group: "command.group.ink",
+        keys: &[],
         page_keys: &[],
     },
     Command {

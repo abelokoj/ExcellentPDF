@@ -87,15 +87,8 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "edit.undo",
             "edit.redo",
         ],
+        // The pens are the favourites bar before these (H.7); the pen kinds stay in the palette and on keys 1 to 7.
         Mode::Write => &[
-            "ink.pen_fountain",
-            "ink.pen_ballpoint",
-            "ink.pen_pencil",
-            "ink.pen_brush",
-            "ink.pen_calligraphy",
-            "ink.pen_marker",
-            "ink.pen_highlighter",
-            "|",
             "ink.eraser_stroke",
             "ink.eraser_area",
             "ink.eraser_highlighter",
@@ -381,10 +374,27 @@ pub(crate) fn mode_bar(
     hidden: impl Fn() -> bool + Copy + 'static,
     on: impl Fn(CommandId) -> bool + Copy + 'static,
     run: impl Fn(CommandId) + Copy + 'static,
+    pens: impl Fn() -> AnyElement + Copy + 'static,
 ) -> impl IntoElement {
     let shown_tools = dynamic(move || {
-        let toolbar = modes.toolbar(modes.current());
-        untracked(move || tools(&toolbar, has_document, on, run).into_element())
+        let mode = modes.current();
+        let toolbar = modes.toolbar(mode);
+        untracked(move || {
+            let tools = tools(&toolbar, has_document, on, run);
+            // The Write mode starts with the favourite pens (H.7), before its own tools.
+            if mode == Mode::Write {
+                view()
+                    .flex_row()
+                    .items_center()
+                    .gap_1()
+                    .child(pens())
+                    .child(rule())
+                    .child(tools)
+                    .into_element()
+            } else {
+                tools.into_element()
+            }
+        })
     });
     view()
         .h(px(40.0))
@@ -1049,7 +1059,7 @@ mod tests {
         assert!(read.contains("view.zoom_in") && !read.contains("go.first_page"));
         assert!(present.contains("go.first_page") && !present.contains("view.zoom_in"));
         let write = default_toolbar(Mode::Write);
-        assert!(write.contains("ink.pen_fountain") && !write.contains("view.zoom_in"));
+        assert!(write.contains("ink.eraser_stroke") && !write.contains("view.zoom_in"));
         assert!(default_toolbar(Mode::Study).is_empty());
     }
 }
