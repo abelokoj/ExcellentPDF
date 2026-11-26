@@ -11,7 +11,7 @@ use excellent_mupdf::Layer;
 /// The longest layer name kept: Acrobat shows about this much in its panel.
 const LONGEST: usize = 80;
 
-/// `typed` as a layer name: one line, trimmed, at most [`LONGEST`] characters; `None` when that is empty.
+/// `typed` as a layer name: one line, trimmed, at most `LONGEST` characters; `None` when that is empty.
 #[must_use]
 pub fn name(typed: &str) -> Option<String> {
     let line = typed.split_whitespace().collect::<Vec<_>>().join(" ");
