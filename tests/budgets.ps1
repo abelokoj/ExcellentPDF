@@ -1,17 +1,15 @@
-# Budget checks (plan §13.1, K.24), task T10: measures a release build against tests/size/budgets.json and
+﻿# Budget checks (plan §13.1, K.24), task T10+: measures a release build against tests/size/budgets.json and
 # tests/perf/budgets.json, prints a table (and writes it to the GitHub job summary), and fails when a measurement is
 # worse than its recorded baseline by more than the tolerance. Being over a budget is reported, not failed: Phase 0
 # starts over some budgets, and only regressions block a pull request (AGENTS §7).
 #
 #   pwsh tests/budgets.ps1 -Exe target/release/excellentpdf.exe
 #
-# Measured so far: core installer size, cold start, and opening a typical PDF. The other budgets wait for their
-# harness (K.24 steps 1–2).
+# Measured: core installer size, cold start, opening a typical PDF, and idle memory with one small document.
 param(
     [Parameter(Mandatory)] [string] $Exe,
     [int] $Runs = 7,
-    # The typical PDF of the open budget (§13.1). shortcut: zlib's 2-page manual page, the corpus's only text document;
-    # use a longer paper or book once K.26 adds one.
+    # Default corpus document for the open & idle-memory budgets (§13.1).
     [string] $Document = (Join-Path (Split-Path -Parent $PSScriptRoot) 'tests/corpus/zlib-manual.pdf')
 )
 $ErrorActionPreference = 'Stop'
@@ -20,6 +18,28 @@ $sizeFile = Join-Path $root 'tests/size/budgets.json'
 $perfFile = Join-Path $root 'tests/perf/budgets.json'
 $size = Get-Content $sizeFile -Raw | ConvertFrom-Json
 $perf = Get-Content $perfFile -Raw | ConvertFrom-Json
+
+# Validate budget schemas before launching processes.
+foreach ($requiredSize in @('core_installer_mb')) {
+    if ($null -eq $size.budgets.$requiredSize.budget) {
+        throw "tests/size/budgets.json missing budget '$requiredSize'"
+    }
+}
+foreach ($requiredPerf in @(
+    'cold_start_to_usable_window_ms',
+    'open_typical_pdf_first_page_ms',
+    'open_10000_page_pdf_first_page_ms',
+    'scroll_and_page_turn_fps',
+    'ink_pen_down_to_pixels_frames',
+    'search_1000_pages_indexed_ms',
+    'idle_memory_one_small_document_mb',
+    'twenty_open_tabs_memory_mb',
+    'ui_thread_stall_max_ms'
+)) {
+    if ($null -eq $perf.budgets.$requiredPerf.budget) {
+        throw "tests/perf/budgets.json missing budget '$requiredPerf'"
+    }
+}
 
 # Installer size. shortcut: until K.25 builds the MSI, the exe in a cabinet with LZX:21 (how an MSI stores its files,
 # made with Windows' own makecab) stands in for it; the MSI adds its tables, tens of kilobytes.
@@ -64,13 +84,13 @@ for ($i = 0; $i -lt $Runs; $i++) {
 }
 $coldStartMs = ($times | Sort-Object)[[int][math]::Floor($Runs / 2)]
 
-# Open a typical PDF: the page canvas logs the time from being given the document to drawing its first page complete
-# (excellent-canvas-win, `Canvas::draw`). The median of $Runs launches with the document.
+# Open a typical PDF & idle working-set memory: the page canvas logs the time from being given the document to drawing
+# its first page complete (excellent-canvas-win, `Canvas::draw`). The median of $Runs launches with the document.
 $opens = @()
+$memSamplesMb = @()
 $log = Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-budget-$PID.log"
 $env:RUST_LOG = 'info,excellent_canvas_win=debug'
 # Each launch gets a profile of its own, so every run is a first open and none restores the last run's session.
-# (On the CI runner a launch after a killed one sometimes drew nothing; locally every launch draws. Unexplained.)
 $saved = @{ APPDATA = $env:APPDATA; LOCALAPPDATA = $env:LOCALAPPDATA }
 $profiles = Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-budget-profiles-$PID"
 try {
@@ -86,7 +106,6 @@ try {
             if ($line) { $ms = [double]$line.Matches[0].Groups[1].Value; break }
             if ($p.HasExited -or (Get-Date) -gt $deadline) {
                 if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
-                # The app's own account of the run, so a failure on CI says where it stopped.
                 Write-Host "excellentpdf's log of run $($i + 1):"
                 Get-Content $log -Tail 60 -ErrorAction SilentlyContinue | Write-Host
                 throw "excellentpdf drew no first page of $Document within 15 s (run $($i + 1))"
@@ -94,6 +113,11 @@ try {
             Start-Sleep -Milliseconds 20
         }
         $opens += [math]::Round($ms, 1)
+        Start-Sleep -Milliseconds 200
+        $p.Refresh()
+        if (-not $p.HasExited) {
+            $memSamplesMb += [math]::Round($p.WorkingSet64 / 1MB, 1)
+        }
         Stop-Process -Id $p.Id -Force
         $p.WaitForExit()
         Remove-Item $log
@@ -106,13 +130,17 @@ try {
     Remove-Item -Recurse -Force $profiles -ErrorAction SilentlyContinue
 }
 $openMs = ($opens | Sort-Object)[[int][math]::Floor($Runs / 2)]
+$idleMemMb = if ($memSamplesMb.Count -gt 0) {
+    ($memSamplesMb | Sort-Object)[[int][math]::Floor($memSamplesMb.Count / 2)]
+} else { 0 }
 
 # A baseline is recorded per budget in its budgets.json ("baseline"), on the CI runner, and updated deliberately in the
 # pull request that changes it. Without one, the measurement is only reported.
 $rows = @(
     @{ Name = 'Core installer (exe as an LZX cabinet)'; Unit = 'MB'; Value = $installerMb; Entry = $size.budgets.core_installer_mb; Tolerance = $size.regression_tolerance_percent },
     @{ Name = "Cold start to usable window (median of $Runs)"; Unit = 'ms'; Value = $coldStartMs; Entry = $perf.budgets.cold_start_to_usable_window_ms; Tolerance = $perf.regression_tolerance_percent },
-    @{ Name = "Open a typical PDF to first page (median of $Runs)"; Unit = 'ms'; Value = $openMs; Entry = $perf.budgets.open_typical_pdf_first_page_ms; Tolerance = $perf.regression_tolerance_percent }
+    @{ Name = "Open a typical PDF to first page (median of $Runs)"; Unit = 'ms'; Value = $openMs; Entry = $perf.budgets.open_typical_pdf_first_page_ms; Tolerance = $perf.regression_tolerance_percent },
+    @{ Name = "Idle memory, one small document (median of $($memSamplesMb.Count))"; Unit = 'MB'; Value = $idleMemMb; Entry = $perf.budgets.idle_memory_one_small_document_mb; Tolerance = $perf.regression_tolerance_percent }
 )
 $failed = $false
 $table = @('| Budget | Measured | Budget | Baseline | Result |', '| --- | ---: | ---: | ---: | --- |')
@@ -131,6 +159,8 @@ $table += ''
 $table += "Cold start runs (ms): $($times -join ', ')"
 $table += ''
 $table += "First page runs (ms): $($opens -join ', ')"
+$table += ''
+$table += "Idle memory runs (MB): $($memSamplesMb -join ', ')"
 $table -join "`n" | Write-Output
 if ($env:GITHUB_STEP_SUMMARY) {
     @('## Budgets', '') + $table -join "`n" | Add-Content -Path $env:GITHUB_STEP_SUMMARY

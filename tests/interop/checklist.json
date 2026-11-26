@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "readers": ["Adobe Acrobat Reader", "PDF-XChange Editor", "Apple Preview", "Mozilla pdf.js", "SumatraPDF"],
+  "oracles": ["qpdf --check", "pdftotext", "pdfsig"],
+  "cases": [
+    {
+      "id": "interop-base14-outline-annot",
+      "file": "../corpus/base14-outline-annot.pdf",
+      "requires": ["%PDF-", "/Catalog", "/Outlines", "/Annots", "%%EOF"],
+      "check_qpdf": true,
+      "check_pdftotext": true
+    },
+    {
+      "id": "interop-rtl-direction",
+      "file": "../corpus/rtl-arabic-biditest.pdf",
+      "requires": ["%PDF-", "/ViewerPreferences", "/Direction /R2L", "%%EOF"],
+      "check_qpdf": true,
+      "check_pdftotext": true
+    },
+    {
+      "id": "interop-acroform-fields",
+      "file": "../corpus/acroform-fields.pdf",
+      "requires": ["%PDF-", "/AcroForm", "/Subtype /Widget", "%%EOF"],
+      "check_qpdf": true,
+      "check_pdftotext": true
+    },
+    {
+      "id": "interop-ten-page-paper",
+      "file": "../corpus/ten-page-paper.pdf",
+      "requires": ["%PDF-", "/PageLabels", "/Outlines", "%%EOF"],
+      "check_qpdf": true,
+      "check_pdftotext": true
+    }
+  ]
+}

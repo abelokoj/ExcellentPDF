@@ -1,0 +1,38 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [6 0 R] /NeedAppearances true /DA (/Helv 12 Tf 0 g) /DR << /Font << /Helv 4 0 R >> >> >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R /Annots [6 0 R] >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 79 >>
+stream
+BT /F1 16 Tf 72 740 Td (AcroForm Interop Sample) Tj ET
+0.2 w 72 680 220 24 re S
+endstream
+endobj
+6 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Tx /T (FullName) /V (Ada Lovelace) /DA (/Helv 12 Tf 0 g) /Rect [72 680 292 704] /P 3 0 R /F 4 >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000015 00000 n 
+0000000174 00000 n 
+0000000231 00000 n 
+0000000373 00000 n 
+0000000443 00000 n 
+0000000572 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+722
+%%EOF

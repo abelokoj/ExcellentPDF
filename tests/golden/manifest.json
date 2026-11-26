@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "perceptual_thresholds": {
+    "max_channel_delta": 4,
+    "max_differing_pixel_ratio": 0.005
+  },
+  "baselines": [
+    {
+      "document": "zlib-manual.pdf",
+      "page": 0,
+      "width_pt": 612.0,
+      "height_pt": 792.0,
+      "themes": ["paper", "sepia", "midnight", "high-contrast-light", "high-contrast-dark"],
+      "must_contain_text": "zlib"
+    },
+    {
+      "document": "base14-outline-annot.pdf",
+      "page": 0,
+      "width_pt": 595.0,
+      "height_pt": 842.0,
+      "themes": ["paper", "midnight"],
+      "must_contain_text": "Base fourteen page one"
+    },
+    {
+      "document": "heavy-vector.pdf",
+      "page": 0,
+      "width_pt": 612.0,
+      "height_pt": 792.0,
+      "themes": ["paper"],
+      "must_have_ink": true
+    },
+    {
+      "document": "rtl-arabic-biditest.pdf",
+      "page": 0,
+      "width_pt": 595.0,
+      "height_pt": 842.0,
+      "themes": ["paper", "midnight"],
+      "must_contain_text": "RTL"
+    },
+    {
+      "document": "acroform-fields.pdf",
+      "page": 0,
+      "width_pt": 612.0,
+      "height_pt": 792.0,
+      "themes": ["paper"],
+      "must_contain_text": "AcroForm"
+    },
+    {
+      "document": "ten-page-paper.pdf",
+      "page": 0,
+      "width_pt": 612.0,
+      "height_pt": 792.0,
+      "themes": ["paper", "sepia"],
+      "must_contain_text": "Page 1"
+    }
+  ]
+}

@@ -6,7 +6,7 @@
 //! position first, then an approximate match (Myers' bit-parallel edit distance), else nothing ("orphaned", for the
 //! reader to place).
 //!
-//! Both sides are compared after [`normalize`]: re-typesetting changes line breaks, hyphenation and ligatures, not the
+//! Both sides are compared after `normalize`: re-typesetting changes line breaks, hyphenation and ligatures, not the
 //! words. Pure: no MuPDF, no UI. Where the anchor is kept (the annotation's `/NM` and a private key, the sidecar)
 //! belongs to the annotation model.
 
@@ -28,11 +28,11 @@ const FUZZY_MIN: usize = 8;
 /// A text-quote anchor (W3C `TextQuoteSelector` with a `TextPositionSelector` hint).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Quote {
-    /// Up to [`CONTEXT`] characters before the exact text.
+    /// Up to `CONTEXT` characters before the exact text.
     pub prefix: String,
     /// The text under the annotation.
     pub exact: String,
-    /// Up to [`CONTEXT`] characters after it.
+    /// Up to `CONTEXT` characters after it.
     pub suffix: String,
     /// Where the exact text started, in characters of the flat text it was taken from.
     pub start: usize,

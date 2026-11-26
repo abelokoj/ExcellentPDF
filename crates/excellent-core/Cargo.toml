@@ -8,10 +8,15 @@ repository.workspace = true
 description = "Document model, layout, coordinate transforms, selection, render scheduling, tile cache and save"
 
 [dependencies]
+ed25519-dalek.workspace = true
 excellent-ink.workspace = true
 excellent-mupdf.workspace = true
+flate2.workspace = true
 log.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+ureq.workspace = true
+zip.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

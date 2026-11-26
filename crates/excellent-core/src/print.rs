@@ -108,7 +108,7 @@ pub fn placement(bounds: PageRect, paper: Paper, scaling: Scaling) -> (Matrix, D
     (ctm, clip)
 }
 
-/// `area` cut into bands from the top, each of at most [`BAND_BYTES`] of RGB.
+/// `area` cut into bands from the top, each of at most `BAND_BYTES` of RGB.
 pub fn bands(area: DeviceRect) -> impl Iterator<Item = DeviceRect> {
     let row = (area.width() as usize * 3).max(1);
     let rows = i32::try_from((BAND_BYTES / row).max(1)).unwrap_or(i32::MAX);

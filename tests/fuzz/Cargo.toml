@@ -1,7 +1,8 @@
-# Fuzz targets (plan K.3, §16), run with cargo-fuzz on nightly:
-#   cargo +nightly fuzz run --fuzz-dir tests/fuzz open_render     (seed: copy tests/corpus/*.pdf to tests/fuzz/corpus/open_render/)
-# A workspace of its own, as cargo-fuzz requires, so its one dependency is declared here rather than in the root
-# [workspace.dependencies]; it never ships.
+# Fuzz targets (plan K.3, K.23, §16), run with cargo-fuzz on nightly:
+#   cargo +nightly fuzz run --fuzz-dir tests/fuzz open_render
+#   cargo +nightly fuzz run --fuzz-dir tests/fuzz parse_limits
+#   cargo +nightly fuzz run --fuzz-dir tests/fuzz annot_save
+# A workspace of its own, as cargo-fuzz requires, so its dev/fuzz dependencies stay isolated from the shipping build.
 [package]
 name = "excellent-fuzz"
 version = "0.0.0"
@@ -13,11 +14,26 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+excellent-core = { path = "../../crates/excellent-core" }
 excellent-mupdf = { path = "../../crates/excellent-mupdf" }
 
 [[bin]]
 name = "open_render"
 path = "fuzz_targets/open_render.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_limits"
+path = "fuzz_targets/parse_limits.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "annot_save"
+path = "fuzz_targets/annot_save.rs"
 test = false
 doc = false
 bench = false
