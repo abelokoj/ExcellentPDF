@@ -143,6 +143,14 @@ excellent-cli = { path = "crates/excellent-cli" }
 # Shipping builds (T10): smaller and faster code. Panics stay `unwind`: NSH catches a component's panic
 # (`catch_unwind` in nsh-core) so one broken view doesn't take the window down.
 [profile.release]
+opt-level = "z"
 lto = "fat"
 codegen-units = 1
 strip = true
+
+# Keep hot PDF rendering and ink geometry loops at opt-level = 3 while keeping UI/feature code compact (<= 15 MB MSI budget).
+[profile.release.package.excellent-mupdf-sys]
+opt-level = 3
+
+[profile.release.package.excellent-ink]
+opt-level = 3

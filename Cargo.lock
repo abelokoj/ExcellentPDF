@@ -737,13 +737,22 @@ dependencies = [
 [[package]]
 name = "excellent-ai"
 version = "0.1.0"
+dependencies = [
+ "excellent-text",
+ "rusqlite",
+ "serde_json",
+ "sha2",
+ "ureq",
+]
 
 [[package]]
 name = "excellent-app"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "ed25519-dalek",
  "env_logger",
+ "excellent-ai",
  "excellent-canvas-gtk",
  "excellent-canvas-mac",
  "excellent-canvas-win",
@@ -751,8 +760,10 @@ dependencies = [
  "excellent-features",
  "excellent-ink",
  "excellent-mupdf",
+ "excellent-packs",
  "excellent-platform",
  "excellent-store",
+ "excellent-text",
  "log",
  "nsh-base",
  "nsh-core",
@@ -783,6 +794,12 @@ dependencies = [
 [[package]]
 name = "excellent-canvas-android"
 version = "0.1.0"
+dependencies = [
+ "excellent-canvas",
+ "excellent-core",
+ "excellent-ink",
+ "excellent-mupdf",
+]
 
 [[package]]
 name = "excellent-canvas-gtk"
@@ -799,6 +816,12 @@ dependencies = [
 [[package]]
 name = "excellent-canvas-ios"
 version = "0.1.0"
+dependencies = [
+ "excellent-canvas",
+ "excellent-core",
+ "excellent-ink",
+ "excellent-mupdf",
+]
 
 [[package]]
 name = "excellent-canvas-mac"
@@ -836,29 +859,51 @@ dependencies = [
 [[package]]
 name = "excellent-cli"
 version = "0.1.0"
+dependencies = [
+ "excellent-core",
+ "excellent-features",
+ "excellent-mupdf",
+ "excellent-store",
+ "serde_json",
+]
 
 [[package]]
 name = "excellent-core"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "excellent-ink",
  "excellent-mupdf",
+ "flate2",
  "log",
  "proptest",
  "serde_json",
+ "sha2",
+ "ureq",
+ "zip",
 ]
 
 [[package]]
 name = "excellent-features"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "ed25519-dalek",
+ "excellent-ai",
  "excellent-core",
  "excellent-ink",
  "excellent-mupdf",
+ "excellent-platform",
+ "excellent-store",
  "excellent-text",
+ "flate2",
  "quick-xml",
+ "rusqlite",
  "serde_json",
+ "sha2",
  "toml 1.2.1+spec-1.1.0",
+ "ureq",
+ "zip",
 ]
 
 [[package]]
