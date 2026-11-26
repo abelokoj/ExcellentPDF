@@ -110,68 +110,263 @@ function Write-IndexedBmp([string] $path, [int] $width, [int] $height, [object[]
     [IO.File]::WriteAllBytes($path, $buf)
 }
 
-# Branded Welcome/Exit left sidebar (164x312): Classic Indigo gradient + subtle stationery rules + satin brass edge.
-function New-BannerSideBmp([string] $path) {
-    $w = 164; $h = 312
-    $palette = New-Object System.Collections.Generic.List[object]
-    # Indices 0..63: Classic Indigo vertical gradient (#162352 -> #273D87)
-    for ($i = 0; $i -lt 64; $i++) {
-        $t = $i / 63.0
-        $r = [int][math]::Round(22 + (39 - 22) * $t)
-        $g = [int][math]::Round(35 + (61 - 35) * $t)
-        $b = [int][math]::Round(82 + (135 - 82) * $t)
-        $palette.Add(@($r, $g, $b))
-    }
-    $idxRule = 64;  $palette.Add(@(48, 70, 146))   # subtle indigo stationery rule
-    $idxBrass = 65; $palette.Add(@(198, 155, 75))  # DD28 satin brass accent
-    $idxGold = 66;  $palette.Add(@(224, 190, 118)) # light brass highlight
-    $idxEdge = 67;  $palette.Add(@(218, 222, 232)) # soft divider border
+# Writes an uncompressed 24-bit BGR bottom-up BMP (universally supported by MSI's GDI Bitmap control).
+# $rgb is top-down [byte[]] of length $width * $height * 3 stored as RGB triples.
+function Write-Rgb24Bmp([string] $path, [int] $width, [int] $height, [byte[]] $rgb) {
+    $stride = ($width * 3 + 3) -band (-bnot 3)
+    $imageSize = $stride * $height
+    $headerSize = 14 + 40
+    $fileSize = $headerSize + $imageSize
+    $buf = New-Object byte[] $fileSize
 
-    $pixels = New-Object byte[] ($w * $h)
-    for ($y = 0; $y -lt $h; $y++) {
-        $gradIdx = [byte][math]::Min(63, [int][math]::Floor(($y * 63.0) / ($h - 1)))
-        $isRule = ($y -ge 36 -and $y -le 276 -and (($y - 36) % 24) -eq 0)
-        $rowOff = $y * $w
-        for ($x = 0; $x -lt $w; $x++) {
-            if ($x -eq ($w - 1)) {
-                $pixels[$rowOff + $x] = $idxEdge
-            } elseif ($x -ge ($w - 4) -and $x -le ($w - 2)) {
-                $pixels[$rowOff + $x] = if ($x -eq ($w - 3)) { $idxGold } else { $idxBrass }
-            } elseif ($isRule -and $x -ge 18 -and $x -le ($w - 20)) {
-                $pixels[$rowOff + $x] = $idxRule
-            } else {
-                $pixels[$rowOff + $x] = $gradIdx
-            }
+    # BITMAPFILEHEADER (14 bytes)
+    $buf[0] = 0x42; $buf[1] = 0x4D # 'BM'
+    Write-Int32LE $buf 2 $fileSize
+    Write-Int32LE $buf 10 $headerSize
+
+    # BITMAPINFOHEADER (40 bytes)
+    Write-Int32LE $buf 14 40
+    Write-Int32LE $buf 18 $width
+    Write-Int32LE $buf 22 $height # positive = bottom-up DIB
+    Write-UInt16LE $buf 26 1     # planes
+    Write-UInt16LE $buf 28 24    # 24 bpp BGR
+    Write-Int32LE $buf 34 $imageSize
+    Write-Int32LE $buf 38 3780   # 96 DPI X
+    Write-Int32LE $buf 42 3780   # 96 DPI Y
+
+    for ($y = 0; $y -lt $height; $y++) {
+        $srcRow = ($height - 1 - $y) * $width * 3
+        $dstRow = $headerSize + ($y * $stride)
+        for ($x = 0; $x -lt $width; $x++) {
+            $s = $srcRow + ($x * 3)
+            $d = $dstRow + ($x * 3)
+            $buf[$d] = $rgb[$s + 2]     # B
+            $buf[$d + 1] = $rgb[$s + 1] # G
+            $buf[$d + 2] = $rgb[$s]     # R
         }
     }
-    Write-IndexedBmp $path $w $h $palette.ToArray() $pixels
+
+    [IO.File]::WriteAllBytes($path, $buf)
 }
 
-# Branded Interior top banner (493x58): crisp warm white + Classic Indigo left bar + satin brass bottom hairline.
-function New-TopBannerBmp([string] $path) {
-    $w = 493; $h = 58
-    $palette = @(
-        @(252, 251, 248), # 0: warm ivory-white (#FCFBF8)
-        @(31, 48, 110),   # 1: Classic Indigo (#1F306E)
-        @(198, 155, 75),  # 2: satin brass (#C69B4B)
-        @(236, 239, 248)  # 3: soft periwinkle right accent
-    )
-    $pixels = New-Object byte[] ($w * $h)
+# Pure-.NET PNG decoder (DeflateStream + PNG scanline unfiltering) returning @{ Width; Height; Rgba }.
+function Read-PngRgba([byte[]] $pngBytes) {
+    if ($null -eq $pngBytes -or $pngBytes.Length -lt 33 -or $pngBytes[0] -ne 0x89 -or $pngBytes[1] -ne 0x50) {
+        return $null
+    }
+    $w = 0; $h = 0; $colorType = 6; $bitDepth = 8
+    $idat = New-Object IO.MemoryStream
+    $pos = 8
+    while ($pos + 12 -le $pngBytes.Length) {
+        $len = ([int]$pngBytes[$pos] -shl 24) -bor ([int]$pngBytes[$pos + 1] -shl 16) -bor ([int]$pngBytes[$pos + 2] -shl 8) -bor [int]$pngBytes[$pos + 3]
+        $type = [Text.Encoding]::ASCII.GetString($pngBytes, $pos + 4, 4)
+        $dataOff = $pos + 8
+        if ($type -eq 'IHDR') {
+            $w = ([int]$pngBytes[$dataOff] -shl 24) -bor ([int]$pngBytes[$dataOff + 1] -shl 16) -bor ([int]$pngBytes[$dataOff + 2] -shl 8) -bor [int]$pngBytes[$dataOff + 3]
+            $h = ([int]$pngBytes[$dataOff + 4] -shl 24) -bor ([int]$pngBytes[$dataOff + 5] -shl 16) -bor ([int]$pngBytes[$dataOff + 6] -shl 8) -bor [int]$pngBytes[$dataOff + 7]
+            $bitDepth = [int]$pngBytes[$dataOff + 8]
+            $colorType = [int]$pngBytes[$dataOff + 9]
+        } elseif ($type -eq 'IDAT') {
+            $idat.Write($pngBytes, $dataOff, $len)
+        } elseif ($type -eq 'IEND') {
+            break
+        }
+        $pos += 12 + $len
+    }
+    if ($w -le 0 -or $h -le 0 -or $bitDepth -ne 8 -or ($colorType -ne 6 -and $colorType -ne 2)) {
+        $idat.Dispose()
+        return $null
+    }
+
+    $zBytes = $idat.ToArray()
+    $zStream = New-Object IO.MemoryStream ($zBytes, 2, ($zBytes.Length - 2))
+    $deflate = New-Object IO.Compression.DeflateStream ($zStream, [IO.Compression.CompressionMode]::Decompress)
+    $rawStream = New-Object IO.MemoryStream
+    $deflate.CopyTo($rawStream)
+    $deflate.Dispose(); $zStream.Dispose(); $idat.Dispose()
+    $raw = $rawStream.ToArray()
+    $rawStream.Dispose()
+
+    $bpp = if ($colorType -eq 6) { 4 } else { 3 }
+    $stride = $w * $bpp
+    $pixels = New-Object byte[] ($h * $stride)
     for ($y = 0; $y -lt $h; $y++) {
-        $rowOff = $y * $w
-        for ($x = 0; $x -lt $w; $x++) {
-            if ($x -lt 6) {
-                $pixels[$rowOff + $x] = 1
-            } elseif ($y -ge ($h - 2)) {
-                $pixels[$rowOff + $x] = 2
-            } elseif ($x -ge ($w - 6)) {
-                $pixels[$rowOff + $x] = 3
-            } else {
-                $pixels[$rowOff + $x] = 0
+        $f = [int]$raw[$y * ($stride + 1)]
+        $srcRow = $y * ($stride + 1) + 1
+        $dstRow = $y * $stride
+        for ($x = 0; $x -lt $stride; $x++) {
+            $val = [int]$raw[$srcRow + $x]
+            $a = if ($x -ge $bpp) { [int]$pixels[$dstRow + $x - $bpp] } else { 0 }
+            $b = if ($y -gt 0) { [int]$pixels[$dstRow - $stride + $x] } else { 0 }
+            $c = if ($x -ge $bpp -and $y -gt 0) { [int]$pixels[$dstRow - $stride + $x - $bpp] } else { 0 }
+            $recon = switch ($f) {
+                0 { $val }
+                1 { ($val + $a) -band 0xFF }
+                2 { ($val + $b) -band 0xFF }
+                3 { ($val + (($a + $b) -shr 1)) -band 0xFF }
+                4 {
+                    $p = $a + $b - $c
+                    $pa = [math]::Abs($p - $a); $pb = [math]::Abs($p - $b); $pc = [math]::Abs($p - $c)
+                    $pr = if ($pa -le $pb -and $pa -le $pc) { $a } elseif ($pb -le $pc) { $b } else { $c }
+                    ($val + $pr) -band 0xFF
+                }
+                default { $val }
+            }
+            $pixels[$dstRow + $x] = [byte]$recon
+        }
+    }
+
+    if ($bpp -eq 4) {
+        return @{ Width = $w; Height = $h; Rgba = $pixels }
+    }
+    $rgba = New-Object byte[] ($w * $h * 4)
+    for ($i = 0; $i -lt ($w * $h); $i++) {
+        $rgba[$i * 4] = $pixels[$i * 3]
+        $rgba[$i * 4 + 1] = $pixels[$i * 3 + 1]
+        $rgba[$i * 4 + 2] = $pixels[$i * 3 + 2]
+        $rgba[$i * 4 + 3] = 255
+    }
+    return @{ Width = $w; Height = $h; Rgba = $rgba }
+}
+
+# Box-downsamples + alpha-over composites an RGBA PNG icon onto a top-down RGB24 canvas with optional drop shadow.
+function Draw-ScaledIconOverRgb24(
+    [byte[]] $dstRgb, [int] $dstW, [int] $dstH,
+    [hashtable] $icon, [int] $dstX, [int] $dstY, [int] $targetSize, [bool] $withShadow
+) {
+    $srcW = [int]$icon.Width; $srcH = [int]$icon.Height; $src = [byte[]]$icon.Rgba
+    $scale = $srcW / [double]$targetSize
+    # Pre-sample icon RGBA using area averaging for razor-sharp downsampling.
+    $sampled = New-Object byte[] ($targetSize * $targetSize * 4)
+    for ($dy = 0; $dy -lt $targetSize; $dy++) {
+        $sy0 = $dy * $scale; $sy1 = ($dy + 1) * $scale
+        $iy0 = [int][math]::Floor($sy0); $iy1 = [int][math]::Min($srcH - 1, [int][math]::Floor($sy1))
+        for ($dx = 0; $dx -lt $targetSize; $dx++) {
+            $sx0 = $dx * $scale; $sx1 = ($dx + 1) * $scale
+            $ix0 = [int][math]::Floor($sx0); $ix1 = [int][math]::Min($srcW - 1, [int][math]::Floor($sx1))
+            $sumR = 0.0; $sumG = 0.0; $sumB = 0.0; $sumA = 0.0; $wTot = 0.0
+            for ($sy = $iy0; $sy -le $iy1; $sy++) {
+                $wy = [math]::Min($sy + 1.0, $sy1) - [math]::Max([double]$sy, $sy0)
+                if ($wy -le 0.0) { continue }
+                for ($sx = $ix0; $sx -le $ix1; $sx++) {
+                    $wx = [math]::Min($sx + 1.0, $sx1) - [math]::Max([double]$sx, $sx0)
+                    if ($wx -le 0.0) { continue }
+                    $wt = $wx * $wy
+                    $p = ($sy * $srcW + $sx) * 4
+                    $a = $src[$p + 3] / 255.0
+                    # Premultiply so transparent edges never bleed dark fringes.
+                    $sumR += $src[$p] * $a * $wt
+                    $sumG += $src[$p + 1] * $a * $wt
+                    $sumB += $src[$p + 2] * $a * $wt
+                    $sumA += $a * $wt
+                    $wTot += $wt
+                }
+            }
+            $out = ($dy * $targetSize + $dx) * 4
+            if ($wTot -gt 0.0 -and $sumA -gt 0.0) {
+                $avgA = $sumA / $wTot
+                $sampled[$out]     = [byte][math]::Min(255, [int][math]::Round($sumR / $sumA))
+                $sampled[$out + 1] = [byte][math]::Min(255, [int][math]::Round($sumG / $sumA))
+                $sampled[$out + 2] = [byte][math]::Min(255, [int][math]::Round($sumB / $sumA))
+                $sampled[$out + 3] = [byte][math]::Min(255, [int][math]::Round($avgA * 255.0))
             }
         }
     }
-    Write-IndexedBmp $path $w $h $palette $pixels
+
+    # Soft shadow pass (downward offset +3 px) using icon alpha mask.
+    if ($withShadow) {
+        $shOffX = 2; $shOffY = 4
+        for ($dy = 0; $dy -lt $targetSize; $dy++) {
+            $ty = $dstY + $dy + $shOffY
+            if ($ty -lt 0 -or $ty -ge $dstH) { continue }
+            for ($dx = 0; $dx -lt $targetSize; $dx++) {
+                $tx = $dstX + $dx + $shOffX
+                if ($tx -lt 0 -or $tx -ge $dstW) { continue }
+                $a = ($sampled[($dy * $targetSize + $dx) * 4 + 3] / 255.0) * 0.38
+                if ($a -le 0.005) { continue }
+                $d = ($ty * $dstW + $tx) * 3
+                $inv = 1.0 - $a
+                $dstRgb[$d]     = [byte][int][math]::Round($dstRgb[$d] * $inv + 8 * $a)
+                $dstRgb[$d + 1] = [byte][int][math]::Round($dstRgb[$d + 1] * $inv + 12 * $a)
+                $dstRgb[$d + 2] = [byte][int][math]::Round($dstRgb[$d + 2] * $inv + 28 * $a)
+            }
+        }
+    }
+
+    # Foreground alpha-over composite.
+    for ($dy = 0; $dy -lt $targetSize; $dy++) {
+        $ty = $dstY + $dy
+        if ($ty -lt 0 -or $ty -ge $dstH) { continue }
+        for ($dx = 0; $dx -lt $targetSize; $dx++) {
+            $tx = $dstX + $dx
+            if ($tx -lt 0 -or $tx -ge $dstW) { continue }
+            $s = ($dy * $targetSize + $dx) * 4
+            $a = $sampled[$s + 3] / 255.0
+            if ($a -le 0.002) { continue }
+            $d = ($ty * $dstW + $tx) * 3
+            $inv = 1.0 - $a
+            $dstRgb[$d]     = [byte][math]::Min(255, [int][math]::Round($sampled[$s] * $a + $dstRgb[$d] * $inv))
+            $dstRgb[$d + 1] = [byte][math]::Min(255, [int][math]::Round($sampled[$s + 1] * $a + $dstRgb[$d + 1] * $inv))
+            $dstRgb[$d + 2] = [byte][math]::Min(255, [int][math]::Round($sampled[$s + 2] * $a + $dstRgb[$d + 2] * $inv))
+        }
+    }
+}
+
+# Branded Welcome/Exit left sidebar (164x312): Classic Indigo gradient, stationery rules, brass divider, and large 124x124 Nib & Leaf emblem.
+function New-BannerSideBmp([string] $path, [hashtable] $icon256) {
+    $w = 164; $h = 312
+    $rgb = New-Object byte[] ($w * $h * 3)
+    for ($y = 0; $y -lt $h; $y++) {
+        $t = $y / [double]($h - 1)
+        $bgR = [int][math]::Round(22 + (39 - 22) * $t)
+        $bgG = [int][math]::Round(35 + (61 - 35) * $t)
+        $bgB = [int][math]::Round(82 + (135 - 82) * $t)
+        $isRule = ($y -ge 36 -and $y -le 276 -and (($y - 36) % 24) -eq 0)
+        for ($x = 0; $x -lt $w; $x++) {
+            $d = ($y * $w + $x) * 3
+            if ($x -eq ($w - 1)) {
+                $rgb[$d] = 218; $rgb[$d + 1] = 222; $rgb[$d + 2] = 232
+            } elseif ($x -ge ($w - 4) -and $x -le ($w - 2)) {
+                if ($x -eq ($w - 3)) {
+                    $rgb[$d] = 224; $rgb[$d + 1] = 190; $rgb[$d + 2] = 118
+                } else {
+                    $rgb[$d] = 198; $rgb[$d + 1] = 155; $rgb[$d + 2] = 75
+                }
+            } elseif ($isRule -and $x -ge 16 -and $x -le ($w - 20)) {
+                $rgb[$d] = 48; $rgb[$d + 1] = 70; $rgb[$d + 2] = 146
+            } else {
+                $rgb[$d] = [byte]$bgR; $rgb[$d + 1] = [byte]$bgG; $rgb[$d + 2] = [byte]$bgB
+            }
+        }
+    }
+    if ($null -ne $icon256) {
+        Draw-ScaledIconOverRgb24 $rgb $w $h $icon256 19 72 124 $true
+    }
+    Write-Rgb24Bmp $path $w $h $rgb
+}
+
+# Branded Interior top banner (493x58): warm ivory header + Classic Indigo left bar + satin brass hairline + 44x44 Nib & Leaf emblem.
+function New-TopBannerBmp([string] $path, [hashtable] $icon256) {
+    $w = 493; $h = 58
+    $rgb = New-Object byte[] ($w * $h * 3)
+    for ($y = 0; $y -lt $h; $y++) {
+        for ($x = 0; $x -lt $w; $x++) {
+            $d = ($y * $w + $x) * 3
+            if ($x -lt 6) {
+                $rgb[$d] = 31; $rgb[$d + 1] = 48; $rgb[$d + 2] = 110
+            } elseif ($y -ge ($h - 2)) {
+                $rgb[$d] = 198; $rgb[$d + 1] = 155; $rgb[$d + 2] = 75
+            } elseif ($x -ge ($w - 6)) {
+                $rgb[$d] = 236; $rgb[$d + 1] = 239; $rgb[$d + 2] = 248
+            } else {
+                $rgb[$d] = 252; $rgb[$d + 1] = 251; $rgb[$d + 2] = 248
+            }
+        }
+    }
+    if ($null -ne $icon256) {
+        Draw-ScaledIconOverRgb24 $rgb $w $h $icon256 436 7 44 $false
+    }
+    Write-Rgb24Bmp $path $w $h $rgb
 }
 
 # Writes a 16x16 32-bit BGRA ICO from a 16-row ASCII art grid + color map (char -> @(R,G,B,A)).
@@ -278,7 +473,7 @@ function New-BrowseIcons([string] $upPath, [string] $newFolderPath) {
 
 # Extracts the 32x32 PNG-encoded entry from an ICO (such as DD28's excellentpdf.ico) and writes a standard
 # uncompressed 32x32 32-bit BGRA DIB ICO for Windows Installer's UI Icon control (which rejects PNG-compressed
-# ICO entries with DEBUG: Error 2863). Pure .NET (DeflateStream only; works in both PowerShell 5.1 and pwsh 7+).
+# ICO entries with DEBUG: Error 2863). Reuses Read-PngRgba (no duplicated PNG decoder).
 function Convert-PngIcoToDib32Ico([string] $srcIcoPath, [string] $dstIcoPath) {
     $src = [IO.File]::ReadAllBytes($srcIcoPath)
     $count = [BitConverter]::ToUInt16($src, 4)
@@ -295,76 +490,13 @@ function Convert-PngIcoToDib32Ico([string] $srcIcoPath, [string] $dstIcoPath) {
             break
         }
     }
-    # If already a non-PNG ICO or missing 32x32, fall back to copying the original file.
-    if ($null -eq $pngBytes -or $pngBytes.Length -lt 33 -or $pngBytes[0] -ne 0x89 -or $pngBytes[1] -ne 0x50) {
+    $decoded = Read-PngRgba $pngBytes
+    if ($null -eq $decoded -or $decoded.Width -ne 32 -or $decoded.Height -ne 32) {
         Copy-Item -Force $srcIcoPath $dstIcoPath
         return
     }
 
-    # Parse PNG IHDR and concatenate IDAT chunks.
-    $w = 0; $h = 0; $colorType = 6
-    $idat = New-Object IO.MemoryStream
-    $pos = 8
-    while ($pos + 12 -le $pngBytes.Length) {
-        $len = ([int]$pngBytes[$pos] -shl 24) -bor ([int]$pngBytes[$pos + 1] -shl 16) -bor ([int]$pngBytes[$pos + 2] -shl 8) -bor [int]$pngBytes[$pos + 3]
-        $type = [Text.Encoding]::ASCII.GetString($pngBytes, $pos + 4, 4)
-        $dataOff = $pos + 8
-        if ($type -eq 'IHDR') {
-            $w = ([int]$pngBytes[$dataOff] -shl 24) -bor ([int]$pngBytes[$dataOff + 1] -shl 16) -bor ([int]$pngBytes[$dataOff + 2] -shl 8) -bor [int]$pngBytes[$dataOff + 3]
-            $h = ([int]$pngBytes[$dataOff + 4] -shl 24) -bor ([int]$pngBytes[$dataOff + 5] -shl 16) -bor ([int]$pngBytes[$dataOff + 6] -shl 8) -bor [int]$pngBytes[$dataOff + 7]
-            $colorType = [int]$pngBytes[$dataOff + 9]
-        } elseif ($type -eq 'IDAT') {
-            $idat.Write($pngBytes, $dataOff, $len)
-        } elseif ($type -eq 'IEND') {
-            break
-        }
-        $pos += 12 + $len
-    }
-    if ($w -ne 32 -or $h -ne 32 -or ($colorType -ne 6 -and $colorType -ne 2)) {
-        Copy-Item -Force $srcIcoPath $dstIcoPath
-        return
-    }
-
-    # Inflate zlib stream (skip 2-byte zlib header).
-    $zBytes = $idat.ToArray()
-    $zStream = New-Object IO.MemoryStream ($zBytes, 2, ($zBytes.Length - 2))
-    $deflate = New-Object IO.Compression.DeflateStream ($zStream, [IO.Compression.CompressionMode]::Decompress)
-    $rawStream = New-Object IO.MemoryStream
-    $deflate.CopyTo($rawStream)
-    $deflate.Dispose(); $zStream.Dispose(); $idat.Dispose()
-    $raw = $rawStream.ToArray()
-    $rawStream.Dispose()
-
-    # Unfilter PNG scanlines (0=None, 1=Sub, 2=Up, 3=Average, 4=Paeth).
-    $bpp = if ($colorType -eq 6) { 4 } else { 3 }
-    $stride = $w * $bpp
-    $rgba = New-Object byte[] ($h * $stride)
-    for ($y = 0; $y -lt $h; $y++) {
-        $f = [int]$raw[$y * ($stride + 1)]
-        $srcRow = $y * ($stride + 1) + 1
-        $dstRow = $y * $stride
-        for ($x = 0; $x -lt $stride; $x++) {
-            $val = [int]$raw[$srcRow + $x]
-            $a = if ($x -ge $bpp) { [int]$rgba[$dstRow + $x - $bpp] } else { 0 }
-            $b = if ($y -gt 0) { [int]$rgba[$dstRow - $stride + $x] } else { 0 }
-            $c = if ($x -ge $bpp -and $y -gt 0) { [int]$rgba[$dstRow - $stride + $x - $bpp] } else { 0 }
-            $recon = switch ($f) {
-                0 { $val }
-                1 { ($val + $a) -band 0xFF }
-                2 { ($val + $b) -band 0xFF }
-                3 { ($val + (($a + $b) -shr 1)) -band 0xFF }
-                4 {
-                    $p = $a + $b - $c
-                    $pa = [math]::Abs($p - $a); $pb = [math]::Abs($p - $b); $pc = [math]::Abs($p - $c)
-                    $pr = if ($pa -le $pb -and $pa -le $pc) { $a } elseif ($pb -le $pc) { $b } else { $c }
-                    ($val + $pr) -band 0xFF
-                }
-                default { $val }
-            }
-            $rgba[$dstRow + $x] = [byte]$recon
-        }
-    }
-
+    $w = 32; $h = 32; $rgba = [byte[]]$decoded.Rgba; $stride = $w * 4
     # Write 32x32 uncompressed 32-bit BGRA DIB ICO (40-byte header + 4096 XOR + 128 AND).
     $dibSize = 40 + ($w * $h * 4) + ($h * 4)
     $buf = New-Object byte[] (6 + 16 + $dibSize)
@@ -383,12 +515,10 @@ function Convert-PngIcoToDib32Ico([string] $srcIcoPath, [string] $dstIcoPath) {
         $srcRow = ($h - 1 - $y) * $stride
         [uint32]$maskBits = 0
         for ($x = 0; $x -lt $w; $x++) {
-            $s = $srcRow + ($x * $bpp)
-            $r = $rgba[$s]; $g = $rgba[$s + 1]; $b = $rgba[$s + 2]
-            $a = if ($bpp -eq 4) { $rgba[$s + 3] } else { [byte]255 }
+            $s = $srcRow + ($x * 4)
             $d = $xorOff + (($y * $w + $x) * 4)
-            $buf[$d] = $b; $buf[$d + 1] = $g; $buf[$d + 2] = $r; $buf[$d + 3] = $a
-            if ($a -lt 128) { $maskBits = $maskBits -bor ([uint32]1 -shl (31 - $x)) }
+            $buf[$d] = $rgba[$s + 2]; $buf[$d + 1] = $rgba[$s + 1]; $buf[$d + 2] = $rgba[$s]; $buf[$d + 3] = $rgba[$s + 3]
+            if ($rgba[$s + 3] -lt 128) { $maskBits = $maskBits -bor ([uint32]1 -shl (31 - $x)) }
         }
         $mOff = $andOff + ($y * 4)
         $buf[$mOff]     = [byte](($maskBits -shr 24) -band 0xFF)
@@ -448,9 +578,11 @@ try {
     $upIcoPath = Join-Path $work 'UpIco.ico'
     $newFolderIcoPath = Join-Path $work 'NewFolderIco.ico'
     $appIconPath = Join-Path $root 'packaging/windows/excellentpdf.ico'
+    $src256Path = Join-Path $root 'design/icon/png/excellentpdf-256.png'
+    $icon256 = if (Test-Path $src256Path) { Read-PngRgba ([IO.File]::ReadAllBytes($src256Path)) } else { $null }
     $appIcon32Path = Join-Path $work 'AppIcon32.ico'
-    New-BannerSideBmp $bannerSidePath
-    New-TopBannerBmp $topBannerPath
+    New-BannerSideBmp $bannerSidePath $icon256
+    New-TopBannerBmp $topBannerPath $icon256
     New-BrowseIcons $upIcoPath $newFolderIcoPath
     Convert-PngIcoToDib32Ico $appIconPath $appIcon32Path
 
@@ -563,7 +695,7 @@ try {
         DefaultUIFont          = 'DlgFont8'
         ErrorDialog            = 'ErrorDialog'
         # Forward user-selected scope and destination directory across the UAC elevation boundary.
-        SecureCustomProperties = 'OLDERFOUND;NEWERFOUND;INSTALLDIR;ALLUSERS;MSIINSTALLPERUSER;INSTALLSCOPE;LAUNCHAPP;MACHINEINSTALLDIR;USERINSTALLDIR;MAINTMODE'
+        SecureCustomProperties = 'OLDERFOUND;NEWERFOUND;INSTALLDIR;ALLUSERS;MSIINSTALLPERUSER;INSTALLSCOPE;LAUNCHAPP;MACHINEINSTALLDIR;USERINSTALLDIR;USERCUSTOMDIR;MAINTMODE'
     }
     foreach ($key in $properties.Keys) { Add-Row Property @($key, $properties[$key]) }
 
@@ -676,15 +808,14 @@ try {
     function Add-InteriorChrome([string] $dialog, [string] $titleText, [string] $subtitleText) {
         Add-Row Control @($dialog, 'BannerBitmap', 'Bitmap', 0, 0, 370, 44, $ATTR_VISIBLE, $null, 'TopBanner', $null, $null)
         Add-Row Control @($dialog, 'BannerLine', 'Line', 0, 44, 370, 0, $ATTR_VISIBLE, $null, $null, $null, $null)
-        Add-Row Control @($dialog, 'Title', 'Text', 15, 6, 340, 15, $CTL_TEXT_BANNER, $null, "{\BannerTitleFont}$titleText", $null, $null)
-        Add-Row Control @($dialog, 'Description', 'Text', 15, 23, 340, 18, $CTL_TEXT_BANNER, $null, $subtitleText, $null, $null)
+        Add-Row Control @($dialog, 'Title', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, "{\BannerTitleFont}$titleText", $null, $null)
+        Add-Row Control @($dialog, 'Description', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, $subtitleText, $null, $null)
         Add-Row Control @($dialog, 'BottomLine', 'Line', 0, 234, 370, 0, $ATTR_VISIBLE, $null, $null, $null, $null)
     }
 
-    # Helper to add the shared branded sidebar + Nib & Leaf icon on exterior (Welcome/Exit/Abort) dialogs.
+    # Helper to add the shared branded sidebar (with large Nib & Leaf emblem) on exterior dialogs.
     function Add-ExteriorChrome([string] $dialog) {
         Add-Row Control @($dialog, 'SideBitmap', 'Bitmap', 0, 0, 110, 234, $ATTR_VISIBLE, $null, 'BannerSide', $null, $null)
-        Add-Row Control @($dialog, 'AppIcon', 'Icon', 124, 18, 24, 24, $CTL_ICON_32, $null, 'AppIconBin', $null, $null)
         Add-Row Control @($dialog, 'BottomLine', 'Line', 0, 234, 370, 0, $ATTR_VISIBLE, $null, $null, $null, $null)
     }
 
@@ -705,7 +836,7 @@ try {
     # =========================================================================
     Add-Row Dialog @('WelcomeDialog', 50, 50, 370, 270, $DLG_WIZARD, $dlgTitle, 'Next', 'Next', 'Cancel')
     Add-ExteriorChrome 'WelcomeDialog'
-    Add-Row Control @('WelcomeDialog', 'Title', 'Text', 156, 18, 200, 32, $CTL_TEXT, $null,
+    Add-Row Control @('WelcomeDialog', 'Title', 'Text', 124, 20, 232, 32, $CTL_TEXT, $null,
         '{\DlgTitleFont}Welcome to ExcellentPDF Setup', $null, $null)
     Add-Row Control @('WelcomeDialog', 'Intro', 'Text', 124, 62, 232, 36, $CTL_TEXT, $null,
         'This wizard will install ExcellentPDF [ProductVersion] on your computer.', $null, $null)
@@ -744,9 +875,9 @@ try {
     Add-Row ControlEvent @('ScopeDialog', 'Next', '[SCOPESUMMARY]', 'Current user only (no administrator privileges required)', 'INSTALLSCOPE = "PerUser"', 3)
     Add-Row ControlEvent @('ScopeDialog', 'Next', '[INSTALLDIR]', '[USERINSTALLDIR]', 'INSTALLSCOPE = "PerUser" AND (NOT USERCUSTOMDIR OR INSTALLDIR = MACHINEINSTALLDIR)', 4)
     Add-Row ControlEvent @('ScopeDialog', 'Next', 'SetTargetPath', 'INSTALLDIR', 'INSTALLSCOPE = "PerUser"', 5)
-    # Apply Per-Machine scope properties (clears MSIINSTALLPERUSER, sets ALLUSERS=1 so UAC elevates cleanly).
+    # Apply Per-Machine scope properties (keeps ALLUSERS=2, clears MSIINSTALLPERUSER so UAC elevates cleanly).
     Add-Row ControlEvent @('ScopeDialog', 'Next', '[MSIINSTALLPERUSER]', '{}', 'INSTALLSCOPE = "PerMachine"', 6)
-    Add-Row ControlEvent @('ScopeDialog', 'Next', '[ALLUSERS]', '1', 'INSTALLSCOPE = "PerMachine"', 7)
+    Add-Row ControlEvent @('ScopeDialog', 'Next', '[ALLUSERS]', '2', 'INSTALLSCOPE = "PerMachine"', 7)
     Add-Row ControlEvent @('ScopeDialog', 'Next', '[SCOPESUMMARY]', 'All users on this computer (requires administrator privileges)', 'INSTALLSCOPE = "PerMachine"', 8)
     Add-Row ControlEvent @('ScopeDialog', 'Next', '[INSTALLDIR]', '[MACHINEINSTALLDIR]', 'INSTALLSCOPE = "PerMachine" AND (NOT USERCUSTOMDIR OR INSTALLDIR = USERINSTALLDIR)', 9)
     Add-Row ControlEvent @('ScopeDialog', 'Next', 'SetTargetPath', 'INSTALLDIR', 'INSTALLSCOPE = "PerMachine"', 10)
@@ -853,14 +984,14 @@ try {
         'Removes ExcellentPDF from your computer. Your documents, settings, and library data are kept.', $null, $null)
     Add-Row Control @('MaintenanceDialog', 'Cancel', 'PushButton', 301, 243, 56, 17, $CTL_BTN, $null, 'Cancel', 'RepairButton', $null)
 
-    Add-Row ControlCondition @('MaintenanceDialog', 'RepairButton', 'Hide', 'ALLUSERS = "1"')
-    Add-Row ControlCondition @('MaintenanceDialog', 'RepairButton', 'Show', 'ALLUSERS <> "1"')
-    Add-Row ControlCondition @('MaintenanceDialog', 'RepairButtonAdmin', 'Show', 'ALLUSERS = "1"')
-    Add-Row ControlCondition @('MaintenanceDialog', 'RepairButtonAdmin', 'Hide', 'ALLUSERS <> "1"')
-    Add-Row ControlCondition @('MaintenanceDialog', 'RemoveButton', 'Hide', 'ALLUSERS = "1"')
-    Add-Row ControlCondition @('MaintenanceDialog', 'RemoveButton', 'Show', 'ALLUSERS <> "1"')
-    Add-Row ControlCondition @('MaintenanceDialog', 'RemoveButtonAdmin', 'Show', 'ALLUSERS = "1"')
-    Add-Row ControlCondition @('MaintenanceDialog', 'RemoveButtonAdmin', 'Hide', 'ALLUSERS <> "1"')
+    Add-Row ControlCondition @('MaintenanceDialog', 'RepairButton', 'Hide', 'ALLUSERS = "1" OR NOT MSIINSTALLPERUSER')
+    Add-Row ControlCondition @('MaintenanceDialog', 'RepairButton', 'Show', 'ALLUSERS <> "1" AND MSIINSTALLPERUSER')
+    Add-Row ControlCondition @('MaintenanceDialog', 'RepairButtonAdmin', 'Show', 'ALLUSERS = "1" OR NOT MSIINSTALLPERUSER')
+    Add-Row ControlCondition @('MaintenanceDialog', 'RepairButtonAdmin', 'Hide', 'ALLUSERS <> "1" AND MSIINSTALLPERUSER')
+    Add-Row ControlCondition @('MaintenanceDialog', 'RemoveButton', 'Hide', 'ALLUSERS = "1" OR NOT MSIINSTALLPERUSER')
+    Add-Row ControlCondition @('MaintenanceDialog', 'RemoveButton', 'Show', 'ALLUSERS <> "1" AND MSIINSTALLPERUSER')
+    Add-Row ControlCondition @('MaintenanceDialog', 'RemoveButtonAdmin', 'Show', 'ALLUSERS = "1" OR NOT MSIINSTALLPERUSER')
+    Add-Row ControlCondition @('MaintenanceDialog', 'RemoveButtonAdmin', 'Hide', 'ALLUSERS <> "1" AND MSIINSTALLPERUSER')
 
     foreach ($btn in @('RepairButton', 'RepairButtonAdmin')) {
         Add-Row ControlEvent @('MaintenanceDialog', $btn, '[REINSTALLMODE]', 'ecmus', '1', 1)
@@ -881,12 +1012,12 @@ try {
     Add-Row Dialog @('ProgressDialog', 50, 50, 370, 270, $DLG_MODELESS, $dlgTitle, 'Cancel', 'Cancel', 'Cancel')
     Add-Row Control @('ProgressDialog', 'BannerBitmap', 'Bitmap', 0, 0, 370, 44, $ATTR_VISIBLE, $null, 'TopBanner', $null, $null)
     Add-Row Control @('ProgressDialog', 'BannerLine', 'Line', 0, 44, 370, 0, $ATTR_VISIBLE, $null, $null, $null, $null)
-    Add-Row Control @('ProgressDialog', 'TitleInstall', 'Text', 15, 6, 340, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Installing ExcellentPDF', $null, $null)
-    Add-Row Control @('ProgressDialog', 'DescInstall', 'Text', 15, 23, 340, 18, $CTL_TEXT_BANNER, $null, 'Please wait while ExcellentPDF is installed.', $null, $null)
-    Add-Row Control @('ProgressDialog', 'TitleRepair', 'Text', 15, 6, 340, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Repairing ExcellentPDF', $null, $null)
-    Add-Row Control @('ProgressDialog', 'DescRepair', 'Text', 15, 23, 340, 18, $CTL_TEXT_BANNER, $null, 'Please wait while ExcellentPDF is repaired.', $null, $null)
-    Add-Row Control @('ProgressDialog', 'TitleRemove', 'Text', 15, 6, 340, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Removing ExcellentPDF', $null, $null)
-    Add-Row Control @('ProgressDialog', 'DescRemove', 'Text', 15, 23, 340, 18, $CTL_TEXT_BANNER, $null, 'Please wait while ExcellentPDF is removed.', $null, $null)
+    Add-Row Control @('ProgressDialog', 'TitleInstall', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Installing ExcellentPDF', $null, $null)
+    Add-Row Control @('ProgressDialog', 'DescInstall', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, 'Please wait while ExcellentPDF is installed.', $null, $null)
+    Add-Row Control @('ProgressDialog', 'TitleRepair', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Repairing ExcellentPDF', $null, $null)
+    Add-Row Control @('ProgressDialog', 'DescRepair', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, 'Please wait while ExcellentPDF is repaired.', $null, $null)
+    Add-Row Control @('ProgressDialog', 'TitleRemove', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Removing ExcellentPDF', $null, $null)
+    Add-Row Control @('ProgressDialog', 'DescRemove', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, 'Please wait while ExcellentPDF is removed.', $null, $null)
     Add-Row Control @('ProgressDialog', 'StatusLabel', 'Text', 22, 92, 44, 14, $CTL_TEXT, $null, 'Status:', $null, $null)
     Add-Row Control @('ProgressDialog', 'ActionText', 'Text', 68, 92, 280, 16, $CTL_TEXT_PATH, $null, $null, $null, $null)
     Add-Row Control @('ProgressDialog', 'ActionData', 'Text', 68, 110, 280, 16, $CTL_TEXT_PATH, $null, $null, $null, $null)
@@ -919,7 +1050,7 @@ try {
     # =========================================================================
     Add-Row Dialog @('ExitDialog', 50, 50, 370, 270, $DLG_MODAL, $dlgTitle, 'Finish', 'Finish', 'Finish')
     Add-ExteriorChrome 'ExitDialog'
-    Add-Row Control @('ExitDialog', 'Title', 'Text', 156, 18, 200, 32, $CTL_TEXT, $null,
+    Add-Row Control @('ExitDialog', 'Title', 'Text', 124, 20, 232, 32, $CTL_TEXT, $null,
         '{\DlgTitleFont}ExcellentPDF Setup Complete', $null, $null)
     Add-Row Control @('ExitDialog', 'BodyInstall', 'Text', 124, 62, 232, 36, $CTL_TEXT, $null,
         'ExcellentPDF [ProductVersion] has been installed on your computer. Click Finish to exit Setup.', $null, $null)
@@ -957,7 +1088,7 @@ try {
     # =========================================================================
     Add-Row Dialog @('UserExitDialog', 50, 50, 370, 270, $DLG_MODAL, $dlgTitle, 'Finish', 'Finish', 'Finish')
     Add-ExteriorChrome 'UserExitDialog'
-    Add-Row Control @('UserExitDialog', 'Title', 'Text', 156, 18, 200, 32, $CTL_TEXT, $null,
+    Add-Row Control @('UserExitDialog', 'Title', 'Text', 124, 20, 232, 32, $CTL_TEXT, $null,
         '{\DlgTitleFont}ExcellentPDF Setup Cancelled', $null, $null)
     Add-Row Control @('UserExitDialog', 'Body', 'Text', 124, 62, 232, 48, $CTL_TEXT, $null,
         'ExcellentPDF Setup was interrupted. Your system has not been modified. Run Setup again at any time to complete the installation.', $null, $null)
@@ -969,7 +1100,7 @@ try {
     # =========================================================================
     Add-Row Dialog @('FatalErrorDialog', 50, 50, 370, 270, $DLG_MODAL, $dlgTitle, 'Finish', 'Finish', 'Finish')
     Add-ExteriorChrome 'FatalErrorDialog'
-    Add-Row Control @('FatalErrorDialog', 'Title', 'Text', 156, 18, 200, 32, $CTL_TEXT, $null,
+    Add-Row Control @('FatalErrorDialog', 'Title', 'Text', 124, 20, 232, 32, $CTL_TEXT, $null,
         '{\DlgTitleFont}Setup Ended Prematurely', $null, $null)
     Add-Row Control @('FatalErrorDialog', 'Body', 'Text', 124, 62, 232, 56, $CTL_TEXT, $null,
         'ExcellentPDF Setup ended prematurely because of an error. Your system has not been modified. Run Setup again later to install ExcellentPDF.', $null, $null)
@@ -982,13 +1113,13 @@ try {
     Add-Row Dialog @('ErrorDialog', 50, 50, 270, 105, $DLG_ERROR, $dlgTitle, 'ErrorText', $null, $null)
     Add-Row Control @('ErrorDialog', 'ErrorIcon', 'Icon', 15, 15, 24, 24, $CTL_ICON_32, $null, 'AppIconBin', $null, $null)
     Add-Row Control @('ErrorDialog', 'ErrorText', 'Text', 48, 15, 205, 60, $CTL_TEXT, $null, 'Information text', $null, $null)
-    Add-Row Control @('ErrorDialog', 'O', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&OK', 'C', $null)
-    Add-Row Control @('ErrorDialog', 'C', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Cancel', 'Y', $null)
-    Add-Row Control @('ErrorDialog', 'Y', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Yes', 'N', $null)
-    Add-Row Control @('ErrorDialog', 'N', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&No', 'R', $null)
-    Add-Row Control @('ErrorDialog', 'R', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Retry', 'I', $null)
-    Add-Row Control @('ErrorDialog', 'I', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Ignore', 'A', $null)
-    Add-Row Control @('ErrorDialog', 'A', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Abort', 'O', $null)
+    Add-Row Control @('ErrorDialog', 'O', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&OK', $null, $null)
+    Add-Row Control @('ErrorDialog', 'C', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Cancel', $null, $null)
+    Add-Row Control @('ErrorDialog', 'Y', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Yes', $null, $null)
+    Add-Row Control @('ErrorDialog', 'N', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&No', $null, $null)
+    Add-Row Control @('ErrorDialog', 'R', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Retry', $null, $null)
+    Add-Row Control @('ErrorDialog', 'I', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Ignore', $null, $null)
+    Add-Row Control @('ErrorDialog', 'A', 'PushButton', 100, 80, 56, 17, $CTL_BTN, $null, '&Abort', $null, $null)
     Add-Row ControlEvent @('ErrorDialog', 'O', 'EndDialog', 'ErrorOk', '1', 1)
     Add-Row ControlEvent @('ErrorDialog', 'C', 'EndDialog', 'ErrorCancel', '1', 1)
     Add-Row ControlEvent @('ErrorDialog', 'Y', 'EndDialog', 'ErrorYes', '1', 1)
@@ -1154,7 +1285,7 @@ try {
         12 = [datetime]::Now
         13 = [datetime]::Now
         14 = [int] 500                        # Windows Installer 5.0: required for x64 and Single Package Authoring
-        15 = [int] 10                         # 2: compressed files; 8: UAC-compliant per-user/per-machine (no admin by default)
+        15 = [int] 2                          # 2: compressed files; bit 3 clear so All Users can trigger UAC under Single Package Authoring
         18 = 'ExcellentPDF build script'
     }
     foreach ($field in $fields.GetEnumerator()) { Set-ComProperty $summary 'Property' @([int] $field.Key, $field.Value) }

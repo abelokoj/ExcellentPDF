@@ -90,7 +90,7 @@ try {
         $template = [string](Get-ComProperty $summary 'Property' @(7))
         [void] [Runtime.InteropServices.Marshal]::ReleaseComObject($summary)
         Assert-True ($pageCount -eq 500) "Expected MSI 5.0 Page Count 500, got $pageCount"
-        Assert-True ($wordCount -eq 10) "Expected Word Count Summary 10 (compressed + UAC dual-purpose), got $wordCount"
+        Assert-True ($wordCount -eq 2) "Expected Word Count Summary 2 (compressed + UAC elevation enabled for All Users), got $wordCount"
         Assert-True ($template -eq 'x64;1033') "Expected Template 'x64;1033', got '$template'"
 
         # Property checks (Single Package Authoring)
@@ -101,7 +101,7 @@ try {
         Assert-True ($props['ARPPRODUCTICON'] -eq 'AppIcon.ico') "Expected ARPPRODUCTICON=AppIcon.ico"
         Assert-True ($props['ErrorDialog'] -eq 'ErrorDialog') "Expected ErrorDialog='ErrorDialog'"
         Assert-True ($props['DefaultUIFont'] -eq 'DlgFont8') "Expected DefaultUIFont='DlgFont8'"
-        foreach ($sec in @('OLDERFOUND', 'NEWERFOUND', 'INSTALLDIR', 'ALLUSERS', 'MSIINSTALLPERUSER')) {
+        foreach ($sec in @('OLDERFOUND', 'NEWERFOUND', 'INSTALLDIR', 'ALLUSERS', 'MSIINSTALLPERUSER', 'USERCUSTOMDIR')) {
             Assert-True (($props['SecureCustomProperties'] -split ';') -contains $sec) "SecureCustomProperties missing $sec"
         }
 
@@ -155,6 +155,28 @@ try {
         foreach ($r in (Read-Table 'Binary' @('Name'))) { $binaries[$r.Name] = $true }
         foreach ($b in @('AppIconBin', 'BannerSide', 'TopBanner', 'UpIco', 'NewFolderIco')) {
             Assert-True ($binaries.ContainsKey($b)) "Binary stream '$b' missing"
+        }
+
+        # Validate 24-bit BMP Binary streams (BannerSide 164x312, TopBanner 493x58)
+        function Read-BinaryBytes([string] $binName) {
+            $v = Invoke-Com $db 'OpenView' @("SELECT ``Data`` FROM ``Binary`` WHERE ``Name`` = '$binName'")
+            [void] (Invoke-Com $v 'Execute')
+            $rec = Invoke-Com $v 'Fetch'
+            $sz = [int](Get-ComProperty $rec 'DataSize' @(1))
+            $rawStr = Invoke-Com $rec 'ReadStream' @(1, $sz, 2) # msiReadStreamBytes = 2
+            $bytes = [Text.Encoding]::Default.GetBytes($rawStr)
+            [void] (Invoke-Com $v 'Close')
+            return $bytes
+        }
+        $bannerChecks = @{ BannerSide = @(164, 312); TopBanner = @(493, 58) }
+        foreach ($bn in $bannerChecks.Keys) {
+            $bmp = Read-BinaryBytes $bn
+            $expW = $bannerChecks[$bn][0]; $expH = $bannerChecks[$bn][1]
+            $bmOk = ($bmp.Length -ge 54 -and $bmp[0] -eq 0x42 -and $bmp[1] -eq 0x4D)
+            $bw = if ($bmOk) { [BitConverter]::ToInt32($bmp, 18) } else { 0 }
+            $bh = if ($bmOk) { [BitConverter]::ToInt32($bmp, 22) } else { 0 }
+            $bbpp = if ($bmOk) { [BitConverter]::ToUInt16($bmp, 28) } else { 0 }
+            Assert-True ($bmOk -and $bw -eq $expW -and $bh -eq $expH -and $bbpp -eq 24) "Binary '$bn' must be ${expW}x${expH} 24-bit BMP (got ${bw}x${bh} ${bbpp}bpp)"
         }
 
         # TextStyle, CheckBox, RadioButton, UIText, ActionText, Error
@@ -232,7 +254,9 @@ try {
             }
             foreach ($cn in $ctls.Keys) {
                 $nxt = $ctls[$cn].Control_Next
-                if ($nxt -ne '') {
+                if ($d -eq 'ErrorDialog' -and $cn -in @('O', 'C', 'Y', 'N', 'R', 'I', 'A')) {
+                    Assert-True ($nxt -eq '') "ErrorDialog button '$cn' Control_Next must be empty to prevent MSI Error 2814 (got '$nxt')"
+                } elseif ($nxt -ne '') {
                     Assert-True ($ctls.ContainsKey($nxt)) "Control '$d.$cn' Control_Next '$nxt' does not exist"
                 }
             }
@@ -244,6 +268,9 @@ try {
         $browseEvents = @{}
         foreach ($ev in (Read-Table 'ControlEvent' @('Dialog_', 'Control_', 'Event', 'Argument', 'Condition'))) {
             Assert-True ($dialogs.ContainsKey($ev.Dialog_) -and $controlsByDialog[$ev.Dialog_].ContainsKey($ev.Control_)) "ControlEvent references missing control '$($ev.Dialog_).$($ev.Control_)'"
+            if ($ev.Dialog_ -eq 'ScopeDialog' -and $ev.Event -eq '[ALLUSERS]') {
+                Assert-True ($ev.Argument -eq '2') "ScopeDialog must keep ALLUSERS=2 (got '$($ev.Argument)' for '$($ev.Condition)')"
+            }
             if ($ev.Event -in @('NewDialog', 'SpawnDialog')) {
                 Assert-True ($dialogs.ContainsKey($ev.Argument)) "ControlEvent $($ev.Event) on '$($ev.Dialog_).$($ev.Control_)' references missing Dialog '$($ev.Argument)'"
             }
