@@ -7,5 +7,12 @@ publish.workspace = true
 repository.workspace = true
 description = "Batch tools (merge, split, convert, OCR, redact) on the same core"
 
+[dependencies]
+excellent-core.workspace = true
+excellent-features.workspace = true
+excellent-mupdf.workspace = true
+excellent-store.workspace = true
+serde_json.workspace = true
+
 [lints]
 workspace = true
