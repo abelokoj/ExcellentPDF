@@ -40,7 +40,7 @@ impl<H: Host> PageCanvas<H> {
     /// drawing tool on (A.8, A.9, A.10), a `shapes::Kind`'s name; anything else: none. `margin`: `true` while the app
     /// shows its margin column (A.11), when the canvas reports where its pages are (`margin` events). `selected`: the
     /// annotations selected (A.13), `{page, items: [{id, bounds, grips, locked}]}`; anything else: none. `pen`: the
-    /// pen strokes draw with (H.2), see [`pen`]. `eraser`: the eraser the pen uses instead (H.5), an `Eraser`'s
+    /// pen strokes draw with (H.2), see `pen`. `eraser`: the eraser the pen uses instead (H.5), an `Eraser`'s
     /// name; anything else: the pen draws. Erasing sends `erase` (`{page, eraser, radius, points}`, page points).
     /// `lasso`: `true` while the lasso is on (H.6): a drag on a page draws a loop (`annotLasso`). `fingerDraws`:
     /// `true` when a finger that isn't a resting hand draws ink rather than panning (H.8). `snapshot`: `true` while
@@ -99,6 +99,8 @@ impl<H: Host> PageCanvas<H> {
                 Some(rgb) => self.set_background(rgb),
                 None => log::warn!("page canvas: `background` is not #rrggbb: {value:?}"),
             },
+            // Handled by platform hosts that manage a native child window's visibility directly.
+            "visible" => {}
             _ => log::debug!("page canvas: unknown prop `{name}`"),
         }
     }

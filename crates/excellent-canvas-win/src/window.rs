@@ -2,7 +2,7 @@
 //! its window procedure: size, paint, wheel, pen, links and text under the mouse, middle-click scrolling, DPI and
 //! finished jobs.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::Once;
 
@@ -10,7 +10,10 @@ use excellent_canvas::page::gestures::Verdict;
 use excellent_canvas::page::{ClickLimits, Cursor, PenSample, Tilt};
 use nsh_platform_windows::ComponentContext;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-use windows::Win32::Graphics::Gdi::{ClientToScreen, ScreenToClient, ValidateRect};
+use windows::Win32::Graphics::Gdi::{
+    ClientToScreen, GetWindowRgnBox, InvalidateRect, RGN_ERROR, ScreenToClient, SetWindowRgn,
+    ValidateRect,
+};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::{
     FEEDBACK_PEN_BARRELVISUALIZATION, FEEDBACK_PEN_DOUBLETAP, FEEDBACK_PEN_PRESSANDHOLD,
@@ -21,22 +24,203 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetDoubleClickTime, ReleaseCapture, SetCapture, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, GWLP_USERDATA, GetClientRect, GetMessageTime,
-    GetSystemMetrics, GetWindowLongPtrW, HTCLIENT, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM,
-    IDC_SIZEALL, LoadCursorW, RegisterClassExW, SM_CXDOUBLECLK, SM_CYDOUBLECLK, SetCursor,
-    SetWindowLongPtrW, WINDOW_EX_STYLE, WM_CAPTURECHANGED, WM_DPICHANGED_AFTERPARENT,
-    WM_ERASEBKGND, WM_GETOBJECT, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MOUSEHWHEEL,
-    WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_PAINT, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN,
-    WM_POINTERLEAVE, WM_POINTERUP, WM_POINTERUPDATE, WM_SETCURSOR, WM_SIZE, WM_XBUTTONUP,
-    WNDCLASSEXW, WS_CLIPCHILDREN, WS_POPUP,
+    CreateWindowExW, DefWindowProcW, GWLP_USERDATA, GetClientRect, GetMessageTime, GetParent,
+    GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, HTCLIENT, HWND_TOP, IDC_ARROW, IDC_CROSS,
+    IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IsWindowVisible, LoadCursorW, PostMessageW, RegisterClassExW,
+    SM_CXDOUBLECLK, SM_CYDOUBLECLK, SW_HIDE, SWP_NOACTIVATE, SWP_NOZORDER, SWP_SHOWWINDOW,
+    SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WM_APP,
+    WM_CAPTURECHANGED, WM_DPICHANGED_AFTERPARENT, WM_ERASEBKGND, WM_GETOBJECT, WM_LBUTTONDOWN,
+    WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY,
+    WM_PAINT, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN, WM_POINTERLEAVE, WM_POINTERUP,
+    WM_POINTERUPDATE, WM_SETCURSOR, WM_SHOWWINDOW, WM_SIZE, WM_XBUTTONUP, WNDCLASSEXW,
+    WS_CLIPCHILDREN, WS_POPUP,
 };
 use windows::core::BOOL;
 use windows::core::{Result, w};
+use windows_numerics::Matrix3x2;
 
 use crate::host::{Canvas, WM_JOB_DONE, WinHost};
 use crate::pointer::{self, Device, Sample};
 
 const CLASS: windows::core::PCWSTR = w!("ExcellentPDF.PageCanvas");
+
+/// Posted after NSH draws the canvas view, to reconcile child-window bounds and clip region.
+const WM_SYNC_PLACEMENT: u32 = WM_APP + 3;
+
+/// Per-window data stored in `GWLP_USERDATA` until `WM_NCDESTROY`.
+struct WindowData {
+    canvas: Rc<RefCell<Canvas>>,
+    placement: Rc<PlacementSync>,
+}
+
+/// Reconciles the canvas child HWND's bounds, visibility and clip region with the visible
+/// `AppWindow` NSH actually painted it into.
+///
+/// In NSH 0.7.0, `native::Placement::apply` clips child HWNDs against the hidden host surface's
+/// `pixel_size()` (default 1280x800 DIPs) instead of the visible `AppWindow`'s client size. On any
+/// larger window, NSH installs a truncated `SetWindowRgn` that chops off the right and bottom of
+/// the PDF; on panes positioned past the host's edge (such as split panes), NSH hides the child
+/// HWND altogether. Capturing the exact rectangle from `NativeComponent::draw` and reconciling on
+/// `WM_SYNC_PLACEMENT` restores full-window display while honoring intentional hides.
+pub(crate) struct PlacementSync {
+    app_visible: Cell<bool>,
+    intended: Cell<Option<RECT>>,
+    drawn_in_frame: Cell<bool>,
+    posted: Cell<bool>,
+}
+
+impl PlacementSync {
+    pub(crate) fn new() -> Self {
+        Self {
+            app_visible: Cell::new(true),
+            intended: Cell::new(None),
+            drawn_in_frame: Cell::new(false),
+            posted: Cell::new(false),
+        }
+    }
+
+    /// Records the exact parent-client pixel rectangle NSH painted the canvas at this frame, and
+    /// schedules reconciliation once NSH finishes `items_placed`.
+    pub(crate) fn note_drawn(&self, hwnd: HWND, rect: RECT) {
+        self.intended.set(Some(rect));
+        self.drawn_in_frame.set(true);
+        self.schedule(hwnd);
+    }
+
+    /// Updates whether the app's `visible` prop wants the canvas shown; hiding takes effect at once.
+    pub(crate) fn set_app_visible(&self, hwnd: HWND, visible: bool) {
+        self.app_visible.set(visible);
+        if !visible {
+            self.intended.set(None);
+            self.drawn_in_frame.set(false);
+            // SAFETY: plain call on our live child window.
+            unsafe {
+                let _ = ShowWindow(hwnd, SW_HIDE);
+            }
+        } else if self.intended.get().is_some() {
+            self.schedule(hwnd);
+        }
+    }
+
+    /// Whether `NativeComponent::draw` ran in the current frame before reconciliation.
+    fn drawn_in_frame(&self) -> bool {
+        self.drawn_in_frame.get()
+    }
+
+    /// NSH hid the window without drawing it this frame: forget the previous target rectangle.
+    fn note_hidden(&self) {
+        self.intended.set(None);
+    }
+
+    /// Coalesces a `WM_SYNC_PLACEMENT` post onto `hwnd`'s message queue.
+    fn schedule(&self, hwnd: HWND) {
+        if !self.posted.replace(true) {
+            // SAFETY: plain post to our live window on this thread.
+            unsafe {
+                let _ = PostMessageW(Some(hwnd), WM_SYNC_PLACEMENT, WPARAM(0), LPARAM(0));
+            }
+        }
+    }
+
+    /// Clears any truncated clip region NSH set and ensures `hwnd` is positioned and shown at
+    /// `intended` inside its adopted parent window.
+    pub(crate) fn reconcile(&self, hwnd: HWND) {
+        self.posted.set(false);
+        self.drawn_in_frame.set(false);
+        if !self.app_visible.get() {
+            // SAFETY: plain call on our live child window.
+            unsafe {
+                let _ = ShowWindow(hwnd, SW_HIDE);
+            }
+            return;
+        }
+        let Some(target) = self.intended.get() else {
+            return;
+        };
+        // SAFETY: plain Win32 queries and updates on our live child window and its parent.
+        unsafe {
+            let Ok(parent) = GetParent(hwnd) else {
+                return;
+            };
+            if parent.0.is_null() {
+                return;
+            }
+            let mut rgn_box = RECT::default();
+            let had_rgn = GetWindowRgnBox(hwnd, &mut rgn_box) != RGN_ERROR;
+            if had_rgn {
+                let _ = SetWindowRgn(hwnd, None, true);
+            }
+            let mut current = RECT::default();
+            let _ = GetWindowRect(hwnd, &mut current);
+            let mut tl = POINT {
+                x: current.left,
+                y: current.top,
+            };
+            let mut br = POINT {
+                x: current.right,
+                y: current.bottom,
+            };
+            let _ = ScreenToClient(parent, &mut tl);
+            let _ = ScreenToClient(parent, &mut br);
+            let current_in_parent = RECT {
+                left: tl.x,
+                top: tl.y,
+                right: br.x,
+                bottom: br.y,
+            };
+            let visible = IsWindowVisible(hwnd).as_bool();
+            if !visible || current_in_parent != target {
+                let _ = SetWindowPos(
+                    hwnd,
+                    Some(HWND_TOP),
+                    target.left,
+                    target.top,
+                    (target.right - target.left).max(1),
+                    (target.bottom - target.top).max(1),
+                    SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOZORDER,
+                );
+            }
+            if had_rgn || !visible {
+                let _ = InvalidateRect(Some(hwnd), None, false);
+            }
+        }
+    }
+}
+
+/// Converts a Direct2D draw transform, DPI and local DIP size into parent-window physical pixels,
+/// matching NSH's own pixel rounding.
+pub(crate) fn rect_from_draw(
+    transform: &Matrix3x2,
+    dpi_x: f32,
+    dpi_y: f32,
+    size: (f32, f32),
+) -> Option<RECT> {
+    let (w, h) = size;
+    if !(w.is_finite() && h.is_finite() && w > 0.0 && h > 0.0)
+        || !(dpi_x.is_finite() && dpi_y.is_finite() && dpi_x > 0.0 && dpi_y > 0.0)
+    {
+        return None;
+    }
+    let corners = [(0.0_f32, 0.0_f32), (w, 0.0), (0.0, h), (w, h)];
+    let (mut min_x, mut min_y) = (f32::INFINITY, f32::INFINITY);
+    let (mut max_x, mut max_y) = (f32::NEG_INFINITY, f32::NEG_INFINITY);
+    for (lx, ly) in corners {
+        let tx = lx * transform.M11 + ly * transform.M21 + transform.M31;
+        let ty = lx * transform.M12 + ly * transform.M22 + transform.M32;
+        min_x = min_x.min(tx);
+        min_y = min_y.min(ty);
+        max_x = max_x.max(tx);
+        max_y = max_y.max(ty);
+    }
+    let (sx, sy) = (dpi_x / 96.0, dpi_y / 96.0);
+    let rect = RECT {
+        left: (min_x * sx).round() as i32,
+        top: (min_y * sy).round() as i32,
+        right: (max_x * sx).round() as i32,
+        bottom: (max_y * sy).round() as i32,
+    };
+    (rect.right > rect.left && rect.bottom > rect.top).then_some(rect)
+}
 
 /// One wheel notch, as Windows counts it.
 const NOTCH: f32 = 120.0;
@@ -50,9 +234,11 @@ const MK_CONTROL: usize = 0x0008;
 
 /// Makes the canvas window, hidden and without a parent: NSH adopts it as a child of the app window. The canvas
 /// tells the app what happens through `events`.
-pub(crate) fn create(events: ComponentContext) -> Result<(HWND, Rc<RefCell<Canvas>>)> {
-    // SAFETY: plain Win32 calls; the class's procedure is `proc` below, and the window's user data holds one counted
-    // reference to its canvas, released in WM_NCDESTROY.
+pub(crate) fn create(
+    events: ComponentContext,
+) -> Result<(HWND, Rc<RefCell<Canvas>>, Rc<PlacementSync>)> {
+    // SAFETY: plain Win32 calls; the class's procedure is `proc` below, and the window's user data holds one owned
+    // `WindowData`, released in WM_NCDESTROY.
     unsafe {
         let instance = GetModuleHandleW(None)?;
         static REGISTER: Once = Once::new();
@@ -102,33 +288,36 @@ pub(crate) fn create(events: ComponentContext) -> Result<(HWND, Rc<RefCell<Canva
         }
         let ppp = pixels_per_point(GetDpiForWindow(hwnd));
         let canvas = Rc::new(RefCell::new(Canvas::new(WinHost::new(hwnd, events), ppp)));
+        let placement = Rc::new(PlacementSync::new());
         crate::uia::register(hwnd, &canvas);
-        SetWindowLongPtrW(
-            hwnd,
-            GWLP_USERDATA,
-            Rc::into_raw(Rc::clone(&canvas)) as isize,
-        );
-        Ok((hwnd, canvas))
+        let data = Box::new(WindowData {
+            canvas: Rc::clone(&canvas),
+            placement: Rc::clone(&placement),
+        });
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(data) as isize);
+        Ok((hwnd, canvas, placement))
     }
 }
 
 /// The canvas window's procedure.
 extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    // SAFETY: the user data is null or the `Rc` that `create` stored, alive until WM_NCDESTROY takes it back below.
-    let canvas = unsafe {
-        let raw = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const RefCell<Canvas>;
+    // SAFETY: the user data is null or the boxed `WindowData` that `create` stored, alive until WM_NCDESTROY takes it
+    // back below.
+    let data = unsafe {
+        let raw = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut WindowData;
         if raw.is_null() {
             return DefWindowProcW(hwnd, msg, wparam, lparam);
         }
         if msg == WM_NCDESTROY {
             crate::uia::forget(hwnd);
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
-            drop(Rc::from_raw(raw));
+            drop(Box::from_raw(raw));
             return DefWindowProcW(hwnd, msg, wparam, lparam);
         }
         &*raw
     };
-    // Screen readers (U.2): their providers borrow the canvas on each call, so these come before it is borrowed here.
+    // Screen readers (U.2) and placement reconciliation run before borrowing `canvas`: UIA providers borrow it per
+    // call, and `reconcile` may call `SetWindowPos` which synchronously dispatches `WM_SIZE`.
     match msg {
         WM_GETOBJECT => {
             if let Some(answer) = crate::uia::get_object(hwnd, wparam, lparam) {
@@ -139,8 +328,20 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
             crate::uia::raise(hwnd, wparam);
             return LRESULT(0);
         }
+        WM_SYNC_PLACEMENT => {
+            data.placement.reconcile(hwnd);
+            return LRESULT(0);
+        }
+        WM_SHOWWINDOW => {
+            if wparam.0 == 0 && !data.placement.drawn_in_frame() {
+                data.placement.note_hidden();
+            }
+            // SAFETY: plain default handling.
+            return unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) };
+        }
         _ => {}
     }
+    let canvas = &data.canvas;
     // Busy: a message sent while the canvas runs (it sends none it handles); let Windows have it.
     let Ok(mut canvas) = canvas.try_borrow_mut() else {
         log::debug!("page canvas busy: message {msg:#x} goes to the default handling");
@@ -164,11 +365,13 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
             LRESULT(0)
         }
         WM_PAINT => {
-            canvas.paint();
+            // Validate before painting so any `InvalidateRect` triggered during `paint()` (smooth motion, device-loss
+            // recovery, or newly uploaded tiles) schedules a fresh `WM_PAINT`.
             // SAFETY: plain call on a live window.
             unsafe {
                 let _ = ValidateRect(Some(hwnd), None);
             }
+            canvas.paint();
             LRESULT(0)
         }
         WM_ERASEBKGND => LRESULT(1),
@@ -442,4 +645,151 @@ fn client_point(lparam: LPARAM) -> (i32, i32) {
         i32::from(lparam.0 as u16 as i16),
         i32::from((lparam.0 >> 16) as u16 as i16),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::Win32::Graphics::Gdi::CreateRectRgn;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        DestroyWindow, SW_SHOW, SetParent, WS_CHILD, WS_OVERLAPPEDWINDOW,
+    };
+
+    fn make_test_window(
+        style: windows::Win32::UI::WindowsAndMessaging::WINDOW_STYLE,
+        parent: Option<HWND>,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+    ) -> HWND {
+        // SAFETY: creating a plain hidden test window using the built-in STATIC class.
+        unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE(0),
+                w!("STATIC"),
+                w!(""),
+                style,
+                x,
+                y,
+                w,
+                h,
+                parent,
+                None,
+                None,
+                None,
+            )
+            .expect("test window")
+        }
+    }
+
+    #[test]
+    fn draw_transform_and_dpi_map_to_parent_physical_pixels() {
+        // 150% DPI (144): logical (260, 116) size (2000 x 1324) -> physical (390, 174, 3390, 2160).
+        let transform = Matrix3x2 {
+            M11: 1.0,
+            M12: 0.0,
+            M21: 0.0,
+            M22: 1.0,
+            M31: 260.0,
+            M32: 116.0,
+        };
+        let rect = rect_from_draw(&transform, 144.0, 144.0, (2000.0, 1324.0)).expect("rect");
+        assert_eq!(
+            rect,
+            RECT {
+                left: 390,
+                top: 174,
+                right: 3390,
+                bottom: 2160,
+            }
+        );
+        assert_eq!(rect_from_draw(&transform, 144.0, 144.0, (0.0, 500.0)), None);
+        assert_eq!(rect_from_draw(&transform, 0.0, 144.0, (500.0, 500.0)), None);
+    }
+
+    #[test]
+    fn placement_reconcile_clears_nsh_clipped_region_and_restores_split_pane() {
+        let parent = make_test_window(WS_OVERLAPPEDWINDOW, None, 0, 0, 2600, 1600);
+        let child = make_test_window(WS_CHILD, Some(parent), 0, 0, 1, 1);
+        let sync = PlacementSync::new();
+
+        // Case 1: NSH placed the child at full size (2000x1200) inside a large AppWindow, then
+        // installed a truncated SetWindowRgn (0,0,1000,700) from the smaller hidden host surface.
+        let full = RECT {
+            left: 260,
+            top: 116,
+            right: 2260,
+            bottom: 1316,
+        };
+        sync.note_drawn(child, full);
+        // SAFETY: plain Win32 setup simulating NSH's `Placement::apply`.
+        unsafe {
+            let _ = SetParent(child, Some(parent));
+            let _ = SetWindowPos(
+                child,
+                Some(HWND_TOP),
+                full.left,
+                full.top,
+                full.right - full.left,
+                full.bottom - full.top,
+                SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOZORDER,
+            );
+            let bad_rgn = CreateRectRgn(0, 0, 1000, 700);
+            assert_ne!(SetWindowRgn(child, Some(bad_rgn), true), 0);
+            let mut rgn_box = RECT::default();
+            assert_ne!(GetWindowRgnBox(child, &mut rgn_box), RGN_ERROR);
+        }
+
+        sync.reconcile(child);
+        // SAFETY: plain Win32 verification on our test windows.
+        unsafe {
+            let mut rgn_box = RECT::default();
+            assert_eq!(
+                GetWindowRgnBox(child, &mut rgn_box),
+                RGN_ERROR,
+                "truncated NSH clip region must be cleared"
+            );
+            let mut client = RECT::default();
+            let _ = GetClientRect(child, &mut client);
+            assert_eq!((client.right, client.bottom), (2000, 1200));
+        }
+
+        // Case 2: Split pane positioned past the hidden host's right edge (x=1920..2500): NSH hid it.
+        let split_right = RECT {
+            left: 1920,
+            top: 116,
+            right: 2500,
+            bottom: 1316,
+        };
+        sync.note_drawn(child, split_right);
+        // SAFETY: simulating NSH calling `ShowWindow(SW_HIDE)` when `clip()` returns `None`.
+        unsafe {
+            let _ = ShowWindow(child, SW_HIDE);
+            assert!(!IsWindowVisible(child).as_bool());
+        }
+        sync.reconcile(child);
+        // SAFETY: plain Win32 queries on our test windows.
+        unsafe {
+            let _ = ShowWindow(parent, SW_SHOW);
+            assert!(
+                IsWindowVisible(child).as_bool(),
+                "split pane past host bounds must be restored"
+            );
+            let mut client = RECT::default();
+            let _ = GetClientRect(child, &mut client);
+            assert_eq!((client.right, client.bottom), (580, 1200));
+        }
+
+        // Case 3: App hides canvas for a dialog (`visible = false`) -> hides immediately and stays hidden.
+        sync.set_app_visible(child, false);
+        // SAFETY: plain Win32 queries and cleanup on our test windows.
+        unsafe {
+            assert!(!IsWindowVisible(child).as_bool());
+            sync.reconcile(child);
+            assert!(!IsWindowVisible(child).as_bool());
+            let _ = DestroyWindow(child);
+            let _ = DestroyWindow(parent);
+        }
+    }
 }

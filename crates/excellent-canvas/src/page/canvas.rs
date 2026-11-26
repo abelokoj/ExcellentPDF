@@ -1441,24 +1441,30 @@ impl<H: Host> PageCanvas<H> {
             }
             changed = true;
         }
-        if self.host.can_upload() {
-            let host = &mut self.host;
-            changed |= self.tiles.poll(|job| {
-                let result = job.try_take()?;
-                Some(match result {
-                    Ok(pixmap) => host.upload(&pixmap),
-                    Err(err) => {
-                        if !err.is_aborted() {
-                            log::warn!("cannot render a tile: {err}");
-                        }
-                        None
-                    }
-                })
-            });
-        }
+        changed |= self.upload_ready_tiles();
         if changed {
             self.invalidate();
         }
+    }
+
+    /// Uploads every finished tile job while the host can upload. Returns whether any tile slot changed.
+    fn upload_ready_tiles(&mut self) -> bool {
+        if !self.host.can_upload() {
+            return false;
+        }
+        let host = &mut self.host;
+        self.tiles.poll(|job| {
+            let result = job.try_take()?;
+            Some(match result {
+                Ok(pixmap) => host.upload(&pixmap),
+                Err(err) => {
+                    if !err.is_aborted() {
+                        log::warn!("cannot render a tile: {err}");
+                    }
+                    None
+                }
+            })
+        })
     }
 
     /// The document finished opening, if it did.
@@ -1558,6 +1564,7 @@ impl<H: Host> PageCanvas<H> {
         if width < 1.0 || height < 1.0 {
             return;
         }
+        let could_upload = self.host.can_upload();
         if let Err(err) = self.host.begin(width, height) {
             // No frame until something asks for one again: a device that can't be made now won't be in a loop.
             log::error!("cannot draw the page canvas: {err}");
@@ -1583,6 +1590,10 @@ impl<H: Host> PageCanvas<H> {
         if let Err(err) = drawn {
             log::warn!("the page canvas lost its device ({err}); starting over");
             self.lose_device();
+            self.invalidate();
+        } else if !could_upload && self.upload_ready_tiles() {
+            // Tiles that finished before the host created its graphics device were skipped in `jobs_done`; upload
+            // them now that the device exists and draw them on the next frame.
             self.invalidate();
         }
         self.tiles.evict();
@@ -2105,7 +2116,175 @@ fn segment_quads(points: &[InkPixel]) -> Vec<ScreenQuad> {
 
 #[cfg(test)]
 mod tests {
-    use super::segment_quads;
+    use std::path::Path;
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    use super::{PageCanvas, ZoomChange, segment_quads};
+    use crate::Rect;
+    use crate::page::host::{Host, InkPixel, Quad, Wake, Wash};
+    use excellent_mupdf::Pixmap;
+    use nsh_core::JsonValue;
+
+    /// A test host that records uploaded tile pixels and every draw call, and starts without a
+    /// graphics device until `begin()` is called (matching `WinHost`).
+    struct RecordingHost {
+        size: (f32, f32),
+        device_ready: bool,
+        wake_tx: mpsc::Sender<()>,
+        draws: Vec<(Rect, usize)>,
+    }
+
+    struct TileImage {
+        non_white_pixels: usize,
+    }
+
+    impl RecordingHost {
+        fn new(width: f32, height: f32) -> (Self, mpsc::Receiver<()>) {
+            let (wake_tx, wake_rx) = mpsc::channel();
+            (
+                Self {
+                    size: (width, height),
+                    device_ready: false,
+                    wake_tx,
+                    draws: Vec::new(),
+                },
+                wake_rx,
+            )
+        }
+    }
+
+    impl Host for RecordingHost {
+        type Image = TileImage;
+        type Error = &'static str;
+
+        fn size(&self) -> (f32, f32) {
+            self.size
+        }
+
+        fn invalidate(&self) {}
+
+        fn emit(&self, _name: &str, _data: JsonValue) {}
+
+        fn waker(&self) -> Wake {
+            let tx = self.wake_tx.clone();
+            Box::new(move || {
+                let _ = tx.send(());
+            })
+        }
+
+        fn can_upload(&self) -> bool {
+            self.device_ready
+        }
+
+        fn upload(&mut self, pixmap: &Pixmap) -> Option<(Self::Image, usize)> {
+            let (w, h) = (pixmap.width() as usize, pixmap.height() as usize);
+            let n = pixmap.components();
+            let stride = pixmap.stride();
+            let mut non_white = 0usize;
+            for row in pixmap.samples().chunks_exact(stride).take(h) {
+                for px in row[..w * n].chunks_exact(n) {
+                    if px[0] < 245 || px[1] < 245 || px[2] < 245 {
+                        non_white += 1;
+                    }
+                }
+            }
+            Some((
+                TileImage {
+                    non_white_pixels: non_white,
+                },
+                w * h * 4,
+            ))
+        }
+
+        fn begin(&mut self, _width: f32, _height: f32) -> Result<(), Self::Error> {
+            self.device_ready = true;
+            self.draws.clear();
+            Ok(())
+        }
+
+        fn end(&mut self) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn resize(&mut self, width: u32, height: u32) -> Result<(), Self::Error> {
+            self.size = (width as f32, height as f32);
+            Ok(())
+        }
+
+        fn lose_device(&mut self) {
+            self.device_ready = false;
+        }
+
+        fn clear(&mut self, _rgb: u32) {}
+
+        fn fill(&mut self, _rect: &Rect, _rgb: u32) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn image(&mut self, image: &Self::Image, dest: &Rect) {
+            self.draws.push((*dest, image.non_white_pixels));
+        }
+
+        fn faint_image(&mut self, _image: &Self::Image, _dest: &Rect, _opacity: f32) {}
+
+        fn highlight(
+            &mut self,
+            _quads: &[Quad],
+            _rgb: u32,
+            _wash: Wash,
+        ) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn band(
+            &mut self,
+            _rect: &Rect,
+            _radius: f32,
+            _rgb: u32,
+            _wash: Wash,
+        ) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn dim_outside(
+            &mut self,
+            _screen: &Rect,
+            _hole: &Rect,
+            _radius: f32,
+            _rgb: u32,
+            _alpha: f32,
+        ) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn polyline(&mut self, _points: &[InkPixel], _rgb: u32) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    fn pump_until_drawn(
+        canvas: &mut PageCanvas<RecordingHost>,
+        wake_rx: &mpsc::Receiver<()>,
+        timeout: Duration,
+    ) -> (usize, usize) {
+        let deadline = Instant::now() + timeout;
+        canvas.paint();
+        while Instant::now() < deadline {
+            let _ = wake_rx.recv_timeout(Duration::from_millis(25));
+            while wake_rx.try_recv().is_ok() {}
+            canvas.jobs_done();
+            canvas.paint();
+            let tiles = canvas.host().draws.len();
+            let ink_pixels: usize = canvas.host().draws.iter().map(|(_, n)| *n).sum();
+            if tiles > 0 && ink_pixels > 0 {
+                return (tiles, ink_pixels);
+            }
+        }
+        let tiles = canvas.host().draws.len();
+        let ink_pixels: usize = canvas.host().draws.iter().map(|(_, n)| *n).sum();
+        (tiles, ink_pixels)
+    }
 
     #[test]
     fn a_highlighter_preview_covers_each_segment() {
@@ -2116,5 +2295,58 @@ mod tests {
         );
         assert_eq!(segment_quads(&[(5.0, 5.0, 2.0)]).len(), 1);
         assert!(segment_quads(&[]).is_empty());
+    }
+
+    #[test]
+    fn corpus_pdfs_render_non_blank_tiles_through_resize_scroll_and_zoom() {
+        let corpus = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus");
+        for name in ["zlib-manual.pdf", "base14-outline-annot.pdf"] {
+            let path = corpus.join(name);
+            let (host, wake_rx) = RecordingHost::new(1600.0, 1200.0);
+            let mut canvas = PageCanvas::new(host, 144.0 / 72.0);
+            canvas.open(Some(&path));
+            let (tiles, ink_pixels) =
+                pump_until_drawn(&mut canvas, &wake_rx, Duration::from_secs(5));
+            assert!(tiles > 0, "{name}: expected visible tiles to be drawn");
+            assert!(
+                ink_pixels > 100,
+                "{name}: expected non-blank PDF text/ink pixels, got {ink_pixels}"
+            );
+            // Resize larger (e.g. maximized 4K pane), scroll, and zoom in.
+            canvas.resize(3000, 1986, 144.0 / 72.0);
+            let (resized_tiles, resized_ink) =
+                pump_until_drawn(&mut canvas, &wake_rx, Duration::from_secs(5));
+            assert!(
+                resized_tiles >= tiles && resized_ink > 100,
+                "{name}: resized 3000x1986 viewport should draw full non-blank tiles ({resized_tiles} tiles, {resized_ink} ink px)"
+            );
+            let max_x1 = canvas
+                .host()
+                .draws
+                .iter()
+                .map(|(r, _)| r.x1)
+                .fold(0.0_f32, f32::max);
+            assert!(
+                max_x1 > 2000.0,
+                "{name}: tiles must span past 2000px on a 3000px viewport, got max_x1={max_x1}"
+            );
+            canvas.scroll_by(0.0, 300.0);
+            canvas.zoom_step(ZoomChange::In);
+            let (zoomed_tiles, zoomed_ink) =
+                pump_until_drawn(&mut canvas, &wake_rx, Duration::from_secs(5));
+            assert!(
+                zoomed_tiles > 0 && zoomed_ink > 0,
+                "{name}: scrolled/zoomed view should render non-blank tiles"
+            );
+            // Simulate device loss while tiles are in flight: next paint must recover and upload.
+            canvas.host_mut().lose_device();
+            assert!(!canvas.host().can_upload());
+            let (recovered_tiles, recovered_ink) =
+                pump_until_drawn(&mut canvas, &wake_rx, Duration::from_secs(5));
+            assert!(
+                recovered_tiles > 0 && recovered_ink > 0,
+                "{name}: device-loss recovery should re-upload and draw non-blank tiles"
+            );
+        }
     }
 }

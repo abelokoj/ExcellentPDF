@@ -120,11 +120,18 @@ impl Host for WinHost {
     }
 
     fn begin(&mut self, width: f32, height: f32) -> windows::core::Result<()> {
+        let (w, h) = (
+            width.round().max(1.0) as u32,
+            height.round().max(1.0) as u32,
+        );
         if self.gfx.is_none() {
-            log::debug!("page canvas: new device, {width} x {height}");
-            self.gfx = Some(Gfx::new(self.hwnd, width as u32, height as u32)?);
+            log::debug!("page canvas: new device, {w} x {h}");
+            self.gfx = Some(Gfx::new(self.hwnd, w, h)?);
         }
         let gfx = self.gfx.as_mut().expect("made above");
+        if gfx.size() != (w, h) {
+            gfx.resize(w, h)?;
+        }
         gfx.begin().map(|_| ())
     }
 

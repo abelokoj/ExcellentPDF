@@ -98,6 +98,8 @@ pub(crate) struct Gfx {
     context: ID2D1DeviceContext,
     swap_chain: IDXGISwapChain2,
     waitable: HANDLE,
+    /// The swap chain's current buffer size, in device pixels.
+    size: (u32, u32),
     /// The swap chain took a frame (its waitable object was signalled) that no frame has drawn into yet.
     acquired: bool,
     target: Option<ID2D1Bitmap1>,
@@ -141,10 +143,11 @@ impl Gfx {
             )?;
 
             let dxgi_factory: IDXGIFactory2 = dxgi.GetAdapter()?.GetParent()?;
+            let size = (width.max(1), height.max(1));
             // A composition swap chain stretches to its visual; the visual is always the window's size.
             let desc = DXGI_SWAP_CHAIN_DESC1 {
-                Width: width.max(1),
-                Height: height.max(1),
+                Width: size.0,
+                Height: size.1,
                 Format: DXGI_FORMAT_B8G8R8A8_UNORM,
                 SampleDesc: DXGI_SAMPLE_DESC {
                     Count: 1,
@@ -177,6 +180,7 @@ impl Gfx {
                 context,
                 swap_chain,
                 waitable,
+                size,
                 acquired: false,
                 target: None,
                 round,
@@ -190,20 +194,26 @@ impl Gfx {
         }
     }
 
+    /// The swap chain's current buffer size, in pixels.
+    pub(crate) fn size(&self) -> (u32, u32) {
+        self.size
+    }
+
     /// The window is now `width` × `height` pixels.
     pub(crate) fn resize(&mut self, width: u32, height: u32) -> Result<()> {
+        let next = (width.max(1), height.max(1));
+        if next == self.size {
+            return Ok(());
+        }
         self.target = None;
         // SAFETY: the context lets go of the back buffer before the swap chain resizes it.
         unsafe {
             self.context.SetTarget(None);
-            self.swap_chain.ResizeBuffers(
-                0,
-                width.max(1),
-                height.max(1),
-                DXGI_FORMAT_UNKNOWN,
-                FLAGS,
-            )
+            self.swap_chain
+                .ResizeBuffers(0, next.0, next.1, DXGI_FORMAT_UNKNOWN, FLAGS)?;
         }
+        self.size = next;
+        Ok(())
     }
 
     /// Whether the swap chain takes a frame now, without waiting.
@@ -617,4 +627,162 @@ fn device() -> Result<ID3D11Device> {
         log::warn!("no hardware Direct3D device ({err}); drawing with WARP");
         make(D3D_DRIVER_TYPE_WARP)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::*;
+    use excellent_mupdf::{Background, Document, Matrix};
+    use windows::Win32::Graphics::Direct3D11::{
+        D3D11_CPU_ACCESS_READ, D3D11_MAP_READ, D3D11_MAPPED_SUBRESOURCE, D3D11_TEXTURE2D_DESC,
+        D3D11_USAGE_STAGING, ID3D11Device, ID3D11Texture2D,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DestroyWindow, WINDOW_EX_STYLE, WS_POPUP,
+    };
+    use windows::core::w;
+
+    /// Copies the swap chain's back buffer into a CPU-readable staging texture and counts pixels
+    /// that match neither the background colour nor solid white paper (i.e. rendered PDF ink/text).
+    fn count_rendered_ink_pixels(gfx: &Gfx, bg_rgb: u32) -> (usize, usize) {
+        // SAFETY: COM calls on live swap chain and D3D11 device owned by `gfx`.
+        unsafe {
+            let back_buffer: ID3D11Texture2D = gfx.swap_chain.GetBuffer(0).expect("back buffer");
+            let mut desc = D3D11_TEXTURE2D_DESC::default();
+            back_buffer.GetDesc(&mut desc);
+            let device: ID3D11Device = back_buffer.GetDevice().expect("d3d11 device");
+            let ctx = device.GetImmediateContext().expect("immediate context");
+
+            let staging_desc = D3D11_TEXTURE2D_DESC {
+                Usage: D3D11_USAGE_STAGING,
+                BindFlags: 0,
+                CPUAccessFlags: D3D11_CPU_ACCESS_READ.0 as u32,
+                MiscFlags: 0,
+                ..desc
+            };
+            let mut staging = None;
+            device
+                .CreateTexture2D(&staging_desc, None, Some(&mut staging))
+                .expect("staging texture");
+            let staging = staging.expect("staging texture");
+            ctx.CopyResource(&staging, &back_buffer);
+
+            let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
+            ctx.Map(&staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))
+                .expect("map staging");
+            let bg_r = ((bg_rgb >> 16) & 0xff) as u8;
+            let bg_g = ((bg_rgb >> 8) & 0xff) as u8;
+            let bg_b = (bg_rgb & 0xff) as u8;
+            let mut paper_pixels = 0usize;
+            let mut ink_pixels = 0usize;
+            let row_pitch = mapped.RowPitch as usize;
+            let width = desc.Width as usize;
+            let height = desc.Height as usize;
+            let bytes = std::slice::from_raw_parts(mapped.pData.cast::<u8>(), row_pitch * height);
+            for y in 0..height {
+                let row = &bytes[y * row_pitch..y * row_pitch + width * 4];
+                for &[b, g, r, _] in row.as_chunks::<4>().0 {
+                    if r > 245 && g > 245 && b > 245 {
+                        paper_pixels += 1;
+                    } else if (r, g, b) != (bg_r, bg_g, bg_b) {
+                        ink_pixels += 1;
+                    }
+                }
+            }
+            ctx.Unmap(&staging, 0);
+            (paper_pixels, ink_pixels)
+        }
+    }
+
+    #[test]
+    fn direct2d_swap_chain_renders_and_presents_real_pdf_pages() {
+        let corpus = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus");
+        // SAFETY: plain hidden test HWND destroyed at the end of the test.
+        let hwnd = unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE(0),
+                w!("STATIC"),
+                w!(""),
+                WS_POPUP,
+                0,
+                0,
+                800,
+                600,
+                None,
+                None,
+                None,
+                None,
+            )
+            .expect("test hwnd")
+        };
+        let mut gfx = Gfx::new(hwnd, 800, 600).expect("Gfx::new");
+        let bg = 0xd9d9d9_u32;
+
+        for name in ["zlib-manual.pdf", "base14-outline-annot.pdf"] {
+            let doc = Document::open(corpus.join(name)).expect("open pdf");
+            let page = doc.load_page(0).expect("load page 0");
+            let bounds = page.bounds().expect("bounds");
+            let scale = (600.0 / (bounds.x1 - bounds.x0).max(1.0))
+                .min(560.0 / (bounds.y1 - bounds.y0).max(1.0));
+            let pixmap = page
+                .render(&Matrix::scale(scale, scale), Background::White)
+                .expect("render pixmap");
+            let (pw, ph) = (pixmap.width(), pixmap.height());
+            let n = pixmap.components();
+            let stride = pixmap.stride();
+            let mut bgra = Vec::with_capacity(pw as usize * ph as usize * 4);
+            for row in pixmap.samples().chunks_exact(stride).take(ph as usize) {
+                for px in row[..pw as usize * n].chunks_exact(n) {
+                    bgra.extend_from_slice(&[px[2], px[1], px[0], 0xff]);
+                }
+            }
+            let bitmap = gfx.bitmap(pw, ph, &bgra).expect("upload bitmap");
+            let dest = D2D_RECT_F {
+                left: 100.0,
+                top: 20.0,
+                right: 100.0 + pw as f32,
+                bottom: 20.0 + ph as f32,
+            };
+            {
+                let dc = gfx.begin().expect("begin");
+                clear(dc, bg);
+                draw_bitmap(dc, &bitmap, &dest, 1.0);
+            }
+            // SAFETY: ending the Direct2D draw before reading back buffer 0, then presenting.
+            unsafe {
+                gfx.context().EndDraw(None, None).expect("EndDraw");
+            }
+            let (paper, ink) = count_rendered_ink_pixels(&gfx, bg);
+            assert!(
+                paper > 10_000,
+                "{name}: expected white page area in back buffer, got {paper} paper px"
+            );
+            assert!(
+                ink > 200,
+                "{name}: expected rendered PDF text/ink pixels in back buffer, got {ink} ink px"
+            );
+            // SAFETY: presenting the drawn back buffer.
+            unsafe {
+                gfx.swap_chain
+                    .Present(1, DXGI_PRESENT(0))
+                    .ok()
+                    .expect("Present");
+            }
+        }
+
+        // Verify resize updates swap chain cleanly and still presents non-blank pixels.
+        gfx.resize(1200, 900).expect("resize");
+        assert_eq!(gfx.size(), (1200, 900));
+        gfx.begin().expect("begin after resize");
+        clear(gfx.context(), bg);
+        gfx.end().expect("end after resize");
+
+        drop(gfx);
+        // SAFETY: destroy our test window.
+        unsafe {
+            let _ = DestroyWindow(hwnd);
+        }
+    }
 }
