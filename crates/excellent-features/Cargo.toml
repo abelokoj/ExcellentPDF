@@ -8,12 +8,22 @@ repository.workspace = true
 description = "One module per feature tag: model, view and tests"
 
 [dependencies]
+base64.workspace = true
+ed25519-dalek.workspace = true
+excellent-ai.workspace = true
 excellent-core.workspace = true
 excellent-ink.workspace = true
 excellent-mupdf.workspace = true
+excellent-platform.workspace = true
+excellent-store.workspace = true
 excellent-text.workspace = true
+flate2.workspace = true
 quick-xml.workspace = true
+rusqlite.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+ureq.workspace = true
+zip.workspace = true
 
 [dev-dependencies]
 toml.workspace = true
