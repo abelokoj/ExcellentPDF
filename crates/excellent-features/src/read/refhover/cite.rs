@@ -22,7 +22,7 @@ pub struct AuthorYear {
     pub source: Rect,
 }
 
-/// A numeric citation: "[12]", or the number nearest the pointer in "[3, 7-9]".
+/// A numeric citation: "\[12\]", or the number nearest the pointer in "\[3, 7-9\]".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Numeric {
     /// The reference number.
@@ -516,7 +516,7 @@ pub fn detect_numeric(text: &PageText, x: i32, y: i32) -> Option<Numeric> {
     Some(Numeric { number, source })
 }
 
-/// The reference entry "[number]": a "[number]" with clear space to its left on its line (the margin or a gutter, so
+/// The reference entry "\[number\]": a "\[number\]" with clear space to its left on its line (the margin or a gutter, so
 /// any column of a two-column list), not at `source`.
 pub fn find_numeric_reference(
     text: &PageText,

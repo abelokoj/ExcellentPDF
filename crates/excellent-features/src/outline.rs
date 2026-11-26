@@ -418,7 +418,7 @@ pub fn path(id: &str) -> Option<Vec<usize>> {
 /// The longest title an entry takes from selected text, in characters.
 const TITLE_LIMIT: usize = 200;
 
-/// The title of an entry made from selected text (B.1 step 3): its words on one line, at most [`TITLE_LIMIT`]
+/// The title of an entry made from selected text (B.1 step 3): its words on one line, at most `TITLE_LIMIT`
 /// characters and an ellipsis, cut between words where it can be; `None` when there is no text.
 pub fn title_from_selection(text: &str) -> Option<String> {
     let mut title = String::new();
