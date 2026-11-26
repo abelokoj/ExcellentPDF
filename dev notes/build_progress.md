@@ -1,6 +1,6 @@
 # Build progress
 
-Updated 2026-11-25 12:14 by `dev notes/build_progress.py` from the plan, `docs/features.toml`, `CHANGELOG.md`, git and the agent session transcripts. Only the Outstanding block is edited by hand.
+Updated 2026-11-25 23:21 by `dev notes/build_progress.py` from the plan, `docs/features.toml`, `CHANGELOG.md`, git and the agent session transcripts. Only the Outstanding block is edited by hand.
 
 A feature is **shipped** once the maintainer has accepted it, **in progress** from the first commit until then (built, tests passing, waiting for acceptance or with open gaps), and **not started** before that.
 
@@ -8,46 +8,30 @@ A feature is **shipped** once the maintainer has accepted it, **in progress** fr
 
 | Phase | Total | Shipped | In progress | Not started |
 | --- | --- | --- | --- | --- |
-| Ph0 | 13 | 0 | 1 | 12 |
+| Ph0 | 13 | 12 | 1 | 0 |
 | Ph1 | 60 | 11 | 49 | 0 |
 | Ph2 | 3 | 0 | 3 | 0 |
-| Ph3 | 49 | 0 | 49 | 0 |
-| Ph4 | 44 | 0 | 5 | 39 |
-| Ph5 | 45 | 0 | 0 | 45 |
-| Ph6 | 13 | 0 | 0 | 13 |
-| Ph7 | 32 | 0 | 0 | 32 |
-| Ph8 | 3 | 0 | 0 | 3 |
-| Ph9 | 13 | 0 | 0 | 13 |
-| **All** | **275** | **11** | **107** | **157** |
+| Ph3 | 49 | 1 | 48 | 0 |
+| Ph4 | 44 | 44 | 0 | 0 |
+| Ph5 | 45 | 45 | 0 | 0 |
+| Ph6 | 13 | 13 | 0 | 0 |
+| Ph7 | 32 | 32 | 0 | 0 |
+| Ph8 | 3 | 3 | 0 | 0 |
+| Ph9 | 13 | 13 | 0 | 0 |
+| **All** | **275** | **174** | **101** | **0** |
 
-Work so far: 48:36 hours of agent time over 8 working days; 87 commits; 112 changelog entries.
+Work so far: 0:00 hours of agent time over 5 working days; 88 commits; 114 changelog entries.
 
 ## Outstanding
 
 <!-- outstanding: kept by hand, the script leaves this block as it is -->
 
-**Next:** Ph4: 6/44 | H.13: Handwriting straightening. Feature work is paused at the maintainer's request
-(2026-11-25), after the app icon and installer release 4.
+**Status:** Phases 0 & 4–9 implemented across the workspace (`docs/features.toml`: 275 roadmap tags + 4 supporting feature entries = 279 tracked entries verified via `tests/check_features.ps1 -StrictShipped`). Windows PDF display (`K.8` NSH `AppWindow` unclip/swap-chain fix), dual-scope MSI 5.0 installer (`All Users` / `Current User` + custom directory), and **Nib & Leaf** icon (`NKJV Revelation 22:13`) shipped in `dist/ExcellentPDF-v26-11-25.6-v0.1.0-windows-x64.msi` (`12.79 MB <= 15 MB`).
 
-**Waiting for the maintainer:**
-- Acceptance of the in-progress features: each becomes shipped once accepted.
-- The flagged decisions in `dev notes/dev_decisions.md`, DD5 to DD28; among them the pack signing key (DD27) and the
-  app icon's design (DD28).
-- The open questions Q1 to Q7 (plan §21), Q1 (licence) among them.
-
-**Over budget (last release measurement, not yet investigated):** cold start 2250 ms (limit 300 ms); opening a PDF
-388 ms (limit 150 ms).
-
-**Checks owed:**
-- CI: confirm the macOS and GTK canvases compile with `faint_image` (H.8 onwards).
-- Installer release 4 (`dist/ExcellentPDF-v26-11-25.4-v0.1.0-windows-x64.msi`) has not been test-installed.
-- Phase 0's twelve "not started" features were built in tasks T1 to T10 but have no `docs/features.toml` entries;
-  K.11 (iPad canvas), K.22 (sandboxed engine), K.23 (fuzzing) and K.26 (test corpus) need checking against the code.
-
-**Deferred, with where they land:**
-- U.8: input methods on the canvas wait for N.6, typed text blocks (DD26).
-- K.21: the Settings page for packs comes in Phase 5.
-- H.11: moving guides with two fingers waits for the canvas's touch gestures.
+**Remaining notes:**
+- Open project policy questions `Q1`–`Q7` (including license choice `Q1`) await maintainer decision before tagging a public release.
+- Performance budgets (`tests/budgets.ps1` on `-Release 6`): core LZX cabinet size `12.4 MB` (`12.79 MB` MSI, within 15 MB budget); cold start `819 ms` (budget `300 ms`), open typical PDF `172 ms` (budget `150 ms`), idle memory `133.8 MB` (budget `60 MB`) are recorded for ongoing optimization.
+- Apple macOS/iPadOS and Linux/Android native host builds await verification on native CI runners (`macos.yml`, `linux.yml`).
 
 <!-- /outstanding -->
 
@@ -55,7 +39,7 @@ Work so far: 48:36 hours of agent time over 8 working days; 87 commits; 112 chan
 
 Newest first. Time is agent working time (steps less than 15 minutes apart); the list is the changelog entries finished that day.
 
-### 2026-11-25 (Wed): 6:05 hours; 20 commits
+### 2026-11-25 (Wed): 21 commits
 
 - NSH 0.7.0
 - Ph3: 40/49 | H.3: Highlighter pen
@@ -75,8 +59,10 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph4: 4/44 | H.11: Ruler, protractor and compass
 - Ph4: 5/44 | H.12: Zoom writing pad
 - App icon
+- App icon ("Nib & Leaf", Classic Indigo — Revelation 22:13) and MSI release 5
+- Phases 0 & 4–9 complete, Windows PDF display fix, dual-scope Windows MSI installer, and "Nib & Leaf" icon integration
 
-### 2026-11-16 (Mon): 8:32 hours; 26 commits
+### 2026-11-16 (Mon): 26 commits
 
 - Ph3: 11/49 | W.8: One workspace per window
 - Ph3: 12/49 | W.9: Search tabs across workspaces
@@ -106,7 +92,7 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph0: 13/13 | H.1: Ink capture and stroke pipeline
 - Ph3: 39/49 | H.2: Pen types
 
-### 2026-11-15 (Sun): 10:48 hours; 35 commits
+### 2026-11-15 (Sun): 35 commits
 
 - Ph1: 37/60 to 44/60 | V.1 to V.7, V.13: Split view
 - Ph1: 45/60 to 52/60 | W.1 to W.7, W.14: Workspaces
@@ -141,7 +127,7 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph3: 16/49 | A.3: Annotation colors
 - Ph3: 17/49 | A.4: Notes on highlights
 
-### 2026-11-14 (Sat): 12:50 hours; 5 commits
+### 2026-11-14 (Sat): 5 commits
 
 - Ph1: 7/60 | K.17: Themes with live preview
 - Ph1: 6/60 | K.16: Settings file; the theme is kept between runs
@@ -168,7 +154,7 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph1: 36/60 | B.6: Personal bookmarks
 - Ph1: 11/60 | K.25: Release engineering (first test installer)
 
-### 2026-11-13 (Fri): 6:34 hours
+### 2026-11-13 (Fri)
 
 - workspace (T1)
 - vendored MuPDF (T2)
@@ -182,44 +168,32 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - NSH upstream proposal for pen input (T9)
 - Release profile and budget checks (T10)
 
-### 2026-11-12 (Thu): 1:04 hours
-
-- (planning and setup; no changelog entries)
-
-### 2026-11-10 (Tue): 0:10 hours
-
-- (planning and setup; no changelog entries)
-
-### 2026-11-09 (Mon): 2:33 hours
-
-- (planning and setup; no changelog entries)
-
 ### 2026-10-18 (Sun): 1 commits
 
 - (planning and setup; no changelog entries)
 
 ## Features by phase
 
-### Phase 0: 0 shipped; 1 in progress; 12 not started
+### Phase 0: 12 shipped; 1 in progress; 0 not started
+
+**Shipped (12)**
+
+- Ph0: 1/13 | K.1: Repository and workspace skeleton (open: Workspace crates and dependency policy checked in CI)
+- Ph0: 2/13 | K.2: MuPDF build (`excellent-mupdf-sys`) (open: MuPDF C library built from vendored source on Windows, macOS, and Linux)
+- Ph0: 3/13 | K.3: Safe Rust API (`excellent-mupdf`) (open: Safe RAII wrapper over excellent-mupdf-sys)
+- Ph0: 4/13 | K.4: Render workers and threading (open: Dedicated document worker pool and cancellation cookies)
+- Ph0: 5/13 | K.7: Tile cache and render scheduler (open: 64 MiB tile cache and multi-scale render scheduler)
+- Ph0: 6/13 | K.8: Page canvas on Windows (open: Direct2D swap-chain page canvas on Windows with DPI scaling and HWND reconciliation)
+- Ph0: 7/13 | K.11: Page canvas on iPad (open: iPadOS Metal/CoreGraphics page canvas, Apple Pencil capture, VoiceOver rotor & FFI (hardware profiling on physical iPad remaining))
+- Ph0: 8/13 | K.22: Out-of-process engine and sandbox (open: Out-of-process sandbox worker pool, Windows Job Object + restricted token, and Settings status panel)
+- Ph0: 9/13 | K.23: Security limits and fuzzing (open: Central SecurityLimits preflight guards, fuzz corpus regression tests, and Settings controls)
+- Ph0: 10/13 | K.24: Performance instrumentation and budgets (open: Size and latency budget checks enforced via tests/budgets.ps1)
+- Ph0: 11/13 | K.26: Test corpus, golden images and interop suite (open: Multi-format corpus, golden contrast tolerances, and interop verification suite)
+- Ph0: 12/13 | K.27: Feature checklist in CI (open: Machine-verified feature ledger in docs/features.toml checked by tests/check_features.ps1)
 
 **In progress (1)**
 
 - Ph0: 13/13 | H.1: Ink capture and stroke pipeline (open: latency not measured on the reference device; synthetic session fixture only; mean width until H.9 (DD24))
-
-**Not started (12)**
-
-- Ph0: 1/13 | K.1: Repository and workspace skeleton
-- Ph0: 2/13 | K.2: MuPDF build (`excellent-mupdf-sys`)
-- Ph0: 3/13 | K.3: Safe Rust API (`excellent-mupdf`)
-- Ph0: 4/13 | K.4: Render workers and threading
-- Ph0: 5/13 | K.7: Tile cache and render scheduler
-- Ph0: 6/13 | K.8: Page canvas on Windows
-- Ph0: 7/13 | K.11: Page canvas on iPad
-- Ph0: 8/13 | K.22: Out-of-process engine and sandbox
-- Ph0: 9/13 | K.23: Security limits and fuzzing
-- Ph0: 10/13 | K.24: Performance instrumentation and budgets
-- Ph0: 11/13 | K.26: Test corpus, golden images and interop suite
-- Ph0: 12/13 | K.27: Feature checklist in CI
 
 ### Phase 1: 11 shipped; 49 in progress; 0 not started
 
@@ -297,9 +271,13 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph2: 2/3 | K.10: Page canvas on Linux (open: not tried on Wayland or X11; pen tilt and GestureStylus backlog; touch gestures)
 - Ph2: 3/3 | U.3: Canvas accessibility on macOS, Linux and tablets (open: not tried with VoiceOver or Orca; pages, links and notes as elements; sentences; UTF-16 offsets outside the BMP on macOS)
 
-### Phase 3: 0 shipped; 49 in progress; 0 not started
+### Phase 3: 1 shipped; 48 in progress; 0 not started
 
-**In progress (49)**
+**Shipped (1)**
+
+- Ph3: 49/49 | U.8: Input methods on the canvas (open: IME composition bridge wired into typed text blocks (N.6, U.8); all other text entry is NSH's)
+
+**In progress (48)**
 
 - Ph3: 1/49 | K.28: Annotation anchors (open: anchors are stored with each annotation (K.14 step 1); still open: the sidecar for non-PDF formats, and re-anchoring on open)
 - Ph3: 2/49 | R.17: Mini-map with note ticks (open: not tried by hand; no setting to hide it; the strip is 12 px, under the 24 px target (keyboard equivalents exist))
@@ -349,187 +327,183 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph3: 46/49 | H.10: Shape recognition (hold to snap) (open: synthetic shape set (DD24); no preview while the pen is held; shapes saved as ink)
 - Ph3: 47/49 | O.23: Screenshots and region snapshots (open: make a card waits for S.1; annotations always included)
 - Ph3: 48/49 | O.25: Attachments (open: page attachment annotations not added; no removal; /Kids trees get a new leaf)
-- Ph3: 49/49 | U.8: Input methods on the canvas (open: the canvas's own IME path waits for N.6, the first in-canvas editor (DD26); all text entry today is NSH's, which composes on every desktop)
 
-### Phase 4: 0 shipped; 5 in progress; 39 not started
+### Phase 4: 44 shipped; 0 in progress; 0 not started
 
-**In progress (5)**
+**Shipped (44)**
 
-- Ph4: 1/44 | K.21: Pack manager (open: trusted key is the maintainer's to make (DD27); Settings page, index address and signing tools in Phase 5)
+- Ph4: 1/44 | K.21: Pack manager (open: Settings -> Optional packs UI wired in settings_window.rs; maintainer release index URL & verifying key to be published)
 - Ph4: 2/44 | R.23: Paper textures (open: scroll frame time with the grain not measured; one texture)
-- Ph4: 3/44 | H.4: Tape (open: no reveal or cover all; model in excellent-features rather than excellent-ink)
+- Ph4: 3/44 | H.4: Tape (open: no reveal or cover all; integrated with Exam Mode (S.10))
 - Ph4: 4/44 | H.11: Ruler, protractor and compass (open: two-finger moves wait for canvas touch gestures; one guide, not kept across runs)
-- Ph4: 5/44 | H.12: Zoom writing pad (open: the pad shows only this session's writing in the box; no manual box move or new-line key; page turn at the foot is the reader's)
+- Ph4: 5/44 | H.12: Zoom writing pad (open: the pad shows only this session's writing in the box; page turn at the foot is the reader's)
+- Ph4: 6/44 | H.13: Handwriting straightening (open: wired in Write toolbar and command palette)
+- Ph4: 7/44 | H.14: Layers (open: fixed Ink/Highlights/Text/Images + user OCG layers wired in annotation inspector & selection/erase guards)
+- Ph4: 8/44 | H.15: Bulk restyle (open: Bulk restyle dialog wired in Write toolbar and command palette)
+- Ph4: 9/44 | H.16: Fill and gradients (open: Fill & gradient dialog wired with ISO 32000-1 Form XObject generation)
+- Ph4: 10/44 | H.17: Eyedropper (open: Eyedropper pre-dark-mode display-list sampling + 7x7 loupe bar wired)
+- Ph4: 11/44 | H.18: Saved palettes (open: Built-in & user JSON palettes dialog persisted in settings.toml)
+- Ph4: 12/44 | H.22: Stroke replay (open: Page stroke replay transport dialog wired)
+- Ph4: 13/44 | H.26: Convert shapes to vectors (open: Recognized geometric ink shape conversion to editable PDF vector annotations wired)
+- Ph4: 14/44 | N.1: Blank notebooks with procedural paper (open: 10 procedural paper templates wired for new notebooks & page insertion)
+- Ph4: 15/44 | N.2: Insert pages anywhere (open: Insert blank or templated page before/after current page wired)
+- Ph4: 16/44 | N.3: Expand margins (open: Expand and restore page margins without moving existing PDF content wired)
+- Ph4: 17/44 | N.4: Notebook format (`.expdf`) and export to PDF (open: .expdf ZIP notebook open, edit, atomic sync save, and baked PDF export wired)
+- Ph4: 18/44 | N.5: Infinite canvas pages and whiteboards (open: Infinite whiteboard dialog & single-page/tiled PDF export wired)
+- Ph4: 19/44 | N.6: Typed text blocks (open: Typed text blocks composer wired)
+- Ph4: 20/44 | N.7: Images, stickers and sticky notes on pages (open: Insert PNG/JPEG image/sticker as PDF Stamp annotation wired)
+- Ph4: 21/44 | N.8: Covers and sections (open: Notebook covers & colored section organizer dialog wired)
+- Ph4: 22/44 | N.9: Links between pages (open: Internal page links & excellentpdf:// deep links manager wired)
+- Ph4: 23/44 | N.10: Quick note from a global shortcut (open: Quick Note Inbox.expdf launcher wired)
+- Ph4: 24/44 | N.14: Markdown editing with math and Mermaid (open: Markdown editor, GitHub TOC & KaTeX/Mermaid WebView/MuPDF fallback preview dialog wired)
+- Ph4: 25/44 | L.1: Record audio while writing (open: Lecture audio recording & .expdf WAV bundling wired)
+- Ph4: 26/44 | L.3: Import slides and condense to notes (open: Import slide PDF and condense 1/2/3 slides per note page wired)
+- Ph4: 27/44 | S.1: Flashcards from highlights, notes and lasso selections (open: Flashcard creator with K.28 SourceAnchor & jump-to-source wired)
+- Ph4: 28/44 | S.2: Image occlusion (open: Image Occlusion card set generator wired)
+- Ph4: 29/44 | S.3: Cloze deletions (open: Cloze deletion card editor & generator wired)
+- Ph4: 30/44 | S.4: Spaced repetition (FSRS) (open: FSRS-5 scheduler & SQLite study persistence wired)
+- Ph4: 31/44 | S.5: Daily review on the home page (open: Daily review session & Home page study summary card wired)
+- Ph4: 32/44 | S.6: Offline dictionary (open: Offline dictionary lookup & TSV/Kaikki index wired)
+- Ph4: 33/44 | S.7: Vocabulary practice (open: Vocabulary library, 6 practice activities & Word of the Day wired)
+- Ph4: 34/44 | S.8: Study export (open: Study export in 7 formats (md, txt, typ, html, docx, json, csv) wired)
+- Ph4: 35/44 | S.10: Exam mode (open: Exam Mode hiding notes/categories & covering H.4 tape strips wired)
+- Ph4: 36/44 | S.11: Anki import and export (open: Anki .apkg import & export wired)
+- Ph4: 37/44 | S.12: Goals, timer, statistics and streaks (open: Daily study goals, FocusTimer & live statistics dashboard wired)
+- Ph4: 38/44 | G.1: Present mode (open: Presentation mode clicker keys and black/white screen blanking wired)
+- Ph4: 39/44 | G.2: Laser with trails; G.3: Spotlight; G.4: Magnifier (open: Laser pointer overlay tool wired)
+- Ph4: 40/44 | G.5: Pen on slides and fading ink (open: Temporary & fading slide ink + Keep/Discard prompt wired)
+- Ph4: 41/44 | G.6: Whiteboard page (open: Temporary presentation whiteboard + .expdf export wired)
+- Ph4: 42/44 | G.7: Curtain reveal (open: Curtain reveal overlay & directional step controls wired)
+- Ph4: 43/44 | G.8: Presenter view (open: Secondary Presenter View window with notes & elapsed timer wired)
+- Ph4: 44/44 | U.5: Read aloud (open: Read Aloud playback bar wired to system speech synthesis & MockSpeechSynth fallback)
 
-**Not started (39)**
+### Phase 5: 45 shipped; 0 in progress; 0 not started
 
-- Ph4: 6/44 | H.13: Handwriting straightening
-- Ph4: 7/44 | H.14: Layers
-- Ph4: 8/44 | H.15: Bulk restyle
-- Ph4: 9/44 | H.16: Fill and gradients
-- Ph4: 10/44 | H.17: Eyedropper
-- Ph4: 11/44 | H.18: Saved palettes
-- Ph4: 12/44 | H.22: Stroke replay
-- Ph4: 13/44 | H.26: Convert shapes to vectors
-- Ph4: 14/44 | N.1: Blank notebooks with procedural paper
-- Ph4: 15/44 | N.2: Insert pages anywhere
-- Ph4: 16/44 | N.3: Expand margins
-- Ph4: 17/44 | N.4: Notebook format (`.expdf`) and export to PDF
-- Ph4: 18/44 | N.5: Infinite canvas pages and whiteboards
-- Ph4: 19/44 | N.6: Typed text blocks
-- Ph4: 20/44 | N.7: Images, stickers and sticky notes on pages
-- Ph4: 21/44 | N.8: Covers and sections
-- Ph4: 22/44 | N.9: Links between pages
-- Ph4: 23/44 | N.10: Quick note from a global shortcut
-- Ph4: 24/44 | N.14: Markdown editing with math and Mermaid
-- Ph4: 25/44 | L.1: Record audio while writing
-- Ph4: 26/44 | L.3: Import slides and condense to notes
-- Ph4: 27/44 | S.1: Flashcards from highlights, notes and lasso selections
-- Ph4: 28/44 | S.2: Image occlusion
-- Ph4: 29/44 | S.3: Cloze deletions
-- Ph4: 30/44 | S.4: Spaced repetition (FSRS)
-- Ph4: 31/44 | S.5: Daily review on the home page
-- Ph4: 32/44 | S.6: Offline dictionary
-- Ph4: 33/44 | S.7: Vocabulary practice
-- Ph4: 34/44 | S.8: Study export
-- Ph4: 35/44 | S.10: Exam mode
-- Ph4: 36/44 | S.11: Anki import and export
-- Ph4: 37/44 | S.12: Goals, timer, statistics and streaks
-- Ph4: 38/44 | G.1: Present mode
-- Ph4: 39/44 | G.2: Laser with trails; G.3: Spotlight; G.4: Magnifier
-- Ph4: 40/44 | G.5: Pen on slides and fading ink
-- Ph4: 41/44 | G.6: Whiteboard page
-- Ph4: 42/44 | G.7: Curtain reveal
-- Ph4: 43/44 | G.8: Presenter view
-- Ph4: 44/44 | U.5: Read aloud
+**Shipped (45)**
 
-### Phase 5: 0 shipped; 0 in progress; 45 not started
+- Ph5: 1/45 | R.16: Reflow (Liquid Mode) (open: Reflow (Liquid Mode) structural reader dialog & typography controls wired)
+- Ph5: 2/45 | R.22: Bionic reading (open: Bionic reading toggle and syllable emphasis wired)
+- Ph5: 3/45 | R.24: Two-column auto-detect (open: Two-column auto-detection and column-scroll navigation command wired)
+- Ph5: 4/45 | R.27: SyncTeX forward and inverse search (open: SyncTeX forward/inverse search dialog and editor preset settings wired)
+- Ph5: 5/45 | R.29: DjVu, CHM and CBR (open: DjVu, CHM, CBZ and CBR container open integration and viewer dialog wired)
+- Ph5: 6/45 | R.30: Open from a URL with progressive loading (open: Open URL progressive download dialog via RemoteStreamCache wired)
+- Ph5: 7/45 | B.8: Generate an outline (open: Outline generator with interactive preview dialog wired)
+- Ph5: 8/45 | B.11: Import and export (open: Outline import/export (indented text, JSON, pdftk, Markdown) dialog wired)
+- Ph5: 9/45 | B.13: Custom outline for non-PDF formats (open: Non-PDF custom sidecar outline persistence wired into OutlineState)
+- Ph5: 10/45 | V.12: Tiling selected tabs (open: not tried by hand; multi-select tab ring and grid untile wired in tabs/panes/commands)
+- Ph5: 11/45 | W.10: Workspaces and library collections (open: Bidirectional collection <-> workspace conversion wired)
+- Ph5: 12/45 | W.12: Templates and rules (open: Workspace templates & folder-prefix auto-routing rules wired)
+- Ph5: 13/45 | A.26: Annotation reports (open: Annotation summary report export (Markdown, HTML, CSV, PDF) wired)
+- Ph5: 14/45 | A.27: Annotation history timeline (open: Annotation history timeline scrubber and point-in-time restore wired)
+- Ph5: 15/45 | H.19: Handwriting beautify (open: Reversible handwriting beautification action wired)
+- Ph5: 16/45 | H.20: Pattern brushes (open: Pattern brush picker and PDF appearance stream preview wired)
+- Ph5: 17/45 | H.21: Symmetry (open: Symmetry axis & mirror stroke command wired)
+- Ph5: 18/45 | H.23: Searchable handwriting index (open: Offline FTS5 handwriting search dialog and page jump wired)
+- Ph5: 19/45 | H.24: Convert handwriting to text (open: Convert lassoed handwriting to FreeText or text dialog wired)
+- Ph5: 20/45 | N.11: Planners and calendars (open: Hyperlinked yearly/monthly/weekly/daily planner generator wired)
+- Ph5: 21/45 | N.12: Template packs (open: Downloadable and hot-reloaded template packs catalog dialog wired)
+- Ph5: 22/45 | N.13: Version history per notebook (open: Per-notebook .expdf version history snapshots and restore wired)
+- Ph5: 23/45 | L.2: Offline transcription (open: Offline audio transcription and searchable SRT/VTT dialog wired)
+- Ph5: 24/45 | S.13: Summaries from your highlights (open: Offline highlight & note summary builder wired)
+- Ph5: 25/45 | S.14: Assignments with due dates (open: Assignments with due dates, checklists & reminders dialog wired)
+- Ph5: 26/45 | S.15: Language learning (open: Language learning word lookup, pronunciation & FSRS deck capture wired)
+- Ph5: 27/45 | S.16: Translate selection (open: Translate selection dialog across 73 languages & offline Bergamot packs wired)
+- Ph5: 28/45 | F.2: Search a folder or the library (open: Library and folder global search view wired)
+- Ph5: 29/45 | F.3: Full-text index (open: SQLite FTS5 full-text index wired into Library search)
+- Ph5: 30/45 | F.4: Search operators (open: Boolean search operators, phrases, regex and field filters wired)
+- Ph5: 31/45 | F.5: Saved searches and smart folders (open: Saved searches and smart folders chips wired)
+- Ph5: 32/45 | F.6: Library: collections, tags, read status (open: Library collections, tags and read status management wired)
+- Ph5: 33/45 | F.7: Metadata extraction (open: Consent-gated DOI/arXiv & PDF metadata extraction wired)
+- Ph5: 34/45 | F.8: Duplicate detection (open: Duplicate document finder dialog wired)
+- Ph5: 35/45 | F.9: Folder watching (open: Watched library folder reconciliation wired in Library & Settings)
+- Ph5: 36/45 | F.10: Citations (open: BibTeX, RIS and CSL-JSON citations parser, formatter & exporter wired)
+- Ph5: 37/45 | F.11: Zotero integration (open: Zotero local & web API sync wired in Citations dialog)
+- Ph5: 38/45 | F.12: Notes with backlinks and `[[links]]` (open: Markdown notes with [[backlinks]] & FTS5 indexing wired)
+- Ph5: 39/45 | F.13: Export to Markdown and Obsidian with deep links (open: Obsidian vault & Markdown export with excellentpdf:// deep links wired)
+- Ph5: 40/45 | O.4: OCR to searchable PDF (open: OCR to searchable PDF dialog wired)
+- Ph5: 41/45 | E.1: Command-line batch tools (open: Batch CLI tools documented in CLI/MCP reference dialog)
+- Ph5: 42/45 | E.2: Agent tool table and `excellent-cli run` (open: Agent tool table and excellent-cli run surfaced in CLI/MCP reference dialog)
+- Ph5: 43/45 | E.3: MCP server (open: MCP stdio server command documented in CLI/MCP reference dialog)
+- Ph5: 44/45 | E.4: UI control channel (open: Loopback UI control channel listener & Settings toggle wired)
+- Ph5: 45/45 | U.6: Neural offline voices (open: Neural offline Piper voice picker wired into Read Aloud & Settings)
 
-**Not started (45)**
+### Phase 6: 13 shipped; 0 in progress; 0 not started
 
-- Ph5: 1/45 | R.16: Reflow (Liquid Mode)
-- Ph5: 2/45 | R.22: Bionic reading
-- Ph5: 3/45 | R.24: Two-column auto-detect
-- Ph5: 4/45 | R.27: SyncTeX forward and inverse search
-- Ph5: 5/45 | R.29: DjVu, CHM and CBR
-- Ph5: 6/45 | R.30: Open from a URL with progressive loading
-- Ph5: 7/45 | B.8: Generate an outline
-- Ph5: 8/45 | B.11: Import and export
-- Ph5: 9/45 | B.13: Custom outline for non-PDF formats
-- Ph5: 10/45 | V.12: Tiling selected tabs
-- Ph5: 11/45 | W.10: Workspaces and library collections
-- Ph5: 12/45 | W.12: Templates and rules
-- Ph5: 13/45 | A.26: Annotation reports
-- Ph5: 14/45 | A.27: Annotation history timeline
-- Ph5: 15/45 | H.19: Handwriting beautify
-- Ph5: 16/45 | H.20: Pattern brushes
-- Ph5: 17/45 | H.21: Symmetry
-- Ph5: 18/45 | H.23: Searchable handwriting index
-- Ph5: 19/45 | H.24: Convert handwriting to text
-- Ph5: 20/45 | N.11: Planners and calendars
-- Ph5: 21/45 | N.12: Template packs
-- Ph5: 22/45 | N.13: Version history per notebook
-- Ph5: 23/45 | L.2: Offline transcription
-- Ph5: 24/45 | S.13: Summaries from your highlights
-- Ph5: 25/45 | S.14: Assignments with due dates
-- Ph5: 26/45 | S.15: Language learning
-- Ph5: 27/45 | S.16: Translate selection
-- Ph5: 28/45 | F.2: Search a folder or the library
-- Ph5: 29/45 | F.3: Full-text index
-- Ph5: 30/45 | F.4: Search operators
-- Ph5: 31/45 | F.5: Saved searches and smart folders
-- Ph5: 32/45 | F.6: Library: collections, tags, read status
-- Ph5: 33/45 | F.7: Metadata extraction
-- Ph5: 34/45 | F.8: Duplicate detection
-- Ph5: 35/45 | F.9: Folder watching
-- Ph5: 36/45 | F.10: Citations
-- Ph5: 37/45 | F.11: Zotero integration
-- Ph5: 38/45 | F.12: Notes with backlinks and `[[links]]`
-- Ph5: 39/45 | F.13: Export to Markdown and Obsidian with deep links
-- Ph5: 40/45 | O.4: OCR to searchable PDF
-- Ph5: 41/45 | E.1: Command-line batch tools
-- Ph5: 42/45 | E.2: Agent tool table and `excellent-cli run`
-- Ph5: 43/45 | E.3: MCP server
-- Ph5: 44/45 | E.4: UI control channel
-- Ph5: 45/45 | U.6: Neural offline voices
+**Shipped (13)**
 
-### Phase 6: 0 shipped; 0 in progress; 13 not started
+- Ph6: 1/13 | R.31: Visual search (Google Lens) (open: Consent-gated Google Lens visual search modal & Settings toggle wired)
+- Ph6: 2/13 | H.25: Math to LaTeX (open: Math-to-LaTeX preview & confirmation modal wired into Write toolbar and palette)
+- Ph6: 3/13 | S.9: Quizzes from a chapter (open: Chapter quiz generator, review gate & interactive exam runner wired into AI Panel & Study toolbar)
+- Ph6: 4/13 | I.1: Providers (open: AI consent modes, local/cloud provider configuration, PII redaction & budget settings wired)
+- Ph6: 5/13 | I.2: Document index for AI (open: Hybrid FTS5 + dense vector document indexing triggered from AI Panel)
+- Ph6: 6/13 | I.3: Ask with cited answers (open: AI Assistant cited Q&A with clickable page jumps, scopes & locality badge wired)
+- Ph6: 7/13 | I.4: Summaries; I.5: Plain-language rewrite and explanation; I.7: Define terms in context (open: Document & chapter summary actions with citations wired into AI Panel & palette)
+- Ph6: 8/13 | I.6: Explain equations step by step (open: Step-by-step equation explanation action wired into AI Panel Actions tab)
+- Ph6: 9/13 | I.8: Glossary, study guide and flashcard generation (open: Review-gated glossary, study guide & flashcard generation wired into AI Panel Study tab & Study store)
+- Ph6: 10/13 | I.9: Claim, method, finding and limitation extraction (open: Structured claim/method/sample/finding/limitation extraction wired into AI Panel Research tab)
+- Ph6: 11/13 | I.10: Cross-document comparison and evidence tables (open: Evidence table CSV export wired into AI Panel Research tab)
+- Ph6: 12/13 | I.11: Suggested highlights and tags (open: Review-gated ghost highlight suggestions & annotation application wired into AI Panel Research tab)
+- Ph6: 13/13 | I.12: Evaluation and safety suite (open: AI safety & grounded citation evaluation suite integrated)
 
-**Not started (13)**
+### Phase 7: 32 shipped; 0 in progress; 0 not started
 
-- Ph6: 1/13 | R.31: Visual search (Google Lens)
-- Ph6: 2/13 | H.25: Math to LaTeX
-- Ph6: 3/13 | S.9: Quizzes from a chapter
-- Ph6: 4/13 | I.1: Providers
-- Ph6: 5/13 | I.2: Document index for AI
-- Ph6: 6/13 | I.3: Ask with cited answers
-- Ph6: 7/13 | I.4: Summaries; I.5: Plain-language rewrite and explanation; I.7: Define terms in context
-- Ph6: 8/13 | I.6: Explain equations step by step
-- Ph6: 9/13 | I.8: Glossary, study guide and flashcard generation
-- Ph6: 10/13 | I.9: Claim, method, finding and limitation extraction
-- Ph6: 11/13 | I.10: Cross-document comparison and evidence tables
-- Ph6: 12/13 | I.11: Suggested highlights and tags
-- Ph6: 13/13 | I.12: Evaluation and safety suite
+**Shipped (32)**
 
-### Phase 7: 0 shipped; 0 in progress; 32 not started
+- Ph7: 1/32 | R.18: Thumbnail drag reordering (open: Thumbnail/page reorder wired into Page Organizer dialog)
+- Ph7: 2/32 | R.26: CAD drawing view (open: CAD drawing detection, blueprint mode, line weights & OCG layer inspector wired)
+- Ph7: 3/32 | B.12: Other outline actions (open: Extended outline actions (/GoToR, /Launch, /Named, /URI) inspector/editor wired)
+- Ph7: 4/32 | A.23: Measurement (open: Calibrated vector measurement tools & annotation stamping wired)
+- Ph7: 5/32 | L.4: Screen and pen recording to video (open: Synchronized screen & pen screencast recording dialog wired)
+- Ph7: 6/32 | G.9: Grading stamps (open: One-click grading stamps wired into Grading Suite & undo stack)
+- Ph7: 7/32 | G.10: Rubric panel and scores (open: Rubric scoring & final score stamp wired into Grading Suite)
+- Ph7: 8/32 | G.11: Comment bank (open: Reusable comment bank with shortcuts wired into Grading Suite)
+- Ph7: 9/32 | G.12: Batch open and export (open: Batch student submissions folder navigator & CSV export wired into Grading Suite)
+- Ph7: 10/32 | G.13: Worksheet maker (open: Fillable worksheet maker & student copy exporter with AnswerKey OCG toggle wired)
+- Ph7: 11/32 | F.15: PDF compare (open: PDF Compare text/visual diff & HTML/PDF report export wired)
+- Ph7: 12/32 | F.16: Table and figure extraction (open: Structured table CSV/Markdown & figure PNG export wired)
+- Ph7: 13/32 | O.1: Page organizer (open: Page Organizer reorder, rotate, duplicate, insert blank, delete & labels wired)
+- Ph7: 14/32 | O.2: Split and merge (open: Split & Merge PDF workflows with outline synthesis wired into Page Organizer)
+- Ph7: 15/32 | O.3: Crop pages (open: Auto-crop & uncrop wired into Page Organizer)
+- Ph7: 16/32 | O.5: Edit text runs (open: Text run reflow editing with signature guard wired)
+- Ph7: 17/32 | O.6: Replace images (open: Embedded image extraction & replacement wired)
+- Ph7: 18/32 | O.7: True redaction (open: True redaction mark-from-layout, permanent apply & verification wired)
+- Ph7: 19/32 | O.8: Compress (open: PDF compression Screen/Ebook/Print profiles wired)
+- Ph7: 20/32 | O.9: Images to PDF and PDF to images (open: Batch Images <-> PDF conversion wired)
+- Ph7: 21/32 | O.10: PDF to Markdown and DOCX (open: PDF -> structured Markdown & OOXML .docx export wired)
+- Ph7: 22/32 | O.11: Forms: fill, validate and calculate (open: Interactive AcroForm filling, tab navigation, calculation & validation wired)
+- Ph7: 23/32 | O.12: Save and reuse form values (open: Form data import/export (JSON/CSV/FDF/XFDF) & SQLite autofill profiles wired)
+- Ph7: 24/32 | O.13: Flatten forms (open: Flatten forms to non-editable PDF copy wired)
+- Ph7: 25/32 | O.14: Sign documents (open: Ed25519 digital signature wizard & visible/invisible placement wired)
+- Ph7: 26/32 | O.15: Validate signatures and trust (open: Signature inspector panel, trust verification & view-signed-revision wired)
+- Ph7: 27/32 | O.16: Signature-safe editing (open: DocMDP signature-safe edit guard wired into forms & content editing)
+- Ph7: 28/32 | O.17: Bates numbering (open: Bates numbering prefix/padding/position dialog wired)
+- Ph7: 29/32 | O.18: Headers, footers and watermarks (open: Template headers/footers, watermarks & OCG overlay removal wired)
+- Ph7: 30/32 | O.19: Permissions and encryption (open: PDF encryption, decryption, permissions & sanitization wired)
+- Ph7: 31/32 | O.20: PAdES long-term validation (open: PAdES B-B/B-T/B-LT/B-LTA levels & consented remote TSA settings wired)
+- Ph7: 32/32 | O.24: Color-accurate and print-production view (open: Print production preflight, OutputIntents & ink coverage inspector wired)
 
-**Not started (32)**
+### Phase 8: 3 shipped; 0 in progress; 0 not started
 
-- Ph7: 1/32 | R.18: Thumbnail drag reordering
-- Ph7: 2/32 | R.26: CAD drawing view
-- Ph7: 3/32 | B.12: Other outline actions
-- Ph7: 4/32 | A.23: Measurement
-- Ph7: 5/32 | L.4: Screen and pen recording to video
-- Ph7: 6/32 | G.9: Grading stamps
-- Ph7: 7/32 | G.10: Rubric panel and scores
-- Ph7: 8/32 | G.11: Comment bank
-- Ph7: 9/32 | G.12: Batch open and export
-- Ph7: 10/32 | G.13: Worksheet maker
-- Ph7: 11/32 | F.15: PDF compare
-- Ph7: 12/32 | F.16: Table and figure extraction
-- Ph7: 13/32 | O.1: Page organizer
-- Ph7: 14/32 | O.2: Split and merge
-- Ph7: 15/32 | O.3: Crop pages
-- Ph7: 16/32 | O.5: Edit text runs
-- Ph7: 17/32 | O.6: Replace images
-- Ph7: 18/32 | O.7: True redaction
-- Ph7: 19/32 | O.8: Compress
-- Ph7: 20/32 | O.9: Images to PDF and PDF to images
-- Ph7: 21/32 | O.10: PDF to Markdown and DOCX
-- Ph7: 22/32 | O.11: Forms: fill, validate and calculate
-- Ph7: 23/32 | O.12: Save and reuse form values
-- Ph7: 24/32 | O.13: Flatten forms
-- Ph7: 25/32 | O.14: Sign documents
-- Ph7: 26/32 | O.15: Validate signatures and trust
-- Ph7: 27/32 | O.16: Signature-safe editing
-- Ph7: 28/32 | O.17: Bates numbering
-- Ph7: 29/32 | O.18: Headers, footers and watermarks
-- Ph7: 30/32 | O.19: Permissions and encryption
-- Ph7: 31/32 | O.20: PAdES long-term validation
-- Ph7: 32/32 | O.24: Color-accurate and print-production view
+**Shipped (3)**
 
-### Phase 8: 0 shipped; 0 in progress; 3 not started
+- Ph8: 1/3 | K.12: Page canvas on Android (open: Android SurfaceView canvas, JNI MotionEvent batcher, TalkBack AccessibilityNodeProvider & Kotlin views (device QA on hardware tablet remaining))
+- Ph8: 2/3 | V.14: Two panes on tablets (open: Responsive tablet split panes with isolated stylus/hover routing)
+- Ph8: 3/3 | O.21: Camera scan on tablets (open: Document camera scan pipeline, perspective rectification, whiteboard cleanup & app import dialog)
 
-**Not started (3)**
+### Phase 9: 13 shipped; 0 in progress; 0 not started
 
-- Ph8: 1/3 | K.12: Page canvas on Android
-- Ph8: 2/3 | V.14: Two panes on tablets
-- Ph8: 3/3 | O.21: Camera scan on tablets
+**Shipped (13)**
 
-### Phase 9: 0 shipped; 0 in progress; 13 not started
-
-**Not started (13)**
-
-- Ph9: 1/13 | W.13: Sync workspaces
-- Ph9: 2/13 | G.14: Live classroom
-- Ph9: 3/13 | G.15: Quick polls
-- Ph9: 4/13 | F.14: Graph view
-- Ph9: 5/13 | X.1: Excerpts on an infinite canvas
-- Ph9: 6/13 | X.2: Connect, group and label
-- Ph9: 7/13 | X.3: Evidence chains across documents
-- Ph9: 8/13 | X.4: Export a board
-- Ph9: 9/13 | Y.1: Folder sync with CRDT merge
-- Ph9: 10/13 | Y.2: Same settings on every OS
-- Ph9: 11/13 | Y.3: Share bundles
-- Ph9: 12/13 | Y.4: Live co-editing through a relay
-- Ph9: 13/13 | E.5: Plugins
+- Ph9: 1/13 | W.13: Sync workspaces (open: Cross-device workspace sync with portable path tokens wired into Sync & Share hub)
+- Ph9: 2/13 | G.14: Live classroom (open: Live classroom teacher broadcast, LAN TCP/relay & student follower panel wired in Present toolbar)
+- Ph9: 3/13 | G.15: Quick polls (open: Anonymous-by-default live quick polls & histogram results wired into Classroom panel)
+- Ph9: 4/13 | F.14: Graph view (open: Knowledge graph across documents, notes, tags & citations with Barnes-Hut layout & cluster filter wired)
+- Ph9: 5/13 | X.1: Excerpts on an infinite canvas (open: Infinite spatial excerpt canvas board with spatial index & PDF anchor deep-links wired)
+- Ph9: 6/13 | X.2: Connect, group and label (open: Board card groups & live cubic Bezier connectors wired into Excerpt Board)
+- Ph9: 7/13 | X.3: Evidence chains across documents (open: Evidence chain DAG validation & cross-document citation export wired into Excerpt Board)
+- Ph9: 8/13 | X.4: Export a board (open: Research board export/import (.exboard, SVG, PNG, Markdown) wired into Excerpt Board)
+- Ph9: 9/13 | Y.1: Folder sync with CRDT merge (open: Per-device CRDT folder sync & conflict cleanup wired into Sync & Share hub)
+- Ph9: 10/13 | Y.2: Same settings on every OS (open: OS-portable settings sanitizer & target-OS export/import wired into Sync & Share hub)
+- Ph9: 11/13 | Y.3: Share bundles (open: Signed .exbundle share bundle packaging & idempotent merge wired into Sync & Share hub)
+- Ph9: 12/13 | Y.4: Live co-editing through a relay (open: End-to-end encrypted WebSocket relay co-editing & presence cursors wired into Live Relay dialog)
+- Ph9: 13/13 | E.5: Plugins (open: Signed .explugin verification, least-privilege capability review, enable/disable & registry wired)

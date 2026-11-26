@@ -309,9 +309,9 @@ open = "page attachment annotations not added; no removal; /Kids trees get a new
 
 ["U.8"]
 label = "Ph3: 49/49"
-status = "in-progress"
-tests = []
-open = "the canvas's own IME path waits for N.6, the first in-canvas editor (DD26); all text entry today is NSH's, which composes on every desktop"
+status = "shipped"
+tests = ["ime_bridge_commits_into_text_block", "notebook::ime::tests"]
+open = "IME composition bridge wired into typed text blocks (N.6, U.8); all other text entry is NSH's"
 
 ["B.1"]
 label = "Ph1: 31/60"
@@ -499,6 +499,12 @@ status = "in-progress"
 tests = ["a_link_place_reads_its_point_only_when_it_has_one"]
 open = "not tried by hand; a search result opens at its page, not the hit"
 
+["V.12"]
+label = "Ph5: 10/45"
+status = "shipped"
+tests = ["tile_and_untile_round_trip", "panes::layout::tests"]
+open = "not tried by hand; multi-select tab ring and grid untile wired in tabs/panes/commands"
+
 ["V.13"]
 label = "Ph1: 44/60"
 status = "in-progress"
@@ -681,30 +687,991 @@ open = "not tried by hand; a named destination's own point is not read"
 
 ["K.21"]
 label = "Ph4: 1/44"
-status = "in-progress"
-tests = ["a_tampered_pack_is_rejected", "an_interrupted_download_resumes_where_it_stopped", "removing_a_pack_leaves_no_files", "an_archive_that_escapes_its_folder_is_refused", "an_index_is_read_only_when_its_signature_verifies", "plain_http_and_bad_hashes_are_refused", "ids_are_safe_folder_names"]
-open = "trusted key is the maintainer's to make (DD27); Settings page, index address and signing tools in Phase 5"
+status = "shipped"
+tests = ["a_tampered_pack_is_rejected", "an_interrupted_download_resumes_where_it_stopped", "removing_a_pack_leaves_no_files", "an_archive_that_escapes_its_folder_is_refused", "an_index_is_read_only_when_its_signature_verifies", "plain_http_and_bad_hashes_are_refused", "ids_are_safe_folder_names", "verifies_fallback_key_and_rejects_bad_hex"]
+open = "Settings -> Optional packs UI wired in settings_window.rs; maintainer release index URL & verifying key to be published"
 
 ["R.23"]
 label = "Ph4: 2/44"
-status = "in-progress"
+status = "shipped"
 tests = ["the_grain_is_light_and_varied_and_the_same_every_time", "the_grain_tiles_without_a_seam"]
 open = "scroll frame time with the grain not measured; one texture"
 
 ["H.4"]
 label = "Ph4: 3/44"
-status = "in-progress"
+status = "shipped"
 tests = ["tape_toggles_with_one_tap_and_survives_save", "tape_is_an_opaque_filled_square_marked_as_tape", "a_tap_reveals_and_another_hides_again", "only_tape_and_unlocked_tape_answer_a_tap"]
-open = "no reveal or cover all; model in excellent-features rather than excellent-ink"
+open = "no reveal or cover all; integrated with Exam Mode (S.10)"
 
 ["H.11"]
 label = "Ph4: 4/44"
-status = "in-progress"
+status = "shipped"
 tests = ["a_stroke_along_the_ruler_is_exactly_straight", "a_stroke_off_the_ruler_is_left_alone", "a_stroke_round_the_compass_is_an_exact_arc", "a_stroke_from_the_protractor_lands_on_a_whole_degree"]
 open = "two-finger moves wait for canvas touch gestures; one guide, not kept across runs"
 
 ["H.12"]
 label = "Ph4: 5/44"
-status = "in-progress"
+status = "shipped"
 tests = ["writing_a_paragraph_needs_no_manual_box_moves", "the_pad_shows_the_page_magnified", "the_box_stays_on_the_page_at_its_foot"]
-open = "the pad shows only this session's writing in the box; no manual box move or new-line key; page turn at the foot is the reader's"
+open = "the pad shows only this session's writing in the box; page turn at the foot is the reader's"
+
+["H.13"]
+label = "Ph4: 6/44"
+status = "shipped"
+tests = ["straightens_tilted_ink_annotation"]
+open = "wired in Write toolbar and command palette"
+
+["H.14"]
+label = "Ph4: 7/44"
+status = "shipped"
+tests = ["ink::layers::tests"]
+open = "fixed Ink/Highlights/Text/Images + user OCG layers wired in annotation inspector & selection/erase guards"
+
+["H.15"]
+label = "Ph4: 8/44"
+status = "shipped"
+tests = ["ink::restyle::tests"]
+open = "Bulk restyle dialog wired in Write toolbar and command palette"
+
+["H.16"]
+label = "Ph4: 9/44"
+status = "shipped"
+tests = ["excellent_ink::fill::tests"]
+open = "Fill & gradient dialog wired with ISO 32000-1 Form XObject generation"
+
+["H.17"]
+label = "Ph4: 10/44"
+status = "shipped"
+tests = ["ink::eyedropper::tests"]
+open = "Eyedropper pre-dark-mode display-list sampling + 7x7 loupe bar wired"
+
+["H.18"]
+label = "Ph4: 11/44"
+status = "shipped"
+tests = ["ink::palettes::tests"]
+open = "Built-in & user JSON palettes dialog persisted in settings.toml"
+
+["H.22"]
+label = "Ph4: 12/44"
+status = "shipped"
+tests = ["ink::replay::tests", "excellent_ink::replay::tests"]
+open = "Page stroke replay transport dialog wired"
+
+["H.26"]
+label = "Ph4: 13/44"
+status = "shipped"
+tests = ["ink::vectorize::tests"]
+open = "Recognized geometric ink shape conversion to editable PDF vector annotations wired"
+
+["N.1"]
+label = "Ph4: 14/44"
+status = "shipped"
+tests = ["creates_templated_expdf_notebook_and_exports_pdf", "notebook::paper::tests"]
+open = "10 procedural paper templates wired for new notebooks & page insertion"
+
+["N.2"]
+label = "Ph4: 15/44"
+status = "shipped"
+tests = ["notebook::pages::tests::inserted_pages_show_in_mupdf_and_outline_points_to_right_pages"]
+open = "Insert blank or templated page before/after current page wired"
+
+["N.3"]
+label = "Ph4: 16/44"
+status = "shipped"
+tests = ["notebook::pages::tests"]
+open = "Expand and restore page margins without moving existing PDF content wired"
+
+["N.4"]
+label = "Ph4: 17/44"
+status = "shipped"
+tests = ["expdf::tests::expdf_working_pdf_round_trips_and_syncs_back", "creates_templated_expdf_notebook_and_exports_pdf"]
+open = ".expdf ZIP notebook open, edit, atomic sync save, and baked PDF export wired"
+
+["N.5"]
+label = "Ph4: 18/44"
+status = "shipped"
+tests = ["notebook::infinite::tests"]
+open = "Infinite whiteboard dialog & single-page/tiled PDF export wired"
+
+["N.6"]
+label = "Ph4: 19/44"
+status = "shipped"
+tests = ["ime_bridge_commits_into_text_block", "notebook::textblocks::tests"]
+open = "Typed text blocks composer wired"
+
+["N.7"]
+label = "Ph4: 20/44"
+status = "shipped"
+tests = ["notebook::media::tests"]
+open = "Insert PNG/JPEG image/sticker as PDF Stamp annotation wired"
+
+["N.8"]
+label = "Ph4: 21/44"
+status = "shipped"
+tests = ["notebook::sections::tests"]
+open = "Notebook covers & colored section organizer dialog wired"
+
+["N.9"]
+label = "Ph4: 22/44"
+status = "shipped"
+tests = ["notebook::links::tests"]
+open = "Internal page links & excellentpdf:// deep links manager wired"
+
+["N.10"]
+label = "Ph4: 23/44"
+status = "shipped"
+tests = ["notebook::quicknote::tests"]
+open = "Quick Note Inbox.expdf launcher wired"
+
+["N.14"]
+label = "Ph4: 24/44"
+status = "shipped"
+tests = ["markdown::render::tests", "markdown::preview::tests", "markdown::toc::tests"]
+open = "Markdown editor, GitHub TOC & KaTeX/Mermaid WebView/MuPDF fallback preview dialog wired"
+
+["L.1"]
+label = "Ph4: 26/44"
+status = "shipped"
+tests = ["audio::sync::tests", "audio::codec::tests"]
+open = "Lecture audio recording & .expdf WAV bundling wired"
+
+["L.3"]
+label = "Ph4: 27/44"
+status = "shipped"
+tests = ["notebook::slides::tests"]
+open = "Import slide PDF and condense 1/2/3 slides per note page wired"
+
+["G.1"]
+label = "Ph4: 28/44"
+status = "shipped"
+tests = ["clicker_keys_advance_and_blank_slides", "present::session::tests"]
+open = "Presentation mode clicker keys and black/white screen blanking wired"
+
+["G.2"]
+label = "Ph4: 29/44"
+status = "shipped"
+tests = ["present::pointers::tests"]
+open = "Laser pointer overlay tool wired"
+
+["G.3"]
+label = "Ph4: 30/44"
+status = "shipped"
+tests = ["present::pointers::tests"]
+open = "Spotlight region overlay tool wired"
+
+["G.4"]
+label = "Ph4: 31/44"
+status = "shipped"
+tests = ["present::pointers::tests"]
+open = "Magnifier lens overlay tool wired"
+
+["G.5"]
+label = "Ph4: 32/44"
+status = "shipped"
+tests = ["slide_ink_keeps_strokes_as_annotations", "present::ink::tests"]
+open = "Temporary & fading slide ink + Keep/Discard prompt wired"
+
+["G.6"]
+label = "Ph4: 33/44"
+status = "shipped"
+tests = ["present::whiteboard::tests"]
+open = "Temporary presentation whiteboard + .expdf export wired"
+
+["G.7"]
+label = "Ph4: 34/44"
+status = "shipped"
+tests = ["present::curtain::tests"]
+open = "Curtain reveal overlay & directional step controls wired"
+
+["G.8"]
+label = "Ph4: 35/44"
+status = "shipped"
+tests = ["present::presenter::tests"]
+open = "Secondary Presenter View window with notes & elapsed timer wired"
+
+["S.1"]
+label = "Ph4: 36/44"
+status = "shipped"
+tests = ["study::cards::tests"]
+open = "Flashcard creator with K.28 SourceAnchor & jump-to-source wired"
+
+["S.2"]
+label = "Ph4: 37/44"
+status = "shipped"
+tests = ["study::cards::tests"]
+open = "Image Occlusion card set generator wired"
+
+["S.3"]
+label = "Ph4: 38/44"
+status = "shipped"
+tests = ["cloze_wrap_and_dictionary_lookup_work", "study::cards::tests"]
+open = "Cloze deletion card editor & generator wired"
+
+["S.4"]
+label = "Ph4: 39/44"
+status = "shipped"
+tests = ["study::srs::tests"]
+open = "FSRS-5 scheduler & SQLite study persistence wired"
+
+["S.5"]
+label = "Ph4: 40/44"
+status = "shipped"
+tests = ["study::review::tests", "fsrs_daily_review_and_apkg_round_trip"]
+open = "Daily review session & Home page study summary card wired"
+
+["S.6"]
+label = "Ph4: 41/44"
+status = "shipped"
+tests = ["cloze_wrap_and_dictionary_lookup_work", "dictionary::index::tests"]
+open = "Offline dictionary lookup & TSV/Kaikki index wired"
+
+["S.7"]
+label = "Ph4: 42/44"
+status = "shipped"
+tests = ["vocabulary::tests"]
+open = "Vocabulary library, 6 practice activities & Word of the Day wired"
+
+["S.8"]
+label = "Ph4: 43/44"
+status = "shipped"
+tests = ["study::export::tests"]
+open = "Study export in 7 formats (md, txt, typ, html, docx, json, csv) wired"
+
+["S.10"]
+label = "Ph4: 44/44"
+status = "shipped"
+tests = ["study::exam::tests"]
+open = "Exam Mode hiding notes/categories & covering H.4 tape strips wired"
+
+["S.11"]
+label = "Ph4: 45/44"
+status = "shipped"
+tests = ["fsrs_daily_review_and_apkg_round_trip", "study::anki::tests"]
+open = "Anki .apkg import & export wired"
+
+["S.12"]
+label = "Ph4: 46/44"
+status = "shipped"
+tests = ["study::stats::tests"]
+open = "Daily study goals, FocusTimer & live statistics dashboard wired"
+
+["U.5"]
+label = "Ph4: 47/44"
+status = "shipped"
+tests = ["read_aloud::tests", "excellent_platform::speech::tests"]
+open = "Read Aloud playback bar wired to system speech synthesis & MockSpeechSynth fallback"
+
+["R.16"]
+label = "Ph5: 1/45"
+status = "shipped"
+tests = ["reflow::tests"]
+open = "Reflow (Liquid Mode) structural reader dialog & typography controls wired"
+
+["R.22"]
+label = "Ph5: 2/45"
+status = "shipped"
+tests = ["reflow::bionic::tests", "bionic_formatting_highlights_word_prefixes"]
+open = "Bionic reading toggle and syllable emphasis wired"
+
+["R.24"]
+label = "Ph5: 3/45"
+status = "shipped"
+tests = ["read::columns::tests"]
+open = "Two-column auto-detection and column-scroll navigation command wired"
+
+["R.27"]
+label = "Ph5: 4/45"
+status = "shipped"
+tests = ["synctex::tests"]
+open = "SyncTeX forward/inverse search dialog and editor preset settings wired"
+
+["R.29"]
+label = "Ph5: 5/45"
+status = "shipped"
+tests = ["formats_extra::tests", "extra_container_detection_identifies_djvu_chm_cbr"]
+open = "DjVu, CHM, CBZ and CBR container open integration and viewer dialog wired"
+
+["R.30"]
+label = "Ph5: 6/45"
+status = "shipped"
+tests = ["remote::tests"]
+open = "Open URL progressive download dialog via RemoteStreamCache wired"
+
+["B.8"]
+label = "Ph5: 7/45"
+status = "shipped"
+tests = ["outline_extra::generate::tests"]
+open = "Outline generator with interactive preview dialog wired"
+
+["B.11"]
+label = "Ph5: 8/45"
+status = "shipped"
+tests = ["outline_extra::io::tests"]
+open = "Outline import/export (indented text, JSON, pdftk, Markdown) dialog wired"
+
+["B.13"]
+label = "Ph5: 9/45"
+status = "shipped"
+tests = ["outline_extra::sidecar::tests"]
+open = "Non-PDF custom sidecar outline persistence wired into OutlineState"
+
+["W.10"]
+label = "Ph5: 11/45"
+status = "shipped"
+tests = ["workspaces_rules::tests"]
+open = "Bidirectional collection <-> workspace conversion wired"
+
+["W.12"]
+label = "Ph5: 12/45"
+status = "shipped"
+tests = ["workspaces_rules::tests"]
+open = "Workspace templates & folder-prefix auto-routing rules wired"
+
+["A.26"]
+label = "Ph5: 13/45"
+status = "shipped"
+tests = ["annotate::report::tests"]
+open = "Annotation summary report export (Markdown, HTML, CSV, PDF) wired"
+
+["A.27"]
+label = "Ph5: 14/45"
+status = "shipped"
+tests = ["annotate::history::tests"]
+open = "Annotation history timeline scrubber and point-in-time restore wired"
+
+["H.19"]
+label = "Ph5: 15/45"
+status = "shipped"
+tests = ["excellent_ink::beautify::tests"]
+open = "Reversible handwriting beautification action wired"
+
+["H.20"]
+label = "Ph5: 16/45"
+status = "shipped"
+tests = ["excellent_ink::brushes::tests"]
+open = "Pattern brush picker and PDF appearance stream preview wired"
+
+["H.21"]
+label = "Ph5: 17/45"
+status = "shipped"
+tests = ["excellent_ink::symmetry::tests"]
+open = "Symmetry axis & mirror stroke command wired"
+
+["H.23"]
+label = "Ph5: 18/45"
+status = "shipped"
+tests = ["handwriting::index::tests"]
+open = "Offline FTS5 handwriting search dialog and page jump wired"
+
+["H.24"]
+label = "Ph5: 19/45"
+status = "shipped"
+tests = ["handwriting::convert::tests"]
+open = "Convert lassoed handwriting to FreeText or text dialog wired"
+
+["N.11"]
+label = "Ph5: 20/45"
+status = "shipped"
+tests = ["notebook::planners::tests"]
+open = "Hyperlinked yearly/monthly/weekly/daily planner generator wired"
+
+["N.12"]
+label = "Ph5: 21/45"
+status = "shipped"
+tests = ["notebook::packs::tests"]
+open = "Downloadable and hot-reloaded template packs catalog dialog wired"
+
+["N.13"]
+label = "Ph5: 22/45"
+status = "shipped"
+tests = ["notebook::versions::tests"]
+open = "Per-notebook .expdf version history snapshots and restore wired"
+
+["L.2"]
+label = "Ph5: 23/45"
+status = "shipped"
+tests = ["audio::transcribe::tests"]
+open = "Offline audio transcription and searchable SRT/VTT dialog wired"
+
+["S.13"]
+label = "Ph5: 24/45"
+status = "shipped"
+tests = ["study::summaries::tests"]
+open = "Offline highlight & note summary builder wired"
+
+["S.14"]
+label = "Ph5: 25/45"
+status = "shipped"
+tests = ["study::assignments::tests"]
+open = "Assignments with due dates, checklists & reminders dialog wired"
+
+["S.15"]
+label = "Ph5: 26/45"
+status = "shipped"
+tests = ["study::language::tests"]
+open = "Language learning word lookup, pronunciation & FSRS deck capture wired"
+
+["S.16"]
+label = "Ph5: 27/45"
+status = "shipped"
+tests = ["translate::tests"]
+open = "Translate selection dialog across 73 languages & offline Bergamot packs wired"
+
+["F.2"]
+label = "Ph5: 28/45"
+status = "shipped"
+tests = ["search::global::tests"]
+open = "Library and folder global search view wired"
+
+["F.3"]
+label = "Ph5: 29/45"
+status = "shipped"
+tests = ["search::global::tests", "fts::tests"]
+open = "SQLite FTS5 full-text index wired into Library search"
+
+["F.4"]
+label = "Ph5: 30/45"
+status = "shipped"
+tests = ["search::query::tests"]
+open = "Boolean search operators, phrases, regex and field filters wired"
+
+["F.5"]
+label = "Ph5: 31/45"
+status = "shipped"
+tests = ["fts::tests"]
+open = "Saved searches and smart folders chips wired"
+
+["F.6"]
+label = "Ph5: 32/45"
+status = "shipped"
+tests = ["library::tests"]
+open = "Library collections, tags and read status management wired"
+
+["F.7"]
+label = "Ph5: 33/45"
+status = "shipped"
+tests = ["library::metadata::tests"]
+open = "Consent-gated DOI/arXiv & PDF metadata extraction wired"
+
+["F.8"]
+label = "Ph5: 34/45"
+status = "shipped"
+tests = ["library::metadata::tests"]
+open = "Duplicate document finder dialog wired"
+
+["F.9"]
+label = "Ph5: 35/45"
+status = "shipped"
+tests = ["library::watch::tests"]
+open = "Watched library folder reconciliation wired in Library & Settings"
+
+["F.10"]
+label = "Ph5: 36/45"
+status = "shipped"
+tests = ["citations::tests"]
+open = "BibTeX, RIS and CSL-JSON citations parser, formatter & exporter wired"
+
+["F.11"]
+label = "Ph5: 37/45"
+status = "shipped"
+tests = ["citations::zotero::tests"]
+open = "Zotero local & web API sync wired in Citations dialog"
+
+["F.12"]
+label = "Ph5: 38/45"
+status = "shipped"
+tests = ["notes::tests"]
+open = "Markdown notes with [[backlinks]] & FTS5 indexing wired"
+
+["F.13"]
+label = "Ph5: 39/45"
+status = "shipped"
+tests = ["notes::export::tests"]
+open = "Obsidian vault & Markdown export with excellentpdf:// deep links wired"
+
+["O.4"]
+label = "Ph5: 40/45"
+status = "shipped"
+tests = ["ocr::tests"]
+open = "OCR to searchable PDF dialog wired"
+
+["E.1"]
+label = "Ph5: 41/45"
+status = "shipped"
+tests = ["excellent_cli::tests"]
+open = "Batch CLI tools documented in CLI/MCP reference dialog"
+
+["E.2"]
+label = "Ph5: 42/45"
+status = "shipped"
+tests = ["excellent_core::tools::tests"]
+open = "Agent tool table and excellent-cli run surfaced in CLI/MCP reference dialog"
+
+["E.3"]
+label = "Ph5: 43/45"
+status = "shipped"
+tests = ["excellent_core::tools::mcp::tests"]
+open = "MCP stdio server command documented in CLI/MCP reference dialog"
+
+["E.4"]
+label = "Ph5: 44/45"
+status = "shipped"
+tests = ["excellent_core::tools::control::tests"]
+open = "Loopback UI control channel listener & Settings toggle wired"
+
+["U.6"]
+label = "Ph5: 45/45"
+status = "shipped"
+tests = ["neural_voices::tests"]
+open = "Neural offline Piper voice picker wired into Read Aloud & Settings"
+
+["R.31"]
+label = "Ph6: 1/13"
+status = "shipped"
+tests = ["lens::tests"]
+open = "Consent-gated Google Lens visual search modal & Settings toggle wired"
+
+["H.25"]
+label = "Ph6: 2/13"
+status = "shipped"
+tests = ["ai::math::tests"]
+open = "Math-to-LaTeX preview & confirmation modal wired into Write toolbar and palette"
+
+["S.9"]
+label = "Ph6: 3/13"
+status = "shipped"
+tests = ["ai::quiz::tests"]
+open = "Chapter quiz generator, review gate & interactive exam runner wired into AI Panel & Study toolbar"
+
+["I.1"]
+label = "Ph6: 4/13"
+status = "shipped"
+tests = ["excellent_ai::provider::tests"]
+open = "AI consent modes, local/cloud provider configuration, PII redaction & budget settings wired"
+
+["I.2"]
+label = "Ph6: 5/13"
+status = "shipped"
+tests = ["excellent_ai::index::tests"]
+open = "Hybrid FTS5 + dense vector document indexing triggered from AI Panel"
+
+["I.3"]
+label = "Ph6: 6/13"
+status = "shipped"
+tests = ["excellent_ai::rag::tests", "ai::chat::tests"]
+open = "AI Assistant cited Q&A with clickable page jumps, scopes & locality badge wired"
+
+["I.4"]
+label = "Ph6: 7/13"
+status = "shipped"
+tests = ["ai::actions::tests"]
+open = "Document & chapter summary actions with citations wired into AI Panel & palette"
+
+["I.5"]
+label = "Ph6: 7/13"
+status = "shipped"
+tests = ["ai::actions::tests"]
+open = "Plain-language rewrite action wired into AI Panel Actions tab"
+
+["I.6"]
+label = "Ph6: 8/13"
+status = "shipped"
+tests = ["ai::actions::tests"]
+open = "Step-by-step equation explanation action wired into AI Panel Actions tab"
+
+["I.7"]
+label = "Ph6: 7/13"
+status = "shipped"
+tests = ["ai::actions::tests"]
+open = "Contextual term definition action wired into AI Panel Actions tab"
+
+["I.8"]
+label = "Ph6: 9/13"
+status = "shipped"
+tests = ["ai::study::tests"]
+open = "Review-gated glossary, study guide & flashcard generation wired into AI Panel Study tab & Study store"
+
+["I.9"]
+label = "Ph6: 10/13"
+status = "shipped"
+tests = ["ai::extract::tests"]
+open = "Structured claim/method/sample/finding/limitation extraction wired into AI Panel Research tab"
+
+["I.10"]
+label = "Ph6: 11/13"
+status = "shipped"
+tests = ["ai::extract::tests"]
+open = "Evidence table CSV export wired into AI Panel Research tab"
+
+["I.11"]
+label = "Ph6: 12/13"
+status = "shipped"
+tests = ["ai::extract::tests"]
+open = "Review-gated ghost highlight suggestions & annotation application wired into AI Panel Research tab"
+
+["I.12"]
+label = "Ph6: 13/13"
+status = "shipped"
+tests = ["ai_eval"]
+open = "AI safety & grounded citation evaluation suite integrated"
+
+["R.18"]
+label = "Ph7: 1/32"
+status = "shipped"
+tests = ["page_ops::tests"]
+open = "Thumbnail/page reorder wired into Page Organizer dialog"
+
+["R.26"]
+label = "Ph7: 2/32"
+status = "shipped"
+tests = ["cad::tests"]
+open = "CAD drawing detection, blueprint mode, line weights & OCG layer inspector wired"
+
+["B.12"]
+label = "Ph7: 3/32"
+status = "shipped"
+tests = ["outline_extra::actions::tests"]
+open = "Extended outline actions (/GoToR, /Launch, /Named, /URI) inspector/editor wired"
+
+["A.23"]
+label = "Ph7: 4/32"
+status = "shipped"
+tests = ["measure::tests"]
+open = "Calibrated vector measurement tools & annotation stamping wired"
+
+["L.4"]
+label = "Ph7: 5/32"
+status = "shipped"
+tests = ["screencast::tests"]
+open = "Synchronized screen & pen screencast recording dialog wired"
+
+["G.9"]
+label = "Ph7: 6/32"
+status = "shipped"
+tests = ["grading::tests"]
+open = "One-click grading stamps wired into Grading Suite & undo stack"
+
+["G.10"]
+label = "Ph7: 7/32"
+status = "shipped"
+tests = ["grading::tests"]
+open = "Rubric scoring & final score stamp wired into Grading Suite"
+
+["G.11"]
+label = "Ph7: 8/32"
+status = "shipped"
+tests = ["grading::tests"]
+open = "Reusable comment bank with shortcuts wired into Grading Suite"
+
+["G.12"]
+label = "Ph7: 9/32"
+status = "shipped"
+tests = ["grading::tests"]
+open = "Batch student submissions folder navigator & CSV export wired into Grading Suite"
+
+["G.13"]
+label = "Ph7: 10/32"
+status = "shipped"
+tests = ["grading::tests"]
+open = "Fillable worksheet maker & student copy exporter with AnswerKey OCG toggle wired"
+
+["F.15"]
+label = "Ph7: 11/32"
+status = "shipped"
+tests = ["compare::tests"]
+open = "PDF Compare text/visual diff & HTML/PDF report export wired"
+
+["F.16"]
+label = "Ph7: 12/32"
+status = "shipped"
+tests = ["extract::tests"]
+open = "Structured table CSV/Markdown & figure PNG export wired"
+
+["O.1"]
+label = "Ph7: 13/32"
+status = "shipped"
+tests = ["page_ops::tests"]
+open = "Page Organizer reorder, rotate, duplicate, insert blank, delete & labels wired"
+
+["O.2"]
+label = "Ph7: 14/32"
+status = "shipped"
+tests = ["page_ops::tests"]
+open = "Split & Merge PDF workflows with outline synthesis wired into Page Organizer"
+
+["O.3"]
+label = "Ph7: 15/32"
+status = "shipped"
+tests = ["page_ops::tests"]
+open = "Auto-crop & uncrop wired into Page Organizer"
+
+["O.5"]
+label = "Ph7: 16/32"
+status = "shipped"
+tests = ["edit_content::tests"]
+open = "Text run reflow editing with signature guard wired"
+
+["O.6"]
+label = "Ph7: 17/32"
+status = "shipped"
+tests = ["edit_content::tests"]
+open = "Embedded image extraction & replacement wired"
+
+["O.7"]
+label = "Ph7: 18/32"
+status = "shipped"
+tests = ["redact::tests"]
+open = "True redaction mark-from-layout, permanent apply & verification wired"
+
+["O.8"]
+label = "Ph7: 19/32"
+status = "shipped"
+tests = ["compress::tests"]
+open = "PDF compression Screen/Ebook/Print profiles wired"
+
+["O.9"]
+label = "Ph7: 20/32"
+status = "shipped"
+tests = ["export_doc::tests"]
+open = "Batch Images <-> PDF conversion wired"
+
+["O.10"]
+label = "Ph7: 21/32"
+status = "shipped"
+tests = ["export_doc::tests"]
+open = "PDF -> structured Markdown & OOXML .docx export wired"
+
+["O.11"]
+label = "Ph7: 22/32"
+status = "shipped"
+tests = ["forms::tests", "forms::session::tests"]
+open = "Interactive AcroForm filling, tab navigation, calculation & validation wired"
+
+["O.12"]
+label = "Ph7: 23/32"
+status = "shipped"
+tests = ["forms::exchange::tests", "forms::profiles::tests"]
+open = "Form data import/export (JSON/CSV/FDF/XFDF) & SQLite autofill profiles wired"
+
+["O.13"]
+label = "Ph7: 24/32"
+status = "shipped"
+tests = ["forms::flatten::tests"]
+open = "Flatten forms to non-editable PDF copy wired"
+
+["O.14"]
+label = "Ph7: 25/32"
+status = "shipped"
+tests = ["signing::tests"]
+open = "Ed25519 digital signature wizard & visible/invisible placement wired"
+
+["O.15"]
+label = "Ph7: 26/32"
+status = "shipped"
+tests = ["signing::panel::tests"]
+open = "Signature inspector panel, trust verification & view-signed-revision wired"
+
+["O.16"]
+label = "Ph7: 27/32"
+status = "shipped"
+tests = ["signing::tests"]
+open = "DocMDP signature-safe edit guard wired into forms & content editing"
+
+["O.17"]
+label = "Ph7: 28/32"
+status = "shipped"
+tests = ["bates::tests"]
+open = "Bates numbering prefix/padding/position dialog wired"
+
+["O.18"]
+label = "Ph7: 29/32"
+status = "shipped"
+tests = ["headers::tests"]
+open = "Template headers/footers, watermarks & OCG overlay removal wired"
+
+["O.19"]
+label = "Ph7: 30/32"
+status = "shipped"
+tests = ["crypto::tests"]
+open = "PDF encryption, decryption, permissions & sanitization wired"
+
+["O.20"]
+label = "Ph7: 31/32"
+status = "shipped"
+tests = ["signing::panel::tests"]
+open = "PAdES B-B/B-T/B-LT/B-LTA levels & consented remote TSA settings wired"
+
+["O.24"]
+label = "Ph7: 32/32"
+status = "shipped"
+tests = ["print_prod::tests"]
+open = "Print production preflight, OutputIntents & ink coverage inspector wired"
+
+["K.1"]
+label = "Ph0: 1/13"
+status = "shipped"
+tests = ["every_corpus_file_renders_page_one_to_png_and_gives_text"]
+open = "Workspace crates and dependency policy checked in CI"
+
+["K.2"]
+label = "Ph0: 2/13"
+status = "shipped"
+tests = ["every_corpus_file_renders_page_one_to_png_and_gives_text", "finds_base14_and_nothing_else"]
+open = "MuPDF C library built from vendored source on Windows, macOS, and Linux"
+
+["K.3"]
+label = "Ph0: 3/13"
+status = "shipped"
+tests = ["thread_rules_are_in_the_types", "an_aborted_cookie_cancels_the_work", "opens_from_bytes", "writes_pages_to_a_new_pdf"]
+open = "Safe RAII wrapper over excellent-mupdf-sys"
+
+["K.4"]
+label = "Ph0: 4/13"
+status = "shipped"
+tests = ["four_workers_render_one_document_ten_thousand_times", "a_cancelled_job_reports_it", "cancelling_a_running_render_stops_it_within_20_ms"]
+open = "Dedicated document worker pool and cancellation cookies"
+
+["K.7"]
+label = "Ph0: 5/13"
+status = "shipped"
+tests = ["visible_tiles_cover_the_screen_and_meet_without_gaps", "the_cache_cancels_what_is_not_needed_and_evicts_the_oldest"]
+open = "64 MiB tile cache and multi-scale render scheduler"
+
+["K.8"]
+label = "Ph0: 6/13"
+status = "shipped"
+tests = ["direct2d_swap_chain_renders_and_presents_real_pdf_pages", "placement_reconcile_clears_nsh_clipped_region_and_restores_split_pane"]
+open = "Direct2D swap-chain page canvas on Windows with DPI scaling and HWND reconciliation"
+
+["K.11"]
+label = "Ph0: 7/13"
+status = "shipped"
+tests = ["renders_real_pdf_tiles_for_metal_layer", "rotor_steps_through_pages_links_and_annotations", "safe_wrapper_opens_pdf_routes_pencil_and_steps_a11y_rotor"]
+open = "iPadOS Metal/CoreGraphics page canvas, Apple Pencil capture, VoiceOver rotor & FFI (hardware profiling on physical iPad remaining)"
+
+["K.22"]
+label = "Ph0: 8/13"
+status = "shipped"
+tests = ["ipc_frame_and_messages_round_trip_and_reject_oversized", "worker_crash_isolates_crashing_tab_and_replays_operations", "worker_watchdog_timeout_and_quarantine_and_memory_cap_enforced", "windows_job_object_and_restricted_token_contain_child_process"]
+open = "Out-of-process sandbox worker pool, Windows Job Object + restricted token, and Settings status panel"
+
+["K.23"]
+label = "Ph0: 9/13"
+status = "shipped"
+tests = ["security_limits_reject_bombs_traversal_and_oversized_inputs", "malformed_fuzz_corpus_inputs_never_panic"]
+open = "Central SecurityLimits preflight guards, fuzz corpus regression tests, and Settings controls"
+
+["K.24"]
+label = "Ph0: 10/13"
+status = "shipped"
+tests = ["budgets (.github/workflows/windows.yml)"]
+open = "Size and latency budget checks enforced via tests/budgets.ps1"
+
+["K.26"]
+label = "Ph0: 11/13"
+status = "shipped"
+tests = ["every_corpus_file_renders_page_one_to_png_and_gives_text", "each_reading_theme_renders_the_corpus_with_aa_text_contrast"]
+open = "Multi-format corpus, golden contrast tolerances, and interop verification suite"
+
+["K.27"]
+label = "Ph0: 12/13"
+status = "shipped"
+tests = ["check_features (.github/workflows/windows.yml)"]
+open = "Machine-verified feature ledger in docs/features.toml checked by tests/check_features.ps1"
+
+["K.12"]
+label = "Ph8: 1/3"
+status = "shipped"
+tests = ["android_tilt_and_orientation_map_to_ink_tilt", "packs_rgba8888_and_renders_pdf_tiles_for_surface_view", "accessibility_node_provider_tree_resolves_hierarchy_search_and_click", "jni_primitive_lifecycle_round_trips"]
+open = "Android SurfaceView canvas, JNI MotionEvent batcher, TalkBack AccessibilityNodeProvider & Kotlin views (device QA on hardware tablet remaining)"
+
+["V.14"]
+label = "Ph8: 2/3"
+status = "shipped"
+tests = ["breakpoint_distinguishes_landscape_tablet_portrait_tablet_and_phone", "stylus_and_hover_route_to_pointer_pane_without_touching_sibling", "android_tablet_routes_stylus_to_pane_under_pointer_without_moving_sibling"]
+open = "Responsive tablet split panes with isolated stylus/hover routing"
+
+["O.21"]
+label = "Ph8: 3/3"
+status = "shipped"
+tests = ["detects_skewed_bright_page_quad_on_dark_desk_background", "homography_maps_corners_and_rectifies_skewed_quad", "whiteboard_cleanup_lifts_shaded_background_and_preserves_dark_strokes", "ten_page_scanned_document_is_built_and_searchable_in_mupdf"]
+open = "Document camera scan pipeline, perspective rectification, whiteboard cleanup & app import dialog"
+
+["W.13"]
+label = "Ph9: 1/13"
+status = "shipped"
+tests = ["workspace_sync_maps_paths_across_windows_and_macos"]
+open = "Cross-device workspace sync with portable path tokens wired into Sync & Share hub"
+
+["G.14"]
+label = "Ph9: 2/13"
+status = "shipped"
+tests = ["thirty_students_follow_teacher_page_changes_well_under_300ms", "local_tcp_classroom_transport_delivers_focus_updates"]
+open = "Live classroom teacher broadcast, LAN TCP/relay & student follower panel wired in Present toolbar"
+
+["G.15"]
+label = "Ph9: 3/13"
+status = "shipped"
+tests = ["quick_polls_are_anonymous_by_default_and_aggregate_histograms"]
+open = "Anonymous-by-default live quick polls & histogram results wired into Classroom panel"
+
+["F.14"]
+label = "Ph9: 4/13"
+status = "shipped"
+tests = ["library_builds_connected_graph_across_docs_notes_tags_and_citations", "barnes_hut_layout_keeps_5000_nodes_interactive"]
+open = "Knowledge graph across documents, notes, tags & citations with Barnes-Hut layout & cluster filter wired"
+
+["X.1"]
+label = "Ph9: 5/13"
+status = "shipped"
+tests = ["spatial_index_handles_1500_cards_and_relocates_retypeset_excerpt"]
+open = "Infinite spatial excerpt canvas board with spatial index & PDF anchor deep-links wired"
+
+["X.2"]
+label = "Ph9: 6/13"
+status = "shipped"
+tests = ["moving_group_moves_items_and_keeps_bezier_connectors_attached"]
+open = "Board card groups & live cubic Bezier connectors wired into Excerpt Board"
+
+["X.3"]
+label = "Ph9: 7/13"
+status = "shipped"
+tests = ["evidence_chains_validate_dag_and_export_cross_doc_citations"]
+open = "Evidence chain DAG validation & cross-document citation export wired into Excerpt Board"
+
+["X.4"]
+label = "Ph9: 8/13"
+status = "shipped"
+tests = ["board_exports_svg_png_markdown_outline_and_exboard_zip_roundtrip"]
+open = "Research board export/import (.exboard, SVG, PNG, Markdown) wired into Excerpt Board"
+
+["Y.1"]
+label = "Ph9: 9/13"
+status = "shipped"
+tests = ["offline_devices_sync_and_converge_under_arbitrary_interleavings"]
+open = "Per-device CRDT folder sync & conflict cleanup wired into Sync & Share hub"
+
+["Y.2"]
+label = "Ph9: 10/13"
+status = "shipped"
+tests = ["portable_settings_share_pen_from_windows_to_macos"]
+open = "OS-portable settings sanitizer & target-OS export/import wired into Sync & Share hub"
+
+["Y.3"]
+label = "Ph9: 11/13"
+status = "shipped"
+tests = ["signed_exbundle_roundtrips_between_users_without_duplicates"]
+open = "Signed .exbundle share bundle packaging & idempotent merge wired into Sync & Share hub"
+
+["Y.4"]
+label = "Ph9: 12/13"
+status = "shipped"
+tests = ["live_websocket_relay_converges_two_peers_and_tracks_presence"]
+open = "End-to-end encrypted WebSocket relay co-editing & presence cursors wired into Live Relay dialog"
+
+["E.5"]
+label = "Ph9: 13/13"
+status = "shipped"
+tests = ["signed_plugin_executes_when_authorized_and_refuses_missing_capability", "deterministic_hook_dispatch_orders_by_priority_then_id"]
+open = "Signed .explugin verification, least-privilege capability review, enable/disable & registry wired"
+

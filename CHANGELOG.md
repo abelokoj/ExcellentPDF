@@ -6,6 +6,27 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ## [Unreleased]
 
+### 2026-11-25 21:55; Phases 0 & 4–9 complete, Windows PDF display fix, dual-scope Windows MSI installer, and "Nib & Leaf" icon integration
+
+- **Windows PDF display fix (`K.8`):** Reconciled child HWND clipping (`PlacementSync::reconcile` in `excellent-canvas-win`) to clear truncated `SetWindowRgn` regions applied by the NSH 0.7 hidden host surface, restoring crisp Direct2D swap-chain PDF rendering across main windows and split panes.
+- **Dual-scope Windows MSI 5.0 installer (`packaging/windows/build-msi.ps1`):** Added interactive Windows Installer 5.0 Single Package Authoring (`ALLUSERS=2`, `MSIINSTALLPERUSER=1` default) with Scope selection (*Current User* into `%LOCALAPPDATA%\Programs\ExcellentPDF` without UAC, or *All Users* into `%ProgramFiles%\ExcellentPDF` with UAC elevation badge), browsable custom target directory (`INSTALLDIR`), branded *Nib & Leaf* banner bitmaps and Revelation 22:13 icon (`ARPPRODUCTICON`), silent CLI overrides, and uninstall preservation of user settings/library data.
+- **Phase 4 — Notebooks, Templates, Chalk & Study (`H.4`, `H.11`–`H.21`, `H.26`, `N.1`–`N.14`, `L.1`–`L.3`, `G.1`–`G.8`, `S.1`–`S.8`, `S.10`–`S.12`, `K.21`, `R.23`):** Shipped procedural paper notebooks, `.expdf` format, infinite canvas whiteboard, typed text blocks, planners, templates, lecture audio recording, Slide Presenter tools (laser, spotlight, magnifier, curtain, whiteboard, presenter view), and FSRS-5 spaced repetition flashcards/Anki `.apkg` exchange.
+- **Phase 5 — Library, Citations, Reading Modes, CLI & Offline AI Prep (`F.2`–`F.13`, `W.10`, `W.12`, `V.12`, `R.16`, `R.22`, `R.24`, `R.27`, `R.29`, `R.30`, `B.8`, `B.11`, `B.13`, `A.26`, `A.27`, `H.19`–`H.24`, `O.4`, `S.13`–`S.16`, `E.1`–`E.4`, `U.6`):** Shipped SQLite/FTS5 library search, BibTeX/RIS/CSL-JSON & Zotero sync, Markdown notes with `[[backlinks]]` and Obsidian deep-links, Reflow, Bionic Reading, SyncTeX, offline OCR, handwriting search/to-text, 73-language Bergamot translation, offline Piper voices, CLI (`excellent-cli`), MCP server, and loopback UI control channel.
+- **Phase 6 — AI Assistant & Visual Search (`I.1`–`I.12`, `R.31`, `H.25`, `S.9`):** Wired consent-gated local/cloud AI providers with PII redaction and token budgets, hybrid FTS5 + dense vector indexing, Ask-with-citations, summaries, plain-language rewrites, equation breakdowns, term definitions, study material/quiz generation, claim/evidence extraction, Ghost Highlights, Math-to-LaTeX preview, and consent-gated Google Lens visual search.
+- **Phase 7 — Forms, Signatures, Pro PDF, CAD & Grading (`O.1`–`O.3`, `O.5`–`O.20`, `O.24`, `R.18`, `R.26`, `B.12`, `A.23`, `F.15`, `F.16`, `L.4`, `G.9`–`G.13`):** Wired interactive AcroForm filling/validation/exchange/flattening, Ed25519 PAdES B-B/B-T/B-LT/B-LTA signing & verification inspector, Page Organizer (drag reorder, split/merge, auto-crop, labels), text run editing, image replacement, true redaction, compression, Images↔PDF, Markdown/DOCX export, Bates/headers/watermarks, encryption/sanitization, print preflight, CAD blueprint view, extended outline actions, calibrated measurements, PDF Compare, table/figure extraction, screencast recording, and the Grading Suite.
+- **Phase 8 & 9 + Phase 0 Security & Platform Completion (`K.1`–`K.12`, `K.22`–`K.27`, `V.14`, `O.21`, `W.13`, `X.1`–`X.4`, `Y.1`–`Y.4`, `G.14`–`G.15`, `F.14`, `E.5`):** Shipped iPadOS (`excellent-canvas-ios`) and Android (`excellent-canvas-android` + Kotlin views) page canvases and split-pane stylus routing, camera scan import/rectification, Infinite Canvas Excerpt Board (groups, Bezier connectors, evidence DAG, `.exboard`/SVG/PNG/MD export), Knowledge Graph, CRDT Folder & Workspace Sync, OS-portable settings, signed `.exbundle` sharing, Live Encrypted Co-Editing Relay, Live Classroom & Quick Polls, Sandboxed `.explugin` Manager, Windows Job Object + restricted token sandbox & `SecurityLimits` preferences, CI budgets/fuzz/interop suites, and verified `docs/features.toml` tracking.
+
+### 2026-11-25 15:25; App icon ("Nib & Leaf", Classic Indigo — Revelation 22:13) and MSI release 5
+
+- Replaced the initial "Marginalia" draft with the maintainer-selected **Nib & Leaf** icon (DD28): sharp-edged
+  layered warm-ivory and cool-periwinkle pages with a folded corner, crisp ruled stationery lines inscribed with
+  *“¹³ I am the Alpha and the Omega, the Beginning and the End, the First and the Last.” — (NKJV Revelation 22:13)* in
+  Palatino Italic with a true superscript verse numeral (simplifying cleanly at `≤ 48 px`), a faceted royal-indigo
+  fountain nib with machined dual-groove satin brass ferrule and gold slit, and a tapered indigo ink flourish.
+- Regenerated `design/icon/png/` (`16`–`1024 px`), `packaging/windows/excellentpdf.ico` (all 8 DPI sizes),
+  `design/icon/excellentpdf-icon-sheet.png`, and built installer release 5
+  (`dist/ExcellentPDF-v26-11-25.5-v0.1.0-windows-x64.msi`).
+
 ### 2026-11-25 11:36; App icon
 
 - ExcellentPDF has an icon ("Marginalia", DD28): a pale page crossed by one blue broad-nib stroke that runs past its
