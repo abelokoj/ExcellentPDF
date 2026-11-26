@@ -7,40 +7,74 @@
 //! names the group and, while it is collapsed, counts its hidden tabs; pressing it collapses or expands the group, a
 //! right click opens its edit dialog.
 
+use std::sync::OnceLock;
+
+use base64::Engine as _;
 use nsh_base::{button, tabs, theme};
-use nsh_core::geometry::Radians;
 use nsh_core::prelude::*;
 
 use super::group_dialog::color_name;
 use super::model::Tab;
-use super::{GroupColor, GroupId, TabId, TabState, Tabs};
+use super::{GroupColor, GroupId, TAB_STYLE, TabId, TabState, TabStyle, Tabs, min_width_px};
 use crate::commands::{self, CommandId};
 
-/// A tab's widths: it shrinks as tabs are added, down to `MIN`.
-const TAB_WIDTH: f32 = 200.0;
-const MIN_TAB_WIDTH: f32 = 56.0;
-const TAB_HEIGHT: f32 = 30.0;
+/// Width of pinned compact tabs, heights for Vivaldi/Chrome tab styles, and O(1) strip bound.
+const PINNED_TAB_WIDTH: f32 = 44.0;
+const TAB_HEIGHT_VIVALDI: f32 = 28.0;
+const TAB_HEIGHT_CHROME: f32 = 30.0;
+/// Maximum number of tab buttons mounted concurrently in the strip so 300+ open tabs stay O(1).
+const MAX_STRIP_TABS: usize = 20;
 
-/// The strip: the tabs, the open button and the tab-list button; the app's name while nothing is open.
+const HOME_ICON_PNG: &[u8] = include_bytes!("../../assets/icons/home.png");
+
+fn home_icon_src() -> String {
+    static SRC: OnceLock<String> = OnceLock::new();
+    SRC.get_or_init(|| {
+        format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(HOME_ICON_PNG)
+        )
+    })
+    .clone()
+}
+
+/// The strip: always-accessible Home tab, horizontally scrollable O(1) window of tabs sized by
+/// the configured minimum width, the open button, an overflow badge (`+N`), and blank drag space.
 pub(crate) fn tab_strip(
     state: TabState,
+    home_open: Signal<bool>,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
+    let tab_style = move || state.live.read(|s| TabStyle::parse(s.text(TAB_STYLE)));
+    let strip = computed(move || state.tabs.with(|t| windowed_items(t, MAX_STRIP_TABS)));
+    let overflow = move || strip.with(|(_, hidden)| *hidden);
     let list = tabs()
         .flex_row()
-        .items_end()
-        .gap(px(2.0))
-        .min_w(px(0.0))
-        .flex_shrink(1.0)
+        .flex_shrink(0.0)
         .h_full()
+        .style_when(
+            move || tab_style() == TabStyle::Vivaldi,
+            |s| s.items_center().gap(px(4.0)),
+        )
+        .style_when(
+            move || tab_style() == TabStyle::Chrome,
+            |s| s.items_end().gap(px(2.0)),
+        )
         .child(each(
-            move || state.tabs.with(items),
+            move || strip.with(|(items, _)| items.clone()),
             |item: &Item| *item,
             move |item, _| match item.with_untracked(|item| *item) {
                 Item::Group(id) => group_chip(state, id).into_element(),
-                Item::Tab(id) => tab_view(state, id).into_element(),
+                Item::Tab(id) => tab_view(state, home_open, id).into_element(),
             },
         ));
+    let scroller = scroll()
+        .horizontal()
+        .scrollbar(nsh_core::ScrollbarSetting::Hidden)
+        .flex_shrink(1.0)
+        .min_w(px(0.0))
+        .h_full()
+        .child(list);
     view()
         .flex_1()
         .min_w(px(0.0))
@@ -48,16 +82,8 @@ pub(crate) fn tab_strip(
         .flex_row()
         .items_center()
         .gap_1()
-        .child(when(
-            move || !state.has_tabs(),
-            || {
-                text(move || t!("app.name"))
-                    .text_size(px(13.0))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(move || theme().sidebar_foreground)
-            },
-        ))
-        .child(list)
+        .child(home_tab(state, home_open, tab_style))
+        .child(scroller)
         .child(strip_button(
             CommandId::OpenFile,
             run,
@@ -65,11 +91,98 @@ pub(crate) fn tab_strip(
                 .text_size(px(18.0))
                 .text_color(move || theme().sidebar_foreground),
         ))
-        .child(view().flex_1())
         .child(when(
-            move || state.has_any(),
-            move || strip_button(CommandId::TabList, run, chevron()),
+            move || overflow() > 0,
+            move || overflow_pill(overflow, run),
         ))
+        .child(view().flex_1().min_w(px(0.0)).h_full())
+}
+
+/// Pinned Home tab at the start of the strip so users can open or return to the Home page at any time.
+fn home_tab(
+    state: TabState,
+    home_open: Signal<bool>,
+    tab_style: impl Fn() -> TabStyle + Copy + 'static,
+) -> impl IntoElement {
+    let active = move || !state.has_tabs() || home_open.get();
+    view().window_drag(false).flex_shrink(0.0).child(
+        button()
+            .accessibility_label(t!("home.tab"))
+            .on_press(move || home_open.set(true))
+            .flex_row()
+            .items_center()
+            .gap(px(6.0))
+            .px(px(10.0))
+            .style_when(
+                move || tab_style() == TabStyle::Vivaldi,
+                |s| {
+                    s.h(px(TAB_HEIGHT_VIVALDI))
+                        .rounded(px(7.0))
+                        .border_1()
+                        .border_color(move || {
+                            if active() {
+                                theme().border
+                            } else {
+                                Hsla::transparent_black().into()
+                            }
+                        })
+                        .bg(move || {
+                            if active() {
+                                theme().background
+                            } else {
+                                theme().secondary
+                            }
+                        })
+                },
+            )
+            .style_when(
+                move || tab_style() == TabStyle::Chrome,
+                |s| {
+                    s.h(px(TAB_HEIGHT_CHROME))
+                        .rounded_t(px(8.0))
+                        .border_t(px(2.0))
+                        .border_t_color(move || {
+                            if active() {
+                                theme().primary
+                            } else {
+                                Hsla::transparent_black().into()
+                            }
+                        })
+                },
+            )
+            .style_when(
+                move || tab_style() == TabStyle::Chrome && active(),
+                |s| s.bg(move || theme().background),
+            )
+            .hover(|s| s.bg(move || theme().sidebar_accent))
+            .active(|s| s.opacity(0.8))
+            .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+            .child(
+                image(home_icon_src())
+                    .w(px(14.0))
+                    .h(px(14.0))
+                    .object_fit(ResizeMode::Contain)
+                    .tint_color(move || {
+                        if active() {
+                            theme().foreground
+                        } else {
+                            theme().sidebar_foreground
+                        }
+                    }),
+            )
+            .child(
+                text(move || t!("home.tab"))
+                    .text_size(px(12.0))
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(move || {
+                        if active() {
+                            theme().foreground
+                        } else {
+                            theme().sidebar_foreground
+                        }
+                    }),
+            ),
+    )
 }
 
 /// What the strip shows, left to right.
@@ -81,16 +194,97 @@ enum Item {
     Tab(TabId),
 }
 
-/// The strip's items: the tabs in order, each group's chip before its first tab (a group's tabs sit together).
+/// Computes all uncollapsed strip items (used for ordering/testing).
+#[cfg(test)]
 fn items(tabs: &Tabs) -> Vec<Item> {
-    let mut items = Vec::new();
-    let mut last = None;
-    for tab in tabs.all() {
-        if tab.group != last {
-            items.extend(tab.group.map(Item::Group));
-            last = tab.group;
+    windowed_items(tabs, usize::MAX).0
+}
+
+/// Computes at most `max_tabs` uncollapsed tabs (always keeping pinned tabs and a sliding window
+/// centered on the active tab) plus their leading group chips, and returns `(items, omitted_tabs)`.
+fn windowed_items(tabs: &Tabs, max_tabs: usize) -> (Vec<Item>, usize) {
+    let all = tabs.all();
+    let visible_indices: Vec<usize> = all
+        .iter()
+        .enumerate()
+        .filter(|(_, tab)| !tabs.hidden(tab.id))
+        .map(|(i, _)| i)
+        .collect();
+    let total_visible = visible_indices.len();
+    if total_visible <= max_tabs {
+        let mut keep = vec![false; all.len()];
+        for &idx in &visible_indices {
+            keep[idx] = true;
         }
-        if !tabs.hidden(tab.id) {
+        return (build_items(tabs, all, &keep, true), 0);
+    }
+    let active_id = tabs.active().map(|tab| tab.id);
+    let mut keep = vec![false; all.len()];
+    let mut kept = 0usize;
+    // Keep active tab first so it is guaranteed visible even under extreme pinning.
+    if let Some(pos) = visible_indices
+        .iter()
+        .copied()
+        .find(|&i| Some(all[i].id) == active_id)
+    {
+        keep[pos] = true;
+        kept += 1;
+    }
+    for &i in &visible_indices {
+        if kept >= max_tabs {
+            break;
+        }
+        if !keep[i] && all[i].pinned {
+            keep[i] = true;
+            kept += 1;
+        }
+    }
+    let center = visible_indices
+        .iter()
+        .position(|&i| Some(all[i].id) == active_id)
+        .unwrap_or(0);
+    for step in 0..visible_indices.len() {
+        if kept >= max_tabs {
+            break;
+        }
+        let offsets = [
+            center.checked_add(step),
+            (step > 0).then(|| center.checked_sub(step)).flatten(),
+        ];
+        for cand in offsets.into_iter().flatten() {
+            if kept >= max_tabs {
+                break;
+            }
+            if let Some(&idx) = visible_indices.get(cand)
+                && !keep[idx]
+            {
+                keep[idx] = true;
+                kept += 1;
+            }
+        }
+    }
+    let omitted = total_visible.saturating_sub(kept);
+    (build_items(tabs, all, &keep, false), omitted)
+}
+
+fn build_items(tabs: &Tabs, all: &[Tab], keep: &[bool], include_all_collapsed: bool) -> Vec<Item> {
+    let mut items = Vec::with_capacity(keep.iter().filter(|&&k| k).count() + 4);
+    let mut last_emitted_group = None;
+    let first_kept = keep.iter().position(|&k| k).unwrap_or(0);
+    let last_kept = keep.iter().rposition(|&k| k).unwrap_or(0);
+    for (idx, tab) in all.iter().enumerate() {
+        let kept = keep.get(idx).copied().unwrap_or(false);
+        if let Some(group_id) = tab.group {
+            let collapsed = tabs.group(group_id).is_some_and(|group| group.collapsed);
+            let near_window = include_all_collapsed || (idx >= first_kept && idx <= last_kept);
+            if Some(group_id) != last_emitted_group && (kept || (collapsed && near_window)) {
+                items.push(Item::Group(group_id));
+                last_emitted_group = Some(group_id);
+            }
+        } else {
+            last_emitted_group = None;
+        }
+        if kept {
             items.push(Item::Tab(tab.id));
         }
     }
@@ -186,16 +380,20 @@ fn group_chip(state: TabState, id: GroupId) -> impl IntoElement {
         .child(chip)
 }
 
-/// One tab: its file's name, a dot while it has unsaved changes, a pin or a close button; underlined in its group's
-/// colour.
-fn tab_view(state: TabState, id: TabId) -> impl IntoElement {
+/// One tab: Vivaldi rounded pill (default) or Chrome browser tab, sized by `tab_min_width_px`.
+fn tab_view(state: TabState, home_open: Signal<bool>, id: TabId) -> impl IntoElement {
     let tab = computed(move || state.tabs.with(|tabs| tabs.get(id).cloned()));
-    let shown = move || state.tabs.with(|tabs| tabs.active().map(|tab| tab.id)) == Some(id);
+    let tab_style = move || state.live.read(|s| TabStyle::parse(s.text(TAB_STYLE)));
+    let min_tab_px = move || state.live.read(min_width_px);
+    let shown = move || {
+        !home_open.get() && state.tabs.with(|tabs| tabs.active().map(|tab| tab.id)) == Some(id)
+    };
     let multi_selected = move || state.is_selected(id);
     let pinned = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.pinned));
     let missing = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.missing));
     let dirty = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.dirty));
     let title = move || tab.with(|tab| tab.as_ref().map(Tab::title).unwrap_or_default());
+    let has_group = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.group.is_some()));
     let underline = move || {
         state.tabs.with(|tabs| {
             tabs.get(id)
@@ -204,33 +402,85 @@ fn tab_view(state: TabState, id: TabId) -> impl IntoElement {
                 .map_or(Hsla::transparent_black(), |group| swatch(group.color).0)
         })
     };
+    let mode_accent = move || {
+        use_context::<crate::modes::Modes>()
+            .filter(|_| shown())
+            .map(|modes| crate::modes::accent(modes.current()))
+    };
     let tab_view = nsh_base::tab()
         .selected(shown)
-        .on_press(move || state.show(id))
+        .on_press(move || {
+            home_open.set(false);
+            state.show(id);
+        })
         .flex_1()
         .min_w(px(0.0))
         .flex_row()
         .items_center()
         .gap(px(6.0))
-        .h(px(TAB_HEIGHT))
-        .pl_3()
-        .pr_1()
-        .rounded_t(px(8.0))
-        .border_t(px(2.0))
-        .border_t_color(
-            move || match use_context::<crate::modes::Modes>().filter(|_| shown()) {
-                Some(modes) => crate::modes::accent(modes.current()),
-                None => Hsla::transparent_black().into(),
+        .style_when(
+            move || tab_style() == TabStyle::Vivaldi,
+            |s| {
+                s.h(px(TAB_HEIGHT_VIVALDI))
+                    .pl(px(10.0))
+                    .pr(px(6.0))
+                    .rounded(px(7.0))
+                    .border_1()
+                    .border_color(move || {
+                        if shown() {
+                            theme().border
+                        } else {
+                            Hsla::transparent_black().into()
+                        }
+                    })
+                    .bg(move || {
+                        if shown() {
+                            theme().background
+                        } else {
+                            theme().secondary
+                        }
+                    })
             },
         )
-        .border_b(px(2.0))
-        .border_b_color(underline)
+        .style_when(
+            move || tab_style() == TabStyle::Vivaldi && has_group(),
+            |s| s.border_b(px(2.0)).border_b_color(underline),
+        )
+        .style_when(
+            move || tab_style() == TabStyle::Chrome,
+            |s| {
+                s.h(px(TAB_HEIGHT_CHROME))
+                    .pl_3()
+                    .pr_1()
+                    .rounded_t(px(8.0))
+                    .border_t(px(2.0))
+                    .border_t_color(move || {
+                        mode_accent().unwrap_or_else(|| Hsla::transparent_black().into())
+                    })
+                    .border_b(px(2.0))
+                    .border_b_color(underline)
+            },
+        )
+        .style_when(
+            move || tab_style() == TabStyle::Chrome && shown(),
+            |s| s.bg(move || theme().background),
+        )
         .style_when(multi_selected, |s| {
             s.border_1().border_color(move || theme().primary)
         })
         .hover(|s| s.bg(move || theme().sidebar_accent))
-        .selected_style(|s| s.bg(move || theme().background))
         .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(when(
+            move || tab_style() == TabStyle::Vivaldi && shown(),
+            move || {
+                view()
+                    .w(px(6.0))
+                    .h(px(6.0))
+                    .rounded_full()
+                    .flex_shrink(0.0)
+                    .bg(move || mode_accent().unwrap_or(theme().primary))
+            },
+        ))
         .child(when(pinned, || {
             pin_mark(move || theme().sidebar_foreground)
         }))
@@ -286,9 +536,21 @@ fn tab_view(state: TabState, id: TabId) -> impl IntoElement {
             }
         })
         .flex_row()
-        .w(px(TAB_WIDTH))
-        .min_w(px(MIN_TAB_WIDTH))
-        .flex_shrink(1.0)
+        .w(move || {
+            if pinned() {
+                px(PINNED_TAB_WIDTH)
+            } else {
+                px(min_tab_px())
+            }
+        })
+        .min_w(move || {
+            if pinned() {
+                px(PINNED_TAB_WIDTH)
+            } else {
+                px(min_tab_px())
+            }
+        })
+        .flex_shrink(0.0)
         .child(tab_view)
 }
 
@@ -326,15 +588,33 @@ pub(crate) fn pin_mark(color: impl Fn() -> AdaptiveColor + Copy + 'static) -> im
         .child(view().w(px(1.5)).h(px(5.0)).bg(color))
 }
 
-/// A downward chevron, drawn as the corner of a rotated square.
-fn chevron() -> impl IntoElement {
-    view()
-        .w(px(7.0))
-        .h(px(7.0))
-        .border_r(px(2.0))
-        .border_b(px(2.0))
-        .border_color(move || theme().sidebar_foreground)
-        .rotate(Radians(std::f32::consts::FRAC_PI_4))
+/// Compact overflow indicator (`+N`) opening the searchable tab list when more tabs are open than fit in the strip.
+fn overflow_pill(
+    count: impl Fn() -> usize + Copy + 'static,
+    run: impl Fn(CommandId) + Copy + 'static,
+) -> impl IntoElement {
+    view().window_drag(false).child(
+        button()
+            .accessibility_label(move || {
+                Some(SharedString::from(t!("tabs.overflow", count = count())))
+            })
+            .on_press(move || run(CommandId::TabList))
+            .h(px(22.0))
+            .px_2()
+            .rounded(px(6.0))
+            .items_center()
+            .justify_center()
+            .bg(move || theme().sidebar_accent)
+            .hover(|s| s.opacity(0.9))
+            .active(|s| s.opacity(0.75))
+            .child(
+                text(move || format!("+{}", count()))
+                    .tabular_nums()
+                    .text_size(px(11.0))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(move || theme().sidebar_foreground),
+            ),
+    )
 }
 
 /// A small button of the strip that runs `id`, named after the command and its shortcut.
@@ -387,5 +667,19 @@ mod tests {
             items(&tabs),
             [Item::Tab(ids[0]), Item::Group(group), Item::Tab(ids[3])]
         );
+    }
+
+    #[test]
+    fn strip_bounds_visible_tabs_to_constant_window_for_350_open_tabs() {
+        let mut tabs = Tabs::default();
+        let ids: Vec<TabId> = (0..350)
+            .map(|i| tabs.open(PathBuf::from(format!("doc_{i:03}.pdf")), 0))
+            .collect();
+        let active = ids[180];
+        tabs.activate(active);
+        let (window, omitted) = windowed_items(&tabs, MAX_STRIP_TABS);
+        assert_eq!(window.len(), MAX_STRIP_TABS);
+        assert_eq!(omitted, 350 - MAX_STRIP_TABS);
+        assert!(window.contains(&Item::Tab(active)));
     }
 }

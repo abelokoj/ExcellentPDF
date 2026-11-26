@@ -42,25 +42,48 @@ pub(crate) struct Thumbnails {
     /// The renders under way, by page: dropping one cancels it.
     running: Stored<HashMap<usize, Spawned<()>>>,
     source: Stored<Option<Source>>,
+    /// Active document path being opened asynchronously so duplicate opens are coalesced.
+    opening_for: Stored<Option<PathBuf>>,
+    /// Async open task handle; replaced/cancelled immediately when switching away.
+    opening_task: Stored<Option<Spawned<()>>>,
+    /// Requested pages waiting while [`Self::opening_task`] opens the document off-thread.
+    pending_pages: Stored<Vec<usize>>,
     tabs: TabState,
 }
 
 impl Thumbnails {
     pub(crate) fn new(tabs: TabState) -> Self {
-        Self {
+        let thumbs = Self {
             ready: signal(HashMap::new()),
             running: stored(HashMap::new()),
             source: stored(None),
+            opening_for: stored(None),
+            opening_task: stored(None),
+            pending_pages: stored(Vec::new()),
             tabs,
-        }
+        };
+        // Immediately hibernate the previous document's thumbnail source and cancel in-flight
+        // thumbnail renders whenever the active tab changes or closes.
+        effect(move || {
+            let _shown = tabs.shown_path();
+            untracked(|| thumbs.reset());
+        });
+        thumbs
+    }
+
+    fn reset(self) {
+        self.running.with(HashMap::clear);
+        self.opening_task.with(|task| *task = None);
+        self.opening_for.with(|for_path| *for_path = None);
+        self.pending_pages.with(Vec::clear);
+        self.source.with(|source| *source = None);
+        self.ready.set(HashMap::new());
     }
 
     /// Takes the canvas's `pages` event: a document (or none) was opened, so every thumbnail goes.
     pub(crate) fn on_canvas_event(self, event: &NativeEvent) {
         if &*event.name == "pages" {
-            self.running.with(HashMap::clear);
-            self.source.with(|source| *source = None);
-            self.ready.set(HashMap::new());
+            self.reset();
         }
     }
 
@@ -71,6 +94,8 @@ impl Thumbnails {
         };
         self.running
             .with(|running| running.retain(|page, _| wanted.contains(page)));
+        self.pending_pages
+            .with(|pending| pending.retain(|page| wanted.contains(page)));
         for page in wanted {
             let known = self.ready.with(|ready| ready.contains_key(&page))
                 || self.running.with(|running| running.contains_key(&page));
@@ -80,13 +105,49 @@ impl Thumbnails {
         }
     }
 
-    /// Shows page `page`'s thumbnail from the disk cache, or starts rendering it.
+    /// Shows page `page`'s thumbnail from the disk cache, or starts rendering it without blocking
+    /// the UI thread on document parsing.
     fn start(self, page: usize) {
-        let shown = untracked(|| self.tabs.shown_path());
-        let job = self.source.with(|source| {
-            if source.is_none() {
-                *source = open_source(shown);
+        let Some(shown) = untracked(|| self.tabs.shown_path()) else {
+            return;
+        };
+        if self.source.with(|source| source.is_none()) {
+            self.pending_pages.with(|pending| {
+                if !pending.contains(&page) {
+                    pending.push(page);
+                }
+            });
+            let already_opening = self
+                .opening_for
+                .with(|for_path| for_path.as_ref() == Some(&shown));
+            if !already_opening {
+                self.opening_for
+                    .with(|for_path| *for_path = Some(shown.clone()));
+                let open_path = shown.clone();
+                let folder = data_dir()
+                    .unwrap_or_else(std::env::temp_dir)
+                    .join("thumbnails");
+                let task = spawn(async move {
+                    let opened = blocking(move || open_source(Some(open_path), folder)).await;
+                    let Ok(Some(src)) = opened else {
+                        self.opening_for.with(|for_path| *for_path = None);
+                        return;
+                    };
+                    if untracked(|| self.tabs.shown_path()).as_ref() != Some(&shown) {
+                        return;
+                    }
+                    self.source.with(|slot| *slot = Some(src));
+                    self.opening_for.with(|for_path| *for_path = None);
+                    let pages = self.pending_pages.with(std::mem::take);
+                    for p in pages {
+                        self.start(p);
+                    }
+                });
+                self.opening_task.with(|slot| *slot = Some(task));
             }
+            return;
+        }
+        let job = self.source.with(|source| {
             let source = source.as_mut()?;
             let name = thumbnails::file_name(
                 source.key,
@@ -139,11 +200,14 @@ impl Thumbnails {
 }
 
 /// The document the canvas opened (`path`, the shown tab's), from the shared registry: already parsed, so this reads
+/// Prepares `path`'s MuPDF handle and its thumbnail folder; it reads nothing until a thumbnail is rendered, so
+/// missing a single-file check never fails on an unopened document and avoids holding the document open for
 /// only its identity.
-fn open_source(path: Option<PathBuf>) -> Option<Source> {
+fn open_source(path: Option<PathBuf>, folder: PathBuf) -> Option<Source> {
     let path = path?;
+    let resolved = crate::expdf::resolve_open_path(&path);
     let opened = registry()
-        .open(&path)
+        .open(&resolved)
         .and_then(|document| Ok((document.mupdf()?, document)));
     let (mupdf, document) = match opened {
         Ok(opened) => opened,
@@ -152,9 +216,6 @@ fn open_source(path: Option<PathBuf>) -> Option<Source> {
             return None;
         }
     };
-    let folder = data_dir()
-        .unwrap_or_else(std::env::temp_dir)
-        .join("thumbnails");
     Some(Source {
         key: document.id().key(),
         document,

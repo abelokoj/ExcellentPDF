@@ -36,6 +36,62 @@ pub(crate) use strip::{pin_mark, tab_strip};
 /// `settings.toml`'s key for the order Ctrl+Tab goes through the tabs in: `"recent"` (the default) or `"strip"`.
 pub(crate) const TAB_CYCLE_ORDER: &str = "tab_cycle_order";
 
+/// `settings.toml`'s key for the tab bar style: `"vivaldi"` (the default) or `"chrome"`.
+pub(crate) const TAB_STYLE: &str = "tab_style";
+
+/// `settings.toml`'s key for the minimum unpinned tab width in logical pixels (default `250`).
+pub(crate) const TAB_MIN_WIDTH_PX: &str = "tab_min_width_px";
+
+/// Legacy key retained as a fallback when migrating older configs saved in centimeters.
+const LEGACY_TAB_MIN_WIDTH_CM: &str = "tab_min_width_cm";
+
+/// Default minimum width of unpinned tabs in logical pixels.
+pub(crate) const DEFAULT_TAB_MIN_WIDTH_PX: f64 = 250.0;
+
+/// Lower bound for minimum tab width setting in logical pixels.
+pub(crate) const MIN_TAB_MIN_WIDTH_PX: f64 = 60.0;
+
+/// Upper bound for minimum tab width setting in logical pixels.
+pub(crate) const MAX_TAB_MIN_WIDTH_PX: f64 = 500.0;
+
+/// Logical 96-DPI points per centimeter (`96 / 2.54`).
+const POINTS_PER_CM: f64 = 96.0 / 2.54;
+
+/// Visual presentation style of tabs in the title bar.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum TabStyle {
+    /// Floating rounded-pill tabs with an active mode indicator dot (default).
+    #[default]
+    Vivaldi,
+    /// Chrome-style top-accented attached tabs.
+    Chrome,
+}
+
+impl TabStyle {
+    /// Parses a persisted setting string into a [`TabStyle`], defaulting to [`TabStyle::Vivaldi`].
+    pub(crate) fn parse(value: Option<&str>) -> Self {
+        match value {
+            Some("chrome") => Self::Chrome,
+            _ => Self::Vivaldi,
+        }
+    }
+}
+
+/// Returns the clamped minimum unpinned tab width in logical pixels from `settings`.
+///
+/// Defaults to [`DEFAULT_TAB_MIN_WIDTH_PX`] (`250 px`), falling back to the legacy
+/// `tab_min_width_cm` key if present.
+pub(crate) fn min_width_px(settings: &crate::settings::Settings) -> f32 {
+    let raw = settings.number(TAB_MIN_WIDTH_PX).or_else(|| {
+        settings
+            .number(LEGACY_TAB_MIN_WIDTH_CM)
+            .map(|cm| cm * POINTS_PER_CM)
+    });
+    raw.map_or(DEFAULT_TAB_MIN_WIDTH_PX, |px_val| {
+        px_val.clamp(MIN_TAB_MIN_WIDTH_PX, MAX_TAB_MIN_WIDTH_PX)
+    }) as f32
+}
+
 /// The window's tabs, and the view each switch brings back.
 #[derive(Clone, Copy)]
 pub(crate) struct TabState {
@@ -47,7 +103,7 @@ pub(crate) struct TabState {
     /// The group whose edit dialog is open.
     editing: Signal<Option<GroupId>>,
     pages: PageState,
-    live: Live,
+    pub(crate) live: Live,
 }
 
 impl std::fmt::Debug for TabState {
@@ -110,6 +166,12 @@ impl TabState {
         // Until the canvas has gone to the page a switch brings back, the page it reports is the last file's.
         let settled = self.restore.with(|restore| restore.is_none());
         settled.then(|| (path, self.pages.current()))
+    }
+
+    /// Like [`Self::shown_place`], along with the document's total page count when known.
+    pub(crate) fn shown_place_with_total(self) -> Option<(PathBuf, usize, usize)> {
+        let (path, page) = self.shown_place()?;
+        Some((path, page, self.pages.count()))
     }
 
     /// Whether any tab is open.
@@ -190,12 +252,6 @@ impl TabState {
     /// Closes the group `id` with its tabs.
     pub(crate) fn close_group(self, id: GroupId) {
         self.change(|tabs| tabs.close_group(id));
-    }
-
-    /// Whether any tab is open, or one can be reopened.
-    fn has_any(self) -> bool {
-        self.tabs
-            .with(|tabs| !tabs.all().is_empty() || tabs.closed().next().is_some())
     }
 
     /// Asks where the missing file of the tab `id` went, and shows it from there.
@@ -646,4 +702,34 @@ pub(crate) enum Action {
     LeaveGroup,
     /// Collapses or expands the tab's group.
     ToggleGroup,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::Settings;
+
+    #[test]
+    fn tab_style_defaults_to_vivaldi_and_parses_chrome() {
+        assert_eq!(TabStyle::default(), TabStyle::Vivaldi);
+        assert_eq!(TabStyle::parse(None), TabStyle::Vivaldi);
+        assert_eq!(TabStyle::parse(Some("vivaldi")), TabStyle::Vivaldi);
+        assert_eq!(TabStyle::parse(Some("chrome")), TabStyle::Chrome);
+    }
+
+    #[test]
+    fn tab_min_width_defaults_to_250_px_and_clamps() {
+        let mut settings = Settings::default();
+        assert!((min_width_px(&settings) - 250.0).abs() < f32::EPSILON);
+
+        settings.set_number(LEGACY_TAB_MIN_WIDTH_CM, Some(6.0));
+        let legacy_px = min_width_px(&settings);
+        assert!((226.0..228.0).contains(&legacy_px));
+
+        settings.set_number(TAB_MIN_WIDTH_PX, Some(10.0));
+        assert!((min_width_px(&settings) - MIN_TAB_MIN_WIDTH_PX as f32).abs() < f32::EPSILON);
+
+        settings.set_number(TAB_MIN_WIDTH_PX, Some(999.0));
+        assert!((min_width_px(&settings) - MAX_TAB_MIN_WIDTH_PX as f32).abs() < f32::EPSILON);
+    }
 }

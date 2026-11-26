@@ -12,12 +12,12 @@ use std::path::{Path, PathBuf};
 
 use excellent_store::workspace::WorkspaceId;
 use excellent_store::workspaces::Workspace;
-use nsh_base::{CommandItem, command};
+use nsh_base::{CommandItem, command, dialog};
 use nsh_core::prelude::*;
 
 use super::model::Tabs;
 use super::{TabId, TabState};
-use crate::list_dialog::{list_dialog, style};
+use crate::list_dialog::style;
 use crate::recent::RecentState;
 use crate::workspaces::{self, Workspaces};
 
@@ -55,9 +55,29 @@ pub(crate) fn tab_list(
         t!(key, name = name, count = count).into()
     };
     let elsewhere = stored(elsewhere_rows(&workspaces.tabs_elsewhere(), section));
+    let current_section = move |name: &str, count: usize, hibernated: usize| -> SharedString {
+        if hibernated > 0 {
+            t!(
+                "tabs.group.workspace_current_hibernated",
+                name = name,
+                count = count,
+                hibernated = hibernated
+            )
+        } else {
+            t!("tabs.group.workspace_current", name = name, count = count)
+        }
+        .into()
+    };
     let rows = move || {
-        let mut rows = state.tabs.with(rows);
+        let workspace_name = workspaces
+            .shown()
+            .as_ref()
+            .map_or_else(|| t!("workspace.default_name"), workspaces::display_name);
+        let mut rows = state
+            .tabs
+            .with(|tabs| open_rows(tabs, &workspace_name, current_section));
         rows.extend(elsewhere.with(|rows| rows.clone()));
+        rows.extend(state.tabs.with(maintenance_rows));
         rows.extend(state.tabs.with(|tabs| recent_rows(tabs, &recent.files())));
         rows
     };
@@ -68,71 +88,97 @@ pub(crate) fn tab_list(
             state.close(tab);
         }
     });
-    list_dialog(
-        t!("tabs.list"),
-        close,
-        style(
-            command()
-                .items(move || {
-                    rows()
-                        .into_iter()
-                        .map(|(_, item, _)| item)
-                        .collect::<Vec<_>>()
-                })
-                .placeholder(t!("tabs.search"))
-                .accessibility_label(t!("tabs.list"))
-                .auto_focus(true)
-                .on_highlight_change(move |id: &Option<SharedString>| highlighted.set(id.clone()))
-                .on_select(move |id: &SharedString| {
-                    let Some((_, _, row)) = find(id) else {
-                        return;
-                    };
-                    match row {
-                        Row::Show(tab) => {
-                            close();
-                            state.show(tab);
-                        }
-                        // Stays open: the list shows what is left.
-                        Row::CloseCopies(tab) => {
-                            state.show(tab);
-                            state.run(super::Action::CloseDuplicates);
-                        }
-                        Row::Reopen(path) => {
-                            close();
-                            state.reopen(&path);
-                        }
-                        Row::OpenRecent(path, page) => {
-                            close();
-                            state.open_at(path, page);
-                        }
-                        Row::Elsewhere(id, path) => {
-                            close();
-                            workspaces.show_tab(id, path);
-                        }
+    let in_fields = KeyOptions {
+        when: nsh_core::keymap::When::Always,
+        ..KeyOptions::default()
+    };
+    on_key_with("escape", in_fields, move |_| close());
+    let panel = style(
+        command()
+            .items(move || {
+                rows()
+                    .into_iter()
+                    .map(|(_, item, _)| item)
+                    .collect::<Vec<_>>()
+            })
+            .placeholder(t!("tabs.search"))
+            .accessibility_label(t!("tabs.list"))
+            .auto_focus(true)
+            .on_highlight_change(move |id: &Option<SharedString>| highlighted.set(id.clone()))
+            .on_select(move |id: &SharedString| {
+                let Some((_, _, row)) = find(id) else {
+                    return;
+                };
+                match row {
+                    Row::Show(tab) => {
+                        close();
+                        state.show(tab);
                     }
-                })
-                .on_cancel(close),
-        ),
+                    // Stays open: the list shows what is left.
+                    Row::CloseCopies(tab) => {
+                        state.show(tab);
+                        state.run(super::Action::CloseDuplicates);
+                    }
+                    Row::Reopen(path) => {
+                        close();
+                        state.reopen(&path);
+                    }
+                    Row::OpenRecent(path, page) => {
+                        close();
+                        state.open_at(path, page);
+                    }
+                    Row::Elsewhere(id, path) => {
+                        close();
+                        workspaces.show_tab(id, path);
+                    }
+                }
+            })
+            .on_cancel(close),
     )
+    .w(px(460.0));
+    dialog()
+        .label(t!("tabs.list"))
+        .animation(ModalAnimation::Fade)
+        .on_cancel(close)
+        .child(
+            view()
+                .flex_1()
+                .items_end()
+                .pt(px(42.0))
+                .pr(px(148.0))
+                .child(panel),
+        )
 }
 
-/// The list's rows of the shown workspace's tabs.
-fn rows(tabs: &Tabs) -> Vec<ListRow> {
+/// The active workspace's open tabs, labelled with its name and hibernated background count.
+fn open_rows(
+    tabs: &Tabs,
+    workspace_name: &str,
+    section: impl Fn(&str, usize, usize) -> SharedString,
+) -> Vec<ListRow> {
     let shown = tabs.active().map(|tab| tab.id);
-    let open_group: SharedString = t!("tabs.group.open", count = tabs.all().len()).into();
-    let mut rows: Vec<_> = tabs
-        .all()
+    let total = tabs.all().len();
+    let hibernated = total.saturating_sub(usize::from(shown.is_some()));
+    let open_group = section(workspace_name, total, hibernated);
+    tabs.all()
         .iter()
         .map(|tab| {
             let id: SharedString = format!("open:{}", tab.id.0).into();
             let mut item = CommandItem::new(id.clone(), tab.title());
-            item.keywords = vec![tab.path.to_string_lossy().into_owned().into()];
+            item.keywords = vec![
+                tab.path.to_string_lossy().into_owned().into(),
+                workspace_name.to_owned().into(),
+            ];
             item.group = Some(open_group.clone());
             item.checked = Some(tab.id) == shown;
             (id, item, Row::Show(tab.id))
         })
-        .collect();
+        .collect()
+}
 
+/// Duplicate and recently closed tab sections for the shown workspace.
+fn maintenance_rows(tabs: &Tabs) -> Vec<ListRow> {
+    let mut rows = Vec::new();
     let duplicates = tabs.duplicates();
     let copies_group: SharedString = t!("tabs.group.duplicates", count = duplicates.len()).into();
     for group in duplicates {
@@ -255,5 +301,29 @@ mod tests {
             "one counted section per workspace"
         );
         assert_eq!(rows[0].1.group, rows[1].1.group);
+    }
+
+    #[test]
+    fn current_workspace_rows_include_name_and_hibernated_count() {
+        let mut tabs = Tabs::default();
+        for name in ["a.pdf", "b.pdf", "c.pdf"] {
+            tabs.open(PathBuf::from(name), 0);
+        }
+        let section = |name: &str, count: usize, hibernated: usize| -> SharedString {
+            format!("{name} ({count} · {hibernated} hibernated)").into()
+        };
+        let rows = open_rows(&tabs, "Research", section);
+        assert_eq!(rows.len(), 3);
+        assert_eq!(
+            rows[0].1.group.as_deref(),
+            Some("Research (3 · 2 hibernated)")
+        );
+        assert!(
+            rows[0]
+                .1
+                .keywords
+                .iter()
+                .any(|keyword| keyword.as_ref() == "Research")
+        );
     }
 }

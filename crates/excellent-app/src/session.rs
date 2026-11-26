@@ -32,17 +32,35 @@ pub(crate) struct Restored {
     pub(crate) tabs: [Tabs; CELLS],
 }
 
-/// The panes and tabs workspace `id` was left with, if the library is open. Each tab's file is looked for (one `stat`
-/// per tab) so the missing ones show at once.
+/// The panes and tabs workspace `id` was left with, if the library is open.
+///
+/// Inactive tabs are restored **lazily** (hibernated with no `stat` or document open) so restoring
+/// 300+ tabs on startup or workspace switch is O(N) in memory and avoids 300 filesystem/OneDrive
+/// round-trips; only the single active tab per open pane is checked immediately, and every other
+/// tab checks its file lazily when first activated ([`crate::tabs::TabState`]).
 pub(crate) fn load(id: WorkspaceId) -> Option<Restored> {
     let store = crate::library::store()?;
     match store.read(|conn| workspace::load_panes(conn, id)) {
-        Ok(saved) => Some(from_saved_panes(saved, Path::is_file)),
+        Ok(saved) => Some(from_saved_panes_lazy(saved, Path::is_file)),
         Err(err) => {
             log::warn!("session: can't read the tabs: {err}");
             None
         }
     }
+}
+
+/// Restores saved panes keeping inactive tabs hibernated (`exists` is only invoked for the single
+/// active tab of each pane that holds tabs).
+fn from_saved_panes_lazy(saved: workspace::Panes, exists: impl Fn(&Path) -> bool) -> Restored {
+    let mut restored = from_saved_panes(saved, |_| true);
+    for tabs in &mut restored.tabs {
+        if let Some((id, missing)) = tabs.active().map(|tab| (tab.id, !exists(&tab.path)))
+            && missing
+        {
+            tabs.set_missing(id, true);
+        }
+    }
+    restored
 }
 
 /// Keeps the shown workspace's panes and tabs in the library: a second after each change, at once when asked (before
@@ -411,5 +429,42 @@ mod tests {
         assert_eq!(page_of("{}"), 0);
         assert_eq!(page_of("not json"), 0);
         assert_eq!(page_of(r#"{"page":-3}"#), 0);
+    }
+
+    #[test]
+    fn restoring_350_tabs_is_instant_and_keeps_inactive_hibernated() {
+        let open: Vec<SavedTab> = (0..350)
+            .map(|i| SavedTab {
+                path: PathBuf::from(format!("C:/nonexistent/doc_{i:03}.pdf")),
+                view: format!(r#"{{"page":{i}}}"#),
+                pinned: i < 2,
+                group: None,
+            })
+            .collect();
+        let saved = workspace::Panes {
+            layout: None,
+            panes: vec![workspace::Tabs {
+                open,
+                active: Some(175),
+                groups: Vec::new(),
+                closed: Vec::new(),
+            }],
+        };
+        let checked = std::cell::Cell::new(0usize);
+        let started = std::time::Instant::now();
+        let restored = from_saved_panes_lazy(saved, |p| {
+            checked.set(checked.get() + 1);
+            p == Path::new("C:/nonexistent/doc_175.pdf")
+        });
+        assert!(started.elapsed() < Duration::from_millis(200));
+        assert_eq!(restored.tabs[0].all().len(), 350);
+        assert_eq!(
+            checked.get(),
+            1,
+            "only the single active tab should trigger an existence check; all 349 others stay hibernated"
+        );
+        let active = restored.tabs[0].active().expect("active tab");
+        assert_eq!(active.page, 175);
+        assert!(!active.missing);
     }
 }

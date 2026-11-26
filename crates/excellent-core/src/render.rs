@@ -197,10 +197,11 @@ pub struct RenderPool {
 }
 
 impl Default for RenderPool {
-    /// One worker per core but one, which is left to the UI (plan §5.3), and at least one.
+    /// Bounded worker pool leaving room for the UI thread and avoiding excessive per-thread MuPDF
+    /// context overhead on high-core-count machines (plan §5.3).
     fn default() -> Self {
-        let cores = thread::available_parallelism().map_or(1, usize::from);
-        Self::new(cores.saturating_sub(1).max(1))
+        let cores = thread::available_parallelism().map_or(2, usize::from);
+        Self::new(cores.saturating_sub(1).clamp(2, 6))
     }
 }
 

@@ -48,25 +48,31 @@ impl Registry {
     /// The file can't be read, or MuPDF can't open it.
     pub fn open(&self, path: &Path) -> document::Result<Arc<Document>> {
         let id = FileId::of(path)?;
+        {
+            let mut open = self.open.lock().expect("registry lock poisoned");
+            if let Some(document) = open.get(&id).and_then(Weak::upgrade) {
+                return Ok(document);
+            }
+            // A document saved since it opened is a new version of its file, which its key doesn't show.
+            let saved = open
+                .values()
+                .filter_map(Weak::upgrade)
+                .find(|document| document.id() == id);
+            if let Some(document) = saved {
+                open.insert(id, Arc::downgrade(&document));
+                return Ok(document);
+            }
+        }
+        // Parse outside the registry mutex so opening one large file never blocks another tab or
+        // thread checking already-open documents.
+        let parsed = Arc::new(Document::open_as(id.clone(), path, &self.log_dir)?);
         let mut open = self.open.lock().expect("registry lock poisoned");
-        if let Some(document) = open.get(&id).and_then(Weak::upgrade) {
-            return Ok(document);
+        if let Some(existing) = open.get(&id).and_then(Weak::upgrade) {
+            return Ok(existing);
         }
-        // A document saved since it opened is a new version of its file, which its key doesn't show.
-        let saved = open
-            .values()
-            .filter_map(Weak::upgrade)
-            .find(|document| document.id() == id);
-        if let Some(document) = saved {
-            open.insert(id, Arc::downgrade(&document));
-            return Ok(document);
-        }
-        // shortcut: parses while holding the lock, so a second file waits for the first; give each file its own slot
-        // if opening several large files at once shows the wait.
-        let document = Arc::new(Document::open_as(id.clone(), path, &self.log_dir)?);
         open.retain(|_, held| held.strong_count() > 0);
-        open.insert(id, Arc::downgrade(&document));
-        Ok(document)
+        open.insert(id, Arc::downgrade(&parsed));
+        Ok(parsed)
     }
 
     /// How many documents are open.

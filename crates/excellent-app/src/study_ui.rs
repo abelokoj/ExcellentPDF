@@ -154,6 +154,7 @@ pub(crate) struct StudyState {
     exam_session: Stored<Option<ExamSession>>,
     dictionary: Stored<DictionaryIndex>,
     vocabulary: Stored<VocabularyLibrary>,
+    vocab_loaded: Stored<bool>,
     focus_timer: Stored<FocusTimer>,
     read_aloud: Stored<Option<ReadAloudSession<DynSpeechSynth>>>,
     spoken_word: Signal<String>,
@@ -164,13 +165,6 @@ pub(crate) struct StudyState {
 impl StudyState {
     /// Creates Study & Reader productivity state.
     pub(crate) fn new(editing: Editing, annotate: AnnotateState) -> Self {
-        let vocab = library::store()
-            .and_then(|s| {
-                s.read(|conn| Ok(VocabularyLibrary::load_from_store(conn)))
-                    .ok()
-            })
-            .and_then(Result::ok)
-            .unwrap_or_default();
         Self {
             editing,
             annotate,
@@ -190,12 +184,32 @@ impl StudyState {
             translate_open: signal(false),
             exam_session: stored(None),
             dictionary: stored(DictionaryIndex::new()),
-            vocabulary: stored(vocab),
+            vocabulary: stored(VocabularyLibrary::default()),
+            vocab_loaded: stored(false),
             focus_timer: stored(FocusTimer::default()),
             read_aloud: stored(None),
             spoken_word: signal(String::new()),
             read_aloud_playing: signal(false),
             read_aloud_speed: signal(1.0),
+        }
+    }
+
+    fn ensure_vocabulary_loaded(self) {
+        if self.vocab_loaded.with(|loaded| {
+            let was = *loaded;
+            *loaded = true;
+            was
+        }) {
+            return;
+        }
+        if let Some(loaded) = library::store()
+            .and_then(|s| {
+                s.read(|conn| Ok(VocabularyLibrary::load_from_store(conn)))
+                    .ok()
+            })
+            .and_then(Result::ok)
+        {
+            self.vocabulary.with(|slot| *slot = loaded);
         }
     }
 
@@ -253,9 +267,11 @@ impl StudyState {
         self.review_open.set(true);
     }
     pub(crate) fn open_dictionary(self) {
+        self.ensure_vocabulary_loaded();
         self.dict_open.set(true);
     }
     pub(crate) fn open_vocabulary(self) {
+        self.ensure_vocabulary_loaded();
         self.vocab_open.set(true);
     }
     pub(crate) fn open_export(self) {

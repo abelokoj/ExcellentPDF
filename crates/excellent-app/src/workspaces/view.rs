@@ -64,11 +64,7 @@ pub(crate) fn switcher_button(
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(move || theme().sidebar_foreground),
             )
-            .child(
-                text("⌄")
-                    .text_size(px(12.0))
-                    .text_color(move || theme().muted_foreground),
-            ),
+            .child(crate::shell::app_menu::dropdown_arrow()),
     )
 }
 

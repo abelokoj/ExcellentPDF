@@ -152,5 +152,17 @@ strip = true
 [profile.release.package.excellent-mupdf-sys]
 opt-level = 3
 
+[profile.release.package.excellent-mupdf]
+opt-level = 3
+
+[profile.release.package.excellent-core]
+opt-level = 3
+
+[profile.release.package.excellent-canvas]
+opt-level = 3
+
+[profile.release.package.excellent-canvas-win]
+opt-level = 3
+
 [profile.release.package.excellent-ink]
 opt-level = 3

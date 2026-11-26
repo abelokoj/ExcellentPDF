@@ -249,11 +249,8 @@ impl Editing {
     }
 
     /// Brings back the edits a crash left unsaved in the file at `path`, once a run, for the reader to keep or
-    /// discard.
+    /// discard. Checks off the UI thread so opening or switching tabs never stalls on PDF parsing.
     fn recover(self, path: &Path) {
-        let Some(document) = registry().open(path).ok() else {
-            return;
-        };
         let asked_before = self.asked.with(|asked| {
             let before = asked.iter().any(|asked| asked == path);
             if !before {
@@ -261,18 +258,30 @@ impl Editing {
             }
             before
         });
-        if asked_before || !document.is_recoverable() {
+        if asked_before {
             return;
         }
-        match document.recover() {
-            Ok(changes) => {
-                self.revision.update(|revision| *revision += 1);
-                let path = path.to_path_buf();
-                self.recovered
-                    .update(|recovered| recovered.push(Recovered { path, changes }));
+        let path = path.to_path_buf();
+        spawn(async move {
+            let resolved = crate::expdf::resolve_open_path(&path);
+            let outcome = blocking(move || -> Option<document::Result<Vec<String>>> {
+                let document = registry().open(&resolved).ok()?;
+                if !document.is_recoverable() {
+                    return None;
+                }
+                Some(document.recover())
+            })
+            .await;
+            match outcome {
+                Ok(Some(Ok(changes))) => {
+                    self.revision.update(|revision| *revision += 1);
+                    self.recovered
+                        .update(|recovered| recovered.push(Recovered { path, changes }));
+                }
+                Ok(Some(Err(err))) => show_problem(t!("recover.failed"), &err),
+                Ok(None) | Err(_) => {}
             }
-            Err(err) => show_problem(t!("recover.failed"), &err),
-        }
+        });
     }
 
     /// The edits brought back for the shown file that the reader hasn't kept or discarded (tracked); `None` when

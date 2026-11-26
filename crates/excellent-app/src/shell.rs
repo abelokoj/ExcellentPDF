@@ -15,6 +15,7 @@
 //! hide ([`FullScreen`]).
 
 pub(crate) mod ai_ui;
+pub(crate) mod app_menu;
 pub(crate) mod control_channel;
 pub(crate) mod ecosystem_ui;
 pub(crate) mod forms_sign_ui;
@@ -254,7 +255,6 @@ enum Role {
 /// The main window's shell, and what the app does once: following the theme, the language and the system's
 /// contrast, and opening the workspace windows of the last run (W.8).
 pub(crate) fn shell() -> impl IntoElement {
-    control_channel::ensure_started();
     let live = settings::Live::new();
     let app = App {
         live,
@@ -362,6 +362,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
     // Not a dialog: it lies in the title bar, so the pages stay in sight to preview each theme.
     let reading_theme_open = signal(false);
     let tab_list_open = signal(false);
+    let app_menu_open = signal(false);
     let lib_ui = library_ui::LibraryUiState::new();
     let ai_ui = ai_ui::AiUiState::new();
     let forms_sign_ui = forms_sign_ui::FormsSignUiState::new();
@@ -406,6 +407,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             || goto_open.get()
             || settings_open.get()
             || tab_list_open.get()
+            || app_menu_open.get()
             || onboarding.is_open()
             || modes.is_customizing()
             || workspaces.dialog().is_some()
@@ -745,25 +747,29 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
         let pane = panes.active();
         control_channel::update_state(pane.tabs.shown_path(), pane.pages.current());
     });
-    if role == Role::Main && control_channel::status_snapshot().running {
-        set_interval(std::time::Duration::from_millis(250), move || {
-            for action in control_channel::drain_pending() {
-                match action {
-                    control_channel::PendingControlAction::OpenDocument(p) => {
-                        workspaces.open_paths(vec![p]);
-                    }
-                    control_channel::PendingControlAction::JumpToPage(page) => {
-                        panes.active().go_to(page);
-                    }
-                    control_channel::PendingControlAction::RunCommand(name) => {
-                        if let Some(cmd) = commands::find(&name) {
-                            run(cmd);
+    spawn(async move {
+        next_frame().await;
+        control_channel::ensure_started();
+        if role == Role::Main && control_channel::status_snapshot().running {
+            set_interval(std::time::Duration::from_millis(250), move || {
+                for action in control_channel::drain_pending() {
+                    match action {
+                        control_channel::PendingControlAction::OpenDocument(p) => {
+                            workspaces.open_paths(vec![p]);
+                        }
+                        control_channel::PendingControlAction::JumpToPage(page) => {
+                            panes.active().go_to(page);
+                        }
+                        control_channel::PendingControlAction::RunCommand(name) => {
+                            if let Some(cmd) = commands::find(&name) {
+                                run(cmd);
+                            }
                         }
                     }
                 }
-            }
-        });
-    }
+            });
+        }
+    });
     // Later launches' files (R.11), until the window closes; the main window takes them, or hands them to the window
     // that shows their workspace (W.6, W.8).
     if role == Role::Main {
@@ -854,6 +860,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             workspaces,
             shared,
             reading_theme_open,
+            app_menu_open,
         ))
         .child(modes::mode_bar(
             modes,
@@ -1267,6 +1274,7 @@ fn window_bar(
     workspaces: Workspaces,
     shared: Shared,
     reading_theme_open: Signal<bool>,
+    app_menu_open: Signal<bool>,
 ) -> impl IntoElement {
     let Shared {
         full_screen,
@@ -1297,17 +1305,26 @@ fn window_bar(
         .border_b_color(move || theme().border)
         .style_when(move || full_screen.hides_bar(), |s| s.hidden())
         .on_mouse_leave(move |_: &MouseEvent| full_screen.bar_left())
+        .child(view().window_drag(false).child(app_menu::app_menu_button(
+            app_menu_open,
+            run,
+            move || panes.active().tabs.has_shown(),
+        )))
+        .child(workspaces::switcher_button(workspaces, run))
         .child(bar_button(
             "command.toggle_sidebar",
             CommandId::ToggleSidebar,
             run,
             dock_glyph(DockPlacement::Left),
         ))
-        .child(workspaces::switcher_button(workspaces, run))
         // The reading-theme bar needs the room while it is open.
         .child(when(
             move || !reading_theme_open.get(),
-            move || of_active(panes, move |pane| tabs::tab_strip(pane.tabs, run)),
+            move || {
+                of_active(panes, move |pane| {
+                    tabs::tab_strip(pane.tabs, pane.home_open, run)
+                })
+            },
         ))
         .child(
             view()
@@ -1339,6 +1356,33 @@ fn window_bar(
             run,
             dock_glyph(DockPlacement::Right),
         ))
+        // Dedicated draggable grip area to the left of the top-right tab-list dropdown.
+        .child(view().min_w(px(72.0)).h_full())
+        .child(tab_list_button(run))
+}
+
+/// Vivaldi-style top-right framed dropdown trigger opening the searchable workspace-grouped tab list.
+fn tab_list_button(run: impl Fn(CommandId) + Copy + 'static) -> impl IntoElement {
+    view().window_drag(false).child(
+        button()
+            .accessibility_label(move || {
+                Some(SharedString::from(commands::label_with_shortcut(
+                    CommandId::TabList,
+                )))
+            })
+            .on_press(move || run(CommandId::TabList))
+            .w(px(28.0))
+            .h(px(24.0))
+            .rounded(px(6.0))
+            .border_1()
+            .border_color(move || theme().border)
+            .items_center()
+            .justify_center()
+            .hover(|s| s.bg(move || theme().sidebar_accent))
+            .active(|s| s.opacity(0.7))
+            .focus_visible(|s| s.border_2().border_color(move || theme().ring))
+            .child(app_menu::dropdown_arrow()),
+    )
 }
 
 /// A small button in the title bar that runs `id`; `label` is its localization key, for screen readers.

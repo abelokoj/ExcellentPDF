@@ -175,9 +175,17 @@ pub enum Started {
 
 /// Reads the command line and hands it to the running instance, if there is one; otherwise this process becomes the
 /// one later launches hand theirs to.
+///
+/// Setting `EXCELLENTPDF_ISOLATED_INSTANCE=1` bypasses single-instance forwarding (used by isolated
+/// automated UI/budget tests so they never collide with a user's open session).
 pub fn start() -> Started {
     let cwd = std::env::current_dir().unwrap_or_default();
     let launch = parse(std::env::args_os().skip(1), &cwd);
+    if std::env::var_os("EXCELLENTPDF_ISOLATED_INSTANCE").is_some_and(|v| !v.is_empty() && v != "0")
+    {
+        let _ = STARTUP.set(launch);
+        return Started::First;
+    }
     match instance::claim(crate::APP_ID, &to_message(&launch)) {
         Ok(Claim::Forwarded) => return Started::Forwarded,
         Ok(Claim::Primary(listener)) => {

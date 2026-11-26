@@ -136,6 +136,8 @@ pub(crate) struct Pane {
     pub(crate) focus: ElementRef,
     pub(crate) pages: PageState,
     pub(crate) tabs: TabState,
+    /// When `true`, this pane renders the SumatraPDF Enhanced Home Page instead of its active canvas.
+    pub(crate) home_open: Signal<bool>,
     pub(crate) link_state: LinkState,
     pub(crate) thumbs: Thumbnails,
     pub(crate) editing: Editing,
@@ -176,6 +178,15 @@ impl Pane {
         let tabs = TabState::new(tabs, pages, live);
         crate::recent::keep(recent, tabs);
         let editing = Editing::new(tabs, revision);
+        let home_open = signal(false);
+        let prev_shown = stored(untracked(|| tabs.shown_path()));
+        effect(move || {
+            let current = tabs.shown_path();
+            if current.is_some() && prev_shown.with(|prev| *prev != current) {
+                home_open.set(false);
+            }
+            prev_shown.replace(current);
+        });
         let (canvas, focus) = (element_ref(), element_ref());
         let annotate = AnnotateState::new(editing, live);
         let outline = OutlineState::new(tabs, pages, editing);
@@ -185,6 +196,7 @@ impl Pane {
             focus,
             pages,
             tabs,
+            home_open,
             link_state: LinkState::new(tabs),
             thumbs: Thumbnails::new(tabs),
             editing,

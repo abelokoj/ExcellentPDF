@@ -513,13 +513,45 @@ def sheet(icons: dict[int, Image.Image], out: Path) -> None:
     img.convert("RGB").save(out, optimize=True)
 
 
+def encode_dib_32bpp(img: Image.Image) -> bytes:
+    """Encodes an RGBA image as an uncompressed 32-bit BGRA BITMAPINFOHEADER DIB for Windows .ico."""
+    w, h = img.size
+    rgba = np.asarray(img.convert("RGBA"), dtype=np.uint8)
+    # Bottom-up BGRA pixel array.
+    bottom_up = rgba[::-1, :, :]
+    bgra = bottom_up[..., [2, 1, 0, 3]].tobytes()
+    # 1-bpp AND mask (bit=1 where transparent), padded per row to 32-bit DWORD boundary.
+    row_bytes = ((w + 31) // 32) * 4
+    and_mask = bytearray(row_bytes * h)
+    alpha = bottom_up[..., 3]
+    for y in range(h):
+        for x in range(w):
+            if alpha[y, x] == 0:
+                and_mask[y * row_bytes + (x >> 3)] |= 0x80 >> (x & 7)
+    header = struct.pack(
+        "<IiiHHIIiiII",
+        40,              # biSize
+        w,               # biWidth
+        h * 2,           # biHeight (XOR + AND)
+        1,               # biPlanes
+        32,              # biBitCount
+        0,               # biCompression (BI_RGB)
+        len(bgra),       # biSizeImage
+        0, 0, 0, 0,
+    )
+    return header + bgra + bytes(and_mask)
+
+
 def write_ico(icons: dict[int, Image.Image], out: Path) -> None:
-    """Writes a standard multi-resolution PNG-compressed Windows .ico carrying every size in ICO_SIZES."""
+    """Writes a hybrid BMP-DIB (<256 px) + PNG (256 px) Windows .ico carrying every size in ICO_SIZES."""
     entries: list[tuple[int, bytes]] = []
     for sz in ICO_SIZES:
-        buf = io.BytesIO()
-        icons[sz].save(buf, format="PNG", optimize=True)
-        entries.append((sz, buf.getvalue()))
+        if sz >= 256:
+            buf = io.BytesIO()
+            icons[sz].save(buf, format="PNG", optimize=True)
+            entries.append((sz, buf.getvalue()))
+        else:
+            entries.append((sz, encode_dib_32bpp(icons[sz])))
 
     header = struct.pack("<HHH", 0, 1, len(entries))
     offset = 6 + 16 * len(entries)
@@ -541,8 +573,11 @@ def main() -> None:
         icons[sz].save(png_dir / f"excellentpdf-{sz}.png", optimize=True)
     ico = ROOT / "packaging" / "windows" / "excellentpdf.ico"
     write_ico(icons, ico)
+    app_asset = ROOT / "crates" / "excellent-app" / "assets" / "app-icon-64.png"
+    app_asset.parent.mkdir(parents=True, exist_ok=True)
+    icons[64].save(app_asset, format="PNG", optimize=True)
     sheet(icons, HERE / "excellentpdf-icon-sheet.png")
-    print(f"wrote {ico} ({ico.stat().st_size:,} bytes, {len(ICO_SIZES)} sizes)")
+    print(f"wrote {ico} ({ico.stat().st_size:,} bytes, {len(ICO_SIZES)} sizes) and {app_asset}")
 
 
 if __name__ == "__main__":

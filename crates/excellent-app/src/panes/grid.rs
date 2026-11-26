@@ -499,14 +499,18 @@ fn document_panel(
     let bar = element_ref();
     bar.on_focus_in(move || panes.focus(pane.cell));
     let full_screen = shared.full_screen;
+    let showing_home = move || !tabs.has_tabs() || pane.home_open.get();
+    let canvas_hidden = move || dialog_open() || showing_home();
     view()
         .flex_1()
         .child(when(
-            move || pane.editing.recovered().is_some() && !full_screen.is_on(),
+            move || pane.editing.recovered().is_some() && !full_screen.is_on() && !showing_home(),
             move || crate::recovery_bar::recovery_bar(pane.editing),
         ))
         .child(when(
-            move || pane.find.is_open() && tabs.has_shown() && !full_screen.is_on(),
+            move || {
+                pane.find.is_open() && tabs.has_shown() && !full_screen.is_on() && !showing_home()
+            },
             move || {
                 view()
                     .element_ref(&bar)
@@ -514,16 +518,15 @@ fn document_panel(
             },
         ))
         .child(when(mounted, move || {
-            page_canvas(panes, pane, shared, dialog_open)
+            page_canvas(panes, pane, shared, canvas_hidden)
         }))
         .child(when(
-            move || tabs.shown_missing().is_some(),
+            move || !showing_home() && tabs.shown_missing().is_some(),
             move || document_missing(tabs),
         ))
-        .child(when(
-            move || !tabs.has_tabs(),
-            move || crate::home::home_page(shared, tabs, run),
-        ))
+        .child(when(showing_home, move || {
+            crate::home::home_page(shared, tabs, pane.home_open, run)
+        }))
 }
 
 /// A document panel while its shown tab's file has gone (R.9): where it was, and "Locate…".
@@ -700,7 +703,7 @@ pub(crate) fn pages_view(
     view()
         .flex_1()
         .flex_row()
-        .style_when(move || !tabs.has_shown(), |s| s.hidden())
+        .style_when(move || hidden() || !tabs.has_shown(), |s| s.hidden())
         .child(pages)
         .child(crate::annotate::margin::margin_column(annotate))
 }

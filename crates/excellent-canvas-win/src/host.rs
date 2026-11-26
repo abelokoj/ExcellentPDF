@@ -1,6 +1,8 @@
 //! The Windows side of the page canvas (plan D5, K.8): the canvas window as the shared canvas's [`Host`], drawing
 //! with Direct2D ([`Gfx`]), telling screen readers what changed (`uia`) and waking the window from workers.
 
+use std::cell::Cell;
+use std::rc::Rc;
 use std::sync::OnceLock;
 
 use excellent_canvas::Rect;
@@ -21,12 +23,32 @@ use crate::gfx::{self, Gfx};
 /// Posted to the canvas window when a background job is done.
 pub(crate) const WM_JOB_DONE: u32 = WM_APP + 1;
 
+/// Coalesced paint trigger so parent `ValidateRect` calls cannot cancel child redraws.
+pub(crate) const WM_CANVAS_PAINT: u32 = WM_APP + 4;
+
+/// Invalidates `hwnd` and posts a coalesced [`WM_CANVAS_PAINT`] directly to its queue so a
+/// parent `ValidateRect` (NSH's `WM_NSH_PAINT` without `WS_CLIPCHILDREN`) can never erase a
+/// pending canvas repaint.
+pub(crate) fn request_paint(hwnd: HWND, paint_posted: &Cell<bool>) {
+    // SAFETY: plain Win32 calls on our live child window handle.
+    unsafe {
+        let _ = InvalidateRect(Some(hwnd), None, false);
+    }
+    if !paint_posted.replace(true) {
+        // SAFETY: plain post to our live child window on this thread.
+        unsafe {
+            let _ = PostMessageW(Some(hwnd), WM_CANVAS_PAINT, WPARAM(0), LPARAM(0));
+        }
+    }
+}
+
 /// The page canvas as Windows runs it.
 pub(crate) type Canvas = PageCanvas<WinHost>;
 
 /// The canvas window and what draws into it.
 pub(crate) struct WinHost {
     hwnd: HWND,
+    paint_posted: Rc<Cell<bool>>,
     /// Made on the first frame, dropped when the device is lost.
     gfx: Option<Gfx>,
     /// Where the canvas tells the app about the document and the page shown.
@@ -35,9 +57,10 @@ pub(crate) struct WinHost {
 
 impl WinHost {
     /// The host of the canvas drawing into `hwnd`, telling the app through `events`.
-    pub(crate) fn new(hwnd: HWND, events: ComponentContext) -> Self {
+    pub(crate) fn new(hwnd: HWND, events: ComponentContext, paint_posted: Rc<Cell<bool>>) -> Self {
         Self {
             hwnd,
+            paint_posted,
             gfx: None,
             events,
         }
@@ -64,10 +87,7 @@ impl Host for WinHost {
     }
 
     fn invalidate(&self) {
-        // SAFETY: a plain call on our live window.
-        unsafe {
-            let _ = InvalidateRect(Some(self.hwnd), None, false);
-        }
+        request_paint(self.hwnd, &self.paint_posted);
     }
 
     fn emit(&self, name: &str, data: JsonValue) {
@@ -100,10 +120,23 @@ impl Host for WinHost {
         }
         let n = pixmap.components();
         let stride = pixmap.stride();
-        let mut bgra = Vec::with_capacity(width as usize * height as usize * 4);
-        for row in pixmap.samples().chunks_exact(stride).take(height as usize) {
-            for px in row[..width as usize * n].chunks_exact(n) {
-                bgra.extend_from_slice(&[px[2], px[1], px[0], 0xff]);
+        let pixel_count = width as usize * height as usize;
+        let mut bgra = vec![0xff_u8; pixel_count * 4];
+        let mut dst_rows = bgra.chunks_exact_mut(width as usize * 4);
+        for (src_row, dst_row) in pixmap
+            .samples()
+            .chunks_exact(stride)
+            .take(height as usize)
+            .zip(&mut dst_rows)
+        {
+            let (dst_chunks, _) = dst_row.as_chunks_mut::<4>();
+            for (src, dst) in src_row[..width as usize * n]
+                .chunks_exact(n)
+                .zip(dst_chunks.iter_mut())
+            {
+                dst[0] = src[2];
+                dst[1] = src[1];
+                dst[2] = src[0];
             }
         }
         match gfx.bitmap(width, height, &bgra) {

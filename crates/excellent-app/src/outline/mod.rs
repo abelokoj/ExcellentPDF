@@ -108,7 +108,8 @@ impl OutlineState {
         self.menu_open.get()
     }
 
-    /// Reads the shown document's outline on the render workers.
+    /// Reads the shown document's outline on the render workers, opening the document off the UI
+    /// thread so tab opens and switches never block.
     fn load(self) {
         let Some(path) = untracked(|| self.tabs.shown_path()) else {
             return;
@@ -121,17 +122,25 @@ impl OutlineState {
             self.renaming.set(None);
             self.anchor.replace(None);
         }
-        let mupdf = match registry().open(&path).and_then(|document| document.mupdf()) {
-            Ok(mupdf) => mupdf,
-            Err(err) => {
-                log::warn!("outline: cannot open {}: {err}", path.display());
-                return;
-            }
-        };
-        let job = outline::load(pool(), mupdf);
         let load_path = path.clone();
         let task = spawn(async move {
-            match job.await {
+            let opened = blocking(move || {
+                let resolved = crate::expdf::resolve_open_path(&path);
+                registry().open(&resolved).and_then(|doc| doc.mupdf())
+            })
+            .await;
+            let mupdf = match opened {
+                Ok(Ok(mupdf)) => mupdf,
+                Ok(Err(err)) => {
+                    log::warn!("outline: cannot open {}: {err}", load_path.display());
+                    return;
+                }
+                Err(err) => {
+                    log::warn!("outline: open task failed: {err}");
+                    return;
+                }
+            };
+            match outline::load(pool(), mupdf).await {
                 Ok(items) => {
                     let mut entries: Vec<Entry> = items.iter().map(entry).collect();
                     if entries.is_empty()

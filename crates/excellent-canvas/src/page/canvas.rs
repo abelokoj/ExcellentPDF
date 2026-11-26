@@ -1573,7 +1573,11 @@ impl<H: Host> PageCanvas<H> {
         }
         let moving = self.advance_motion();
         self.notice_edits();
-        self.update_marks();
+        // Defer full-document annotation scanning until the first page has drawn so visible pages
+        // never wait behind a background scan on huge PDFs.
+        if self.opened_at.is_none() {
+            self.update_marks();
+        }
         self.upload_grain();
         let needed = tiles::visible_tiles(&self.layout, &self.viewport);
         self.request(&needed);
@@ -1627,6 +1631,68 @@ impl<H: Host> PageCanvas<H> {
         };
         let last = needed.iter().map(|key| key.page).max().unwrap_or(first);
         let waker = &self.waker;
+        // shortcut: lists are kept by distance from the screen, not by size; K.7 budgets them.
+        self.lists
+            .retain(|page, _| *page + LIST_REACH >= first && *page <= last + LIST_REACH);
+        let wanted: HashSet<TileKey> = needed.iter().copied().collect();
+        self.tiles.cancel_unneeded(&wanted);
+        // Schedule visible display lists and tiles FIRST so nothing locks MuPDF ahead of Page 0.
+        let mut visible_ready = true;
+        for key in needed {
+            if self.tiles.contains(key) {
+                continue;
+            }
+            let list = self.lists.entry(key.page).or_insert_with(|| {
+                // Another view of the document may have recorded it.
+                if let Some(list) = document.display_list(key.page) {
+                    return List::Ready(list, Arc::default(), document.revision(key.page));
+                }
+                let revision = document.revision(key.page);
+                let job = pool().build_display_list(
+                    &mupdf,
+                    key.page,
+                    document.hidden_annotations(),
+                    Priority::Visible,
+                );
+                let waker = Arc::clone(waker);
+                job.when_done(move || waker.wake());
+                List::Building(job, revision)
+            });
+            let List::Ready(list, images, _) = list else {
+                visible_ready = false;
+                continue;
+            };
+            let (Some(bounds), Some(page)) =
+                (self.bounds.get(key.page), self.layout.page(key.page))
+            else {
+                continue;
+            };
+            let area = key.area(&page);
+            let ctm = Transform {
+                zoom: tiles::bucket_scale(key.bucket),
+                rotation: self.view.rotation,
+            }
+            .matrix(bounds);
+            let area = DeviceRect {
+                x0: area.x0,
+                y0: area.y0,
+                x1: area.x1,
+                y1: area.y1,
+            };
+            let recolor = self.page_colors.map(|colors| Recolor {
+                colors,
+                images: Arc::clone(images),
+            });
+            let job = pool().render_tile(list, ctm, area, Priority::Visible, recolor);
+            let waker = Arc::clone(waker);
+            job.when_done(move || waker.wake());
+            self.tiles.request(*key, job);
+        }
+        // Only queue auxiliary per-page MuPDF metadata reads (links, notes, text) once visible
+        // display lists are built so they never contend with first-page display list recording.
+        if !visible_ready {
+            return;
+        }
         self.links.request(first..=last, |page| {
             let job = pool().load_links(&mupdf, page, Priority::Nearby);
             let waker = Arc::clone(waker);
@@ -1662,60 +1728,6 @@ impl<H: Host> PageCanvas<H> {
             job.when_done(move || waker.wake());
             job
         });
-        // shortcut: lists are kept by distance from the screen, not by size; K.7 budgets them.
-        self.lists
-            .retain(|page, _| *page + LIST_REACH >= first && *page <= last + LIST_REACH);
-        let wanted: HashSet<TileKey> = needed.iter().copied().collect();
-        self.tiles.cancel_unneeded(&wanted);
-        for key in needed {
-            if self.tiles.contains(key) {
-                continue;
-            }
-            let list = self.lists.entry(key.page).or_insert_with(|| {
-                // Another view of the document may have recorded it.
-                if let Some(list) = document.display_list(key.page) {
-                    return List::Ready(list, Arc::default(), document.revision(key.page));
-                }
-                let revision = document.revision(key.page);
-                let job = pool().build_display_list(
-                    &mupdf,
-                    key.page,
-                    document.hidden_annotations(),
-                    Priority::Visible,
-                );
-                let waker = Arc::clone(&self.waker);
-                job.when_done(move || waker.wake());
-                List::Building(job, revision)
-            });
-            let List::Ready(list, images, _) = list else {
-                continue;
-            };
-            let (Some(bounds), Some(page)) =
-                (self.bounds.get(key.page), self.layout.page(key.page))
-            else {
-                continue;
-            };
-            let area = key.area(&page);
-            let ctm = Transform {
-                zoom: tiles::bucket_scale(key.bucket),
-                rotation: self.view.rotation,
-            }
-            .matrix(bounds);
-            let area = DeviceRect {
-                x0: area.x0,
-                y0: area.y0,
-                x1: area.x1,
-                y1: area.y1,
-            };
-            let recolor = self.page_colors.map(|colors| Recolor {
-                colors,
-                images: Arc::clone(images),
-            });
-            let job = pool().render_tile(list, ctm, area, Priority::Visible, recolor);
-            let waker = Arc::clone(&self.waker);
-            job.when_done(move || waker.wake());
-            self.tiles.request(*key, job);
-        }
     }
 
     /// Draws the pages: paper first, then any older zoom's tiles while this zoom's render, then this zoom's; then the

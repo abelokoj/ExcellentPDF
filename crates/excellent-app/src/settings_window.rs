@@ -13,6 +13,12 @@ use nsh_base::{SliderValue, button, input, number_input, slider, switch, theme, 
 use nsh_core::prelude::*;
 
 use crate::commands::{COMMANDS, CommandId};
+use crate::home::{
+    DEFAULT_HOME_MAX_RECENT, DEFAULT_HOME_THUMB_SIZE, HOME_DESIGN_STYLE, HOME_FIXED_HEADER,
+    HOME_FULL_PAGE_THUMBNAILS, HOME_MAX_RECENT, HOME_SHOW_PROGRESS, HOME_SORT_BY_FREQUENCY,
+    HOME_THUMBNAIL_PADDING, HOME_THUMBNAIL_SIZE, HOME_VIEW_MODE, HomeDesignStyle, HomeViewMode,
+    MAX_HOME_MAX_RECENT, MAX_HOME_THUMB_SIZE, MIN_HOME_MAX_RECENT, MIN_HOME_THUMB_SIZE,
+};
 use crate::keymap::{self, Scope};
 use crate::links::PROTOCOLS_KEY;
 use crate::list_dialog::{card, list_dialog};
@@ -28,7 +34,10 @@ use crate::reading::{
 };
 use crate::reading_theme_bar;
 use crate::settings::{self, Live};
-use crate::tabs::{Cycle, TAB_CYCLE_ORDER};
+use crate::tabs::{
+    Cycle, DEFAULT_TAB_MIN_WIDTH_PX, MAX_TAB_MIN_WIDTH_PX, MIN_TAB_MIN_WIDTH_PX, TAB_CYCLE_ORDER,
+    TAB_MIN_WIDTH_PX, TAB_STYLE, TabStyle,
+};
 use crate::theme::{self as themes, ThemeChoice};
 use crate::workspaces::{Elsewhere, OPEN_ELSEWHERE};
 use excellent_core::darkmode::{Palette, Rgb};
@@ -98,6 +107,7 @@ pub(crate) fn settings_window(
             .child(appearance_section(live, theme_choice, hand_over))
             .child(reading_section(live, hand_over))
             .child(tabs_section(live))
+            .child(home_section(live))
             .child(links_section(live))
             .child(print_section(live))
             .child(annotation_section(live, hand_over))
@@ -509,7 +519,159 @@ fn reading_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -
 }
 
 /// The tabs (R.12): the order Ctrl+Tab goes through them in.
+/// SumatraPDF Enhanced Home Page design style, layout, and card controls.
+fn home_section(live: Live) -> View {
+    let design_style = move || live.read(|s| HomeDesignStyle::parse(s.text(HOME_DESIGN_STYLE)));
+    let choose_design = move |style: HomeDesignStyle| {
+        live.change(|s| {
+            s.set_text(
+                HOME_DESIGN_STYLE,
+                (style != HomeDesignStyle::default()).then_some(style.name()),
+            );
+        });
+    };
+    let view_mode = move || live.read(|s| HomeViewMode::parse(s.text(HOME_VIEW_MODE)));
+    let choose_view = move |mode: HomeViewMode| {
+        live.change(|s| {
+            s.set_text(
+                HOME_VIEW_MODE,
+                (mode == HomeViewMode::List).then_some("list"),
+            );
+        });
+    };
+    let freq_sort = move || live.read(|s| s.flag(HOME_SORT_BY_FREQUENCY).unwrap_or(false));
+    section("settings.section.home")
+        .child(row(
+            "settings.home_design_style",
+            "settings.home_design_style_hint",
+            segmented()
+                .child(segment(
+                    "settings.home_design_style.enhanced_warm",
+                    move || design_style() == HomeDesignStyle::EnhancedWarm,
+                    move || choose_design(HomeDesignStyle::EnhancedWarm),
+                ))
+                .child(segment(
+                    "settings.home_design_style.modern_green",
+                    move || design_style() == HomeDesignStyle::ModernGreen,
+                    move || choose_design(HomeDesignStyle::ModernGreen),
+                ))
+                .child(segment(
+                    "settings.home_design_style.classic_clean",
+                    move || design_style() == HomeDesignStyle::ClassicClean,
+                    move || choose_design(HomeDesignStyle::ClassicClean),
+                )),
+        ))
+        .child(row(
+            "settings.home_view_mode",
+            "settings.home_view_mode_hint",
+            segmented()
+                .child(segment(
+                    "settings.home_view_mode.thumbnails",
+                    move || view_mode() == HomeViewMode::Thumbnails,
+                    move || choose_view(HomeViewMode::Thumbnails),
+                ))
+                .child(segment(
+                    "settings.home_view_mode.list",
+                    move || view_mode() == HomeViewMode::List,
+                    move || choose_view(HomeViewMode::List),
+                )),
+        ))
+        .child(row(
+            "settings.home_thumb_size",
+            "settings.home_thumb_size_hint",
+            number_field(
+                live,
+                "settings.home_thumb_size",
+                HOME_THUMBNAIL_SIZE,
+                f64::from(DEFAULT_HOME_THUMB_SIZE),
+                (
+                    f64::from(MIN_HOME_THUMB_SIZE),
+                    f64::from(MAX_HOME_THUMB_SIZE),
+                ),
+                25.0,
+                "settings.unit.percent",
+            ),
+        ))
+        .child(row(
+            "settings.home_sort_frequency",
+            "settings.home_sort_frequency_hint",
+            segmented()
+                .child(segment(
+                    "settings.home_sort.recent",
+                    move || !freq_sort(),
+                    move || live.change(|s| s.set_flag(HOME_SORT_BY_FREQUENCY, None)),
+                ))
+                .child(segment(
+                    "settings.home_sort.frequent",
+                    freq_sort,
+                    move || live.change(|s| s.set_flag(HOME_SORT_BY_FREQUENCY, Some(true))),
+                )),
+        ))
+        .child(row(
+            "settings.home_thumb_padding",
+            "settings.home_thumb_padding_hint",
+            on_off(
+                "settings.home_thumb_padding",
+                move || live.read(|s| s.flag(HOME_THUMBNAIL_PADDING).unwrap_or(true)),
+                move |on| {
+                    live.change(|s| s.set_flag(HOME_THUMBNAIL_PADDING, (!on).then_some(false)));
+                },
+            ),
+        ))
+        .child(row(
+            "settings.home_show_progress",
+            "settings.home_show_progress_hint",
+            on_off(
+                "settings.home_show_progress",
+                move || live.read(|s| s.flag(HOME_SHOW_PROGRESS).unwrap_or(true)),
+                move |on| live.change(|s| s.set_flag(HOME_SHOW_PROGRESS, (!on).then_some(false))),
+            ),
+        ))
+        .child(row(
+            "settings.home_full_page",
+            "settings.home_full_page_hint",
+            on_off(
+                "settings.home_full_page",
+                move || live.read(|s| s.flag(HOME_FULL_PAGE_THUMBNAILS).unwrap_or(false)),
+                move |on| {
+                    live.change(|s| s.set_flag(HOME_FULL_PAGE_THUMBNAILS, on.then_some(true)))
+                },
+            ),
+        ))
+        .child(row(
+            "settings.home_fixed_header",
+            "settings.home_fixed_header_hint",
+            on_off(
+                "settings.home_fixed_header",
+                move || live.read(|s| s.flag(HOME_FIXED_HEADER).unwrap_or(false)),
+                move |on| live.change(|s| s.set_flag(HOME_FIXED_HEADER, on.then_some(true))),
+            ),
+        ))
+        .child(row(
+            "settings.home_max_recent",
+            "settings.home_max_recent_hint",
+            number_field(
+                live,
+                "settings.home_max_recent",
+                HOME_MAX_RECENT,
+                f64::from(DEFAULT_HOME_MAX_RECENT),
+                (
+                    f64::from(MIN_HOME_MAX_RECENT),
+                    f64::from(MAX_HOME_MAX_RECENT),
+                ),
+                10.0,
+                "settings.unit.docs",
+            ),
+        ))
+}
+
 fn tabs_section(live: Live) -> View {
+    let tab_style = move || live.read(|s| TabStyle::parse(s.text(TAB_STYLE)));
+    let choose_style = move |style: TabStyle| {
+        live.change(|s| {
+            s.set_text(TAB_STYLE, (style == TabStyle::Chrome).then_some("chrome"));
+        });
+    };
     let order = move || live.read(|s| Cycle::parse(s.text(TAB_CYCLE_ORDER)));
     let choose = move |cycle: Cycle| {
         live.change(|s| {
@@ -544,6 +706,34 @@ fn tabs_section(live: Live) -> View {
         });
     };
     section("settings.section.tabs")
+        .child(row(
+            "settings.tab_style",
+            "settings.tab_style_hint",
+            segmented()
+                .child(segment(
+                    "settings.tab_style.vivaldi",
+                    move || tab_style() == TabStyle::Vivaldi,
+                    move || choose_style(TabStyle::Vivaldi),
+                ))
+                .child(segment(
+                    "settings.tab_style.chrome",
+                    move || tab_style() == TabStyle::Chrome,
+                    move || choose_style(TabStyle::Chrome),
+                )),
+        ))
+        .child(row(
+            "settings.tab_min_width",
+            "settings.tab_min_width_hint",
+            number_field(
+                live,
+                "settings.tab_min_width",
+                TAB_MIN_WIDTH_PX,
+                DEFAULT_TAB_MIN_WIDTH_PX,
+                (MIN_TAB_MIN_WIDTH_PX, MAX_TAB_MIN_WIDTH_PX),
+                10.0,
+                "settings.unit.px",
+            ),
+        ))
         .child(row(
             "settings.tab_cycle",
             "settings.tab_cycle_hint",

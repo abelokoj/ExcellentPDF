@@ -215,6 +215,7 @@ pub(crate) struct ProPdfUiState {
     rubric: Stored<Rubric>,
     rubric_rev: Signal<u64>,
     comment_bank: Stored<CommentBank>,
+    comment_bank_loaded: Stored<bool>,
     comment_draft: Signal<String>,
     comment_shortcut: Signal<String>,
     batch: Stored<Option<SubmissionBatch>>,
@@ -254,10 +255,6 @@ impl ProPdfUiState {
                 },
             ],
         });
-        let bank = std::fs::read_to_string(comment_bank_path())
-            .ok()
-            .and_then(|json| CommentBank::import_json(&json).ok())
-            .unwrap_or_default();
         Self {
             active_dialog: signal(ProPdfDialog::None),
             status: signal(String::new()),
@@ -300,7 +297,8 @@ impl ProPdfUiState {
             grading_tab: signal(GradingTab::StampsAndRubric),
             rubric: stored(rubric),
             rubric_rev: signal(0),
-            comment_bank: stored(bank),
+            comment_bank: stored(CommentBank::default()),
+            comment_bank_loaded: stored(false),
             comment_draft: signal(String::new()),
             comment_shortcut: signal("!1".to_owned()),
             batch: stored(None),
@@ -369,10 +367,30 @@ impl ProPdfUiState {
                 ProPdfDialog::Measure => {
                     self.measure_active.set(true);
                 }
+                ProPdfDialog::Grading => {
+                    self.ensure_comment_bank_loaded();
+                }
                 _ => {}
             }
+        } else if dialog == ProPdfDialog::Grading {
+            self.ensure_comment_bank_loaded();
         }
         self.active_dialog.set(dialog);
+    }
+
+    fn ensure_comment_bank_loaded(self) {
+        if self.comment_bank_loaded.with(|loaded| {
+            let was = *loaded;
+            *loaded = true;
+            was
+        }) {
+            return;
+        }
+        if let Ok(json) = std::fs::read_to_string(comment_bank_path())
+            && let Ok(loaded) = CommentBank::import_json(&json)
+        {
+            self.comment_bank.with(|slot| *slot = loaded);
+        }
     }
 
     /// Opens the Edit & Export modal directly on `tab`.

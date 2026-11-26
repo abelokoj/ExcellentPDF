@@ -8,22 +8,14 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use excellent_features::home;
 use excellent_store::recent::{self, RECENT_KEPT, RecentFile};
-use nsh_base::{button, theme, toggle};
 use nsh_core::element::desktop::on_app_quit;
 use nsh_core::prelude::*;
 
-use crate::home::{Covers, cover};
-use crate::tabs::{TabState, pin_mark};
+use crate::tabs::TabState;
 
 /// How long the shown page must stay put before it is saved: the reader is turning pages meanwhile.
 const SAVE_DELAY: Duration = Duration::from_secs(1);
-
-/// How many files of each kind the home page lists; the tab list has the rest.
-const PANEL_ROWS: usize = 8;
-/// How many the home page lists of each kind while its search box holds something.
-const FOUND_ROWS: usize = 50;
 
 /// The window's recent list.
 #[derive(Clone, Copy)]
@@ -74,6 +66,16 @@ impl RecentState {
         save(move |tx| recent::set_pinned(tx, &path, pinned));
     }
 
+    /// Marks `path` completed or active on the home library.
+    pub(crate) fn set_completed(self, path: PathBuf, completed: bool) {
+        self.change(|files| {
+            for file in files.iter_mut().filter(|file| file.path == path) {
+                file.completed = completed;
+            }
+        });
+        save(move |tx| recent::set_completed(tx, &path, completed));
+    }
+
     /// Takes `path` off the list.
     pub(crate) fn remove(self, path: PathBuf) {
         self.change(|files| files.retain(|file| file.path != path));
@@ -86,11 +88,11 @@ impl RecentState {
         save(recent::clear);
     }
 
-    /// Notes that `path` is shown at `page`.
-    fn visit(self, path: PathBuf, page: usize) {
+    /// Notes that `path` is shown at `page` of `total_pages`.
+    fn visit(self, path: PathBuf, page: usize, total_pages: usize) {
         let seen = now();
-        self.change(|files| visit(files, &path, page, seen));
-        save(move |tx| recent::visit(tx, &path, page, seen));
+        self.change(|files| visit(files, &path, page, total_pages, seen));
+        save(move |tx| recent::visit_with_pages(tx, &path, page, total_pages, seen));
     }
 
     /// Changes the list in the window, if it has been read (otherwise the library has the change when it is).
@@ -107,27 +109,27 @@ impl RecentState {
 /// the app quits.
 pub(crate) fn keep(state: RecentState, tabs: TabState) {
     let pending = stored(None::<Spawned<()>>);
-    let latest = stored(None::<(PathBuf, usize)>);
+    let latest = stored(None::<(PathBuf, usize, usize)>);
     effect(move || {
-        let Some((path, page)) = tabs.shown_place() else {
+        let Some((path, page, total)) = tabs.shown_place_with_total() else {
             return;
         };
-        latest.replace(Some((path.clone(), page)));
+        latest.replace(Some((path.clone(), page, total)));
         if let Some(task) = pending.replace(None) {
             task.cancel();
         }
         pending.replace(Some(set_timeout(SAVE_DELAY, move || {
             latest.replace(None);
-            state.visit(path, page);
+            state.visit(path, page, total);
         })));
     });
     on_app_quit(move || {
         if let Some(task) = pending.replace(None) {
             task.cancel();
         }
-        if let Some((path, page)) = latest.replace(None) {
+        if let Some((path, page, total)) = latest.replace(None) {
             let seen = now();
-            save(move |tx| recent::visit(tx, &path, page, seen));
+            save(move |tx| recent::visit_with_pages(tx, &path, page, total, seen));
         }
         if let Some(Err(err)) = crate::library::store().map(excellent_store::Store::flush) {
             log::warn!("recent: the list wasn't saved: {err}");
@@ -163,15 +165,28 @@ fn now() -> i64 {
         })
 }
 
-/// `files` with `path` shown at `seen` and left at `page`: the library's [`recent::visit`], in the window.
-fn visit(files: &mut Vec<RecentFile>, path: &Path, page: usize, seen: i64) {
-    let pinned = files.iter().any(|file| file.path == path && file.pinned);
+/// `files` with `path` shown at `seen` and left at `page` of `total_pages`: the library's
+/// [`recent::visit_with_pages`], in the window.
+fn visit(files: &mut Vec<RecentFile>, path: &Path, page: usize, total_pages: usize, seen: i64) {
+    let existing = files.iter().find(|file| file.path == path);
+    let pinned = existing.is_some_and(|file| file.pinned);
+    let prev_total = existing.map_or(0, |file| file.total_pages);
+    let open_count = existing.map_or(1, |file| file.open_count.saturating_add(1));
+    let completed = existing.is_some_and(|file| file.completed);
+    let total_pages = if total_pages > 0 {
+        total_pages
+    } else {
+        prev_total
+    };
     files.retain(|file| file.path != path);
     files.push(RecentFile {
         path: path.to_path_buf(),
         page,
         seen,
         pinned,
+        total_pages,
+        open_count,
+        completed,
     });
     sort(files);
     let mut unpinned = 0;
@@ -194,230 +209,6 @@ fn sort(files: &mut [RecentFile]) {
     files.sort_by(|a, b| b.pinned.cmp(&a.pinned).then(b.seen.cmp(&a.seen)));
 }
 
-/// The home page's lists: "Pinned" and "Recent", each a few rows, or the files `query` finds; nothing while both
-/// are empty, and a line saying so when the search finds nothing.
-pub(crate) fn recent_panel(
-    state: RecentState,
-    tabs: TabState,
-    covers: Covers,
-    query: Signal<String>,
-) -> impl IntoElement {
-    state.load();
-    let found = move |pinned: bool| {
-        let query = query.get();
-        let rows = if query.trim().is_empty() {
-            PANEL_ROWS
-        } else {
-            FOUND_ROWS
-        };
-        state.files.with(|files| {
-            files
-                .iter()
-                .flatten()
-                .filter(|file| file.pinned == pinned && home::matches(&query, &file.path))
-                .take(rows)
-                .cloned()
-                .collect::<Vec<_>>()
-        })
-    };
-    let has = move |pinned: bool| move || !found(pinned).is_empty();
-    let none_found = move || {
-        !query.with(|q| q.trim().is_empty()) && found(true).is_empty() && found(false).is_empty()
-    };
-    view()
-        .w_full()
-        .gap_4()
-        .child(when(has(true), move || {
-            view()
-                .gap_1()
-                .child(heading("recent.pinned", None))
-                .child(rows(state, tabs, covers, move || found(true)))
-        }))
-        .child(when(has(false), move || {
-            view()
-                .gap_1()
-                .child(heading("recent.title", Some(state)))
-                .child(rows(state, tabs, covers, move || found(false)))
-        }))
-        .child(when(none_found, move || {
-            text(move || {
-                t!(
-                    "home.no_match",
-                    keys = crate::commands::shortcut_label(crate::commands::CommandId::TabList)
-                )
-            })
-            .px_3()
-            .text_size(px(13.0))
-            .text_color(move || theme().muted_foreground)
-        }))
-}
-
-/// A list's heading; the recent list's has "Clear" at its end.
-fn heading(key: &'static str, clear: Option<RecentState>) -> impl IntoElement {
-    let row = view().flex_row().items_center().h(px(28.0)).px_3().child(
-        text(move || t!(key))
-            .flex_1()
-            .text_size(px(12.0))
-            .font_weight(FontWeight::SEMIBOLD)
-            .text_color(move || theme().muted_foreground),
-    );
-    match clear {
-        Some(state) => row.child(
-            button()
-                .accessibility_label(t!("recent.clear_label"))
-                .on_press(move || state.clear())
-                .h(px(28.0))
-                .px_2()
-                .rounded(px(6.0))
-                .items_center()
-                .justify_center()
-                .hover(|s| s.bg(move || theme().muted))
-                .active(|s| s.opacity(0.7))
-                .focus_visible(|s| s.border_2().border_color(move || theme().ring))
-                .child(
-                    text(move || t!("recent.clear"))
-                        .text_size(px(12.0))
-                        .text_color(move || theme().muted_foreground),
-                ),
-        ),
-        None => row,
-    }
-}
-
-/// The rows of one list.
-fn rows(
-    state: RecentState,
-    tabs: TabState,
-    covers: Covers,
-    files: impl Fn() -> Vec<RecentFile> + 'static,
-) -> impl IntoElement {
-    view().gap(px(2.0)).child(each(
-        files,
-        |file: &RecentFile| file.path.clone(),
-        move |file, _| file_row(state, tabs, covers, file),
-    ))
-}
-
-/// One file: its cover, name, folder and page (pressing it opens the file there), then "Pin" and "Remove". A file
-/// that isn't there any more is greyed; opening it offers "Locate…" (R.9).
-fn file_row(
-    state: RecentState,
-    tabs: TabState,
-    covers: Covers,
-    file: ReadSignal<RecentFile>,
-) -> impl IntoElement {
-    let path = file.with_untracked(|file| file.path.clone());
-    let missing = !path.is_file();
-    let name = path
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.display().to_string());
-    let folder = path
-        .parent()
-        .map(|dir| dir.display().to_string())
-        .unwrap_or_default();
-    let pinned = move || file.with(|file| file.pinned);
-    let page = move || file.with(|file| file.page) + 1;
-    let face = cover(covers, path.clone(), 30.0, 40.0);
-    let open = {
-        let (path, label_name) = (path.clone(), name.clone());
-        button()
-            .accessibility_label(move || {
-                Some(SharedString::from(t!(
-                    "recent.open",
-                    name = label_name,
-                    page = page()
-                )))
-            })
-            .on_press(move || tabs.open_at(path.clone(), file.with(|file| file.page)))
-            .flex_1()
-            .min_w(px(0.0))
-            .h(px(52.0))
-            .px_3()
-            .gap_3()
-            .flex_row()
-            .items_center()
-            .rounded(px(8.0))
-            .hover(|s| s.bg(move || theme().muted))
-            .active(|s| s.opacity(0.7))
-            .focus_visible(|s| s.border_2().border_color(move || theme().ring))
-            .child(face)
-            .child(
-                text(name.clone())
-                    .flex_shrink(0.0)
-                    .max_w(px(240.0))
-                    .truncate()
-                    .text_size(px(13.0))
-                    .font_weight(FontWeight::MEDIUM)
-                    .text_color(move || {
-                        if missing {
-                            theme().muted_foreground
-                        } else {
-                            theme().foreground
-                        }
-                    }),
-            )
-            .child(
-                text(folder)
-                    .flex_1()
-                    .min_w(px(0.0))
-                    .truncate()
-                    .text_size(px(12.0))
-                    .text_color(move || theme().muted_foreground),
-            )
-            .child(
-                text(move || {
-                    if missing {
-                        t!("tabs.missing")
-                    } else {
-                        t!("recent.page", page = page())
-                    }
-                })
-                .flex_shrink(0.0)
-                .tabular_nums()
-                .text_size(px(12.0))
-                .text_color(move || theme().muted_foreground),
-            )
-    };
-    let pin_button = {
-        let (path, name) = (path.clone(), name.clone());
-        toggle()
-            .pressed(pinned)
-            .accessibility_label(t!("recent.pin", name = name))
-            .on_change(move |pressed: &bool| state.set_pinned(path.clone(), *pressed))
-            .size(px(32.0))
-            .rounded(px(6.0))
-            .items_center()
-            .justify_center()
-            .hover(|s| s.bg(move || theme().muted))
-            .pressed_style(|s| s.bg(move || theme().muted))
-            .focus_visible(|s| s.border_2().border_color(move || theme().ring))
-            .child(pin_mark(move || theme().muted_foreground))
-    };
-    let remove_button = button()
-        .accessibility_label(t!("recent.remove", name = name))
-        .on_press(move || state.remove(path.clone()))
-        .size(px(32.0))
-        .rounded(px(6.0))
-        .items_center()
-        .justify_center()
-        .hover(|s| s.bg(move || theme().muted))
-        .active(|s| s.opacity(0.7))
-        .focus_visible(|s| s.border_2().border_color(move || theme().ring))
-        .child(
-            text("×")
-                .text_size(px(16.0))
-                .text_color(move || theme().muted_foreground),
-        );
-    view()
-        .flex_row()
-        .items_center()
-        .gap_1()
-        .child(open)
-        .child(pin_button)
-        .child(remove_button)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -428,6 +219,9 @@ mod tests {
             page: 0,
             seen,
             pinned,
+            total_pages: 0,
+            open_count: 1,
+            completed: false,
         }
     }
 
@@ -447,12 +241,13 @@ mod tests {
     #[test]
     fn the_window_keeps_the_list_in_the_library_order() {
         let mut files = vec![file("p", 1, true), file("b", 5, false), file("a", 3, false)];
-        visit(&mut files, Path::new("a.pdf"), 9, 10);
+        visit(&mut files, Path::new("a.pdf"), 9, 0, 10);
         assert_eq!(names(&files), "p a b");
         assert_eq!(files[1].page, 9);
         // A pinned file shown again stays pinned.
-        visit(&mut files, Path::new("p.pdf"), 2, 11);
+        visit(&mut files, Path::new("p.pdf"), 2, 120, 11);
         assert!(files[0].pinned);
+        assert_eq!(files[0].total_pages, 120);
         pin(&mut files, Path::new("b.pdf"), true);
         assert_eq!(names(&files), "p b a");
         pin(&mut files, Path::new("p.pdf"), false);
@@ -466,6 +261,7 @@ mod tests {
             visit(
                 &mut files,
                 Path::new(&n.to_string()),
+                0,
                 0,
                 i64::try_from(n).expect("small"),
             );

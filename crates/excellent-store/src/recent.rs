@@ -22,6 +22,12 @@ pub struct RecentFile {
     pub seen: i64,
     /// It stays on the list, at the top.
     pub pinned: bool,
+    /// Known total page count (`0` when not yet recorded).
+    pub total_pages: usize,
+    /// How many times the reader has opened or returned to this file.
+    pub open_count: usize,
+    /// Whether the reader marked this document completed.
+    pub completed: bool,
 }
 
 /// The list: pinned files first, then the most recently shown.
@@ -31,7 +37,8 @@ pub struct RecentFile {
 /// SQLite failed.
 pub fn load(conn: &Connection) -> Result<Vec<RecentFile>> {
     let mut rows = conn.prepare(
-        "SELECT f.path, r.page, r.seen, r.pinned FROM recent r JOIN file f ON f.id = r.file
+        "SELECT f.path, r.page, r.seen, r.pinned, r.total_pages, r.open_count, r.completed
+         FROM recent r JOIN file f ON f.id = r.file
          ORDER BY r.pinned DESC, r.seen DESC, r.file DESC",
     )?;
     let files = rows
@@ -41,6 +48,9 @@ pub fn load(conn: &Connection) -> Result<Vec<RecentFile>> {
                 page: row.get(1)?,
                 seen: row.get(2)?,
                 pinned: row.get(3)?,
+                total_pages: row.get(4)?,
+                open_count: row.get(5)?,
+                completed: row.get(6)?,
             })
         })?
         .collect::<rusqlite::Result<_>>()?;
@@ -53,16 +63,52 @@ pub fn load(conn: &Connection) -> Result<Vec<RecentFile>> {
 ///
 /// SQLite failed.
 pub fn visit(tx: &Transaction<'_>, path: &Path, page: usize, seen: i64) -> Result<()> {
+    visit_with_pages(tx, path, page, 0, seen)
+}
+
+/// Notes that `path` was shown at `seen` at `page` of `total_pages`; increments open frequency and retains
+/// known positive page counts.
+///
+/// # Errors
+///
+/// SQLite failed.
+pub fn visit_with_pages(
+    tx: &Transaction<'_>,
+    path: &Path,
+    page: usize,
+    total_pages: usize,
+    seen: i64,
+) -> Result<()> {
     let file = file_id(tx, path)?;
     tx.execute(
-        "INSERT INTO recent (file, seen, page) VALUES (?1, ?2, ?3)
-         ON CONFLICT (file) DO UPDATE SET seen = excluded.seen, page = excluded.page",
-        params![file, seen, page],
+        "INSERT INTO recent (file, seen, page, total_pages) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT (file) DO UPDATE SET
+             seen = excluded.seen,
+             page = excluded.page,
+             total_pages = CASE
+                 WHEN excluded.total_pages > 0 THEN excluded.total_pages
+                 ELSE recent.total_pages
+             END,
+             open_count = recent.open_count + 1",
+        params![file, seen, page, total_pages],
     )?;
     tx.execute(
         "DELETE FROM recent WHERE pinned = 0 AND file NOT IN
          (SELECT file FROM recent WHERE pinned = 0 ORDER BY seen DESC, file DESC LIMIT ?1)",
         [RECENT_KEPT],
+    )?;
+    Ok(())
+}
+
+/// Marks `path` completed or active on the home library.
+///
+/// # Errors
+///
+/// SQLite failed.
+pub fn set_completed(tx: &Transaction<'_>, path: &Path, completed: bool) -> Result<()> {
+    tx.execute(
+        "UPDATE recent SET completed = ?2 WHERE file = (SELECT id FROM file WHERE path = ?1)",
+        params![path.to_string_lossy(), completed],
     )?;
     Ok(())
 }
@@ -175,5 +221,23 @@ mod tests {
         assert!(files[0].pinned);
         assert_eq!(files[1].path, path(&(RECENT_KEPT + 2).to_string()));
         assert!(!files.iter().any(|file| file.path == path("2")));
+    }
+
+    #[test]
+    fn visit_with_pages_tracks_progress_open_count_and_completed() {
+        let mut conn = database();
+        change(&mut conn, |tx| {
+            visit_with_pages(tx, &path("book"), 40, 675, 100)
+        });
+        change(&mut conn, |tx| {
+            visit_with_pages(tx, &path("book"), 45, 0, 200)
+        });
+        change(&mut conn, |tx| set_completed(tx, &path("book"), true));
+        let files = load(&conn).expect("load");
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].page, 45);
+        assert_eq!(files[0].total_pages, 675);
+        assert_eq!(files[0].open_count, 2);
+        assert!(files[0].completed);
     }
 }

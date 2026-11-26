@@ -174,11 +174,9 @@ pub(crate) struct EcosystemUiState {
 }
 
 impl EcosystemUiState {
-    /// Initializes Phase 8 & 9 reactive UI state.
+    /// Initializes Phase 8 & 9 reactive UI state without heavy startup allocations.
     pub(crate) fn new() -> Self {
         let bus = InMemoryClassroomBus::new();
-        let seed_key = SigningKey::from_bytes(&[0x5Au8; 32]);
-        let verifying_hex = bytes_to_hex(seed_key.verifying_key().as_bytes());
         Self {
             active_dialog: signal(EcoDialog::None),
             status: signal(String::new()),
@@ -227,7 +225,7 @@ impl EcosystemUiState {
             plugins_registry: stored(PluginRegistry::new()),
             plugins_pending: stored(None),
             plugins_ids: stored(Vec::new()),
-            plugins_key_hex: signal(verifying_hex),
+            plugins_key_hex: signal(String::new()),
             plugins_rev: signal(0),
         }
     }
@@ -247,6 +245,10 @@ impl EcosystemUiState {
         self.status.set(String::new());
         if dialog == EcoDialog::KnowledgeGraph {
             rebuild_knowledge_graph(self, panes);
+        } else if dialog == EcoDialog::Plugins && self.plugins_key_hex.get_untracked().is_empty() {
+            let seed_key = SigningKey::from_bytes(&[0x5Au8; 32]);
+            self.plugins_key_hex
+                .set(bytes_to_hex(seed_key.verifying_key().as_bytes()));
         }
         self.active_dialog.set(dialog);
     }

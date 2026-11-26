@@ -3,6 +3,7 @@
 //! finished jobs.
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Once;
 
@@ -11,35 +12,34 @@ use excellent_canvas::page::{ClickLimits, Cursor, PenSample, Tilt};
 use nsh_platform_windows::ComponentContext;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
-    ClientToScreen, GetWindowRgnBox, InvalidateRect, RGN_ERROR, ScreenToClient, SetWindowRgn,
-    ValidateRect,
+    ClientToScreen, GetWindowRgnBox, RGN_ERROR, ScreenToClient, SetWindowRgn, ValidateRect,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::{
     FEEDBACK_PEN_BARRELVISUALIZATION, FEEDBACK_PEN_DOUBLETAP, FEEDBACK_PEN_PRESSANDHOLD,
     FEEDBACK_PEN_RIGHTTAP, FEEDBACK_PEN_TAP, SetWindowFeedbackSetting, WM_MOUSELEAVE,
 };
-use windows::Win32::UI::HiDpi::GetDpiForWindow;
+use windows::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetDoubleClickTime, ReleaseCapture, SetCapture, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, GWLP_USERDATA, GetClientRect, GetMessageTime, GetParent,
-    GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, HTCLIENT, HWND_TOP, IDC_ARROW, IDC_CROSS,
-    IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IsWindowVisible, LoadCursorW, PostMessageW, RegisterClassExW,
-    SM_CXDOUBLECLK, SM_CYDOUBLECLK, SW_HIDE, SWP_NOACTIVATE, SWP_NOZORDER, SWP_SHOWWINDOW,
-    SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WM_APP,
-    WM_CAPTURECHANGED, WM_DPICHANGED_AFTERPARENT, WM_ERASEBKGND, WM_GETOBJECT, WM_LBUTTONDOWN,
-    WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY,
-    WM_PAINT, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN, WM_POINTERLEAVE, WM_POINTERUP,
-    WM_POINTERUPDATE, WM_SETCURSOR, WM_SHOWWINDOW, WM_SIZE, WM_XBUTTONUP, WNDCLASSEXW,
-    WS_CLIPCHILDREN, WS_POPUP,
+    CreateWindowExW, DefWindowProcW, GA_ROOT, GWLP_USERDATA, GetAncestor, GetClientRect,
+    GetMessageTime, GetParent, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, HTCLIENT,
+    HWND_TOP, ICON_BIG, ICON_SMALL, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_SIZEALL,
+    IMAGE_ICON, IsWindowVisible, LR_SHARED, LoadCursorW, LoadImageW, PostMessageW,
+    RegisterClassExW, SM_CXDOUBLECLK, SM_CXICON, SM_CXSMICON, SM_CYDOUBLECLK, SW_HIDE,
+    SWP_NOACTIVATE, SWP_NOZORDER, SWP_SHOWWINDOW, SendMessageW, SetCursor, SetWindowLongPtrW,
+    SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WM_APP, WM_CAPTURECHANGED,
+    WM_DPICHANGED_AFTERPARENT, WM_ERASEBKGND, WM_GETOBJECT, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    WM_MBUTTONDOWN, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_PAINT,
+    WM_POINTERCAPTURECHANGED, WM_POINTERDOWN, WM_POINTERLEAVE, WM_POINTERUP, WM_POINTERUPDATE,
+    WM_SETCURSOR, WM_SETICON, WM_SIZE, WM_XBUTTONUP, WNDCLASSEXW, WS_CLIPCHILDREN, WS_POPUP,
 };
-use windows::core::BOOL;
-use windows::core::{Result, w};
+use windows::core::{BOOL, PCWSTR, Result, w};
 use windows_numerics::Matrix3x2;
 
-use crate::host::{Canvas, WM_JOB_DONE, WinHost};
+use crate::host::{Canvas, WM_CANVAS_PAINT, WM_JOB_DONE, WinHost, request_paint};
 use crate::pointer::{self, Device, Sample};
 
 const CLASS: windows::core::PCWSTR = w!("ExcellentPDF.PageCanvas");
@@ -51,6 +51,7 @@ const WM_SYNC_PLACEMENT: u32 = WM_APP + 3;
 struct WindowData {
     canvas: Rc<RefCell<Canvas>>,
     placement: Rc<PlacementSync>,
+    paint_posted: Rc<Cell<bool>>,
 }
 
 /// Reconciles the canvas child HWND's bounds, visibility and clip region with the visible
@@ -64,52 +65,45 @@ struct WindowData {
 /// `WM_SYNC_PLACEMENT` restores full-window display while honoring intentional hides.
 pub(crate) struct PlacementSync {
     app_visible: Cell<bool>,
-    intended: Cell<Option<RECT>>,
-    drawn_in_frame: Cell<bool>,
+    /// Latest parent-client pixel rectangle painted by NSH (`NativeComponent::draw`); never cleared
+    /// by temporary dialog hides so closing a dialog can restore the canvas HWND at once.
+    last_rect: Cell<Option<RECT>>,
     posted: Cell<bool>,
+    paint_posted: Rc<Cell<bool>>,
 }
 
 impl PlacementSync {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(paint_posted: Rc<Cell<bool>>) -> Self {
         Self {
             app_visible: Cell::new(true),
-            intended: Cell::new(None),
-            drawn_in_frame: Cell::new(false),
+            last_rect: Cell::new(None),
             posted: Cell::new(false),
+            paint_posted,
         }
     }
 
     /// Records the exact parent-client pixel rectangle NSH painted the canvas at this frame, and
     /// schedules reconciliation once NSH finishes `items_placed`.
     pub(crate) fn note_drawn(&self, hwnd: HWND, rect: RECT) {
-        self.intended.set(Some(rect));
-        self.drawn_in_frame.set(true);
+        self.last_rect.set(Some(rect));
         self.schedule(hwnd);
     }
 
     /// Updates whether the app's `visible` prop wants the canvas shown; hiding takes effect at once.
     pub(crate) fn set_app_visible(&self, hwnd: HWND, visible: bool) {
-        self.app_visible.set(visible);
+        let prev = self.app_visible.replace(visible);
         if !visible {
-            self.intended.set(None);
-            self.drawn_in_frame.set(false);
             // SAFETY: plain call on our live child window.
             unsafe {
                 let _ = ShowWindow(hwnd, SW_HIDE);
             }
-        } else if self.intended.get().is_some() {
-            self.schedule(hwnd);
+        } else {
+            // SAFETY: plain query on our live child window.
+            let currently_visible = unsafe { IsWindowVisible(hwnd).as_bool() };
+            if (!prev || !currently_visible) && self.last_rect.get().is_some() {
+                self.schedule(hwnd);
+            }
         }
-    }
-
-    /// Whether `NativeComponent::draw` ran in the current frame before reconciliation.
-    fn drawn_in_frame(&self) -> bool {
-        self.drawn_in_frame.get()
-    }
-
-    /// NSH hid the window without drawing it this frame: forget the previous target rectangle.
-    fn note_hidden(&self) {
-        self.intended.set(None);
     }
 
     /// Coalesces a `WM_SYNC_PLACEMENT` post onto `hwnd`'s message queue.
@@ -123,10 +117,9 @@ impl PlacementSync {
     }
 
     /// Clears any truncated clip region NSH set and ensures `hwnd` is positioned and shown at
-    /// `intended` inside its adopted parent window.
+    /// `last_rect` inside its visible adopted parent window.
     pub(crate) fn reconcile(&self, hwnd: HWND) {
         self.posted.set(false);
-        self.drawn_in_frame.set(false);
         if !self.app_visible.get() {
             // SAFETY: plain call on our live child window.
             unsafe {
@@ -134,7 +127,7 @@ impl PlacementSync {
             }
             return;
         }
-        let Some(target) = self.intended.get() else {
+        let Some(target) = self.last_rect.get() else {
             return;
         };
         // SAFETY: plain Win32 queries and updates on our live child window and its parent.
@@ -142,9 +135,10 @@ impl PlacementSync {
             let Ok(parent) = GetParent(hwnd) else {
                 return;
             };
-            if parent.0.is_null() {
+            if parent.0.is_null() || !IsWindowVisible(parent).as_bool() {
                 return;
             }
+            ensure_window_icon(parent);
             let mut rgn_box = RECT::default();
             let had_rgn = GetWindowRgnBox(hwnd, &mut rgn_box) != RGN_ERROR;
             if had_rgn {
@@ -169,7 +163,8 @@ impl PlacementSync {
                 bottom: br.y,
             };
             let visible = IsWindowVisible(hwnd).as_bool();
-            if !visible || current_in_parent != target {
+            let moved_or_shown = !visible || current_in_parent != target;
+            if moved_or_shown {
                 let _ = SetWindowPos(
                     hwnd,
                     Some(HWND_TOP),
@@ -180,8 +175,51 @@ impl PlacementSync {
                     SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOZORDER,
                 );
             }
-            if had_rgn || !visible {
-                let _ = InvalidateRect(Some(hwnd), None, false);
+            if had_rgn || moved_or_shown {
+                request_paint(hwnd, &self.paint_posted);
+            }
+        }
+    }
+}
+
+/// Ensures the top-level ancestor of `hwnd` carries our embedded app icon (`RT_GROUP_ICON` 1)
+/// for both `ICON_BIG` and `ICON_SMALL` at the window's DPI, once per root `HWND`.
+fn ensure_window_icon(hwnd: HWND) {
+    thread_local! {
+        static APPLIED: RefCell<HashSet<isize>> = RefCell::new(HashSet::new());
+    }
+    // SAFETY: plain Win32 queries on our live parent/root window handle.
+    let root = unsafe {
+        let ancestor = GetAncestor(hwnd, GA_ROOT);
+        if ancestor.0.is_null() { hwnd } else { ancestor }
+    };
+    let already_set = APPLIED.with(|set| !set.borrow_mut().insert(root.0 as isize));
+    if already_set {
+        return;
+    }
+    // SAFETY: loading shared icon resources from this module (`id = 1`) and sending `WM_SETICON`
+    // synchronously to a window on this UI thread.
+    unsafe {
+        let Ok(instance) = GetModuleHandleW(None) else {
+            return;
+        };
+        let dpi = GetDpiForWindow(root);
+        for (metric, slot) in [(SM_CXICON, ICON_BIG), (SM_CXSMICON, ICON_SMALL)] {
+            let side = GetSystemMetricsForDpi(metric, dpi).max(16);
+            if let Ok(handle) = LoadImageW(
+                Some(instance.into()),
+                PCWSTR(std::ptr::without_provenance::<u16>(1)),
+                IMAGE_ICON,
+                side,
+                side,
+                LR_SHARED,
+            ) {
+                let _ = SendMessageW(
+                    root,
+                    WM_SETICON,
+                    Some(WPARAM(slot as usize)),
+                    Some(LPARAM(handle.0 as isize)),
+                );
             }
         }
     }
@@ -287,12 +325,17 @@ pub(crate) fn create(
             );
         }
         let ppp = pixels_per_point(GetDpiForWindow(hwnd));
-        let canvas = Rc::new(RefCell::new(Canvas::new(WinHost::new(hwnd, events), ppp)));
-        let placement = Rc::new(PlacementSync::new());
+        let paint_posted = Rc::new(Cell::new(false));
+        let canvas = Rc::new(RefCell::new(Canvas::new(
+            WinHost::new(hwnd, events, Rc::clone(&paint_posted)),
+            ppp,
+        )));
+        let placement = Rc::new(PlacementSync::new(Rc::clone(&paint_posted)));
         crate::uia::register(hwnd, &canvas);
         let data = Box::new(WindowData {
             canvas: Rc::clone(&canvas),
             placement: Rc::clone(&placement),
+            paint_posted,
         });
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(data) as isize);
         Ok((hwnd, canvas, placement))
@@ -332,18 +375,24 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
             data.placement.reconcile(hwnd);
             return LRESULT(0);
         }
-        WM_SHOWWINDOW => {
-            if wparam.0 == 0 && !data.placement.drawn_in_frame() {
-                data.placement.note_hidden();
-            }
-            // SAFETY: plain default handling.
-            return unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) };
-        }
         _ => {}
     }
     let canvas = &data.canvas;
-    // Busy: a message sent while the canvas runs (it sends none it handles); let Windows have it.
+    // Busy: a message sent while the canvas runs (it sends none it handles); let Windows have it,
+    // except re-post completion/paint wakeups so a re-entrant message never strands the queue.
     let Ok(mut canvas) = canvas.try_borrow_mut() else {
+        if msg == WM_JOB_DONE {
+            // SAFETY: plain post to our live child window to re-queue missed completion handling.
+            unsafe {
+                let _ = PostMessageW(Some(hwnd), WM_JOB_DONE, WPARAM(0), LPARAM(0));
+            }
+            return LRESULT(0);
+        }
+        if msg == WM_CANVAS_PAINT {
+            data.paint_posted.set(false);
+            request_paint(hwnd, &data.paint_posted);
+            return LRESULT(0);
+        }
         log::debug!("page canvas busy: message {msg:#x} goes to the default handling");
         // SAFETY: plain default handling.
         return unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) };
@@ -365,6 +414,7 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
             LRESULT(0)
         }
         WM_PAINT => {
+            data.paint_posted.set(false);
             // Validate before painting so any `InvalidateRect` triggered during `paint()` (smooth motion, device-loss
             // recovery, or newly uploaded tiles) schedules a fresh `WM_PAINT`.
             // SAFETY: plain call on a live window.
@@ -372,6 +422,20 @@ extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) ->
                 let _ = ValidateRect(Some(hwnd), None);
             }
             canvas.paint();
+            LRESULT(0)
+        }
+        WM_CANVAS_PAINT => {
+            if data.paint_posted.replace(false) {
+                // SAFETY: plain Win32 query on our live window handle.
+                let visible = unsafe { IsWindowVisible(hwnd).as_bool() };
+                if visible {
+                    // SAFETY: validate before painting so any invalidation during `paint()` schedules a fresh frame.
+                    unsafe {
+                        let _ = ValidateRect(Some(hwnd), None);
+                    }
+                    canvas.paint();
+                }
+            }
             LRESULT(0)
         }
         WM_ERASEBKGND => LRESULT(1),
@@ -712,10 +776,11 @@ mod tests {
     fn placement_reconcile_clears_nsh_clipped_region_and_restores_split_pane() {
         let parent = make_test_window(WS_OVERLAPPEDWINDOW, None, 0, 0, 2600, 1600);
         let child = make_test_window(WS_CHILD, Some(parent), 0, 0, 1, 1);
-        let sync = PlacementSync::new();
+        let paint_posted = Rc::new(Cell::new(false));
+        let sync = PlacementSync::new(paint_posted);
 
-        // Case 1: NSH placed the child at full size (2000x1200) inside a large AppWindow, then
-        // installed a truncated SetWindowRgn (0,0,1000,700) from the smaller hidden host surface.
+        // Case 1: NSH placed the child at full size (2000x1200) inside a visible large AppWindow,
+        // then installed a truncated SetWindowRgn (0,0,1000,700) from the smaller hidden host surface.
         let full = RECT {
             left: 260,
             top: 116,
@@ -725,6 +790,7 @@ mod tests {
         sync.note_drawn(child, full);
         // SAFETY: plain Win32 setup simulating NSH's `Placement::apply`.
         unsafe {
+            let _ = ShowWindow(parent, SW_SHOW);
             let _ = SetParent(child, Some(parent));
             let _ = SetWindowPos(
                 child,
@@ -771,7 +837,6 @@ mod tests {
         sync.reconcile(child);
         // SAFETY: plain Win32 queries on our test windows.
         unsafe {
-            let _ = ShowWindow(parent, SW_SHOW);
             assert!(
                 IsWindowVisible(child).as_bool(),
                 "split pane past host bounds must be restored"
@@ -781,13 +846,80 @@ mod tests {
             assert_eq!((client.right, client.bottom), (580, 1200));
         }
 
-        // Case 3: App hides canvas for a dialog (`visible = false`) -> hides immediately and stays hidden.
+        // Case 3: App hides canvas for a dialog (`visible = false`), then closes dialog
+        // (`visible = true`) WITHOUT a new `note_drawn` frame -> canvas must become visible again.
         sync.set_app_visible(child, false);
         // SAFETY: plain Win32 queries and cleanup on our test windows.
         unsafe {
             assert!(!IsWindowVisible(child).as_bool());
             sync.reconcile(child);
             assert!(!IsWindowVisible(child).as_bool());
+
+            sync.set_app_visible(child, true);
+            sync.reconcile(child);
+            assert!(
+                IsWindowVisible(child).as_bool(),
+                "closing dialog must restore child visibility even without a new draw"
+            );
+            let mut client = RECT::default();
+            let _ = GetClientRect(child, &mut client);
+            assert_eq!((client.right, client.bottom), (580, 1200));
+
+            let _ = DestroyWindow(child);
+            let _ = DestroyWindow(parent);
+        }
+    }
+
+    #[test]
+    fn request_paint_coalesces_and_survives_parent_validate_rect() {
+        use windows::Win32::UI::WindowsAndMessaging::{MSG, PM_NOREMOVE, PM_REMOVE, PeekMessageW};
+
+        let parent = make_test_window(WS_OVERLAPPEDWINDOW, None, 0, 0, 800, 600);
+        let child = make_test_window(WS_CHILD, Some(parent), 0, 0, 600, 400);
+        let paint_posted = Cell::new(false);
+
+        request_paint(child, &paint_posted);
+        request_paint(child, &paint_posted);
+        assert!(paint_posted.get());
+
+        // Simulate NSH's `ValidateRect(parent, None)` on a parent lacking `WS_CLIPCHILDREN`:
+        // `WM_CANVAS_PAINT` must still remain queued for the child HWND.
+        // SAFETY: plain Win32 message queue inspection on test windows created on this thread.
+        unsafe {
+            let _ = ValidateRect(Some(parent), None);
+            let mut msg = MSG::default();
+            assert!(
+                PeekMessageW(
+                    &mut msg,
+                    Some(child),
+                    WM_CANVAS_PAINT,
+                    WM_CANVAS_PAINT,
+                    PM_NOREMOVE
+                )
+                .as_bool(),
+                "WM_CANVAS_PAINT must remain queued even after parent ValidateRect"
+            );
+            assert!(
+                PeekMessageW(
+                    &mut msg,
+                    Some(child),
+                    WM_CANVAS_PAINT,
+                    WM_CANVAS_PAINT,
+                    PM_REMOVE
+                )
+                .as_bool()
+            );
+            assert!(
+                !PeekMessageW(
+                    &mut msg,
+                    Some(child),
+                    WM_CANVAS_PAINT,
+                    WM_CANVAS_PAINT,
+                    PM_NOREMOVE
+                )
+                .as_bool(),
+                "coalesced request_paint must enqueue at most one WM_CANVAS_PAINT"
+            );
             let _ = DestroyWindow(child);
             let _ = DestroyWindow(parent);
         }

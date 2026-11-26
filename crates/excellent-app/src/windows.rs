@@ -200,7 +200,7 @@ fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoEl
                 .bg(move || theme().sidebar)
                 .border_b_1()
                 .border_b_color(move || theme().border)
-                .child(tabs::tab_strip(pane.tabs, run))
+                .child(tabs::tab_strip(pane.tabs, pane.home_open, run))
                 .child(dock_button(move || windows.dock(id, panes))),
         )
         .child(view().flex_1().child(pages))
