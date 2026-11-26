@@ -225,6 +225,24 @@ impl Layout {
         self.columns = [Some([EQUAL; 2]); 2];
     }
 
+    /// Configures the layout into a grid of `count` tiled panes (`2..=4`) and equalizes sizes (V.12).
+    pub(crate) fn tile(&mut self, count: usize) {
+        let count = count.clamp(2, CELLS);
+        self.open = match count {
+            2 => [true, true, false, false],
+            3 => [true, true, true, false],
+            _ => [true, true, true, true],
+        };
+        self.active = 0;
+        self.maximized = None;
+        self.equalize();
+    }
+
+    /// Collapses the grid back to a single pane at cell 0 (V.12 untile).
+    pub(crate) fn untile(&mut self) {
+        *self = Self::default();
+    }
+
     /// The height row `row` wants, while both rows are shown (a row alone takes the room).
     pub(crate) fn row_size(&self, row: usize) -> Option<f32> {
         let both = self.row_open(0) && self.row_open(1);

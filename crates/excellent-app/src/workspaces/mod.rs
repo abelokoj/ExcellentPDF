@@ -318,23 +318,62 @@ impl Workspaces {
     }
 
     /// Opens `paths` (the open dialog, a drop on the window, a later launch): in the shown workspace, unless one is
-    /// open in another and the setting says to switch there (W.6).
+    /// open in another and the setting says to switch there (W.6), or a folder routing rule directs it (W.12).
     pub(crate) fn open(self, launch: &Launch) {
+        let mut standard = Vec::new();
+        for path in &launch.files {
+            if crate::shell::reading_extra::is_extra_non_mupdf_container(path) {
+                self.panes
+                    .active()
+                    .reading_extra
+                    .open_extra_file(path.clone());
+            } else {
+                standard.push(path.clone());
+            }
+        }
+        if standard.is_empty() {
+            return;
+        }
+        let filtered_launch = Launch {
+            files: standard,
+            page: launch.page,
+            split: launch.split,
+        };
         if self.elsewhere() == Elsewhere::Switch
-            && launch.split.is_none()
-            && let Some(id) = launch.files.iter().find_map(|path| self.holder(path))
+            && filtered_launch.split.is_none()
+            && let Some(id) = filtered_launch
+                .files
+                .iter()
+                .find_map(|path| self.holder(path))
         {
             // W.8: another window shows that workspace, so the files open there.
             if let Some(no) = windows::holder(id, self.window)
                 && let Some(there) = windows::workspaces(no)
             {
                 windows::focus(no);
-                there.panes.launch(launch);
+                there.panes.launch(&filtered_launch);
                 return;
             }
             self.switch(id);
+        } else if filtered_launch.split.is_none()
+            && let Some(first) = filtered_launch.files.first()
+            && let Some(routed) = store().and_then(|s| {
+                s.read(|conn| excellent_features::workspaces_rules::route_file(conn, first))
+                    .ok()
+                    .flatten()
+            })
+            && routed != self.shown.get_untracked()
+        {
+            if let Some(no) = windows::holder(routed, self.window)
+                && let Some(there) = windows::workspaces(no)
+            {
+                windows::focus(no);
+                there.panes.launch(&filtered_launch);
+                return;
+            }
+            self.switch(routed);
         }
-        self.panes.launch(launch);
+        self.panes.launch(&filtered_launch);
     }
 
     /// The open tabs of every workspace but the shown one (W.9), by workspace in the list's order, as last saved.

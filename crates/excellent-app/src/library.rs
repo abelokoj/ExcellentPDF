@@ -28,6 +28,13 @@ pub(crate) fn open() {
                     log::warn!("library: can't follow the app's move: {err}");
                 }
             }
+            let study_init = store.write(|tx| {
+                tx.execute_batch(excellent_store::study::SCHEMA_SQL)?;
+                Ok(())
+            });
+            if let Err(err) = study_init.wait() {
+                log::warn!("library: can't initialize study schema: {err}");
+            }
             let _ = LIBRARY.set(store);
         }
         Err(err) => log::warn!("library: can't open {}: {err}", path.display()),

@@ -14,12 +14,14 @@ mod exchange;
 pub(crate) mod favorites;
 mod flatten;
 pub(crate) mod guides;
+pub(crate) mod ink_tools;
 mod inspector;
 mod lasso;
 mod layers;
 mod list;
 pub(crate) mod margin;
 mod note;
+pub(crate) mod phase5;
 mod select;
 mod stamps;
 pub(crate) mod tag_index;
@@ -46,6 +48,7 @@ use excellent_features::annotate::replace::{self, Mode, Proposal};
 use excellent_features::annotate::shapes::{self, Drawn};
 use excellent_features::annotate::sticky::{self, Icon};
 use excellent_features::annotate::tape;
+use excellent_features::ink::eyedropper::{SampleArea, SampledColor};
 use excellent_ink::erase::Eraser;
 
 use nsh_base::{input, theme};
@@ -129,6 +132,36 @@ pub(crate) struct AnnotateState {
     reading: Signal<Option<String>>,
     /// The zoom writing pad is on (H.12).
     zoom_pad: Signal<bool>,
+    /// Active drawing layer for new ink and annotations (H.14).
+    active_layer: Signal<String>,
+    /// Last focused page index for page-level ink tools.
+    current_page: Signal<usize>,
+    /// Bulk ink restyle dialog open state (H.15).
+    restyle_open: Signal<bool>,
+    /// Fill & gradient dialog open state (H.16).
+    fill_open: Signal<bool>,
+    /// Eyedropper tool active state, sampling aperture, and latest sample + loupe (H.17).
+    eyedropper_active: Signal<bool>,
+    eyedropper_area: Signal<SampleArea>,
+    eyedropper_sample: Signal<Option<(SampledColor, Vec<Option<SampledColor>>)>>,
+    /// Saved color palettes dialog open state (H.18).
+    palettes_open: Signal<bool>,
+    /// Ink stroke replay dialog open state (H.22).
+    replay_open: Signal<bool>,
+    /// Annotation report export dialog open state (A.26).
+    report_open: Signal<bool>,
+    /// Annotation history timeline dialog open state (A.27).
+    history_open: Signal<bool>,
+    /// Pattern brush picker dialog open state (H.20).
+    pattern_open: Signal<bool>,
+    /// Symmetry axis dialog open state (H.21).
+    symmetry_open: Signal<bool>,
+    /// Searchable handwriting dialog open state (H.23).
+    hw_search_open: Signal<bool>,
+    /// Convert handwriting to text dialog open state (H.24).
+    hw_convert_open: Signal<bool>,
+    /// OCR to searchable PDF dialog open state (O.4).
+    ocr_open: Signal<bool>,
 }
 
 impl AnnotateState {
@@ -154,7 +187,87 @@ impl AnnotateState {
             guide: signal(None),
             reading: signal(None),
             zoom_pad: signal(false),
+            active_layer: signal(String::from("Ink")),
+            current_page: signal(0),
+            restyle_open: signal(false),
+            fill_open: signal(false),
+            eyedropper_active: signal(false),
+            eyedropper_area: signal(SampleArea::SinglePixel),
+            eyedropper_sample: signal(None),
+            palettes_open: signal(false),
+            replay_open: signal(false),
+            report_open: signal(false),
+            history_open: signal(false),
+            pattern_open: signal(false),
+            symmetry_open: signal(false),
+            hw_search_open: signal(false),
+            hw_convert_open: signal(false),
+            ocr_open: signal(false),
         }
+    }
+
+    /// Whether any ink or Phase 5 annotation/OCR dialog is currently open.
+    pub(crate) fn any_ink_dialog_open(self) -> bool {
+        self.restyle_open.get()
+            || self.fill_open.get()
+            || self.palettes_open.get()
+            || self.replay_open.get()
+            || self.report_open.get()
+            || self.history_open.get()
+            || self.pattern_open.get()
+            || self.symmetry_open.get()
+            || self.hw_search_open.get()
+            || self.hw_convert_open.get()
+            || self.ocr_open.get()
+    }
+
+    /// Whether the Report Export dialog is open (A.26).
+    pub(crate) fn is_reporting(self) -> bool {
+        self.report_open.get()
+    }
+    /// Whether the Annotation History dialog is open (A.27).
+    pub(crate) fn is_history(self) -> bool {
+        self.history_open.get()
+    }
+    /// Whether the Pattern Brush dialog is open (H.20).
+    pub(crate) fn is_pattern(self) -> bool {
+        self.pattern_open.get()
+    }
+    /// Whether the Symmetry dialog is open (H.21).
+    pub(crate) fn is_symmetry(self) -> bool {
+        self.symmetry_open.get()
+    }
+    /// Whether the Handwriting Search dialog is open (H.23).
+    pub(crate) fn is_hw_searching(self) -> bool {
+        self.hw_search_open.get()
+    }
+    /// Whether the Convert Handwriting dialog is open (H.24).
+    pub(crate) fn is_hw_converting(self) -> bool {
+        self.hw_convert_open.get()
+    }
+    /// Whether the OCR dialog is open (O.4).
+    pub(crate) fn is_ocr(self) -> bool {
+        self.ocr_open.get()
+    }
+
+    /// Whether the Restyle dialog is open (H.15).
+    pub(crate) fn is_restyling(self) -> bool {
+        self.restyle_open.get()
+    }
+
+    /// Whether the Fill dialog is open (H.16).
+    pub(crate) fn is_filling(self) -> bool {
+        self.fill_open.get()
+    }
+
+    /// Whether the Color Palettes dialog is open (H.18).
+    pub(crate) fn is_palettes(self) -> bool {
+        self.palettes_open.get()
+    }
+
+    /// Whether the Ink Replay dialog is open (H.22).
+    pub(crate) fn is_replaying(self) -> bool {
+        self.replay_open.get()
     }
 
     /// The sticky-note, text-box and typewriter commands (A.5, A.6): the next click on the pages places `what`; run
@@ -231,7 +344,7 @@ impl AnnotateState {
             id: made.id.clone(),
         };
         // A stamp drawn from art is made and drawn in one operation, so one step of undo (A.20).
-        let changes = excellent_features::annotate::stamps::changes(made, art);
+        let changes = self.place_changes(excellent_features::annotate::stamps::changes(made, art));
         let operation = Operation::new(name, changes);
         if self.editing.apply(&operation) {
             self.open_note(&target);
@@ -306,6 +419,7 @@ impl AnnotateState {
             CommandId::Ruler => self.guide_on(guides::GuideKind::Ruler),
             CommandId::Protractor => self.guide_on(guides::GuideKind::Protractor),
             CommandId::Compass => self.guide_on(guides::GuideKind::Compass),
+            CommandId::Eyedropper => self.eyedropper_active.get(),
             _ => false,
         }
     }
@@ -335,14 +449,13 @@ impl AnnotateState {
         // Tape (H.4): the rectangle dragged out becomes a strip over what it hides, with no note to open.
         if taping {
             if let excellent_core::annot::Shape::Boxed(_, rect) = made.shape {
-                self.editing.apply(&Operation::new(
-                    t!("tape.edit"),
-                    vec![Change::CreateAnnotation(tape::tape(
-                        made.page,
-                        rect,
-                        &author(),
-                    ))],
-                ));
+                let changes = self.place_changes(vec![Change::CreateAnnotation(tape::tape(
+                    made.page,
+                    rect,
+                    &author(),
+                ))]);
+                self.editing
+                    .apply(&Operation::new(t!("tape.edit"), changes));
             }
             return;
         }
@@ -351,10 +464,8 @@ impl AnnotateState {
             id: made.id.clone(),
         };
         let name = shape_name(&made);
-        if self
-            .editing
-            .apply(&Operation::new(name, vec![Change::CreateAnnotation(made)]))
-        {
+        let changes = self.place_changes(vec![Change::CreateAnnotation(made)]);
+        if self.editing.apply(&Operation::new(name, changes)) {
             self.open_note(&target);
         }
     }
@@ -365,11 +476,10 @@ impl AnnotateState {
             log::warn!("ink: a stroke that doesn't parse: {data}");
             return;
         };
+        self.current_page.set(inked.page);
         let made = inked.annotation(&author());
-        self.editing.apply(&Operation::new(
-            t!("ink.edit"),
-            vec![Change::CreateAnnotation(made)],
-        ));
+        let changes = self.place_changes(vec![Change::CreateAnnotation(made)]);
+        self.editing.apply(&Operation::new(t!("ink.edit"), changes));
     }
 
     /// The eraser went over a page (`erase`, H.5): the ink it crossed is deleted or cut back, all one step of undo.
@@ -381,13 +491,14 @@ impl AnnotateState {
         let Some(document) = self.editing.document() else {
             return;
         };
+        let stack = self.layer_stack();
         let changes = {
             let Ok(shared) = document.mupdf() else {
                 return;
             };
             let mupdf = shared.lock().expect("document lock poisoned");
-            // What a hidden layer holds isn't on the page to erase (A.22).
-            erased.changes(&layers::shown_on_page(&mupdf, erased.page))
+            // Hidden or locked layers are never erased (A.22, H.14).
+            stack.erase_changes(&erased, &layers::shown_on_page(&mupdf, erased.page))
         };
         if !changes.is_empty() {
             self.editing
@@ -482,6 +593,10 @@ impl AnnotateState {
     /// the annotation under it is selected (A.13), and its note, or the text box's text, opens. With Ctrl it joins
     /// the selection, or leaves it, and no note opens.
     fn press(self, data: &JsonValue) {
+        if untracked(|| self.eyedropper_active.get()) {
+            self.sample_eyedropper(data);
+            return;
+        }
         if let Some(what) = untracked(|| self.placing.get())
             && !matches!(what, Placing::Shape(_) | Placing::Tape)
         {
@@ -491,6 +606,7 @@ impl AnnotateState {
         let Some((page, point)) = notes::parse_press(data) else {
             return;
         };
+        self.current_page.set(page);
         let Some(document) = self.editing.document() else {
             return;
         };
@@ -616,9 +732,9 @@ impl AnnotateState {
                     );
                     Vec::new()
                 });
-                changes.extend(markup::mark(
+                changes.extend(self.place_changes(markup::mark(
                     marking, page.page, page.quads, page.quote, &existing,
-                ));
+                )));
             }
         }
         let target = notes::marked(&changes);
@@ -787,4 +903,29 @@ fn author() -> String {
     std::env::var("USERNAME")
         .or_else(|_| std::env::var("USER"))
         .unwrap_or_default()
+}
+
+impl AnnotateState {
+    /// Applies undoable changes through the owning document's `Editing` state, placing them on the active layer.
+    pub(crate) fn editing_apply(self, name: String, changes: Vec<excellent_core::edit::Change>) {
+        let placed = self.place_changes(changes);
+        if !placed.is_empty() {
+            self.editing.apply(&Operation::new(name, placed));
+        }
+    }
+
+    /// Exposes current-page annotations for Study tools cleanly.
+    pub(crate) fn page_annotations_for_study(
+        self,
+        page: usize,
+    ) -> Vec<excellent_core::annot::Annotation> {
+        let Some(doc) = self.editing.document() else {
+            return Vec::new();
+        };
+        let Ok(shared) = doc.mupdf() else {
+            return Vec::new();
+        };
+        let mupdf = shared.lock().expect("document lock poisoned");
+        excellent_core::annot::page_annotations(&mupdf, page).unwrap_or_default()
+    }
 }

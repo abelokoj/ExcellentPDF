@@ -14,6 +14,14 @@
 //! pages ([`crate::keymap::Scope::Page`]) work while they have it. In full screen (R.19) the title bar and the docks
 //! hide ([`FullScreen`]).
 
+pub(crate) mod ai_ui;
+pub(crate) mod control_channel;
+pub(crate) mod ecosystem_ui;
+pub(crate) mod forms_sign_ui;
+pub(crate) mod library_ui;
+pub(crate) mod pro_pdf_ui;
+pub(crate) mod reading_extra;
+
 use excellent_store::workspace::WorkspaceId;
 use excellent_store::workspaces::Workspace;
 use nsh_base::dock::{
@@ -38,21 +46,26 @@ use crate::goto::{self, PageState};
 use crate::links;
 use crate::list_dialog::{list_dialog, style};
 use crate::modes::{self, Modes};
+use crate::notebooks;
 use crate::onboarding::{self, Onboarding};
 use crate::outline::{self, OutlineAction};
 use crate::panes::{self, CELLS, FileDrag, Pane, PaneAction, Panes, Place, Shared};
+use crate::present_ui;
 use crate::print::{Printing, print_strip};
 use crate::reading::Reading;
 use crate::reading_theme_bar::reading_theme_bar;
 use crate::recent::RecentState;
 use crate::settings;
 use crate::settings_window::settings_window;
+use crate::study_ui;
 use crate::tabs;
 use crate::theme as themes;
 use crate::thumbnails;
 use crate::workspaces::{self, MAIN, Workspaces};
 use excellent_features::annotate::lasso;
 use excellent_features::annotate::shapes::Kind as ShapeKind;
+use excellent_features::modes::Mode;
+use excellent_features::present::{ActivePointerTool, ScreenBlank, WhiteboardBackground};
 
 /// The title bar's height; Windows draws its caption buttons this tall.
 const TITLE_BAR_HEIGHT: Points = px(40.0);
@@ -241,6 +254,7 @@ enum Role {
 /// The main window's shell, and what the app does once: following the theme, the language and the system's
 /// contrast, and opening the workspace windows of the last run (W.8).
 pub(crate) fn shell() -> impl IntoElement {
+    control_channel::ensure_started();
     let live = settings::Live::new();
     let app = App {
         live,
@@ -348,6 +362,11 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
     // Not a dialog: it lies in the title bar, so the pages stay in sight to preview each theme.
     let reading_theme_open = signal(false);
     let tab_list_open = signal(false);
+    let lib_ui = library_ui::LibraryUiState::new();
+    let ai_ui = ai_ui::AiUiState::new();
+    let forms_sign_ui = forms_sign_ui::FormsSignUiState::new();
+    let pro_pdf_ui = pro_pdf_ui::ProPdfUiState::new();
+    let ecosystem_ui = ecosystem_ui::EcosystemUiState::new();
     let printing = Printing::new();
     let shared = Shared {
         reading: Reading::new(live),
@@ -390,6 +409,11 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             || onboarding.is_open()
             || modes.is_customizing()
             || workspaces.dialog().is_some()
+            || lib_ui.any_dialog_open()
+            || ai_ui.any_dialog_open()
+            || forms_sign_ui.any_dialog_open()
+            || pro_pdf_ui.any_dialog_open()
+            || ecosystem_ui.any_dialog_open()
             || panes.slots().into_iter().any(Pane::covers_pages)
             || panes.sync_menu_open()
     };
@@ -408,8 +432,25 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::OpenPalette => palette_open.set(true),
             CommandId::OpenSettings => settings_open.set(true),
             CommandId::ReplayGuide => onboarding.replay(),
-            CommandId::Mode(mode) => modes.set(mode),
-            CommandId::StepMode(back) => modes.step(back),
+            CommandId::Mode(mode) => {
+                let prev = untracked(|| modes.current());
+                modes.set(mode);
+                if mode == Mode::Present && prev != Mode::Present {
+                    pane.present.start(pane.pages.count(), pane.pages.current());
+                } else if prev == Mode::Present && mode != Mode::Present {
+                    pane.present.end();
+                }
+            }
+            CommandId::StepMode(back) => {
+                let prev = untracked(|| modes.current());
+                modes.step(back);
+                let next = untracked(|| modes.current());
+                if next == Mode::Present && prev != Mode::Present {
+                    pane.present.start(pane.pages.count(), pane.pages.current());
+                } else if prev == Mode::Present && next != Mode::Present {
+                    pane.present.end();
+                }
+            }
             CommandId::CustomizeToolbar => modes.customize(),
             CommandId::ExportToolbars => modes.export(),
             CommandId::ImportToolbars => modes.import(),
@@ -531,8 +572,198 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
                     printing.start(path, pane.pages.count(), pane.pages.current(), live);
                 }
             }
+            CommandId::StraightenInk => pane.annotate.straighten_ink_selection(),
+            CommandId::RestyleInk => pane.annotate.open_restyle(),
+            CommandId::InkFill => pane.annotate.open_fill(),
+            CommandId::Eyedropper => pane.annotate.toggle_eyedropper(),
+            CommandId::ColorPalettes => pane.annotate.open_palettes(),
+            CommandId::InkReplay => pane.annotate.open_replay(),
+            CommandId::VectorizeInk => pane.annotate.vectorize_shapes(),
+            CommandId::NewNotebook => pane.notebooks.open_new_notebook(),
+            CommandId::InsertPage => pane.notebooks.open_insert_page(),
+            CommandId::ExpandMargins => pane.notebooks.open_margins(),
+            CommandId::ExportNotebookPdf => pane.notebooks.export_notebook_pdf(),
+            CommandId::InfiniteCanvas => pane.notebooks.open_infinite_canvas(),
+            CommandId::InsertTextBlock => pane.notebooks.open_text_block(),
+            CommandId::InsertImage => pane.notebooks.insert_image_file(),
+            CommandId::NotebookSections => pane.notebooks.open_sections(),
+            CommandId::NotebookLinks => pane.notebooks.open_links_manager(),
+            CommandId::QuickNote => {
+                pane.notebooks.trigger_quick_note(move |path| {
+                    workspaces.open_paths(vec![path]);
+                });
+            }
+            CommandId::MarkdownNotes => pane.notebooks.open_markdown(),
+            CommandId::LectureAudio => pane.notebooks.open_audio(),
+            CommandId::CondenseSlides => pane.notebooks.open_condense_slides(),
+            CommandId::PresentLaser => pane.present.select_pointer_tool(ActivePointerTool::Laser),
+            CommandId::PresentSpotlight => {
+                pane.present
+                    .select_pointer_tool(ActivePointerTool::Spotlight);
+            }
+            CommandId::PresentMagnifier => {
+                pane.present
+                    .select_pointer_tool(ActivePointerTool::Magnifier);
+            }
+            CommandId::PresentBlankBlack => pane.present.toggle_blank(ScreenBlank::Black),
+            CommandId::PresentBlankWhite => pane.present.toggle_blank(ScreenBlank::White),
+            CommandId::PresentFadingInk => pane.present.toggle_ink_persistence(),
+            CommandId::PresentWhiteboard => {
+                pane.present.toggle_whiteboard(WhiteboardBackground::Blank);
+            }
+            CommandId::PresentCurtain => pane.present.toggle_curtain(),
+            CommandId::PresenterView => pane.present.open_presenter_view(),
+            CommandId::MakeFlashcard => pane.study.open_flashcard(),
+            CommandId::ImageOcclusion => pane.study.open_occlusion(),
+            CommandId::MakeCloze => pane.study.open_cloze(),
+            CommandId::DailyReview => pane.study.open_review(),
+            CommandId::Dictionary => pane.study.open_dictionary(),
+            CommandId::Vocabulary => pane.study.open_vocabulary(),
+            CommandId::StudyExport => pane.study.open_export(),
+            CommandId::ExamMode => pane.study.toggle_exam_mode(),
+            CommandId::ImportAnki => pane.study.import_apkg_dialog(),
+            CommandId::ExportAnki => pane.study.export_apkg_dialog(),
+            CommandId::StudyStatistics => pane.study.open_stats(),
+            CommandId::ReadAloud => pane.study.toggle_read_aloud(),
+            CommandId::OpenLibrary => lib_ui.open_library(),
+            CommandId::FindDuplicates => lib_ui.open_duplicates(),
+            CommandId::Citations => lib_ui.open_citations(),
+            CommandId::LibraryNotes => lib_ui.open_notes(),
+            CommandId::WorkspaceRules => lib_ui.open_rules(),
+            CommandId::CliMcpDocs => lib_ui.open_cli_docs(),
+            CommandId::ReflowMode => pane.reading_extra.toggle_reflow(),
+            CommandId::BionicReading => pane.reading_extra.toggle_bionic(),
+            CommandId::TwoColumnScroll => {
+                pane.reading_extra.step_two_column_scroll(
+                    pane.tabs.shown_path(),
+                    pane.pages.current(),
+                    move |p| pane.go_to(p),
+                );
+            }
+            CommandId::SyncTex => pane.reading_extra.open_synctex(),
+            CommandId::ExtraFormats => {
+                if let Some(p) = pane.tabs.shown_path()
+                    && reading_extra::is_extra_non_mupdf_container(&p)
+                {
+                    pane.reading_extra.open_extra_file(p);
+                } else {
+                    pane.reading_extra
+                        .open_extra_file(pane.tabs.shown_path().unwrap_or_default());
+                }
+            }
+            CommandId::OpenUrl => pane.reading_extra.open_remote(),
+            CommandId::GenerateOutline => pane.outline_extra.open_generate(),
+            CommandId::OutlineIo => pane.outline_extra.open_io(),
+            CommandId::AnnotationReport => pane.annotate.open_report(),
+            CommandId::AnnotationHistory => pane.annotate.open_history(),
+            CommandId::BeautifyInk => pane.annotate.beautify_ink_selection(),
+            CommandId::PatternBrush => pane.annotate.open_pattern_brush(),
+            CommandId::Symmetry => pane.annotate.open_symmetry(),
+            CommandId::HandwritingSearch => pane.annotate.open_hw_search(),
+            CommandId::HandwritingToText => pane.annotate.open_hw_convert(),
+            CommandId::OcrDocument => pane.annotate.open_ocr(),
+            CommandId::Planner => pane.notebooks.open_planner(),
+            CommandId::TemplatePacks => pane.notebooks.open_template_packs(),
+            CommandId::NotebookVersions => pane.notebooks.open_versions(),
+            CommandId::AudioTranscript => pane.notebooks.open_transcript(),
+            CommandId::HighlightSummary => pane.study.open_summaries(),
+            CommandId::Assignments => pane.study.open_assignments(),
+            CommandId::LanguageLearning => pane.study.open_language(),
+            CommandId::TranslateSelection => pane.study.open_translate(),
+            CommandId::AiPanel => ai_ui.open_panel(ai_ui::AiPanelTab::Chat),
+            CommandId::AiSummarize => ai_ui.open_panel(ai_ui::AiPanelTab::Actions),
+            CommandId::AiStudyMaterials => ai_ui.open_panel(ai_ui::AiPanelTab::Study),
+            CommandId::AiResearchExtract => ai_ui.open_panel(ai_ui::AiPanelTab::Research),
+            CommandId::AiQuiz => ai_ui.open_panel(ai_ui::AiPanelTab::Quiz),
+            CommandId::MathToLatex => ai_ui.open_math_to_latex(),
+            CommandId::VisualSearch => ai_ui.open_visual_search(),
+            CommandId::FormsPanel => forms_sign_ui.open_forms(panes),
+            CommandId::FormsFlatten => forms_sign_ui.flatten_forms(panes),
+            CommandId::SignaturesPanel => forms_sign_ui.open_signatures(panes),
+            CommandId::PageOrganizer => {
+                pro_pdf_ui.open_dialog(pro_pdf_ui::ProPdfDialog::Organizer, panes);
+            }
+            CommandId::EditTextAndImages
+            | CommandId::TrueRedaction
+            | CommandId::ExportAndConvert => {
+                let tab = match id {
+                    CommandId::TrueRedaction => pro_pdf_ui::EditExportTab::Redact,
+                    CommandId::ExportAndConvert => pro_pdf_ui::EditExportTab::Convert,
+                    _ => pro_pdf_ui::EditExportTab::Text,
+                };
+                pro_pdf_ui.open_edit_tab(tab, panes);
+            }
+            CommandId::CompressPdf | CommandId::SecurityPermissions => {
+                pro_pdf_ui.open_dialog(pro_pdf_ui::ProPdfDialog::SecurityCompress, panes);
+            }
+            CommandId::BatesAndHeaders => {
+                pro_pdf_ui.open_dialog(pro_pdf_ui::ProPdfDialog::BatesHeaders, panes);
+            }
+            CommandId::PrintProduction => {
+                pro_pdf_ui.open_dialog(pro_pdf_ui::ProPdfDialog::PreflightCad, panes);
+            }
+            CommandId::CadView => pro_pdf_ui.toggle_cad_mode(panes, live),
+            CommandId::OutlineActions => {
+                pro_pdf_ui.open_dialog(pro_pdf_ui::ProPdfDialog::OutlineAction, panes);
+            }
+            CommandId::MeasureTool => {
+                pro_pdf_ui.open_dialog(pro_pdf_ui::ProPdfDialog::Measure, panes);
+            }
+            CommandId::ComparePdfs | CommandId::ExtractTablesFigures => {
+                pro_pdf_ui.open_dialog(pro_pdf_ui::ProPdfDialog::CompareExtract, panes);
+            }
+            CommandId::ScreencastRecord => {
+                pro_pdf_ui.open_dialog(pro_pdf_ui::ProPdfDialog::Screencast, panes);
+            }
+            CommandId::GradingSuite => {
+                pro_pdf_ui.open_dialog(pro_pdf_ui::ProPdfDialog::Grading, panes);
+            }
+            CommandId::CameraScanImport => {
+                ecosystem_ui.open_dialog(ecosystem_ui::EcoDialog::CameraScan, panes);
+            }
+            CommandId::ExcerptBoard => {
+                ecosystem_ui.open_dialog(ecosystem_ui::EcoDialog::ExcerptBoard, panes);
+            }
+            CommandId::KnowledgeGraph => {
+                ecosystem_ui.open_dialog(ecosystem_ui::EcoDialog::KnowledgeGraph, panes);
+            }
+            CommandId::SyncAndShare => {
+                ecosystem_ui.open_dialog(ecosystem_ui::EcoDialog::SyncAndShare, panes);
+            }
+            CommandId::LiveRelay => {
+                ecosystem_ui.open_dialog(ecosystem_ui::EcoDialog::LiveRelay, panes);
+            }
+            CommandId::LiveClassroom => {
+                ecosystem_ui.open_dialog(ecosystem_ui::EcoDialog::Classroom, panes);
+            }
+            CommandId::PluginsManager => {
+                ecosystem_ui.open_dialog(ecosystem_ui::EcoDialog::Plugins, panes);
+            }
         }
     };
+    effect(move || {
+        let pane = panes.active();
+        control_channel::update_state(pane.tabs.shown_path(), pane.pages.current());
+    });
+    if role == Role::Main && control_channel::status_snapshot().running {
+        set_interval(std::time::Duration::from_millis(250), move || {
+            for action in control_channel::drain_pending() {
+                match action {
+                    control_channel::PendingControlAction::OpenDocument(p) => {
+                        workspaces.open_paths(vec![p]);
+                    }
+                    control_channel::PendingControlAction::JumpToPage(page) => {
+                        panes.active().go_to(page);
+                    }
+                    control_channel::PendingControlAction::RunCommand(name) => {
+                        if let Some(cmd) = commands::find(&name) {
+                            run(cmd);
+                        }
+                    }
+                }
+            }
+        });
+    }
     // Later launches' files (R.11), until the window closes; the main window takes them, or hands them to the window
     // that shows their workspace (W.6, W.8).
     if role == Role::Main {
@@ -587,6 +818,22 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
                 move || pane.annotate.is_picking(),
                 move || crate::annotate::color_dialog(pane.annotate),
             ))
+            .child(when(
+                move || pane.annotate.is_restyling(),
+                move || crate::annotate::ink_tools::restyle_dialog(pane.annotate),
+            ))
+            .child(when(
+                move || pane.annotate.is_filling(),
+                move || crate::annotate::ink_tools::fill_dialog(pane.annotate),
+            ))
+            .child(when(
+                move || pane.annotate.is_palettes(),
+                move || crate::annotate::ink_tools::palettes_dialog(pane.annotate),
+            ))
+            .child(when(
+                move || pane.annotate.is_replaying(),
+                move || crate::annotate::ink_tools::replay_dialog(pane.annotate),
+            ))
     });
 
     view()
@@ -614,7 +861,15 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             move || full_screen.is_on(),
             move |id| {
                 let pane = panes.slots()[panes.active_cell()];
-                pane.annotate.is_on(id) || id == CommandId::Snapshot && pane.snapshot.is_on()
+                pane.annotate.is_on(id)
+                    || pane.present.is_on(id)
+                    || pane.study.is_on(id)
+                    || (id == CommandId::ReflowMode && pane.reading_extra.is_reflow_open())
+                    || (id == CommandId::BionicReading && pane.reading_extra.is_bionic_on())
+                    || (id == CommandId::CadView && pro_pdf_ui.is_cad_active(live))
+                    || (id == CommandId::MeasureTool && pro_pdf_ui.is_measure_active())
+                    || (id == CommandId::ScreencastRecord && pro_pdf_ui.is_screencast_active())
+                    || id == CommandId::Snapshot && pane.snapshot.is_on()
             },
             run,
             // H.7: the favourite pens lead the Write mode's toolbar.
@@ -665,6 +920,333 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
         .child(of_active(panes, |pane| {
             crate::attachments::attachments_dialog(pane.attachments)
         }))
+        .child(of_active(panes, move |pane| {
+            view()
+                .child(when(
+                    move || pane.notebooks.is_new_open(),
+                    move || {
+                        notebooks::new_notebook_dialog(pane.notebooks, move |path| {
+                            workspaces.open_paths(vec![path]);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.notebooks.is_insert_page_open(),
+                    move || {
+                        notebooks::insert_page_dialog(pane.notebooks, move |path| {
+                            let page = pane.pages.current();
+                            let _ = pane.tabs.take_shown();
+                            pane.tabs.open_at(path, page);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.notebooks.is_margins_open(),
+                    move || {
+                        notebooks::margins_dialog(pane.notebooks, move |path| {
+                            let page = pane.pages.current();
+                            let _ = pane.tabs.take_shown();
+                            pane.tabs.open_at(path, page);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.notebooks.is_infinite_open(),
+                    move || notebooks::infinite_canvas_dialog(pane.notebooks),
+                ))
+                .child(when(
+                    move || pane.notebooks.is_text_block_open(),
+                    move || notebooks::text_block_dialog(pane.notebooks),
+                ))
+                .child(when(
+                    move || pane.notebooks.is_sections_open(),
+                    move || {
+                        notebooks::sections_dialog(pane.notebooks, move |path| {
+                            let page = pane.pages.current();
+                            let _ = pane.tabs.take_shown();
+                            pane.tabs.open_at(path, page);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.notebooks.is_links_open(),
+                    move || {
+                        notebooks::links_manager_dialog(pane.notebooks, move |path| {
+                            let page = pane.pages.current();
+                            let _ = pane.tabs.take_shown();
+                            pane.tabs.open_at(path, page);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.notebooks.is_markdown_open(),
+                    move || notebooks::markdown_dialog(pane.notebooks),
+                ))
+                .child(when(
+                    move || pane.notebooks.is_audio_open(),
+                    move || notebooks::audio_dialog(pane.notebooks),
+                ))
+                .child(when(
+                    move || pane.notebooks.is_condense_open(),
+                    move || {
+                        notebooks::condense_slides_dialog(pane.notebooks, move |path| {
+                            workspaces.open_paths(vec![path]);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.present.is_keep_prompt_open(),
+                    move || present_ui::keep_ink_dialog(pane.present),
+                ))
+                .child(when(
+                    move || pane.study.is_flashcard_open(),
+                    move || study_ui::flashcard_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_occlusion_open(),
+                    move || study_ui::occlusion_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_cloze_open(),
+                    move || study_ui::cloze_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_review_open(),
+                    move || {
+                        study_ui::daily_review_dialog(pane.study, move |path, page| {
+                            pane.tabs.open_at(path, page);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.study.is_dict_open(),
+                    move || study_ui::dictionary_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_vocab_open(),
+                    move || study_ui::vocabulary_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_export_open(),
+                    move || study_ui::study_export_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_stats_open(),
+                    move || study_ui::statistics_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_summaries_open(),
+                    move || study_ui::phase5::highlight_summaries_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_assignments_open(),
+                    move || study_ui::phase5::assignments_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_language_open(),
+                    move || study_ui::phase5::language_learning_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.study.is_translate_open(),
+                    move || study_ui::phase5::translate_dialog(pane.study),
+                ))
+                .child(when(
+                    move || pane.notebooks.is_planner_open(),
+                    move || {
+                        notebooks::phase5::planner_dialog(pane.notebooks, move |path| {
+                            workspaces.open_paths(vec![path]);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.notebooks.is_packs_open(),
+                    move || notebooks::phase5::template_packs_dialog(pane.notebooks),
+                ))
+                .child(when(
+                    move || pane.notebooks.is_versions_open(),
+                    move || {
+                        notebooks::phase5::version_history_dialog(pane.notebooks, move |path| {
+                            workspaces.open_paths(vec![path]);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.notebooks.is_transcript_open(),
+                    move || notebooks::phase5::audio_transcript_dialog(pane.notebooks),
+                ))
+                .child(when(
+                    move || pane.outline_extra.is_generate_open(),
+                    move || {
+                        outline::extra::generate_outline_dialog(
+                            pane.outline_extra,
+                            pane.tabs.shown_path(),
+                        )
+                    },
+                ))
+                .child(when(
+                    move || pane.outline_extra.is_io_open(),
+                    move || {
+                        outline::extra::outline_io_dialog(
+                            pane.outline_extra,
+                            pane.tabs.shown_path(),
+                        )
+                    },
+                ))
+                .child(when(
+                    move || pane.reading_extra.is_reflow_open(),
+                    move || {
+                        reading_extra::reflow_dialog(
+                            pane.reading_extra,
+                            pane.tabs.shown_path(),
+                            pane.pages.current(),
+                        )
+                    },
+                ))
+                .child(when(
+                    move || pane.reading_extra.is_synctex_open(),
+                    move || {
+                        reading_extra::synctex_dialog(
+                            pane.reading_extra,
+                            pane.tabs.shown_path(),
+                            pane.pages.current(),
+                            move |pg| pane.go_to(pg),
+                        )
+                    },
+                ))
+                .child(when(
+                    move || pane.reading_extra.is_remote_open(),
+                    move || {
+                        reading_extra::open_url_dialog(pane.reading_extra, move |path| {
+                            workspaces.open_paths(vec![path]);
+                        })
+                    },
+                ))
+                .child(when(
+                    move || pane.reading_extra.is_extra_open(),
+                    move || reading_extra::extra_format_dialog(pane.reading_extra),
+                ))
+                .child(when(
+                    move || pane.annotate.is_reporting(),
+                    move || crate::annotate::phase5::report_export_dialog(pane.annotate),
+                ))
+                .child(when(
+                    move || pane.annotate.is_history(),
+                    move || crate::annotate::phase5::history_timeline_dialog(pane.annotate),
+                ))
+                .child(when(
+                    move || pane.annotate.is_pattern(),
+                    move || crate::annotate::phase5::pattern_brush_dialog(pane.annotate),
+                ))
+                .child(when(
+                    move || pane.annotate.is_symmetry(),
+                    move || crate::annotate::phase5::symmetry_dialog(pane.annotate),
+                ))
+                .child(when(
+                    move || pane.annotate.is_hw_searching(),
+                    move || {
+                        crate::annotate::phase5::handwriting_search_dialog(
+                            pane.annotate,
+                            move |pg| pane.go_to(pg),
+                        )
+                    },
+                ))
+                .child(when(
+                    move || pane.annotate.is_hw_converting(),
+                    move || crate::annotate::phase5::handwriting_convert_dialog(pane.annotate),
+                ))
+                .child(when(
+                    move || pane.annotate.is_ocr(),
+                    move || {
+                        crate::annotate::phase5::ocr_dialog(pane.annotate, move |path| {
+                            workspaces.open_paths(vec![path]);
+                        })
+                    },
+                ))
+        }))
+        .child(when(
+            move || lib_ui.is_library_open(),
+            move || {
+                let pane = panes.active();
+                library_ui::library_dialog(
+                    lib_ui,
+                    pane.tabs.shown_path(),
+                    workspaces.shown_id(),
+                    move |path, page| {
+                        workspaces.open(&crate::open::Launch {
+                            files: vec![path],
+                            page: Some(page),
+                            split: None,
+                        });
+                    },
+                    move |ws_id| workspaces.switch(ws_id),
+                )
+            },
+        ))
+        .child(when(
+            move || lib_ui.is_duplicates_open(),
+            move || {
+                library_ui::duplicates_dialog(lib_ui, move |path, page| {
+                    workspaces.open(&crate::open::Launch {
+                        files: vec![path],
+                        page: Some(page),
+                        split: None,
+                    });
+                })
+            },
+        ))
+        .child(when(
+            move || lib_ui.is_citations_open(),
+            move || library_ui::citations_dialog(lib_ui),
+        ))
+        .child(when(
+            move || lib_ui.is_notes_open(),
+            move || {
+                let pane = panes.active();
+                library_ui::notes_backlinks_dialog(
+                    lib_ui,
+                    pane.tabs.shown_path(),
+                    pane.pages.current(),
+                )
+            },
+        ))
+        .child(when(
+            move || lib_ui.is_rules_open(),
+            move || {
+                library_ui::workspace_rules_dialog(lib_ui, workspaces.shown_id(), move |ws_id| {
+                    workspaces.switch(ws_id);
+                })
+            },
+        ))
+        .child(when(
+            move || lib_ui.is_cli_docs_open(),
+            move || library_ui::cli_mcp_docs_dialog(lib_ui),
+        ))
+        .child(ai_ui::ai_dialogs(ai_ui, panes, live))
+        .child(forms_sign_ui::forms_sign_dialogs(
+            forms_sign_ui,
+            panes,
+            workspaces,
+            live,
+        ))
+        .child(pro_pdf_ui::pro_pdf_dialogs(
+            pro_pdf_ui, panes, workspaces, live,
+        ))
+        .child(ecosystem_ui::ecosystem_dialogs(
+            ecosystem_ui,
+            panes,
+            workspaces,
+            live,
+        ))
+        .on_key_down(move |ev: &KeyEvent| {
+            if untracked(|| modes.current()) == Mode::Present && !untracked(dialog_open) {
+                let pane = panes.active();
+                let _ = pane.present.handle_key(
+                    &ev.key,
+                    move |page| pane.go_to(page),
+                    move || run(CommandId::Mode(Mode::Read)),
+                );
+            }
+        })
         .child(onboarding::guide_dialog(onboarding, run))
 }
 

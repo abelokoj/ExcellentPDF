@@ -47,9 +47,28 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "view.toggle_continuous",
             "|",
             "find.open",
+            "library.open",
+            "view.reflow_mode",
+            "view.bionic_reading",
             "view.reading_theme",
             "tools.snapshot",
+            "tools.visual_search",
             "document.attachments",
+            "tools.ocr",
+            "|",
+            "ai.panel",
+            "forms.fill",
+            "document.signatures",
+            "document.page_organizer",
+            "view.cad_mode",
+            "document.compare",
+            "document.extract_tables",
+            "document.print_production",
+            "document.camera_scan",
+            "library.knowledge_graph",
+            "workspace.sync_share",
+            "workspace.live_relay",
+            "tools.plugins",
             "view.full_screen",
         ],
         Mode::Annotate => &[
@@ -80,7 +99,17 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "annotate.transfer",
             "annotate.import",
             "annotate.export",
+            "annotate.report",
+            "annotate.history",
             "annotate.flatten",
+            "annotate.measure",
+            "annotate.grading",
+            "|",
+            "document.redact",
+            "document.edit_content",
+            "document.bates_headers",
+            "document.security",
+            "file.export_convert",
             "|",
             "annotate.cut",
             "annotate.paste",
@@ -88,6 +117,8 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "|",
             "bookmark.add",
             "outline.add",
+            "outline.generate",
+            "outline.import_export",
             "|",
             "edit.undo",
             "edit.redo",
@@ -104,11 +135,65 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "ink.compass",
             "ink.zoom_pad",
             "|",
+            "ink.straighten",
+            "ink.beautify",
+            "ink.pattern_brush",
+            "ink.symmetry",
+            "ink.handwriting_search",
+            "ink.handwriting_to_text",
+            "ink.math_to_latex",
+            "ink.restyle",
+            "ink.fill",
+            "ink.eyedropper",
+            "ink.palettes",
+            "ink.replay",
+            "ink.vectorize",
+            "|",
+            "notebook.new",
+            "notebook.planner",
+            "notebook.template_packs",
+            "notebook.versions",
+            "notebook.insert_page",
+            "notebook.expand_margins",
+            "notebook.infinite",
+            "notebook.text_block",
+            "notebook.insert_image",
+            "notebook.sections",
+            "notebook.links",
+            "notebook.quick_note",
+            "notebook.markdown",
+            "notebook.audio",
+            "notebook.audio_transcript",
+            "notebook.condense_slides",
+            "notebook.export_pdf",
+            "|",
             "edit.undo",
             "edit.redo",
         ],
-        // shortcut: the study tools (S.*) put their commands here with their tags.
-        Mode::Study => &[],
+        Mode::Study => &[
+            "study.flashcard",
+            "study.occlusion",
+            "study.cloze",
+            "study.daily_review",
+            "|",
+            "study.dictionary",
+            "study.vocabulary",
+            "study.language_learning",
+            "study.translate_selection",
+            "study.highlight_summary",
+            "study.assignments",
+            "study.read_aloud",
+            "|",
+            "study.exam_mode",
+            "ai.quiz",
+            "ai.study_materials",
+            "ai.extract",
+            "study.excerpt_board",
+            "study.export",
+            "study.import_anki",
+            "study.export_anki",
+            "study.statistics",
+        ],
         Mode::Present => &[
             "view.full_screen",
             "|",
@@ -116,6 +201,18 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
             "go.screen_up",
             "go.screen_down",
             "go.last_page",
+            "|",
+            "present.laser",
+            "present.spotlight",
+            "present.magnifier",
+            "present.blank_black",
+            "present.blank_white",
+            "present.fading_ink",
+            "present.whiteboard",
+            "present.curtain",
+            "present.presenter_view",
+            "present.classroom",
+            "tools.screencast",
             "|",
             "view.reading_ruler",
             "view.auto_scroll",
@@ -531,6 +628,19 @@ fn tools(
                     | CommandId::Protractor
                     | CommandId::Compass
                     | CommandId::ZoomPad
+                    | CommandId::Eyedropper
+                    | CommandId::PresentLaser
+                    | CommandId::PresentSpotlight
+                    | CommandId::PresentMagnifier
+                    | CommandId::PresentBlankBlack
+                    | CommandId::PresentBlankWhite
+                    | CommandId::PresentFadingInk
+                    | CommandId::PresentWhiteboard
+                    | CommandId::PresentCurtain
+                    | CommandId::ExamMode
+                    | CommandId::ReadAloud
+                    | CommandId::ReflowMode
+                    | CommandId::BionicReading
                     | CommandId::Snapshot),
                 ) => row.child(choice_button(id, short_label(name), move || on(id), run)),
                 Some(id) => row.child(tool_button(id, short_label(name), has_document, run)),
@@ -1078,6 +1188,7 @@ mod tests {
         assert!(present.contains("go.first_page") && !present.contains("view.zoom_in"));
         let write = default_toolbar(Mode::Write);
         assert!(write.contains("ink.eraser_stroke") && !write.contains("view.zoom_in"));
-        assert!(default_toolbar(Mode::Study).is_empty());
+        let study = default_toolbar(Mode::Study);
+        assert!(study.contains("study.daily_review") && !study.contains("view.zoom_in"));
     }
 }

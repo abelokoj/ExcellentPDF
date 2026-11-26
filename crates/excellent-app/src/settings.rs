@@ -228,6 +228,13 @@ fn modified_time(path: &Path) -> Option<SystemTime> {
     fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
+/// Changes the settings with `f` and saves them to `settings.toml`.
+pub(crate) fn mutate(f: impl FnOnce(&mut Settings)) {
+    let mut settings = shared();
+    f(&mut settings);
+    settings.save();
+}
+
 /// Writes `contents` to a temporary file beside `path`, then renames it over `path`, so a crash never leaves half a
 /// file.
 pub(crate) fn write_atomically(path: &Path, contents: impl AsRef<[u8]>) -> io::Result<()> {

@@ -194,6 +194,38 @@ impl Tabs {
         true
     }
 
+    /// Gathers `ids` into one new group (unpinning them and moving them together at the first member's position).
+    pub(crate) fn group_tabs(&mut self, ids: &[TabId], name: &str) -> Option<GroupId> {
+        let mut valid: Vec<TabId> = ids
+            .iter()
+            .copied()
+            .filter(|&id| self.get(id).is_some())
+            .collect();
+        if valid.is_empty() {
+            return None;
+        }
+        let first = valid.remove(0);
+        let group = self.new_group(first)?;
+        self.rename_group(group, name);
+        let mut insert_at = self.index(first).unwrap_or(0) + 1;
+        for id in valid {
+            self.set_pinned(id, false);
+            self.leave_group(id);
+            if let Some(from) = self.index(id) {
+                let mut tab = self.tabs.remove(from);
+                if from < insert_at {
+                    insert_at = insert_at.saturating_sub(1);
+                }
+                tab.group = Some(group);
+                let target = insert_at.min(self.tabs.len());
+                self.tabs.insert(target, tab);
+                insert_at = target + 1;
+            }
+        }
+        self.prune_groups();
+        Some(group)
+    }
+
     /// Dissolves the group `id`: its tabs stay where they are, in no group.
     pub(crate) fn ungroup(&mut self, id: GroupId) {
         for tab in &mut self.tabs {

@@ -33,13 +33,16 @@ use crate::full_screen::FullScreen;
 use crate::goto::PageState;
 use crate::home::Covers;
 use crate::links::LinkState;
+use crate::notebooks::NotebooksState;
 use crate::open::{Launch, Split as LaunchSplit};
 use crate::outline::OutlineState;
+use crate::present_ui::PresentState;
 use crate::reading::Reading;
 use crate::recent::RecentState;
 use crate::session::Restored;
 use crate::settings::Live;
 use crate::snapshot::SnapshotState;
+use crate::study_ui::StudyState;
 use crate::tabs::{self, Closed, Step, TabState, Tabs};
 use crate::thumbnails::Thumbnails;
 use crate::windows::Windows;
@@ -117,6 +120,10 @@ pub(crate) enum PaneAction {
     PairPages,
     /// Forgets the page pairs (V.8).
     ClearPagePairs,
+    /// Tiles the selected tabs into a pane grid (V.12).
+    TileSelected,
+    /// Untiles the pane grid back into one tab group in a single pane (V.12).
+    Untile,
 }
 
 /// One pane: its tabs, its canvas and what follows them.
@@ -134,12 +141,22 @@ pub(crate) struct Pane {
     pub(crate) editing: Editing,
     /// The outline (B.1): the pages report the places its new entries open.
     pub(crate) outline: OutlineState,
+    /// Generate & Import/Export outline dialogs (B.8, B.11, B.13).
+    pub(crate) outline_extra: crate::outline::extra::OutlineExtraState,
+    /// Phase 5 reading extras (R.16, R.22, R.24, R.27, R.29, R.30).
+    pub(crate) reading_extra: crate::shell::reading_extra::ReadingExtraState,
     /// The personal bookmarks (B.6): the pages report the places new ones open.
     pub(crate) bookmarks: BookmarkState,
     /// Find in document (F.1): the bar over the pages and the hits they report.
     pub(crate) find: FindState,
     /// Markups and proposed edits made from the pages (A.1, A.2).
     pub(crate) annotate: AnnotateState,
+    /// Notebooks, Markdown, Infinite Canvas & Lecture state (N.*, U.8, L.1, L.3).
+    pub(crate) notebooks: NotebooksState,
+    /// Classroom & Presentation overlays (G.1–G.8).
+    pub(crate) present: PresentState,
+    /// Flashcards, FSRS review, Dictionary, Vocabulary, Exam & Read Aloud (S.*, U.5).
+    pub(crate) study: StudyState,
     /// Region snapshots of the pages (O.23).
     pub(crate) snapshot: SnapshotState,
     /// The PDF's attachments (O.25).
@@ -160,6 +177,8 @@ impl Pane {
         crate::recent::keep(recent, tabs);
         let editing = Editing::new(tabs, revision);
         let (canvas, focus) = (element_ref(), element_ref());
+        let annotate = AnnotateState::new(editing, live);
+        let outline = OutlineState::new(tabs, pages, editing);
         Self {
             cell,
             canvas,
@@ -169,10 +188,15 @@ impl Pane {
             link_state: LinkState::new(tabs),
             thumbs: Thumbnails::new(tabs),
             editing,
-            outline: OutlineState::new(tabs, pages, editing),
+            outline,
+            outline_extra: crate::outline::extra::OutlineExtraState::new(outline),
+            reading_extra: crate::shell::reading_extra::ReadingExtraState::new(),
             bookmarks: BookmarkState::new(tabs, pages),
             find: FindState::new(canvas, focus),
-            annotate: AnnotateState::new(editing, live),
+            annotate,
+            notebooks: NotebooksState::new(editing, annotate, live),
+            present: PresentState::new(annotate),
+            study: StudyState::new(editing, annotate),
             snapshot: SnapshotState::new(editing),
             attachments: AttachmentState::new(editing),
         }
@@ -201,6 +225,12 @@ impl Pane {
             || self.bookmarks.covers_pages()
             || self.annotate.is_asking()
             || self.annotate.is_picking()
+            || self.annotate.any_ink_dialog_open()
+            || self.notebooks.any_dialog_open()
+            || self.present.is_overlay_active()
+            || self.study.any_dialog_open()
+            || self.outline_extra.any_dialog_open()
+            || self.reading_extra.any_dialog_open()
     }
 }
 
@@ -441,6 +471,8 @@ impl Panes {
             PaneAction::SyncZoom => self.toggle_sync_zoom(),
             PaneAction::PairPages => self.pair_pages(),
             PaneAction::ClearPagePairs => self.clear_page_pairs(),
+            PaneAction::TileSelected => self.tile_selected(),
+            PaneAction::Untile => self.untile(),
         }
     }
 
@@ -478,6 +510,55 @@ impl Panes {
         if let Some(copy) = self.active().tabs.shown_copy() {
             self.split(side, |pane| pane.tabs.adopt(vec![copy]));
         }
+    }
+
+    /// Tiles the selected tabs (or all tabs in the active pane if < 2 are selected) into a pane grid (V.12).
+    fn tile_selected(self) {
+        let from = self.active();
+        let taken = from.tabs.take_for_tiling(CELLS);
+        if taken.len() < 2 {
+            return;
+        }
+        let mut rest = from.tabs.take_all();
+        for pane in self.slots {
+            if pane.cell != from.cell {
+                rest.extend(pane.tabs.take_all());
+            }
+        }
+        let mut model = self.layout.with_untracked(Clone::clone);
+        model.tile(taken.len());
+        batch(|| {
+            self.layout.set(model);
+            for (cell, tab) in taken.into_iter().enumerate() {
+                self.slots[cell].tabs.adopt(vec![tab]);
+            }
+            if !rest.is_empty() {
+                self.slots[0].tabs.adopt(rest);
+            }
+            self.focus(0);
+        });
+        focus_later(self.slots[0]);
+    }
+
+    /// Collapses tiled panes back into a single tab group in pane 0 (V.12).
+    fn untile(self) {
+        let mut model = self.layout.with_untracked(Clone::clone);
+        if !model.is_split() && !model.is_maximized() {
+            return;
+        }
+        let mut gathered = Vec::new();
+        for pane in self.slots {
+            gathered.extend(pane.tabs.take_all());
+        }
+        model.untile();
+        batch(|| {
+            self.layout.set(model);
+            self.slots[0]
+                .tabs
+                .adopt_into_group(gathered, &t!("tabs.group.tiled"));
+            self.focus(0);
+        });
+        focus_later(self.slots[0]);
     }
 
     /// Moves the shown tab to the next or previous pane in reading order; with one pane, to a new pane on that side,
@@ -751,6 +832,62 @@ fn route(layout: &mut Layout, tabs: &mut [Tabs; CELLS], launch: &Launch) {
     }
 }
 
+/// Pure model helper for V.12 tile: takes 2..=4 selected tabs (or first tabs when fewer than 2 are selected)
+/// and places one tab per pane in `layout`.
+#[cfg(test)]
+fn tile_model(layout: &mut Layout, panes: &mut [Tabs; CELLS]) -> bool {
+    let active_cell = layout.active();
+    let mut ids: Vec<crate::tabs::TabId> = panes[active_cell].selected_ids().to_vec();
+    if ids.len() < 2 {
+        ids = panes[active_cell]
+            .all()
+            .iter()
+            .take(CELLS)
+            .map(|t| t.id)
+            .collect();
+    } else {
+        ids.truncate(CELLS);
+    }
+    panes[active_cell].clear_selected();
+    if ids.len() < 2 {
+        return false;
+    }
+    let mut taken = Vec::with_capacity(ids.len());
+    for id in ids {
+        if let Some(tab) = panes[active_cell].take(id) {
+            taken.push(tab);
+        }
+    }
+    let rest = panes[active_cell].take_all();
+    layout.tile(taken.len());
+    for (cell, tab) in taken.into_iter().enumerate() {
+        panes[cell].adopt(tab);
+    }
+    for tab in rest {
+        panes[0].adopt(tab);
+    }
+    true
+}
+
+/// Pure model helper for V.12 untile: collapses `layout` to a single pane and gathers the tiled tabs into one group.
+#[cfg(test)]
+fn untile_model(layout: &mut Layout, panes: &mut [Tabs; CELLS], group_name: &str) -> bool {
+    if !layout.is_split() && !layout.is_maximized() {
+        return false;
+    }
+    let mut gathered = Vec::new();
+    for tabs in panes.iter_mut() {
+        gathered.extend(tabs.take_all());
+    }
+    layout.untile();
+    let mut ids = Vec::with_capacity(gathered.len());
+    for tab in gathered {
+        ids.push(panes[0].adopt(tab));
+    }
+    panes[0].group_tabs(&ids, group_name);
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -848,5 +985,32 @@ mod tests {
         assert_eq!(ClosingTabs::parse(None), ClosingTabs::Move);
         assert_eq!(ClosingTabs::parse(Some("close")), ClosingTabs::Close);
         assert_eq!(ClosingTabs::parse(Some("sideways")), ClosingTabs::Move);
+    }
+
+    #[test]
+    fn tile_and_untile_round_trip() {
+        let mut layout = Layout::default();
+        let mut tabs: [Tabs; CELLS] = Default::default();
+        let a = tabs[0].open(path("a"), 1);
+        let b = tabs[0].open(path("b"), 2);
+        let c = tabs[0].open(path("c"), 3);
+        let _d = tabs[0].open(path("d"), 4);
+
+        tabs[0].toggle_selected(a);
+        tabs[0].toggle_selected(b);
+        tabs[0].toggle_selected(c);
+        assert!(tile_model(&mut layout, &mut tabs));
+        assert_eq!(layout.count(), 3);
+        assert_eq!(shown(&tabs[0]), Some(path("d")));
+        assert_eq!(shown(&tabs[1]), Some(path("b")));
+        assert_eq!(shown(&tabs[2]), Some(path("c")));
+
+        assert!(untile_model(&mut layout, &mut tabs, "Tiled"));
+        assert_eq!(layout.count(), 1);
+        assert_eq!(tabs[0].all().len(), 4);
+        assert_eq!(tabs[0].groups().len(), 1);
+        assert_eq!(tabs[0].groups()[0].name, "Tiled");
+        let group_id = tabs[0].groups()[0].id;
+        assert_eq!(tabs[0].members(group_id).count(), 4);
     }
 }

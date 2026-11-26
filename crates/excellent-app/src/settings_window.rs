@@ -18,6 +18,7 @@ use crate::links::PROTOCOLS_KEY;
 use crate::list_dialog::{card, list_dialog};
 use crate::modes::{FINGER_DRAWS, PEN_TO_WRITE};
 use crate::onboarding::SHOW_TIPS;
+use crate::packs::{PACKS_INDEX_URL, PACKS_KEY_HEX, PacksState, format_size};
 use crate::panes::{CLOSE_PANE_TABS, ClosingTabs, SYNC_SCROLL, SYNC_ZOOM};
 use crate::print::{PRINT_ANNOTATIONS, PRINT_SCALING};
 use crate::reading::{
@@ -50,9 +51,9 @@ const FOCUS_SCOPES: [(&str, &str); 2] = [
 ];
 
 /// The parts of the slider and the switch, which have no look of their own.
-const SLIDER_TRACK: &str = "h-1 rounded-full bg-muted";
-const SLIDER_RANGE: &str = "h-1 rounded-full bg-primary";
-const SLIDER_THUMB: &str =
+pub(crate) const SLIDER_TRACK: &str = "h-1 rounded-full bg-muted";
+pub(crate) const SLIDER_RANGE: &str = "h-1 rounded-full bg-primary";
+pub(crate) const SLIDER_THUMB: &str =
     "size-4 rounded-full bg-background border-2 border-primary focus-visible:border-ring";
 pub(crate) const SWITCH_TRACK: &str = "w-9 h-5 p-0.5 rounded-full bg-input checked:bg-primary \
                             focus-visible:ring-2 focus-visible:ring-ring";
@@ -101,6 +102,10 @@ pub(crate) fn settings_window(
             .child(print_section(live))
             .child(annotation_section(live, hand_over))
             .child(modes_section(live, hand_over))
+            .child(packs_section(live))
+            .child(phase5_section(live, hand_over))
+            .child(phase6_7_section(live))
+            .child(sandbox_section(live))
             .child(help_section(live, hand_over))
             .child(shortcuts_section(live)),
     );
@@ -810,6 +815,622 @@ fn shortcuts_section(live: Live) -> View {
         .child(list)
 }
 
+/// Phase 5 settings: Folder watch (F.9), Workspace rules (W.12), SyncTeX preset (R.27),
+/// Bionic reading (R.22), Neural offline voice (U.6), and UI control channel (E.4).
+fn phase5_section(live: Live, hand_over: impl Fn(CommandId) + Copy + 'static) -> View {
+    use crate::shell::control_channel::CONTROL_CHANNEL_ENABLED;
+    use crate::shell::reading_extra::{BIONIC_ENABLED, SYNCTEX_PRESET};
+    use crate::study_ui::{StudyState, phase5::NEURAL_VOICE_ID};
+    use excellent_features::library::{Library, WatchDepth};
+
+    let watch_status = signal(String::new());
+    let add_watched_folder = move || {
+        let dialog = nsh_core::file_dialog::OpenDialog::folders().title(t!("settings.watch.add"));
+        let answer = pick_paths(dialog);
+        spawn(async move {
+            if let Ok(Some(paths)) = answer.await
+                && let Some(dir) = paths.into_iter().next()
+                && let Some(store) = crate::library::store()
+            {
+                let lib = Library::new(store);
+                let _ = lib.watch_folder(&dir, WatchDepth::Recursive);
+                if let Ok(report) = lib.reconcile_watched() {
+                    watch_status.set(t!(
+                        "library.folder_watched",
+                        added = report.added,
+                        updated = report.modified
+                    ));
+                }
+            }
+        });
+    };
+
+    let current_preset =
+        move || live.read(|s| s.text(SYNCTEX_PRESET).unwrap_or("vscode").to_owned());
+    let set_preset = move |id: &str| {
+        let owned = id.to_owned();
+        live.change(|s| s.set_text(SYNCTEX_PRESET, Some(owned.as_str())));
+    };
+    let presets = [
+        ("vscode", "settings.synctex.vscode"),
+        ("vim", "settings.synctex.vim"),
+        ("emacs", "settings.synctex.emacs"),
+        ("texstudio", "settings.synctex.texstudio"),
+    ]
+    .into_iter()
+    .fold(segmented(), |row, (id, label)| {
+        row.child(segment(
+            label,
+            move || current_preset() == id,
+            move || set_preset(id),
+        ))
+    });
+
+    let neural_voices = StudyState::installed_neural_voices();
+    let current_voice = move || live.read(|s| s.text(NEURAL_VOICE_ID).map(str::to_owned));
+    let voice_picker = if neural_voices.is_empty() {
+        segmented().child(segment(
+            "settings.neural_voice.system",
+            move || current_voice().is_none(),
+            move || live.change(|s| s.set_text(NEURAL_VOICE_ID, None)),
+        ))
+    } else {
+        let mut bar = segmented().child(segment(
+            "settings.neural_voice.system",
+            move || current_voice().is_none(),
+            move || live.change(|s| s.set_text(NEURAL_VOICE_ID, None)),
+        ));
+        for (vid, vlabel) in neural_voices {
+            let vid_sig = signal(vid);
+            bar = bar.child(segment_owned(
+                vlabel,
+                move || vid_sig.with(|v| current_voice().as_deref() == Some(v.as_str())),
+                move || {
+                    vid_sig.with(|v| live.change(|s| s.set_text(NEURAL_VOICE_ID, Some(v.as_str()))))
+                },
+            ));
+        }
+        bar
+    };
+
+    section("settings.section.advanced")
+        .child(row(
+            "settings.bionic",
+            "settings.bionic_hint",
+            on_off(
+                "settings.bionic",
+                move || live.read(|s| s.flag(BIONIC_ENABLED).unwrap_or(false)),
+                move |on| live.change(|s| s.set_flag(BIONIC_ENABLED, on.then_some(true))),
+            ),
+        ))
+        .child(row("settings.synctex", "settings.synctex_hint", presets))
+        .child(row(
+            "settings.neural_voice",
+            "settings.neural_voice_hint",
+            voice_picker,
+        ))
+        .child(row(
+            "settings.watch",
+            "settings.watch_hint",
+            view()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .child(picker_button(
+                    move || {
+                        let s = watch_status.get();
+                        if s.is_empty() {
+                            t!("settings.watch.add")
+                        } else {
+                            s
+                        }
+                    },
+                    add_watched_folder,
+                )),
+        ))
+        .child(row(
+            "settings.workspace_rules",
+            "settings.workspace_rules_hint",
+            picker_button(
+                move || t!("command.workspace_rules"),
+                move || hand_over(CommandId::WorkspaceRules),
+            ),
+        ))
+        .child(row(
+            "settings.control_channel",
+            "settings.control_channel_hint",
+            on_off(
+                "settings.control_channel",
+                move || live.read(|s| s.flag(CONTROL_CHANNEL_ENABLED).unwrap_or(true)),
+                move |on| live.change(|s| s.set_flag(CONTROL_CHANNEL_ENABLED, Some(on))),
+            ),
+        ))
+}
+
+/// Phase 6 & 7 settings: AI consent & providers (I.1), PII redaction & budget, Google Lens
+/// online toggle (R.31), CAD drawing view defaults (R.26), and TSA remote consent (O.14/O.20).
+fn phase6_7_section(live: Live) -> View {
+    use crate::shell::ai_ui::{
+        AI_API_KEY, AI_CONSENT_MODE, AI_ENDPOINT_URL, AI_MODEL_NAME, AI_PROVIDER_KIND,
+        AI_REDACTION_MODE, AI_SESSION_BUDGET, LENS_ONLINE_ENABLED,
+    };
+    use crate::shell::forms_sign_ui::{TSA_REMOTE_CONSENT, TSA_REMOTE_URL};
+    use crate::shell::pro_pdf_ui::{CAD_BACKGROUND_MODE, CAD_ENHANCE_MODE, CAD_LINE_WEIGHTS};
+
+    let consent_picker = [
+        ("disabled", "settings.ai.consent_off"),
+        ("local", "settings.ai.consent_local"),
+        ("prompt", "settings.ai.consent_prompt"),
+        ("cloud", "settings.ai.consent_cloud"),
+    ]
+    .into_iter()
+    .fold(segmented(), |row, (id, label)| {
+        row.child(segment(
+            label,
+            move || live.read(|s| s.text(AI_CONSENT_MODE).unwrap_or("local") == id),
+            move || live.change(|s| s.set_text(AI_CONSENT_MODE, Some(id))),
+        ))
+    });
+
+    let provider_picker = [
+        ("ollama", "settings.ai.provider_ollama"),
+        ("llama_server", "settings.ai.provider_llama"),
+        ("openai", "settings.ai.provider_openai"),
+        ("anthropic", "settings.ai.provider_anthropic"),
+        ("gemini", "settings.ai.provider_gemini"),
+    ]
+    .into_iter()
+    .fold(segmented(), |row, (id, label)| {
+        row.child(segment(
+            label,
+            move || live.read(|s| s.text(AI_PROVIDER_KIND).unwrap_or("ollama") == id),
+            move || live.change(|s| s.set_text(AI_PROVIDER_KIND, Some(id))),
+        ))
+    });
+
+    let cad_picker = [
+        ("auto", "settings.cad.auto"),
+        ("on", "settings.cad.on"),
+        ("off", "settings.cad.off"),
+    ]
+    .into_iter()
+    .fold(segmented(), |row, (id, label)| {
+        row.child(segment(
+            label,
+            move || live.read(|s| s.text(CAD_ENHANCE_MODE).unwrap_or("auto") == id),
+            move || live.change(|s| s.set_text(CAD_ENHANCE_MODE, Some(id))),
+        ))
+    });
+
+    let cad_bg_picker = [
+        ("light", "settings.cad.light"),
+        ("blueprint", "settings.cad.blueprint"),
+    ]
+    .into_iter()
+    .fold(segmented(), |row, (id, label)| {
+        row.child(segment(
+            label,
+            move || live.read(|s| s.text(CAD_BACKGROUND_MODE).unwrap_or("light") == id),
+            move || live.change(|s| s.set_text(CAD_BACKGROUND_MODE, Some(id))),
+        ))
+    });
+
+    let text_setting = |key: &'static str, label: &'static str, placeholder: &'static str| {
+        let draft = signal(None::<String>);
+        let commit = move || {
+            let Some(typed) = draft.get_untracked() else {
+                return;
+            };
+            draft.set(None);
+            let trimmed = typed.trim();
+            live.change(|s| s.set_text(key, (!trimmed.is_empty()).then_some(trimmed)));
+        };
+        input()
+            .value(move || {
+                draft
+                    .get()
+                    .unwrap_or_else(|| live.read(|s| s.text(key).unwrap_or_default().to_owned()))
+            })
+            .on_change(move |text: &str| draft.set(Some(text.to_owned())))
+            .on_submit(move |_: &str| commit())
+            .on_blur(commit)
+            .placeholder(t!(placeholder))
+            .label(t!(label))
+            .w(px(230.0))
+            .h(px(32.0))
+            .px_2()
+            .rounded(px(6.0))
+            .border_1()
+            .border_color(move || theme().input)
+            .text_size(px(12.0))
+    };
+
+    section("settings.section.ai_pro")
+        .child(row(
+            "settings.ai.consent",
+            "settings.ai.consent_hint",
+            consent_picker,
+        ))
+        .child(row(
+            "settings.ai.provider",
+            "settings.ai.provider_hint",
+            provider_picker,
+        ))
+        .child(row(
+            "settings.ai.endpoint",
+            "settings.ai.endpoint_hint",
+            text_setting(
+                AI_ENDPOINT_URL,
+                "settings.ai.endpoint",
+                "settings.ai.endpoint_placeholder",
+            ),
+        ))
+        .child(row(
+            "settings.ai.model",
+            "settings.ai.model_hint",
+            text_setting(
+                AI_MODEL_NAME,
+                "settings.ai.model",
+                "settings.ai.model_placeholder",
+            ),
+        ))
+        .child(row(
+            "settings.ai.api_key",
+            "settings.ai.api_key_hint",
+            text_setting(
+                AI_API_KEY,
+                "settings.ai.api_key",
+                "settings.ai.api_key_placeholder",
+            ),
+        ))
+        .child(row(
+            "settings.ai.redact",
+            "settings.ai.redact_hint",
+            on_off(
+                "settings.ai.redact",
+                move || live.read(|s| s.text(AI_REDACTION_MODE).unwrap_or("redact") == "redact"),
+                move |on| {
+                    live.change(|s| {
+                        s.set_text(AI_REDACTION_MODE, Some(if on { "redact" } else { "raw" }))
+                    });
+                },
+            ),
+        ))
+        .child(row(
+            "settings.ai.budget",
+            "settings.ai.budget_hint",
+            number_field(
+                live,
+                "settings.ai.budget",
+                AI_SESSION_BUDGET,
+                0.0,
+                (0.0, 2_000_000.0),
+                5_000.0,
+                "settings.ai.budget_unit",
+            ),
+        ))
+        .child(row(
+            "settings.lens.online",
+            "settings.lens.online_hint",
+            on_off(
+                "settings.lens.online",
+                move || live.read(|s| s.flag(LENS_ONLINE_ENABLED).unwrap_or(false)),
+                move |on| live.change(|s| s.set_flag(LENS_ONLINE_ENABLED, Some(on))),
+            ),
+        ))
+        .child(row(
+            "settings.cad.mode",
+            "settings.cad.mode_hint",
+            cad_picker,
+        ))
+        .child(row(
+            "settings.cad.background",
+            "settings.cad.background_hint",
+            cad_bg_picker,
+        ))
+        .child(row(
+            "settings.cad.weights",
+            "settings.cad.weights_hint",
+            on_off(
+                "settings.cad.weights",
+                move || live.read(|s| s.text(CAD_LINE_WEIGHTS).unwrap_or("respect") == "uniform"),
+                move |on| {
+                    live.change(|s| {
+                        s.set_text(
+                            CAD_LINE_WEIGHTS,
+                            Some(if on { "uniform" } else { "respect" }),
+                        )
+                    });
+                },
+            ),
+        ))
+        .child(row(
+            "settings.tsa.consent",
+            "settings.tsa.consent_hint",
+            on_off(
+                "settings.tsa.consent",
+                move || live.read(|s| s.flag(TSA_REMOTE_CONSENT).unwrap_or(false)),
+                move |on| live.change(|s| s.set_flag(TSA_REMOTE_CONSENT, Some(on))),
+            ),
+        ))
+        .child(row(
+            "settings.tsa.url",
+            "settings.tsa.url_hint",
+            text_setting(
+                TSA_REMOTE_URL,
+                "settings.tsa.url",
+                "settings.tsa.url_placeholder",
+            ),
+        ))
+}
+
+/// Phase 8/9 sandbox worker status and `SecurityLimits` preferences (`K.22`, `K.23`).
+fn sandbox_section(live: Live) -> View {
+    use crate::shell::ecosystem_ui::{
+        SANDBOX_MAX_PAGES, SANDBOX_MEMORY_CAP_MB, SANDBOX_STRICT_MODE, SANDBOX_TIMEOUT_SECS,
+        sandbox_status_summary,
+    };
+
+    section("settings.section.sandbox")
+        .child(row(
+            "settings.sandbox.status",
+            "settings.sandbox.status_hint",
+            text(move || sandbox_status_summary(live))
+                .text_size(px(12.0))
+                .text_color(move || theme().muted_foreground),
+        ))
+        .child(row(
+            "settings.sandbox.strict",
+            "settings.sandbox.strict_hint",
+            on_off(
+                "settings.sandbox.strict",
+                move || live.read(|s| s.flag(SANDBOX_STRICT_MODE).unwrap_or(false)),
+                move |on| live.change(|s| s.set_flag(SANDBOX_STRICT_MODE, Some(on))),
+            ),
+        ))
+        .child(row(
+            "settings.sandbox.max_pages",
+            "settings.sandbox.max_pages_hint",
+            number_field(
+                live,
+                "settings.sandbox.max_pages",
+                SANDBOX_MAX_PAGES,
+                50_000.0,
+                (100.0, 200_000.0),
+                1_000.0,
+                "settings.sandbox.pages_unit",
+            ),
+        ))
+        .child(row(
+            "settings.sandbox.memory_mb",
+            "settings.sandbox.memory_mb_hint",
+            number_field(
+                live,
+                "settings.sandbox.memory_mb",
+                SANDBOX_MEMORY_CAP_MB,
+                1024.0,
+                (128.0, 8192.0),
+                128.0,
+                "settings.sandbox.mb_unit",
+            ),
+        ))
+        .child(row(
+            "settings.sandbox.timeout_s",
+            "settings.sandbox.timeout_s_hint",
+            number_field(
+                live,
+                "settings.sandbox.timeout_s",
+                SANDBOX_TIMEOUT_SECS,
+                30.0,
+                (5.0, 300.0),
+                5.0,
+                "settings.sandbox.secs_unit",
+            ),
+        ))
+}
+
+/// Optional packs management (K.21): installed packs, signed index settings, `.expack` import, and removal.
+fn packs_section(live: Live) -> View {
+    let state = PacksState::new(live);
+    let url_draft = signal(None::<String>);
+    let key_draft = signal(None::<String>);
+    let commit_url = move || {
+        let Some(typed) = url_draft.get_untracked() else {
+            return;
+        };
+        url_draft.set(None);
+        let trimmed = typed.trim();
+        live.change(|s| s.set_text(PACKS_INDEX_URL, (!trimmed.is_empty()).then_some(trimmed)));
+    };
+    let commit_key = move || {
+        let Some(typed) = key_draft.get_untracked() else {
+            return;
+        };
+        key_draft.set(None);
+        let trimmed = typed.trim();
+        live.change(|s| s.set_text(PACKS_KEY_HEX, (!trimmed.is_empty()).then_some(trimmed)));
+    };
+    let url_field = input()
+        .value(move || {
+            url_draft.get().unwrap_or_else(|| {
+                live.read(|s| s.text(PACKS_INDEX_URL).unwrap_or_default().to_owned())
+            })
+        })
+        .on_change(move |text: &str| url_draft.set(Some(text.to_owned())))
+        .on_submit(move |_: &str| commit_url())
+        .on_blur(commit_url)
+        .placeholder(t!("settings.packs.index_placeholder"))
+        .label(t!("settings.packs.index_url"))
+        .w(px(230.0))
+        .h(px(32.0))
+        .px_2()
+        .rounded(px(6.0))
+        .border_1()
+        .border_color(move || theme().input)
+        .focus(|s| s.border_color(move || theme().ring))
+        .text_size(px(12.0))
+        .text_color(move || theme().popover_foreground);
+    let key_field = input()
+        .value(move || {
+            key_draft.get().unwrap_or_else(|| {
+                live.read(|s| s.text(PACKS_KEY_HEX).unwrap_or_default().to_owned())
+            })
+        })
+        .on_change(move |text: &str| key_draft.set(Some(text.to_owned())))
+        .on_submit(move |_: &str| commit_key())
+        .on_blur(commit_key)
+        .placeholder(t!("settings.packs.key_placeholder"))
+        .label(t!("settings.packs.verifying_key"))
+        .w(px(230.0))
+        .h(px(32.0))
+        .px_2()
+        .rounded(px(6.0))
+        .border_1()
+        .border_color(move || theme().input)
+        .focus(|s| s.border_color(move || theme().ring))
+        .text_size(px(12.0))
+        .text_color(move || theme().popover_foreground);
+    let actions = view()
+        .flex_row()
+        .flex_wrap()
+        .gap_2()
+        .child(crate::tabs::action_button(
+            "settings.packs.install_file",
+            crate::tabs::Tone::Plain,
+            move || state.install_from_file(),
+        ))
+        .child(crate::tabs::action_button(
+            "settings.packs.refresh_index",
+            crate::tabs::Tone::Plain,
+            move || state.refresh_index(),
+        ))
+        .child(dynamic(move || {
+            if state.is_busy() {
+                view().child(crate::tabs::action_button(
+                    "settings.packs.cancel",
+                    crate::tabs::Tone::Plain,
+                    move || state.cancel_download(),
+                ))
+            } else {
+                view()
+            }
+        }));
+    let status_bar = dynamic(move || match state.status() {
+        Some(message) => view().pt_1().child(
+            text(message)
+                .text_size(px(12.0))
+                .text_color(move || theme().muted_foreground),
+        ),
+        None => view(),
+    });
+    let installed_list = dynamic(move || {
+        let items = state.installed();
+        if items.is_empty() {
+            return view().py_1().child(
+                text(move || t!("settings.packs.none_installed"))
+                    .text_size(px(12.0))
+                    .text_color(move || theme().muted_foreground),
+            );
+        }
+        items.into_iter().fold(view().gap_1().pt_1(), |list, item| {
+            let id = item.manifest.id.clone();
+            let title = item.manifest.title.clone();
+            let meta = format!("v{} - {}", item.manifest.version, item.manifest.id);
+            list.child(
+                view()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .py_1()
+                    .child(
+                        view()
+                            .flex_1()
+                            .gap_0p5()
+                            .child(
+                                text(title)
+                                    .text_size(px(13.0))
+                                    .text_color(move || theme().popover_foreground),
+                            )
+                            .child(
+                                text(meta)
+                                    .text_size(px(11.0))
+                                    .text_color(move || theme().muted_foreground),
+                            ),
+                    )
+                    .child(crate::tabs::action_button(
+                        "settings.packs.remove",
+                        crate::tabs::Tone::Plain,
+                        move || state.remove(id.clone()),
+                    )),
+            )
+        })
+    });
+    let available_list = dynamic(move || {
+        let entries = state.available();
+        if entries.is_empty() {
+            return view();
+        }
+        entries.into_iter().fold(
+            view().gap_1().pt_2().child(
+                text(move || t!("settings.packs.available_title"))
+                    .text_size(px(12.0))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(move || theme().muted_foreground),
+            ),
+            |list, entry| {
+                let title = entry.title.clone();
+                let meta = format!("v{} - {}", entry.version, format_size(entry.size));
+                list.child(
+                    view()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .py_1()
+                        .child(
+                            view()
+                                .flex_1()
+                                .gap_0p5()
+                                .child(
+                                    text(title)
+                                        .text_size(px(13.0))
+                                        .text_color(move || theme().popover_foreground),
+                                )
+                                .child(
+                                    text(meta)
+                                        .text_size(px(11.0))
+                                        .text_color(move || theme().muted_foreground),
+                                ),
+                        )
+                        .child(crate::tabs::action_button(
+                            "settings.packs.download",
+                            crate::tabs::Tone::Plain,
+                            move || state.download(entry.clone()),
+                        )),
+                )
+            },
+        )
+    });
+    section("settings.section.packs")
+        .child(row(
+            "settings.packs.index_url",
+            "settings.packs.index_url_hint",
+            url_field,
+        ))
+        .child(row(
+            "settings.packs.verifying_key",
+            "settings.packs.verifying_key_hint",
+            key_field,
+        ))
+        .child(row(
+            "settings.packs.actions",
+            "settings.packs.actions_hint",
+            actions,
+        ))
+        .child(status_bar)
+        .child(installed_list)
+        .child(available_list)
+}
+
 /// The keys of one scope as keycaps; page keys are drawn quieter (the section's hint says why).
 fn keycaps(keys: impl Fn() -> Vec<String> + 'static, page: bool) -> impl IntoElement {
     let caps = each(keys, String::clone, move |label, _| {
@@ -969,6 +1590,32 @@ pub(crate) fn segment_of(
     toggle()
         .pressed(chosen)
         .accessibility_label(label())
+        .on_change(move |_: &bool| choose())
+        .h(px(28.0))
+        .px_3()
+        .rounded(px(6.0))
+        .items_center()
+        .justify_center()
+        .pressed_style(|s| s.bg(move || theme().background).shadow_sm())
+        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(text(label).text_size(px(13.0)).text_color(move || {
+            if chosen() {
+                theme().popover_foreground
+            } else {
+                theme().muted_foreground
+            }
+        }))
+}
+
+/// Segment control for a dynamic `String` label that cannot be `Copy`-captured.
+pub(crate) fn segment_owned(
+    label: String,
+    chosen: impl Fn() -> bool + Copy + 'static,
+    choose: impl Fn() + 'static,
+) -> impl IntoElement {
+    toggle()
+        .pressed(chosen)
+        .accessibility_label(label.clone())
         .on_change(move |_: &bool| choose())
         .h(px(28.0))
         .px_3()

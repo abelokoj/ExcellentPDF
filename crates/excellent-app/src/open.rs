@@ -13,7 +13,7 @@ use std::pin::Pin;
 use std::sync::{Mutex, OnceLock};
 use std::task::{Context, Poll, Waker};
 
-use excellent_core::formats;
+use excellent_core::{formats, formats_extra::ExtraFormat};
 use excellent_platform::instance::{self, Claim};
 use serde_json::{Value, json};
 
@@ -137,7 +137,11 @@ fn is_document(path: &Path) -> bool {
     let extension = path
         .extension()
         .map(|ext| ext.to_string_lossy().to_ascii_lowercase());
-    head(path).is_some_and(|head| formats::is_document(&head, extension.as_deref()))
+    head(path).is_some_and(|head| {
+        formats::is_document(&head, extension.as_deref())
+            || ExtraFormat::detect(&head, extension.as_deref()).is_some()
+            || (extension.as_deref() == Some("expdf") && head.starts_with(b"PK\x03\x04"))
+    })
 }
 
 /// The first kilobyte of `path`.

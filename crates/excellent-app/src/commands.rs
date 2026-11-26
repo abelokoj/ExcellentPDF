@@ -177,6 +177,212 @@ pub(crate) enum CommandId {
     ExportToolbars,
     /// Reads toolbars from a preset file (K.18).
     ImportToolbars,
+    /// Straightens handwritten ink strokes onto level baselines (H.13).
+    StraightenInk,
+    /// Opens bulk ink restyle dialog (H.15).
+    RestyleInk,
+    /// Opens fill & gradient dialog for closed strokes/shapes (H.16).
+    InkFill,
+    /// Toggles the page color eyedropper sampler (H.17).
+    Eyedropper,
+    /// Opens saved color palettes dialog (H.18).
+    ColorPalettes,
+    /// Opens stroke replay transport dialog (H.22).
+    InkReplay,
+    /// Converts recognized shape strokes to vector PDF annotations (H.26).
+    VectorizeInk,
+    /// Creates a new templated `.expdf` notebook (N.1, N.4).
+    NewNotebook,
+    /// Inserts a blank or templated page before/after current page (N.2).
+    InsertPage,
+    /// Expands or restores margins on the current page (N.3).
+    ExpandMargins,
+    /// Exports `.expdf` notebook to standalone PDF (N.4).
+    ExportNotebookPdf,
+    /// Opens infinite canvas whiteboard dialog (N.5).
+    InfiniteCanvas,
+    /// Inserts a typed text block with IME support (N.6, U.8).
+    InsertTextBlock,
+    /// Inserts an image or sticker as PDF stamp art (N.7).
+    InsertImage,
+    /// Opens notebook covers and colored sections organizer (N.8).
+    NotebookSections,
+    /// Opens internal page & deep links manager (N.9).
+    NotebookLinks,
+    /// Opens a fresh quick-note page in `Inbox.expdf` (N.10).
+    QuickNote,
+    /// Opens Markdown notes editor and live preview (N.14).
+    MarkdownNotes,
+    /// Opens lecture audio recording & timeline sync dialog (L.1).
+    LectureAudio,
+    /// Imports slide PDF and condenses 1/2/3 slides per note page (L.3).
+    CondenseSlides,
+    /// Toggles laser pointer overlay in Present mode (G.2).
+    PresentLaser,
+    /// Toggles spotlight overlay in Present mode (G.3).
+    PresentSpotlight,
+    /// Toggles magnifier lens overlay in Present mode (G.4).
+    PresentMagnifier,
+    /// Toggles solid black blank screen in Present mode (G.1).
+    PresentBlankBlack,
+    /// Toggles solid white blank screen in Present mode (G.1).
+    PresentBlankWhite,
+    /// Switches between temporary and fading slide ink in Present mode (G.5).
+    PresentFadingInk,
+    /// Opens temporary whiteboard page in Present mode (G.6).
+    PresentWhiteboard,
+    /// Toggles curtain reveal overlay in Present mode (G.7).
+    PresentCurtain,
+    /// Opens secondary Presenter View window (G.8).
+    PresenterView,
+    /// Creates a flashcard from selection/note with source anchor (S.1).
+    MakeFlashcard,
+    /// Creates image occlusion cards (S.2).
+    ImageOcclusion,
+    /// Creates cloze deletion cards (S.3).
+    MakeCloze,
+    /// Starts an FSRS-5 daily review session (S.4, S.5).
+    DailyReview,
+    /// Opens offline dictionary lookup (S.6).
+    Dictionary,
+    /// Opens vocabulary library and practice activities (S.7).
+    Vocabulary,
+    /// Exports study notes in 7 formats (S.8).
+    StudyExport,
+    /// Toggles Exam Mode (S.10).
+    ExamMode,
+    /// Imports an Anki `.apkg` archive (S.11).
+    ImportAnki,
+    /// Exports flashcards to Anki `.apkg` (S.11).
+    ExportAnki,
+    /// Opens study goals, focus timer, and statistics dashboard (S.12).
+    StudyStatistics,
+    /// Toggles Read Aloud TTS bar (U.5).
+    ReadAloud,
+    /// Opens Library, FTS5 global search, saved searches, collections & metadata dialog (F.2–F.7, F.9, W.10).
+    OpenLibrary,
+    /// Scans the library for exact & near-duplicate documents (F.8).
+    FindDuplicates,
+    /// Opens Citations (BibTeX/RIS/CSL-JSON) & Zotero sync dialog (F.10, F.11).
+    Citations,
+    /// Opens Markdown Notes with `[[backlinks]]` & Obsidian export (F.12, F.13).
+    LibraryNotes,
+    /// Opens Workspace Templates & Path Auto-Routing Rules dialog (W.12).
+    WorkspaceRules,
+    /// Opens CLI, MCP server & UI Control Channel docs dialog (E.1–E.4).
+    CliMcpDocs,
+    /// Toggles Reflow (Liquid Mode) reading view (R.16).
+    ReflowMode,
+    /// Toggles Bionic Reading fixation emphasis (R.22).
+    BionicReading,
+    /// Advances along detected two-column reading layout (R.24).
+    TwoColumnScroll,
+    /// Opens SyncTeX forward & inverse search dialog (R.27).
+    SyncTex,
+    /// Opens extra container viewer (DjVu, CHM, CBZ, CBR) (R.29).
+    ExtraFormats,
+    /// Opens a PDF/document from a remote HTTP(S) URL with progressive loading (R.30).
+    OpenUrl,
+    /// Generates document outline from headings & numbering rules with preview (B.8).
+    GenerateOutline,
+    /// Imports or exports outline in Indented Text, JSON, pdftk, or Markdown (B.11, B.13).
+    OutlineIo,
+    /// Exports an annotation summary report (Markdown, HTML, CSV, PDF) (A.26).
+    AnnotationReport,
+    /// Opens Annotation History Timeline scrubber & point-in-time restore (A.27).
+    AnnotationHistory,
+    /// Beautifies selected handwriting strokes reversibly (H.19).
+    BeautifyInk,
+    /// Opens Pattern Brush picker & preview dialog (H.20).
+    PatternBrush,
+    /// Opens Symmetry axis & mirror strokes dialog (H.21).
+    Symmetry,
+    /// Searches handwritten ink via offline FTS5 handwriting index (H.23).
+    HandwritingSearch,
+    /// Converts lassoed handwriting ink to FreeText or text (H.24).
+    HandwritingToText,
+    /// Runs OCR to create a searchable PDF (O.4).
+    OcrDocument,
+    /// Generates a hyperlinked yearly/monthly/weekly/daily planner `.expdf` (N.11).
+    Planner,
+    /// Opens downloadable/hot-reloaded Template Packs catalog (N.12).
+    TemplatePacks,
+    /// Opens per-notebook `.expdf` Version History snapshots & restore (N.13).
+    NotebookVersions,
+    /// Opens Offline Audio Transcription & SRT/VTT search dialog (L.2).
+    AudioTranscript,
+    /// Builds offline highlight & note summaries grouped by heading (S.13).
+    HighlightSummary,
+    /// Opens Assignments & due-date checklist tracker (S.14).
+    Assignments,
+    /// Opens Language Learning word lookup, pronunciation & parallel pane (S.15).
+    LanguageLearning,
+    /// Opens Translate Selection popover with 73 languages & Bergamot packs (S.16).
+    TranslateSelection,
+    /// Opens AI Assistant panel with cited RAG answers & scope/locality badge (I.1–I.3).
+    AiPanel,
+    /// Summarizes the document or current chapter with citations (I.4–I.7).
+    AiSummarize,
+    /// Generates review-gated flashcards, glossary & study guide (I.8).
+    AiStudyMaterials,
+    /// Extracts structured claims, methods, findings, limitations & evidence tables (I.9–I.11).
+    AiResearchExtract,
+    /// Generates and runs an interactive chapter quiz (S.9).
+    AiQuiz,
+    /// Converts handwritten math strokes to LaTeX with confirmation preview (H.25).
+    MathToLatex,
+    /// Consent-gated Google Lens visual search for a page or region (R.31).
+    VisualSearch,
+    /// Opens interactive AcroForm filling, validation & autofill profiles (O.11, O.12).
+    FormsPanel,
+    /// Flattens form fields into a non-editable copy (O.13).
+    FormsFlatten,
+    /// Opens digital signatures verification, signed-version viewer & signing wizard (O.14–O.16, O.20).
+    SignaturesPanel,
+    /// Opens Page Organizer, drag reorder, split, merge, crop & page labels (O.1–O.3, R.18).
+    PageOrganizer,
+    /// Opens text run editor, embedded image replacer, true redaction & export/convert (O.5–O.7, O.9, O.10).
+    EditTextAndImages,
+    /// Opens True Redaction marking & permanent apply dialog (O.7).
+    TrueRedaction,
+    /// Opens Compress & PDF Security/Encryption/Sanitization dialog (O.8, O.19).
+    CompressPdf,
+    /// Opens Batch Images<->PDF and Markdown/DOCX export dialog (O.9, O.10).
+    ExportAndConvert,
+    /// Opens Bates numbering, headers/footers & watermarks dialog (O.17, O.18).
+    BatesAndHeaders,
+    /// Opens permissions, encryption & PDF sanitization dialog (O.19).
+    SecurityPermissions,
+    /// Opens print production preflight, output intents & ink separations (O.24).
+    PrintProduction,
+    /// Toggles CAD engineering drawing view, dark-blueprint theme & OCG layers (R.26).
+    CadView,
+    /// Opens extended outline actions inspector/editor (B.12).
+    OutlineActions,
+    /// Opens calibrated vector measurement tools & scale setup (A.23).
+    MeasureTool,
+    /// Opens side-by-side PDF comparison & diff report export (F.15).
+    ComparePdfs,
+    /// Opens structured table & figure extraction (F.16).
+    ExtractTablesFigures,
+    /// Opens screen & pen synchronized video recording (L.4).
+    ScreencastRecord,
+    /// Opens grading stamps, rubric, comment bank, batch submissions & worksheet maker (G.9–G.13).
+    GradingSuite,
+    /// Imports & perspective-rectifies camera scans into searchable PDFs (O.21).
+    CameraScanImport,
+    /// Opens the Infinite Canvas Excerpt Board, groups & evidence chains (X.1–X.4).
+    ExcerptBoard,
+    /// Opens the Library Knowledge Graph with cluster filter (F.14).
+    KnowledgeGraph,
+    /// Opens CRDT Folder/Workspace Sync, Portable Settings & `.exbundle` sharing (Y.1–Y.3, W.13).
+    SyncAndShare,
+    /// Opens Live Encrypted Co-Editing Relay session dialog (Y.4).
+    LiveRelay,
+    /// Opens Live Classroom Broadcast & Quick Polls host/student panel (G.14, G.15).
+    LiveClassroom,
+    /// Opens Sandboxed Plugins & capability permissions manager (E.5).
+    PluginsManager,
 }
 
 impl CommandId {
@@ -212,6 +418,52 @@ impl CommandId {
                     | Self::LayersByAuthor
                     | Self::PasteAnnotations
                     | Self::DeleteAnnotations
+                    | Self::StraightenInk
+                    | Self::RestyleInk
+                    | Self::InkFill
+                    | Self::Eyedropper
+                    | Self::InkReplay
+                    | Self::VectorizeInk
+                    | Self::InsertPage
+                    | Self::ExpandMargins
+                    | Self::ExportNotebookPdf
+                    | Self::InsertTextBlock
+                    | Self::InsertImage
+                    | Self::NotebookSections
+                    | Self::NotebookLinks
+                    | Self::LectureAudio
+                    | Self::PresentLaser
+                    | Self::PresentSpotlight
+                    | Self::PresentMagnifier
+                    | Self::PresentBlankBlack
+                    | Self::PresentBlankWhite
+                    | Self::PresentFadingInk
+                    | Self::PresentWhiteboard
+                    | Self::PresentCurtain
+                    | Self::PresenterView
+                    | Self::MakeFlashcard
+                    | Self::ImageOcclusion
+                    | Self::MakeCloze
+                    | Self::StudyExport
+                    | Self::ExamMode
+                    | Self::ReadAloud
+                    | Self::ReflowMode
+                    | Self::BionicReading
+                    | Self::TwoColumnScroll
+                    | Self::SyncTex
+                    | Self::GenerateOutline
+                    | Self::OutlineIo
+                    | Self::AnnotationReport
+                    | Self::AnnotationHistory
+                    | Self::BeautifyInk
+                    | Self::PatternBrush
+                    | Self::Symmetry
+                    | Self::HandwritingSearch
+                    | Self::HandwritingToText
+                    | Self::OcrDocument
+                    | Self::NotebookVersions
+                    | Self::AudioTranscript
+                    | Self::HighlightSummary
                     | Self::Undo
                     | Self::Redo
                     | Self::Save
@@ -219,11 +471,12 @@ impl CommandId {
             ) && !matches!(self, Self::Tab(action) if action != TabAction::ReopenClosed)
                 && !matches!(
                     self,
-                    Self::Pane(PaneAction::Split(_) | PaneAction::MoveTab(_))
-                        | Self::Workspace(
-                            WorkspaceAction::New(Start::AllTabs | Start::ShownTab)
-                                | WorkspaceAction::SendTab(_)
-                        )
+                    Self::Pane(
+                        PaneAction::Split(_) | PaneAction::MoveTab(_) | PaneAction::TileSelected
+                    ) | Self::Workspace(
+                        WorkspaceAction::New(Start::AllTabs | Start::ShownTab)
+                            | WorkspaceAction::SendTab(_)
+                    )
                 )
     }
 }
@@ -1809,6 +2062,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &[],
     },
     Command {
+        id: CommandId::Pane(PaneAction::TileSelected),
+        name: "pane.tile_selected",
+        label: "command.tile_selected",
+        group: "command.group.panes",
+        keys: &["mod+alt+g"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Pane(PaneAction::Untile),
+        name: "pane.untile",
+        label: "command.untile",
+        group: "command.group.panes",
+        keys: &["mod+alt+shift+g"],
+        page_keys: &[],
+    },
+    Command {
         id: CommandId::Workspace(WorkspaceAction::Switcher),
         name: "workspace.switch",
         label: "command.switch_workspace",
@@ -2071,6 +2340,830 @@ pub(crate) const COMMANDS: &[Command] = &[
         name: "toolbar.import",
         label: "command.toolbar.import",
         group: "command.group.mode",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::StraightenInk,
+        name: "ink.straighten",
+        label: "command.straighten_ink",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["alt+shift+s"],
+    },
+    Command {
+        id: CommandId::RestyleInk,
+        name: "ink.restyle",
+        label: "command.restyle_ink",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["alt+shift+r"],
+    },
+    Command {
+        id: CommandId::InkFill,
+        name: "ink.fill",
+        label: "command.ink_fill",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["alt+shift+f"],
+    },
+    Command {
+        id: CommandId::Eyedropper,
+        name: "ink.eyedropper",
+        label: "command.eyedropper",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["i"],
+    },
+    Command {
+        id: CommandId::ColorPalettes,
+        name: "ink.palettes",
+        label: "command.color_palettes",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["alt+shift+p"],
+    },
+    Command {
+        id: CommandId::InkReplay,
+        name: "ink.replay",
+        label: "command.ink_replay",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["alt+shift+y"],
+    },
+    Command {
+        id: CommandId::VectorizeInk,
+        name: "ink.vectorize",
+        label: "command.vectorize_ink",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["alt+shift+v"],
+    },
+    Command {
+        id: CommandId::NewNotebook,
+        name: "notebook.new",
+        label: "command.new_notebook",
+        group: "command.group.notebook",
+        keys: &["mod+n"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::InsertPage,
+        name: "notebook.insert_page",
+        label: "command.insert_page",
+        group: "command.group.notebook",
+        keys: &["mod+shift+i"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExpandMargins,
+        name: "notebook.expand_margins",
+        label: "command.expand_margins",
+        group: "command.group.notebook",
+        keys: &["mod+alt+m"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExportNotebookPdf,
+        name: "notebook.export_pdf",
+        label: "command.export_notebook_pdf",
+        group: "command.group.notebook",
+        keys: &["mod+alt+shift+e"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::InfiniteCanvas,
+        name: "notebook.infinite",
+        label: "command.infinite_canvas",
+        group: "command.group.notebook",
+        keys: &["mod+alt+c"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::InsertTextBlock,
+        name: "notebook.text_block",
+        label: "command.insert_text_block",
+        group: "command.group.notebook",
+        keys: &[],
+        page_keys: &["alt+b"],
+    },
+    Command {
+        id: CommandId::InsertImage,
+        name: "notebook.insert_image",
+        label: "command.insert_image",
+        group: "command.group.notebook",
+        keys: &[],
+        page_keys: &["alt+i"],
+    },
+    Command {
+        id: CommandId::NotebookSections,
+        name: "notebook.sections",
+        label: "command.notebook_sections",
+        group: "command.group.notebook",
+        keys: &["mod+alt+t"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::NotebookLinks,
+        name: "notebook.links",
+        label: "command.notebook_links",
+        group: "command.group.notebook",
+        keys: &["mod+alt+u"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::QuickNote,
+        name: "notebook.quick_note",
+        label: "command.quick_note",
+        group: "command.group.notebook",
+        keys: &["mod+shift+q"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::MarkdownNotes,
+        name: "notebook.markdown",
+        label: "command.markdown_notes",
+        group: "command.group.notebook",
+        keys: &["mod+shift+k"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::LectureAudio,
+        name: "notebook.audio",
+        label: "command.lecture_audio",
+        group: "command.group.notebook",
+        keys: &["mod+alt+r"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::CondenseSlides,
+        name: "notebook.condense_slides",
+        label: "command.condense_slides",
+        group: "command.group.notebook",
+        keys: &["mod+alt+d"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::PresentLaser,
+        name: "present.laser",
+        label: "command.present.laser",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &["alt+l"],
+    },
+    Command {
+        id: CommandId::PresentSpotlight,
+        name: "present.spotlight",
+        label: "command.present.spotlight",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &["alt+o"],
+    },
+    Command {
+        id: CommandId::PresentMagnifier,
+        name: "present.magnifier",
+        label: "command.present.magnifier",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &["alt+m"],
+    },
+    Command {
+        id: CommandId::PresentBlankBlack,
+        name: "present.blank_black",
+        label: "command.present.blank_black",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &["b"],
+    },
+    Command {
+        id: CommandId::PresentBlankWhite,
+        name: "present.blank_white",
+        label: "command.present.blank_white",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &["w"],
+    },
+    Command {
+        id: CommandId::PresentFadingInk,
+        name: "present.fading_ink",
+        label: "command.present.fading_ink",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &["alt+f"],
+    },
+    Command {
+        id: CommandId::PresentWhiteboard,
+        name: "present.whiteboard",
+        label: "command.whiteboard",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &["alt+w"],
+    },
+    Command {
+        id: CommandId::PresentCurtain,
+        name: "present.curtain",
+        label: "command.present.curtain",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &["alt+k"],
+    },
+    Command {
+        id: CommandId::PresenterView,
+        name: "present.presenter_view",
+        label: "command.presenter_view",
+        group: "command.group.present",
+        keys: &["mod+shift+r"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::MakeFlashcard,
+        name: "study.flashcard",
+        label: "command.make_flashcard",
+        group: "command.group.study",
+        keys: &["mod+shift+c"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ImageOcclusion,
+        name: "study.occlusion",
+        label: "command.image_occlusion",
+        group: "command.group.study",
+        keys: &["mod+alt+shift+o"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::MakeCloze,
+        name: "study.cloze",
+        label: "command.make_cloze",
+        group: "command.group.study",
+        keys: &["mod+alt+z"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::DailyReview,
+        name: "study.daily_review",
+        label: "command.daily_review",
+        group: "command.group.study",
+        keys: &["mod+shift+f"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Dictionary,
+        name: "study.dictionary",
+        label: "command.dictionary",
+        group: "command.group.study",
+        keys: &[],
+        page_keys: &["d"],
+    },
+    Command {
+        id: CommandId::Vocabulary,
+        name: "study.vocabulary",
+        label: "command.vocabulary",
+        group: "command.group.study",
+        keys: &["mod+shift+v"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::StudyExport,
+        name: "study.export",
+        label: "command.study_export",
+        group: "command.group.study",
+        keys: &["mod+alt+shift+s"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExamMode,
+        name: "study.exam_mode",
+        label: "command.exam_mode",
+        group: "command.group.study",
+        keys: &["mod+shift+x"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ImportAnki,
+        name: "study.import_anki",
+        label: "command.import_anki",
+        group: "command.group.study",
+        keys: &["mod+alt+y"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExportAnki,
+        name: "study.export_anki",
+        label: "command.export_anki",
+        group: "command.group.study",
+        keys: &["mod+alt+shift+y"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::StudyStatistics,
+        name: "study.statistics",
+        label: "command.study_statistics",
+        group: "command.group.study",
+        keys: &["mod+shift+g"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ReadAloud,
+        name: "study.read_aloud",
+        label: "command.read_aloud",
+        group: "command.group.study",
+        keys: &["mod+shift+s"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::OpenLibrary,
+        name: "library.open",
+        label: "command.open_library",
+        group: "command.group.find",
+        keys: &["mod+alt+shift+l"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::FindDuplicates,
+        name: "library.duplicates",
+        label: "command.find_duplicates",
+        group: "command.group.find",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Citations,
+        name: "library.citations",
+        label: "command.citations",
+        group: "command.group.find",
+        keys: &["mod+alt+shift+c"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::LibraryNotes,
+        name: "library.notes",
+        label: "command.library_notes",
+        group: "command.group.find",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::WorkspaceRules,
+        name: "workspace.rules",
+        label: "command.workspace_rules",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::CliMcpDocs,
+        name: "help.cli_mcp",
+        label: "command.cli_mcp_docs",
+        group: "command.group.general",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ReflowMode,
+        name: "view.reflow_mode",
+        label: "command.reflow_mode",
+        group: "command.group.read",
+        keys: &["mod+alt+shift+r"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::BionicReading,
+        name: "view.bionic_reading",
+        label: "command.bionic_reading",
+        group: "command.group.read",
+        keys: &["mod+alt+shift+b"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::TwoColumnScroll,
+        name: "go.two_column_scroll",
+        label: "command.two_column_scroll",
+        group: "command.group.navigate",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::SyncTex,
+        name: "tools.synctex",
+        label: "command.synctex",
+        group: "command.group.general",
+        keys: &["mod+alt+shift+j"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExtraFormats,
+        name: "file.extra_formats",
+        label: "command.extra_formats",
+        group: "command.group.file",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::OpenUrl,
+        name: "file.open_url",
+        label: "command.open_url",
+        group: "command.group.file",
+        keys: &["mod+alt+shift+u"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::GenerateOutline,
+        name: "outline.generate",
+        label: "command.generate_outline",
+        group: "command.group.outline",
+        keys: &["mod+alt+shift+k"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::OutlineIo,
+        name: "outline.import_export",
+        label: "command.outline_io",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::AnnotationReport,
+        name: "annotate.report",
+        label: "command.annotation_report",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::AnnotationHistory,
+        name: "annotate.history",
+        label: "command.annotation_history",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::BeautifyInk,
+        name: "ink.beautify",
+        label: "command.beautify_ink",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::PatternBrush,
+        name: "ink.pattern_brush",
+        label: "command.pattern_brush",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Symmetry,
+        name: "ink.symmetry",
+        label: "command.symmetry",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::HandwritingSearch,
+        name: "ink.handwriting_search",
+        label: "command.handwriting_search",
+        group: "command.group.ink",
+        keys: &["mod+alt+shift+h"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::HandwritingToText,
+        name: "ink.handwriting_to_text",
+        label: "command.handwriting_to_text",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::OcrDocument,
+        name: "tools.ocr",
+        label: "command.ocr_document",
+        group: "command.group.general",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Planner,
+        name: "notebook.planner",
+        label: "command.planner",
+        group: "command.group.notebook",
+        keys: &["mod+alt+shift+p"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::TemplatePacks,
+        name: "notebook.template_packs",
+        label: "command.template_packs",
+        group: "command.group.notebook",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::NotebookVersions,
+        name: "notebook.versions",
+        label: "command.notebook_versions",
+        group: "command.group.notebook",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::AudioTranscript,
+        name: "notebook.audio_transcript",
+        label: "command.audio_transcript",
+        group: "command.group.notebook",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::HighlightSummary,
+        name: "study.highlight_summary",
+        label: "command.highlight_summary",
+        group: "command.group.study",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Assignments,
+        name: "study.assignments",
+        label: "command.assignments",
+        group: "command.group.study",
+        keys: &["mod+alt+shift+a"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::LanguageLearning,
+        name: "study.language_learning",
+        label: "command.language_learning",
+        group: "command.group.study",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::TranslateSelection,
+        name: "study.translate_selection",
+        label: "command.translate_selection",
+        group: "command.group.study",
+        keys: &["mod+alt+shift+t"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::AiPanel,
+        name: "ai.panel",
+        label: "command.ai_panel",
+        group: "command.group.ai",
+        keys: &["mod+alt+q"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::AiSummarize,
+        name: "ai.summarize",
+        label: "command.ai_summarize",
+        group: "command.group.ai",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::AiStudyMaterials,
+        name: "ai.study_materials",
+        label: "command.ai_study_materials",
+        group: "command.group.ai",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::AiResearchExtract,
+        name: "ai.extract",
+        label: "command.ai_extract",
+        group: "command.group.ai",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::AiQuiz,
+        name: "ai.quiz",
+        label: "command.ai_quiz",
+        group: "command.group.ai",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::MathToLatex,
+        name: "ink.math_to_latex",
+        label: "command.math_to_latex",
+        group: "command.group.ink",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::VisualSearch,
+        name: "tools.visual_search",
+        label: "command.visual_search",
+        group: "command.group.ai",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::FormsPanel,
+        name: "forms.fill",
+        label: "command.forms_fill",
+        group: "command.group.forms",
+        keys: &["mod+alt+j"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::FormsFlatten,
+        name: "forms.flatten",
+        label: "command.forms_flatten",
+        group: "command.group.forms",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::SignaturesPanel,
+        name: "document.signatures",
+        label: "command.signatures",
+        group: "command.group.forms",
+        keys: &["mod+alt+v"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::PageOrganizer,
+        name: "document.page_organizer",
+        label: "command.page_organizer",
+        group: "command.group.page",
+        keys: &["mod+shift+y"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::EditTextAndImages,
+        name: "document.edit_content",
+        label: "command.edit_content",
+        group: "command.group.edit",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::TrueRedaction,
+        name: "document.redact",
+        label: "command.redact",
+        group: "command.group.edit",
+        keys: &["mod+shift+u"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::CompressPdf,
+        name: "document.compress",
+        label: "command.compress",
+        group: "command.group.file",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExportAndConvert,
+        name: "file.export_convert",
+        label: "command.export_convert",
+        group: "command.group.file",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::BatesAndHeaders,
+        name: "document.bates_headers",
+        label: "command.bates_headers",
+        group: "command.group.page",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::SecurityPermissions,
+        name: "document.security",
+        label: "command.security_permissions",
+        group: "command.group.file",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::PrintProduction,
+        name: "document.print_production",
+        label: "command.print_production",
+        group: "command.group.view",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::CadView,
+        name: "view.cad_mode",
+        label: "command.cad_view",
+        group: "command.group.view",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::OutlineActions,
+        name: "outline.actions",
+        label: "command.outline_actions",
+        group: "command.group.outline",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::MeasureTool,
+        name: "annotate.measure",
+        label: "command.measure_tool",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ComparePdfs,
+        name: "document.compare",
+        label: "command.compare_pdfs",
+        group: "command.group.find",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExtractTablesFigures,
+        name: "document.extract_tables",
+        label: "command.extract_tables",
+        group: "command.group.find",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ScreencastRecord,
+        name: "tools.screencast",
+        label: "command.screencast",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::GradingSuite,
+        name: "annotate.grading",
+        label: "command.grading_suite",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::CameraScanImport,
+        name: "document.camera_scan",
+        label: "command.camera_scan",
+        group: "command.group.file",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ExcerptBoard,
+        name: "study.excerpt_board",
+        label: "command.excerpt_board",
+        group: "command.group.study",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::KnowledgeGraph,
+        name: "library.knowledge_graph",
+        label: "command.knowledge_graph",
+        group: "command.group.find",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::SyncAndShare,
+        name: "workspace.sync_share",
+        label: "command.sync_share",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::LiveRelay,
+        name: "workspace.live_relay",
+        label: "command.live_relay",
+        group: "command.group.workspaces",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::LiveClassroom,
+        name: "present.classroom",
+        label: "command.classroom",
+        group: "command.group.present",
+        keys: &[],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::PluginsManager,
+        name: "tools.plugins",
+        label: "command.plugins",
+        group: "command.group.file",
         keys: &[],
         page_keys: &[],
     },

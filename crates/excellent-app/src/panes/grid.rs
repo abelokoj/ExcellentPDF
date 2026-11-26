@@ -563,7 +563,8 @@ fn page_canvas(
 ) -> impl IntoElement {
     let cell = pane.cell;
     let full_screen = shared.full_screen;
-    pages_view(pane, shared, dialog_open, move |event: &NativeEvent| {
+    let hidden = move || dialog_open() || !panes.is_open(cell);
+    pages_view(pane, shared, hidden, move |event: &NativeEvent| {
         match &*event.name {
             // A file opening in a pane beside the active one leaves the keyboard where it is.
             "pages" if untracked(|| panes.active_cell()) == cell => pane.focus.focus(),
@@ -604,6 +605,8 @@ pub(crate) fn pages_view(
         find,
         editing,
         annotate,
+        present,
+        study,
         snapshot,
         ..
     } = pane;
@@ -641,10 +644,27 @@ pub(crate) fn pages_view(
         .prop("fingerDraws", move || annotate.finger_draws_prop())
         .prop("selected", move || annotate.selected_prop())
         .prop("margin", move || annotate.margin_prop())
+        .prop("visible", move || {
+            JsonValue::from(!hidden() && tabs.has_shown())
+        })
         .label(move || SharedString::from(label()))
         .on_native_event(move |event: &NativeEvent| {
             match &*event.name {
-                "press" => focus.focus(),
+                "press" => {
+                    focus.focus();
+                    if let Some((_, pt)) =
+                        excellent_features::annotate::notes::parse_press(&event.data)
+                    {
+                        present.update_pointer(pt.x, pt.y);
+                    }
+                }
+                "hover" | "pointerMove" => {
+                    if let Some((_, pt)) =
+                        excellent_features::annotate::notes::parse_press(&event.data)
+                    {
+                        present.update_pointer(pt.x, pt.y);
+                    }
+                }
                 "penContact" => {
                     if let Some(modes) = use_context::<crate::modes::Modes>() {
                         modes.pen_contact();
@@ -672,6 +692,9 @@ pub(crate) fn pages_view(
         .focusable(true)
         .element_ref(&focus)
         .label(move || SharedString::from(label()))
+        .child(crate::annotate::ink_tools::eyedropper_bar(annotate))
+        .child(crate::study_ui::study_bars(study))
+        .child(crate::present_ui::present_overlays(present))
         .child(canvas);
     // The notes beside the pages (A.11), outside the focus stop so a click on a card leaves the pages' keys alone.
     view()

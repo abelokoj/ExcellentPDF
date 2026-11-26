@@ -17,12 +17,16 @@ path = "src/main.rs"
 [dependencies]
 base64.workspace = true
 env_logger.workspace = true
+excellent-ai.workspace = true
 excellent-core.workspace = true
 excellent-features.workspace = true
 excellent-ink.workspace = true
 excellent-mupdf.workspace = true
+excellent-packs.workspace = true
 excellent-platform.workspace = true
 excellent-store.workspace = true
+excellent-text.workspace = true
+ed25519-dalek.workspace = true
 log.workspace = true
 nsh-core.workspace = true
 nsh-base.workspace = true

@@ -52,11 +52,21 @@ pub(crate) fn favorites(live: Live) -> Favorites {
 }
 
 /// Changes the bar by `f`, kept in the settings.
-fn change(live: Live, f: impl FnOnce(&mut Favorites)) {
+pub(super) fn change(live: Live, f: impl FnOnce(&mut Favorites)) {
     live.change(|settings| {
         let mut bar = read(settings);
         f(&mut bar);
         write(settings, &bar);
+    });
+}
+
+/// Gives the pen currently in hand a new `0xRRGGBB` colour (used by Eyedropper & Palettes, H.17/H.18).
+pub(super) fn set_pen_color(live: Live, color: u32) {
+    change(live, |bar| {
+        let mut pen = bar.in_hand();
+        pen.color = color & 0xff_ffff;
+        let index = bar.chosen();
+        bar.set(index, pen);
     });
 }
 

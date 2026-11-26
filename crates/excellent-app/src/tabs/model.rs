@@ -101,6 +101,8 @@ pub(crate) struct Tabs {
     /// The groups that have tabs (R.13).
     pub(super) groups: Vec<Group>,
     pub(super) next_group: u64,
+    /// Multi-selected tabs for tiling (V.12).
+    pub(super) selected: Vec<TabId>,
 }
 
 impl Tabs {
@@ -246,6 +248,7 @@ impl Tabs {
         self.active = None;
         self.recent.clear();
         self.groups.clear();
+        self.selected.clear();
         taken
     }
 
@@ -271,6 +274,7 @@ impl Tabs {
             index,
         };
         self.recent.retain(|&other| other != id);
+        self.selected.retain(|&other| other != id);
         self.prune_groups();
         if self.active == Some(id) {
             self.active = None;
@@ -443,6 +447,33 @@ impl Tabs {
             Step::Previous => (at + len - 1) % len,
         };
         Some(order[to])
+    }
+
+    /// Whether `id` is currently multi-selected (V.12).
+    pub(crate) fn is_selected(&self, id: TabId) -> bool {
+        self.selected.contains(&id)
+    }
+
+    /// Toggles `id` in the multi-selection list (V.12).
+    pub(crate) fn toggle_selected(&mut self, id: TabId) {
+        if self.get(id).is_none() {
+            return;
+        }
+        if let Some(pos) = self.selected.iter().position(|&other| other == id) {
+            self.selected.remove(pos);
+        } else {
+            self.selected.push(id);
+        }
+    }
+
+    /// The currently multi-selected tab ids in selection order (V.12).
+    pub(crate) fn selected_ids(&self) -> &[TabId] {
+        &self.selected
+    }
+
+    /// Clears multi-selection (V.12).
+    pub(crate) fn clear_selected(&mut self) {
+        self.selected.clear();
     }
 
     /// The files open in more than one tab, each with its tabs in strip order.

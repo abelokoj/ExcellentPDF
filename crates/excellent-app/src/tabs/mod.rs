@@ -405,6 +405,65 @@ impl TabState {
         }
     }
 
+    /// Toggles `id` in the multi-selection set (V.12).
+    pub(crate) fn toggle_selected(self, id: TabId) {
+        self.tabs.update(|tabs| tabs.toggle_selected(id));
+    }
+
+    /// Whether `id` is multi-selected (V.12).
+    pub(crate) fn is_selected(self, id: TabId) -> bool {
+        self.tabs.with(|tabs| tabs.is_selected(id))
+    }
+
+    /// Takes up to `max` tabs to tile (the multi-selected tabs if >= 2, else up to `max` tabs from the strip,
+    /// starting with the active tab), leaving at least one tab in the strip only if fewer than 2 tabs exist.
+    pub(crate) fn take_for_tiling(self, max: usize) -> Vec<Closed> {
+        let mut taken = Vec::new();
+        self.change(|tabs| {
+            let mut ids: Vec<TabId> = tabs.selected_ids().to_vec();
+            if ids.len() < 2 {
+                ids.clear();
+                if let Some(active) = tabs.active().map(|t| t.id) {
+                    ids.push(active);
+                }
+                for tab in tabs.all() {
+                    if !ids.contains(&tab.id) {
+                        ids.push(tab.id);
+                    }
+                    if ids.len() >= max {
+                        break;
+                    }
+                }
+            } else {
+                ids.truncate(max);
+            }
+            tabs.clear_selected();
+            if ids.len() < 2 {
+                return;
+            }
+            for id in ids {
+                if let Some(closed) = tabs.take(id) {
+                    taken.push(closed);
+                }
+            }
+        });
+        taken
+    }
+
+    /// Adopts `taken` into one named tab group (V.12 untile).
+    pub(crate) fn adopt_into_group(self, taken: Vec<Closed>, group_name: &str) {
+        if taken.is_empty() {
+            return;
+        }
+        self.change(|tabs| {
+            let mut ids = Vec::with_capacity(taken.len());
+            for tab in taken {
+                ids.push(tabs.adopt(tab));
+            }
+            tabs.group_tabs(&ids, group_name);
+        });
+    }
+
     /// The group of the tab `id`.
     fn group_of(self, id: TabId) -> Option<GroupId> {
         self.tabs
@@ -513,20 +572,23 @@ impl TabState {
     /// The canvas's `path` property: the shown tab's file, or none.
     pub(crate) fn path_prop(self) -> JsonValue {
         self.shown_path().map_or(JsonValue::Null, |path| {
-            JsonValue::from(path.to_string_lossy().into_owned())
+            let resolved = crate::expdf::resolve_open_path(&path);
+            JsonValue::from(resolved.to_string_lossy().into_owned())
         })
     }
 }
 
 /// Shows the open dialog, and hands the files picked to `then`.
 pub(crate) fn pick_documents(then: impl FnOnce(Vec<PathBuf>) + 'static) {
+    let extensions: Vec<&str> = EXTENSIONS
+        .iter()
+        .copied()
+        .chain(["expdf", "djvu", "djv", "chm", "cbr"])
+        .collect();
     let dialog = OpenDialog::files()
         .multiple(true)
         .title(t!("open.title"))
-        .filter(FileFilter::new(
-            t!("open.filter"),
-            EXTENSIONS.iter().copied(),
-        ));
+        .filter(FileFilter::new(t!("open.filter"), extensions));
     let answer = pick_paths(dialog);
     spawn(async move {
         match answer.await {

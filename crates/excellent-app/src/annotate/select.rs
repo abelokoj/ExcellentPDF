@@ -68,8 +68,13 @@ impl AnnotateState {
     }
 
     /// A click hit `hit` (or nothing): with Ctrl (`add`) it joins the selection or leaves it; otherwise it is the
-    /// selection. Returns whether the click was Ctrl's, which opens no note.
+    /// selection. Returns whether the click was Ctrl's, which opens no note. Locked layers cannot be selected (H.14).
     pub(super) fn select_press(self, hit: Option<Target>, add: bool) -> bool {
+        let hit = hit.and_then(|target| {
+            super::layers::filter_selectable_targets(self, target.page, &[target])
+                .into_iter()
+                .next()
+        });
         match (hit, add) {
             (Some(target), true) => {
                 let selection = untracked(|| self.selected.get());
@@ -121,7 +126,11 @@ impl AnnotateState {
             log::warn!("annotMarquee: a marquee that doesn't parse: {data}");
             return;
         };
-        let taken = marquee.takes(&self.page(marquee.page));
+        let taken = super::layers::filter_selectable_targets(
+            self,
+            marquee.page,
+            &marquee.takes(&self.page(marquee.page)),
+        );
         let selection = if marquee.add {
             taken
                 .into_iter()
@@ -217,15 +226,16 @@ impl AnnotateState {
         }
     }
 
-    /// The selected annotations as the shown document has them now.
+    /// The selected annotations as the shown document has them now (excluding locked layers, H.14).
     pub(super) fn selection(self) -> Vec<Annotation> {
         let selected = untracked(|| self.selected.get());
         let Some(page) = selected.first().map(|target| target.page) else {
             return Vec::new();
         };
+        let stack = self.layer_stack();
         self.page(page)
             .into_iter()
-            .filter(|a| selected.iter().any(|target| target.id == a.id))
+            .filter(|a| selected.iter().any(|target| target.id == a.id) && stack.can_select(a))
             .collect()
     }
 

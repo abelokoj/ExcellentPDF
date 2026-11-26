@@ -16,6 +16,7 @@
 //! broken entries points each at the heading with its title, or removes it.
 
 mod edit;
+pub(crate) mod extra;
 
 use std::path::PathBuf;
 
@@ -128,9 +129,21 @@ impl OutlineState {
             }
         };
         let job = outline::load(pool(), mupdf);
+        let load_path = path.clone();
         let task = spawn(async move {
             match job.await {
-                Ok(items) => self.show(items.iter().map(entry).collect()),
+                Ok(items) => {
+                    let mut entries: Vec<Entry> = items.iter().map(entry).collect();
+                    if entries.is_empty()
+                        && !load_path
+                            .extension()
+                            .is_some_and(|e| e.to_string_lossy().eq_ignore_ascii_case("pdf"))
+                        && let Ok(Some(sidecar)) = extra::sidecar_store().load(&load_path)
+                    {
+                        entries = sidecar;
+                    }
+                    self.show(entries);
+                }
                 Err(err) if !err.is_aborted() => log::warn!("outline: {err}"),
                 Err(_) => {}
             }

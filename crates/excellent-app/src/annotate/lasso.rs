@@ -40,7 +40,11 @@ impl AnnotateState {
             log::warn!("annotLasso: a loop that doesn't parse: {data}");
             return;
         };
-        let taken = looped.takes(&self.page(looped.page));
+        let taken = super::layers::filter_selectable_targets(
+            self,
+            looped.page,
+            &looped.takes(&self.page(looped.page)),
+        );
         let selection = if looped.add {
             taken
                 .into_iter()

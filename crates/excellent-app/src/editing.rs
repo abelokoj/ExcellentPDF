@@ -113,8 +113,9 @@ impl Editing {
     /// The shown document, when it can be edited.
     pub(crate) fn document(self) -> Option<Arc<Document>> {
         let path = untracked(|| self.tabs.shown_path())?;
+        let resolved = crate::expdf::resolve_open_path(&path);
         registry()
-            .open(&path)
+            .open(&resolved)
             .ok()
             .filter(|document| document.is_editable())
     }
@@ -201,7 +202,15 @@ impl Editing {
                 let (mut saved, mut failures) = (Vec::new(), Vec::new());
                 for document in documents {
                     match document.save() {
-                        Ok(()) => saved.push(document),
+                        Ok(()) => {
+                            if let Err(err) =
+                                crate::expdf::sync_working_pdf_to_expdf(document.path())
+                            {
+                                failures.push((document.path().to_path_buf(), err));
+                            } else {
+                                saved.push(document);
+                            }
+                        }
                         Err(err) => {
                             failures.push((document.path().to_path_buf(), err.to_string()));
                         }
@@ -233,6 +242,8 @@ impl Editing {
         for document in self.unsaved.replace(Vec::new()) {
             if let Err(err) = document.save() {
                 log::error!("save at quit: {}: {err}", document.path().display());
+            } else if let Err(err) = crate::expdf::sync_working_pdf_to_expdf(document.path()) {
+                log::error!("save expdf at quit: {}: {err}", document.path().display());
             }
         }
     }

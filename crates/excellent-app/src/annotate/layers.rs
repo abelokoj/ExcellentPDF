@@ -1,7 +1,7 @@
-//! Annotation layers (A.22) in the app: the Layers section at the top of the annotation list, where each layer is
-//! shown or hidden and locked, and the annotations are sorted into one layer per author; the Layer row of the
-//! inspector; and the page leaving out, for presses and the margin, what a hidden layer holds (MuPDF already leaves it
-//! out of the drawing). Each change is one step of undo. The model is `excellent-features`' `annotate::layers`.
+//! Annotation & ink layers (A.22, H.14) in the app: the Layers section at the top of the annotation list, showing
+//! the four fixed layers (`Ink`, `Highlights`, `Text`, `Images`) plus user layers backed by PDF OCGs, where each layer
+//! is shown/hidden, locked/unlocked, or chosen as the active drawing layer, and locked layers reject selection and
+//! erasing. Each change is one step of undo. Models: `excellent-features`' `annotate::layers` & `ink::layers`.
 
 use std::slice;
 
@@ -9,12 +9,15 @@ use excellent_core::annot::{Annotation, load_all, page_annotations};
 use excellent_core::edit::{Change, Operation};
 use excellent_core::shared::pool;
 use excellent_features::annotate::layers;
+use excellent_features::annotate::notes::Target;
+use excellent_features::ink::layers::{LayerStack, LockState, Visibility};
 use excellent_mupdf::Layer;
 use nsh_base::{input, switch, theme, toggle};
 use nsh_core::prelude::*;
 
 use super::AnnotateState;
 use crate::bookmarks::{caption, field};
+use crate::editing::show_message;
 use crate::settings_window::{SWITCH_THUMB, SWITCH_TRACK, segment_of, segmented};
 use crate::tabs::{Tone, action_button};
 
@@ -32,6 +35,53 @@ impl AnnotateState {
             .layers()
             .map_err(|err| log::warn!("layers: cannot read them: {err}"))
             .unwrap_or_default()
+    }
+
+    /// The ink layer stack synced with the document's OCGs and active drawing layer (H.14).
+    pub(super) fn layer_stack(self) -> LayerStack {
+        let mut stack = LayerStack::from_ocgs(&untracked(|| self.layers()));
+        let active = untracked(|| self.active_layer.get());
+        let _ = stack.set_active(&active);
+        stack
+    }
+
+    /// Sets the active drawing layer when it exists, is visible, and is unlocked (H.14).
+    pub(crate) fn set_active_layer(self, name: &str) {
+        let mut stack = self.layer_stack();
+        match stack.set_active(name) {
+            Ok(()) => self.active_layer.set(stack.active().to_owned()),
+            Err(err) => show_message(t!("layers.title"), err.to_string()),
+        }
+    }
+
+    /// Creates a new user layer as one undo step and activates it for drawing (H.14).
+    pub(crate) fn add_user_layer(self, typed: &str) {
+        let mut stack = self.layer_stack();
+        match stack.add_user_layer(typed) {
+            Ok(change) => {
+                if let Change::SetLayer { ref name, .. } = change {
+                    self.active_layer.set(name.clone());
+                }
+                self.editing
+                    .apply(&Operation::new(t!("layers.add_edit"), vec![change]));
+            }
+            Err(err) => show_message(t!("layers.title"), err.to_string()),
+        }
+    }
+
+    /// Tags newly created annotations with the active layer, refusing if that layer is locked or hidden (H.14).
+    pub(super) fn place_changes(self, changes: Vec<Change>) -> Vec<Change> {
+        if changes.is_empty() {
+            return changes;
+        }
+        let stack = self.layer_stack();
+        match stack.place_new(&changes) {
+            Ok(tagged) => tagged,
+            Err(err) => {
+                show_message(t!("layers.title"), err.to_string());
+                Vec::new()
+            }
+        }
     }
 
     /// Makes `change` of a layer, one step of undo named `name`; nothing for none.
@@ -81,17 +131,39 @@ pub(super) fn shown_on_page(mupdf: &excellent_mupdf::Document, page: usize) -> V
         .layers()
         .map_err(|err| log::warn!("layers: cannot read them: {err}"))
         .unwrap_or_default();
-    annotations.retain(|annotation| layers::shown(annotation, &all));
+    let stack = LayerStack::from_ocgs(&all);
+    annotations
+        .retain(|annotation| layers::shown(annotation, &all) && stack.is_visible(annotation));
     annotations
 }
 
-/// The Layers section of the annotation list: a line per layer of `all` (shown, its name, how many annotations
-/// `count` says it holds, locked) and "One layer per author".
+/// Filters `targets` on `page` so annotations on locked or hidden layers are excluded from selection (H.14).
+pub(super) fn filter_selectable_targets(
+    state: AnnotateState,
+    page: usize,
+    targets: &[Target],
+) -> Vec<Target> {
+    let stack = state.layer_stack();
+    let annots = state.page(page);
+    stack.filter_selection(targets, &annots)
+}
+
+/// The Layers section of the annotation list: the 4 fixed kind layers plus user layers (active, shown/hidden,
+/// count, lock), a new-layer input, and "One layer per author".
 pub(super) fn layers_section(
     state: AnnotateState,
     all: Memo<Vec<Layer>>,
     count: impl Fn(&str) -> usize + Copy + 'static,
 ) -> impl IntoElement {
+    let new_name = signal(String::new());
+    let create_layer = move || {
+        let name = untracked(|| new_name.get());
+        if !name.trim().is_empty() {
+            state.add_user_layer(&name);
+            new_name.set(String::new());
+        }
+    };
+    let submit_layer = create_layer;
     let header = view()
         .flex_row()
         .items_center()
@@ -100,15 +172,23 @@ pub(super) fn layers_section(
         .child(action_button("layers.by_author", Tone::Plain, move || {
             state.layers_by_author();
         }));
+    let add_row = view()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .child(
+            view().flex_1().child(
+                field(input().value(move || new_name.get()))
+                    .on_change(move |text: &str| new_name.set(text.to_owned()))
+                    .on_submit(move |_: &str| submit_layer())
+                    .placeholder(t!("layers.new_placeholder"))
+                    .label(t!("layers.add")),
+            ),
+        )
+        .child(action_button("layers.add", Tone::Plain, create_layer));
     let lines = dynamic(move || {
-        let layers = all.get();
-        if layers.is_empty() {
-            return view().child(
-                text(t!("layers.empty"))
-                    .text_size(px(13.0))
-                    .text_color(move || theme().muted_foreground),
-            );
-        }
+        let stack = LayerStack::from_ocgs(&all.get());
+        let layers = stack.to_mupdf_layers();
         layers.into_iter().fold(view().gap_1(), |lines, layer| {
             lines.child(layer_line(state, layer, count))
         })
@@ -119,11 +199,12 @@ pub(super) fn layers_section(
         .pb_1()
         .gap_2()
         .child(header)
+        .child(add_row)
         .child(lines)
         .child(view().h(px(1.0)).bg(move || theme().border))
 }
 
-/// One layer: whether it is shown (fixed while it is locked), its name, how many annotations are on it, its lock.
+/// One layer: active-for-drawing indicator, whether it is shown (fixed while locked), its name, count, and its lock.
 fn layer_line(
     state: AnnotateState,
     layer: Layer,
@@ -131,6 +212,14 @@ fn layer_line(
 ) -> View {
     let (visible, locked) = (layer.visible, layer.locked);
     let held = count(&layer.name);
+    let layer_name_for_active = layer.name.clone();
+    let layer_name_for_color = layer.name.clone();
+    let layer_name_for_label = layer.name.clone();
+    let is_active = move || {
+        state
+            .active_layer
+            .with(|active| active == &layer_name_for_active)
+    };
     let shown_control = if locked {
         // A locked layer can't be shown or hidden here, as in Acrobat: its state reads instead of a switch.
         view().w(px(36.0)).child(
@@ -143,19 +232,28 @@ fn layer_line(
             .text_color(move || theme().muted_foreground),
         )
     } else {
-        let to_show = layer.clone();
+        let layer_name = layer.name.clone();
         view().child(
             switch()
                 .checked(move || visible)
                 .accessibility_label(t!("layers.show", name = layer.name.clone()))
                 .on_change(move |on: &bool| {
-                    state.edit_layer(t!("layers.show_edit"), layers::show(&to_show, *on));
+                    let mut stack = state.layer_stack();
+                    let vis = if *on {
+                        Visibility::Visible
+                    } else {
+                        Visibility::Hidden
+                    };
+                    if let Ok(change) = stack.set_visibility(&layer_name, vis) {
+                        state.edit_layer(t!("layers.show_edit"), change);
+                    }
                 })
                 .track_class(SWITCH_TRACK)
                 .thumb_class(SWITCH_THUMB),
         )
     };
-    let to_lock = layer.clone();
+    let lock_name = layer.name.clone();
+    let lock_display = layer.name.clone();
     view()
         .flex_row()
         .items_center()
@@ -163,16 +261,34 @@ fn layer_line(
         .min_h(px(32.0))
         .child(shown_control)
         .child(
-            text(layer.name.clone())
+            toggle()
+                .pressed(is_active)
+                .accessibility_label(t!("layers.activate", name = layer_name_for_label.clone()))
+                .on_change(move |_: &bool| state.set_active_layer(&layer_name_for_label))
                 .flex_1()
-                .text_size(px(13.0))
-                .text_color(move || {
-                    if visible {
-                        theme().sidebar_foreground
-                    } else {
-                        theme().muted_foreground
-                    }
-                }),
+                .h(px(26.0))
+                .px_2()
+                .rounded(px(5.0))
+                .items_center()
+                .justify_start()
+                .hover(|s| s.bg(move || theme().sidebar_accent))
+                .pressed_style(|s| s.bg(move || theme().sidebar_accent))
+                .child(
+                    text(layer.name.clone())
+                        .text_size(px(13.0))
+                        .text_color(move || {
+                            if !visible {
+                                theme().muted_foreground
+                            } else if state
+                                .active_layer
+                                .with(|active| active == &layer_name_for_color)
+                            {
+                                theme().primary
+                            } else {
+                                theme().sidebar_foreground
+                            }
+                        }),
+                ),
         )
         .child(
             text(held.to_string())
@@ -182,9 +298,17 @@ fn layer_line(
         .child(
             toggle()
                 .pressed(move || locked)
-                .accessibility_label(t!("layers.lock", name = layer.name.clone()))
+                .accessibility_label(t!("layers.lock", name = lock_display.clone()))
                 .on_change(move |on: &bool| {
-                    state.edit_layer(t!("layers.lock_edit"), layers::lock(&to_lock, *on));
+                    let mut stack = state.layer_stack();
+                    let next = if *on {
+                        LockState::Locked
+                    } else {
+                        LockState::Unlocked
+                    };
+                    if let Ok(change) = stack.set_lock(&lock_name, next) {
+                        state.edit_layer(t!("layers.lock_edit"), change);
+                    }
                 })
                 .h(px(28.0))
                 .px_2()
@@ -213,7 +337,7 @@ fn layer_line(
 }
 
 /// The inspector's Layer row for `annotation`: the layer it is on, typed (a new name makes a layer), and the
-/// document's layers to put it on with one press (pressing its own takes it off).
+/// stack's layers to put it on with one press (pressing its own takes it off).
 pub(super) fn layer_rows(state: AnnotateState, annotation: &Annotation) -> View {
     let typed = signal(annotation.layer.clone().unwrap_or_default());
     let keep = move || {
@@ -230,7 +354,12 @@ pub(super) fn layer_rows(state: AnnotateState, annotation: &Annotation) -> View 
             .placeholder(t!("layers.none"))
             .label(t!("layers.layer")),
     );
-    let names: Vec<String> = state.layers().into_iter().map(|layer| layer.name).collect();
+    let names: Vec<String> = state
+        .layer_stack()
+        .to_mupdf_layers()
+        .into_iter()
+        .map(|layer| layer.name)
+        .collect();
     if !names.is_empty() {
         let on = annotation.layer.clone();
         let chips = names.into_iter().fold(segmented(), |group, name| {

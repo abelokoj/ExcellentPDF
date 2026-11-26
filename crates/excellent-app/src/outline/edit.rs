@@ -513,7 +513,7 @@ impl OutlineState {
 
     /// Makes `changes` to the outline `entries` (as the document has it now) as one operation named `name`, the
     /// reader's open states written first, and shows the outline it makes. Returns whether it was made.
-    fn edit(self, entries: &[Entry], name: String, changes: Vec<Change>) -> bool {
+    pub(super) fn edit(self, entries: &[Entry], name: String, changes: Vec<Change>) -> bool {
         let open = untracked(|| {
             self.expanded
                 .with(|expanded| model::open_changes(entries, expanded))

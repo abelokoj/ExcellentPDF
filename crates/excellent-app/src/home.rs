@@ -27,6 +27,7 @@ use crate::commands::{self, CommandId};
 use crate::panes::Shared;
 use crate::recent::{self, RecentState};
 use crate::shell::primary_button;
+use crate::study_ui::{HomeStudySummary, home_study_summary};
 use crate::tabs::TabState;
 use crate::workspaces::{Workspaces, color_dot, display_name};
 
@@ -192,6 +193,7 @@ pub(crate) fn home_page(
                     move || !searching() && last_read(recent).is_some(),
                     move || continue_card(recent, covers, tabs),
                 ))
+                .child(when(move || !searching(), move || study_card(run)))
                 .child(when(
                     move || !searching() && many_workspaces(),
                     move || workspace_row(workspaces),
@@ -261,6 +263,61 @@ fn last_read(recent: RecentState) -> Option<RecentFile> {
     )?
     .to_path_buf();
     files.into_iter().find(|file| file.path == path)
+}
+
+/// "Continue reading": the file shown last, with its cover, name, folder and page; pressing it opens it there.
+fn study_card(run: impl Fn(CommandId) + Copy + 'static) -> impl IntoElement {
+    let HomeStudySummary {
+        due_cards,
+        streak_days,
+    } = home_study_summary();
+    let count_text = t!("home.study.summary", due = due_cards, streak = streak_days);
+    view()
+        .flex_row()
+        .items_center()
+        .gap_3()
+        .p(px(14.0))
+        .rounded(px(12.0))
+        .border_1()
+        .border_color(move || theme().border)
+        .bg(move || theme().background)
+        .child(
+            view()
+                .flex_1()
+                .gap_0p5()
+                .child(
+                    text(move || t!("home.study.title"))
+                        .text_size(px(14.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(move || theme().foreground),
+                )
+                .child(
+                    text(count_text)
+                        .text_size(px(12.0))
+                        .text_color(move || theme().muted_foreground),
+                ),
+        )
+        .child(primary_button("command.daily_review", move || {
+            run(CommandId::DailyReview);
+        }))
+        .child(
+            button()
+                .accessibility_label(t!("command.new_notebook"))
+                .on_press(move || run(CommandId::NewNotebook))
+                .h(px(32.0))
+                .px_3()
+                .rounded(px(8.0))
+                .border_1()
+                .border_color(move || theme().border)
+                .items_center()
+                .justify_center()
+                .hover(|s| s.bg(move || theme().muted))
+                .child(
+                    text(move || t!("command.new_notebook"))
+                        .text_size(px(13.0))
+                        .text_color(move || theme().foreground),
+                ),
+        )
 }
 
 /// "Continue reading": the file shown last, with its cover, name, folder and page; pressing it opens it there.

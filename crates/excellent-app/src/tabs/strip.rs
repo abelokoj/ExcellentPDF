@@ -191,6 +191,7 @@ fn group_chip(state: TabState, id: GroupId) -> impl IntoElement {
 fn tab_view(state: TabState, id: TabId) -> impl IntoElement {
     let tab = computed(move || state.tabs.with(|tabs| tabs.get(id).cloned()));
     let shown = move || state.tabs.with(|tabs| tabs.active().map(|tab| tab.id)) == Some(id);
+    let multi_selected = move || state.is_selected(id);
     let pinned = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.pinned));
     let missing = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.missing));
     let dirty = move || tab.with(|tab| tab.as_ref().is_some_and(|tab| tab.dirty));
@@ -224,6 +225,9 @@ fn tab_view(state: TabState, id: TabId) -> impl IntoElement {
         )
         .border_b(px(2.0))
         .border_b_color(underline)
+        .style_when(multi_selected, |s| {
+            s.border_1().border_color(move || theme().primary)
+        })
         .hover(|s| s.bg(move || theme().sidebar_accent))
         .selected_style(|s| s.bg(move || theme().background))
         .focus_visible(|s| s.border_1().border_color(move || theme().ring))
@@ -269,12 +273,16 @@ fn tab_view(state: TabState, id: TabId) -> impl IntoElement {
             move || !pinned(),
             move || close_button(state, id, title),
         ));
-    // The middle button closes, as in browsers; the tab itself takes only presses.
+    // The middle button closes, as in browsers; Ctrl/Cmd+Left click multi-selects tabs for tiling (V.12).
     view()
         .window_drag(false)
         .on_mouse_up(move |event: &MouseEvent| {
             if event.button == Some(MouseButton::Middle) && !pinned() {
                 state.close(id);
+            } else if event.button == Some(MouseButton::Left)
+                && (event.modifiers.ctrl || event.modifiers.cmd || event.modifiers.shift)
+            {
+                state.toggle_selected(id);
             }
         })
         .flex_row()
