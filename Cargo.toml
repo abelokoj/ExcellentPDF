@@ -20,12 +20,13 @@ cc = { version = "1.2", features = ["parallel"] }
 bindgen = "0.73"
 
 # UI: NSH, pinned to the installed CLI's version (AGENTS D2). No default features: we use NSH's Rust components
-# only, so neither QuickJS nor the optional components (editor, plots, terminal, ...) are built in.
-nsh-core = "=0.7.0"
+# only (plus `svg` for native vector icon rasterization), so neither QuickJS nor the optional components
+# (editor, plots, terminal, ...) are built in.
+nsh-core = { version = "=0.7.0", features = ["svg"] }
 nsh-base = { version = "=0.7.0", default-features = false }
-nsh-platform-windows = { version = "=0.7.0", default-features = false }
-nsh-platform-macos = { version = "=0.7.0", default-features = false }
-nsh-platform-linux = { version = "=0.7.0", default-features = false }
+nsh-platform-windows = { version = "=0.7.0", default-features = false, features = ["svg"] }
+nsh-platform-macos = { version = "=0.7.0", default-features = false, features = ["svg"] }
+nsh-platform-linux = { version = "=0.7.0", default-features = false, features = ["svg"] }
 nsh-engine = { version = "=0.7.0", default-features = false }
 nsh-testing = { version = "=0.7.0", default-features = false }
 # The macOS page canvas (K.9): the AppKit, Core Graphics and dispatch crates NSH's macOS backend already uses, at

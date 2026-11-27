@@ -226,27 +226,16 @@ fn pane_header(
                 panes.run(super::PaneAction::Maximize);
             },
         ))
-        .child(
-            button()
-                .accessibility_label(t!("pane.close"))
-                .on_press(move || {
-                    panes.focus(pane.cell);
-                    panes.run(super::PaneAction::Close);
-                })
-                .w(px(22.0))
-                .h(px(22.0))
-                .rounded(px(5.0))
-                .items_center()
-                .justify_center()
-                .hover(|s| s.bg(move || theme().sidebar_accent))
-                .active(|s| s.opacity(0.7))
-                .focus_visible(|s| s.border_2().border_color(move || theme().ring))
-                .child(
-                    text("×")
-                        .text_size(px(14.0))
-                        .text_color(move || theme().muted_foreground),
-                ),
-        )
+        .child(crate::shell::app_menu::close_x_button(
+            t!("pane.close"),
+            22.0,
+            11.0,
+            5.0,
+            move || {
+                panes.focus(pane.cell);
+                panes.run(super::PaneAction::Close);
+            },
+        ))
 }
 
 /// A small button of the pane header: `glyph` drawn, `label` read out.

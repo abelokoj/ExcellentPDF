@@ -179,7 +179,7 @@ pub(crate) fn tab_list_chevron() -> impl IntoElement {
         .tint_color(move || theme().foreground)
 }
 
-/// Renders a monochrome PNG chrome icon tinted with `tint` at `size` points square.
+/// Renders a monochrome SVG chrome icon tinted with `tint` at `size` points square.
 pub(crate) fn chrome_icon(
     icon: ChromeIcon,
     size: f32,
@@ -190,6 +190,51 @@ pub(crate) fn chrome_icon(
         .h(px(size))
         .object_fit(ResizeMode::Contain)
         .tint_color(tint)
+}
+
+/// Windows-style red hover background (`#E81123`) used by every close (`×`) button across
+/// windows, tabs, panes, drawers, bars, and popups.
+pub(crate) fn close_hover_red() -> Hsla {
+    Hsla::parse_hex("#e81123").expect("valid hex color")
+}
+
+/// Crisp white icon colour used over [`close_hover_red`] while hovering a close (`×`) button.
+pub(crate) fn close_hover_fg() -> AdaptiveColor {
+    Hsla::parse_hex("#ffffff").expect("valid hex color").into()
+}
+
+/// Renders a crisp SVG close (`×`) button whose background turns red (`#E81123`) with a white
+/// glyph on hover so users can immediately recognize close/cancel targets across any theme.
+pub(crate) fn close_x_button(
+    label: impl Into<SharedString>,
+    box_size: f32,
+    icon_size: f32,
+    radius: f32,
+    on_press: impl Fn() + 'static,
+) -> impl IntoElement {
+    let hovered = signal(false);
+    nsh_base::button()
+        .accessibility_label(label.into())
+        .on_mouse_enter(move |_: &MouseEvent| hovered.set(true))
+        .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
+        .on_press(on_press)
+        .cursor(Cursor::Pointer)
+        .w(px(box_size))
+        .h(px(box_size))
+        .flex_shrink(0.0)
+        .rounded(px(radius))
+        .items_center()
+        .justify_center()
+        .hover(|s| s.bg(close_hover_red))
+        .active(|s| s.opacity(0.82))
+        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(chrome_icon(ChromeIcon::CloseX, icon_size, move || {
+            if hovered.get() {
+                close_hover_fg()
+            } else {
+                theme().muted_foreground
+            }
+        }))
 }
 
 fn command_item(
@@ -497,6 +542,38 @@ mod tests {
                 !xml.contains("currentColor"),
                 "standalone SVG must not use currentColor"
             );
+            let raster = nsh_core::svg::rasterize(&decoded, 48)
+                .expect("NSH svg feature must be enabled and rasterize every chrome icon");
+            assert!(raster.width > 0 && raster.height > 0);
+            assert!(
+                raster.pixels.iter().skip(3).step_by(4).any(|&a| a > 128),
+                "rasterized chrome SVG must have visible opaque pixels"
+            );
         }
+
+        // Also rasterize every SVG file in assets/icons/ so no icon can ever ship blank.
+        let icons_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/icons");
+        let mut count = 0usize;
+        for entry in std::fs::read_dir(&icons_dir).expect("read assets/icons") {
+            let path = entry.expect("dir entry").path();
+            if path.extension().and_then(|e| e.to_str()) != Some("svg") {
+                continue;
+            }
+            let bytes = std::fs::read(&path).expect("read svg");
+            let raster = nsh_core::svg::rasterize(&bytes, 48)
+                .unwrap_or_else(|err| panic!("failed to rasterize {}: {err}", path.display()));
+            assert!(
+                raster.width > 0
+                    && raster.height > 0
+                    && raster.pixels.iter().skip(3).step_by(4).any(|&a| a > 128),
+                "SVG {} produced blank output",
+                path.display()
+            );
+            count += 1;
+        }
+        assert!(
+            count >= 39,
+            "all embedded SVG UI and workspace icons must rasterize cleanly (found {count})"
+        );
     }
 }

@@ -532,27 +532,20 @@ pub(crate) fn library_dialog(
                                             .text_color(move || theme().foreground),
                                     ),
                             )
-                            .child(
-                                nsh_base::button()
-                                    .accessibility_label(t!("library.saved.delete"))
-                                    .h(px(26.0))
-                                    .px_1()
-                                    .rounded(px(4.0))
-                                    .hover(|s| s.bg(move || theme().muted))
-                                    .on_press(move || {
-                                        if let Some(store) = app_library::store() {
-                                            let _ = store
-                                                .write(move |tx| fts::delete_search(tx, sid))
-                                                .wait();
-                                            refresh();
-                                        }
-                                    })
-                                    .child(
-                                        text("×")
-                                            .text_size(px(12.0))
-                                            .text_color(move || theme().muted_foreground),
-                                    ),
-                            ),
+                            .child(crate::shell::app_menu::close_x_button(
+                                t!("library.saved.delete"),
+                                24.0,
+                                11.0,
+                                5.0,
+                                move || {
+                                    if let Some(store) = app_library::store() {
+                                        let _ = store
+                                            .write(move |tx| fts::delete_search(tx, sid))
+                                            .wait();
+                                        refresh();
+                                    }
+                                },
+                            )),
                     )
                 })
         }))
@@ -1420,24 +1413,17 @@ pub(crate) fn workspace_rules_dialog(
                                 .text_size(px(12.0))
                                 .text_color(move || theme().muted_foreground),
                         )
-                        .child(
-                            nsh_base::button()
-                                .accessibility_label(t!("workspace.rules.delete"))
-                                .h(px(26.0))
-                                .px_1()
-                                .rounded(px(4.0))
-                                .hover(|s| s.bg(move || theme().muted))
-                                .on_press(move || {
-                                    let rid2 = rid.clone();
-                                    let _ = store.write(move |tx| delete_rule(tx, &rid2)).wait();
-                                    tick.update(|n| *n += 1);
-                                })
-                                .child(
-                                    text("×")
-                                        .text_size(px(12.0))
-                                        .text_color(move || theme().muted_foreground),
-                                ),
-                        ),
+                        .child(crate::shell::app_menu::close_x_button(
+                            t!("workspace.rules.delete"),
+                            24.0,
+                            11.0,
+                            5.0,
+                            move || {
+                                let rid2 = rid.clone();
+                                let _ = store.write(move |tx| delete_rule(tx, &rid2)).wait();
+                                tick.update(|n| *n += 1);
+                            },
+                        )),
                 );
             }
             col

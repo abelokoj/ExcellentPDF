@@ -531,8 +531,48 @@ impl Panes {
         }
     }
 
+    /// Opens a right-clicked tab (or all multi-selected tabs when `clicked` is part of a 2+ tab
+    /// selection) in a split view oriented by `side` (`Side::Right` = side-by-side / vertical split,
+    /// `Side::Down` = top-and-bottom / horizontal split).
+    pub(crate) fn open_tabs_in_split(self, clicked: crate::tabs::TabId, side: Side) {
+        let from = self.active();
+        let multi = untracked(|| from.tabs.is_selected(clicked) && from.tabs.selected_count() >= 2);
+        if multi {
+            self.tile_selected_in(side);
+            return;
+        }
+        from.tabs.clear_selected();
+        let is_active = from.tabs.active_id() == Some(clicked);
+        if is_active {
+            if let Some(copy) = from.tabs.copy_of(clicked) {
+                self.split(side, |pane| pane.tabs.adopt(vec![copy]));
+            }
+            return;
+        }
+        // Moving an inactive tab into a split pane keeps the current active tab in the first pane
+        // and places the right-clicked tab beside or below it. If all 4 panes are already open,
+        // restore the tab into the active pane so nothing is lost.
+        if let Some(tab) = from.tabs.take_tab(clicked) {
+            let mut pending = Some(tab);
+            if !self.split(side, |pane| {
+                if let Some(tab) = pending.take() {
+                    pane.tabs.adopt(vec![tab]);
+                }
+            }) && let Some(tab) = pending.take()
+            {
+                from.tabs.adopt(vec![tab]);
+            }
+        }
+    }
+
     /// Tiles the selected tabs (or all tabs in the active pane if < 2 are selected) into a pane grid (V.12).
     fn tile_selected(self) {
+        self.tile_selected_in(Side::Right);
+    }
+
+    /// Tiles the selected tabs into a pane grid oriented by `side` (`Side::Right` side-by-side or
+    /// `Side::Down` top-and-bottom).
+    fn tile_selected_in(self, side: Side) {
         let from = self.active();
         let taken = from.tabs.take_for_tiling(CELLS);
         if taken.len() < 2 {
@@ -545,18 +585,18 @@ impl Panes {
             }
         }
         let mut model = self.layout.with_untracked(Clone::clone);
-        model.tile(taken.len());
+        let cells = model.tile_in(taken.len(), side);
         batch(|| {
             self.layout.set(model);
-            for (cell, tab) in taken.into_iter().enumerate() {
+            for (cell, tab) in cells.iter().copied().zip(taken) {
                 self.slots[cell].tabs.adopt(vec![tab]);
             }
             if !rest.is_empty() {
-                self.slots[0].tabs.adopt(rest);
+                self.slots[cells[0]].tabs.adopt(rest);
             }
-            self.focus(0);
+            self.focus(cells[0]);
         });
-        focus_later(self.slots[0]);
+        focus_later(self.slots[cells[0]]);
     }
 
     /// Collapses tiled panes back into a single tab group in pane 0 (V.12).

@@ -257,6 +257,7 @@ fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoEl
                         .overflow_hidden()
                         .child(tabs::tab_strip(
                             pane.tabs,
+                            panes,
                             pane.home_open,
                             pane.editing,
                             shared.workspaces,

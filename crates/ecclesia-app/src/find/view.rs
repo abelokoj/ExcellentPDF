@@ -89,10 +89,15 @@ pub(crate) fn find_bar(state: FindState) -> impl IntoElement {
             CommandId::Find(FindAction::Next),
             move || state.run(FindAction::Next),
         ))
-        .child(bar_button(
-            "find.close",
-            "×",
-            CommandId::Find(FindAction::Close),
+        .child(crate::shell::app_menu::close_x_button(
+            format!(
+                "{} ({})",
+                t!("find.close"),
+                commands::label_with_shortcut(CommandId::Find(FindAction::Close))
+            ),
+            28.0,
+            12.0,
+            6.0,
             move || state.run(FindAction::Close),
         ))
 }

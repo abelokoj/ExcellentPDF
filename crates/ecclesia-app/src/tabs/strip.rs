@@ -24,7 +24,7 @@ use super::{
 };
 use crate::commands::{self, CommandId};
 use crate::editing::Editing;
-use crate::panes::PaneAction;
+use crate::panes::{PaneAction, Panes, Side};
 use crate::workspaces::Workspaces;
 
 /// Width of pinned compact tabs and O(1) strip bound.
@@ -95,10 +95,22 @@ fn home_icon_src() -> String {
     .clone()
 }
 
+/// Shared strip handles passed to each tab item in the strip.
+#[derive(Clone, Copy)]
+struct TabStripCx {
+    state: TabState,
+    panes: Panes,
+    home_open: Signal<bool>,
+    editing: Editing,
+    workspaces: Workspaces,
+    drag: Signal<Option<TabDrag>>,
+}
+
 /// The strip: always-accessible Home tab, horizontally scrollable O(1) window of tabs sized by
 /// the configured minimum width, the open button, an overflow badge (`+N`), and blank drag space.
 pub(crate) fn tab_strip(
     state: TabState,
+    panes: Panes,
     home_open: Signal<bool>,
     editing: Editing,
     workspaces: Workspaces,
@@ -108,6 +120,14 @@ pub(crate) fn tab_strip(
     let strip = computed(move || state.tabs.with(|t| windowed_items(t, MAX_STRIP_TABS)));
     let overflow = move || strip.with(|(_, hidden)| *hidden);
     let drag = signal(None::<TabDrag>);
+    let cx = TabStripCx {
+        state,
+        panes,
+        home_open,
+        editing,
+        workspaces,
+        drag,
+    };
     let list = tabs()
         .flex_row()
         .flex_shrink(0.0)
@@ -125,9 +145,7 @@ pub(crate) fn tab_strip(
             |item: &Item| *item,
             move |item, _| match item.with_untracked(|item| *item) {
                 Item::Group(id) => group_chip(state, id).into_element(),
-                Item::Tab(id) => {
-                    tab_view(state, home_open, editing, workspaces, id, drag, run).into_element()
-                }
+                Item::Tab(id) => tab_view(cx, id, run).into_element(),
             },
         ));
     let scroller = scroll()
@@ -426,14 +444,18 @@ fn group_chip(state: TabState, id: GroupId) -> impl IntoElement {
 /// One tab: Vivaldi rounded pill (default) or Chrome browser tab, sized by `tab_min_width_px` and `tab_height_px`,
 /// with drag-to-reorder and a full SumatraPDF Enhanced right-click context menu.
 fn tab_view(
-    state: TabState,
-    home_open: Signal<bool>,
-    editing: Editing,
-    workspaces: Workspaces,
+    cx: TabStripCx,
     id: TabId,
-    drag: Signal<Option<TabDrag>>,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
+    let TabStripCx {
+        state,
+        panes,
+        home_open,
+        editing,
+        workspaces,
+        drag,
+    } = cx;
     let tab = computed(move || state.tabs.with(|tabs| tabs.get(id).cloned()));
     let tab_style = move || state.live.read(|s| TabStyle::parse(s.text(TAB_STYLE)));
     let min_tab_px = move || state.live.read(min_width_px);
@@ -679,17 +701,21 @@ fn tab_view(
             }
         })
         .child(tab_view);
-    // The middle button closes, as in browsers; Ctrl/Cmd+Left click multi-selects tabs for tiling (V.12).
+    // The middle button closes, as in browsers; Ctrl/Cmd+Left click and Shift+Left click multi-select
+    // tabs for split/tiling (V.12); plain left-click clears any multi-selection.
     let trigger = view()
         .window_drag(false)
         .on_mouse_up(move |event: &MouseEvent| {
             if event.button == Some(MouseButton::Middle) && !pinned() {
                 state.close(id);
-            } else if event.button == Some(MouseButton::Left)
-                && drag.get_untracked().is_none()
-                && (event.modifiers.ctrl || event.modifiers.cmd || event.modifiers.shift)
-            {
-                state.toggle_selected(id);
+            } else if event.button == Some(MouseButton::Left) && drag.get_untracked().is_none() {
+                if event.modifiers.shift {
+                    state.select_range_to(id);
+                } else if event.modifiers.ctrl || event.modifiers.cmd {
+                    state.ctrl_toggle_selected(id);
+                } else if state.selected_count() > 0 {
+                    state.clear_selected();
+                }
             }
         })
         .flex_row()
@@ -746,6 +772,7 @@ fn tab_view(
         .child(tab_menu_item(t!("tabs.menu.copy_path"), move || {
             state.copy_file_path(id);
         }))
+        .child(open_in_split_submenu(panes, state, home_open, id))
         .child(
             tab_menu_item(t!("tabs.menu.open_new_window"), move || {
                 home_open.set(false);
@@ -867,6 +894,14 @@ enum SubmenuArrow {
 
 /// A trigger or back row inside a tab context menu submenu.
 fn submenu_row(label: String, arrow: SubmenuArrow) -> impl IntoElement {
+    submenu_row_reactive(move || label.clone(), arrow)
+}
+
+/// A trigger or back row inside a tab context menu submenu with a reactive label.
+fn submenu_row_reactive(
+    label: impl Fn() -> String + 'static,
+    arrow: SubmenuArrow,
+) -> impl IntoElement {
     let icon = match arrow {
         SubmenuArrow::Right => crate::shell::app_menu::submenu_arrow_right().into_element(),
         SubmenuArrow::Left => crate::shell::app_menu::submenu_arrow_left().into_element(),
@@ -887,6 +922,53 @@ fn submenu_row(label: String, arrow: SubmenuArrow) -> impl IntoElement {
                 .text_color(move || theme().popover_foreground),
         )
         .child(icon)
+}
+
+/// The "Open in Split" submenu for opening a single right-clicked tab or multiple selected tabs
+/// side-by-side (vertical split) or top-and-bottom (horizontal split).
+fn open_in_split_submenu(
+    panes: Panes,
+    state: TabState,
+    home_open: Signal<bool>,
+    id: TabId,
+) -> SubmenuElement {
+    let trigger_label = move || {
+        let count = state.selected_count();
+        if state.is_selected(id) && count >= 2 {
+            t!("tabs.menu.open_selected_in_split", count = count)
+        } else {
+            t!("tabs.menu.open_in_split")
+        }
+    };
+    submenu()
+        .offset(px(2.0))
+        .trigger(submenu_row_reactive(trigger_label, SubmenuArrow::Right))
+        .back(submenu_row(
+            t!("tabs.menu.open_in_split_back"),
+            SubmenuArrow::Left,
+        ))
+        .child(tab_menu_item(t!("tabs.menu.split_vertically"), move || {
+            home_open.set(false);
+            panes.open_tabs_in_split(id, Side::Right);
+        }))
+        .child(tab_menu_item(
+            t!("tabs.menu.split_horizontally"),
+            move || {
+                home_open.set(false);
+                panes.open_tabs_in_split(id, Side::Down);
+            },
+        ))
+        .child(when(
+            move || panes.is_split(),
+            move || {
+                view().child(tab_menu_separator()).child(tab_menu_item(
+                    t!("tabs.menu.untile_panes"),
+                    move || {
+                        panes.run(PaneAction::Untile);
+                    },
+                ))
+            },
+        ))
 }
 
 /// The "Move to Workspace" submenu listing every other workspace plus "Move to New Workspace".
@@ -1038,15 +1120,18 @@ fn tab_color_swatch_item(
         )
 }
 
-/// A tab's close button.
+/// A tab's close button: circular background turns red with a white `×` on hover.
 fn close_button(
     state: TabState,
     id: TabId,
     title: impl Fn() -> String + Copy + 'static,
     close_pressed: Signal<bool>,
 ) -> impl IntoElement {
+    let hovered = signal(false);
     button()
         .accessibility_label(move || Some(SharedString::from(t!("tabs.close", name = title()))))
+        .on_mouse_enter(move |_: &MouseEvent| hovered.set(true))
+        .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
         .on_press_down(move || close_pressed.set(true))
         .on_press_up(move || close_pressed.set(false))
         .on_press(move || state.close(id))
@@ -1054,16 +1139,22 @@ fn close_button(
         .w(px(20.0))
         .h(px(20.0))
         .flex_shrink(0.0)
-        .rounded(px(4.0))
+        .rounded_full()
         .items_center()
         .justify_center()
-        .hover(|s| s.bg(move || theme().muted))
-        .active(|s| s.opacity(0.7))
-        .child(
-            text("×")
-                .text_size(px(14.0))
-                .text_color(move || theme().muted_foreground),
-        )
+        .hover(|s| s.bg(crate::shell::app_menu::close_hover_red))
+        .active(|s| s.opacity(0.82))
+        .child(crate::shell::app_menu::chrome_icon(
+            crate::shell::app_menu::ChromeIcon::CloseX,
+            11.0,
+            move || {
+                if hovered.get() {
+                    crate::shell::app_menu::close_hover_fg()
+                } else {
+                    theme().muted_foreground
+                }
+            },
+        ))
 }
 
 /// The mark of something pinned (a tab, a recent file): a small filled disc on a stem, drawn from views in `color`.

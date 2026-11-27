@@ -805,19 +805,13 @@ fn search_field(search_query: Signal<String>) -> View {
                 .on_change(move |value: &str| search_query.set(value.to_owned())),
         )
         .child(when(has_query, move || {
-            button()
-                .accessibility_label(t!("settings.search_clear"))
-                .on_press(move || search_query.set(String::new()))
-                .w(px(18.0))
-                .h(px(18.0))
-                .flex_shrink_0()
-                .rounded(px(4.0))
-                .items_center()
-                .justify_center()
-                .hover(|s| s.bg(move || theme().accent))
-                .child(chrome_icon(ChromeIcon::CloseX, 10.0, move || {
-                    theme().muted_foreground
-                }))
+            crate::shell::app_menu::close_x_button(
+                t!("settings.search_clear"),
+                18.0,
+                10.0,
+                9.0,
+                move || search_query.set(String::new()),
+            )
         }))
 }
 
@@ -991,21 +985,13 @@ fn page_heading(
 
 /// Top-right close icon button for the settings pane.
 fn close_button(close: impl Fn() + 'static) -> impl IntoElement {
-    button()
-        .accessibility_label(t!("tabs.properties.close"))
-        .on_press(close)
-        .w(px(28.0))
-        .h(px(28.0))
-        .flex_shrink_0()
-        .rounded(px(CONTROL_RADIUS))
-        .items_center()
-        .justify_center()
-        .hover(|s| s.bg(move || theme().accent))
-        .active(|s| s.opacity(0.75))
-        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
-        .child(chrome_icon(ChromeIcon::CloseX, 13.0, move || {
-            theme().muted_foreground
-        }))
+    crate::shell::app_menu::close_x_button(
+        t!("tabs.properties.close"),
+        28.0,
+        13.0,
+        CONTROL_RADIUS,
+        close,
+    )
 }
 
 /// Builds the grouped cards for one section, optionally filtering rows by a lowercase search query.

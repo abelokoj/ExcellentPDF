@@ -781,13 +781,40 @@ impl TabState {
     }
 
     /// Toggles `id` in the multi-selection set (V.12).
-    pub(crate) fn toggle_selected(self, id: TabId) {
-        self.tabs.update(|tabs| tabs.toggle_selected(id));
+    pub(crate) fn ctrl_toggle_selected(self, id: TabId) {
+        self.tabs.update(|tabs| tabs.ctrl_toggle_selected(id));
+    }
+
+    /// Selects the contiguous range of tabs from the active/anchor tab through `id` inclusive.
+    pub(crate) fn select_range_to(self, id: TabId) {
+        self.tabs.update(|tabs| tabs.select_range_to(id));
+    }
+
+    /// Clears all multi-selected tabs.
+    pub(crate) fn clear_selected(self) {
+        self.tabs.update(Tabs::clear_selected);
     }
 
     /// Whether `id` is multi-selected (V.12).
     pub(crate) fn is_selected(self, id: TabId) -> bool {
         self.tabs.with(|tabs| tabs.is_selected(id))
+    }
+
+    /// Number of currently multi-selected tabs.
+    pub(crate) fn selected_count(self) -> usize {
+        self.tabs.with(|tabs| tabs.selected_ids().len())
+    }
+
+    /// The currently active tab's id, if any (untracked).
+    pub(crate) fn active_id(self) -> Option<TabId> {
+        self.tabs
+            .with_untracked(|tabs| tabs.active().map(|tab| tab.id))
+    }
+
+    /// Returns a duplicate of tab `id` at its current page/view without closing the original.
+    pub(crate) fn copy_of(self, id: TabId) -> Option<Closed> {
+        let mut tabs = self.current();
+        tabs.take(id)
     }
 
     /// Takes up to `max` tabs to tile (the multi-selected tabs if >= 2, else up to `max` tabs from the strip,

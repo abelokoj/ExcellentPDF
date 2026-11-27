@@ -1615,22 +1615,13 @@ fn thumbnail_card(
                         .text_color(move || theme().muted_foreground),
                 ),
         )
-        .child(
-            button()
-                .accessibility_label(t!("recent.remove", name = name_remove))
-                .on_press(move || recent.remove(path_remove.clone()))
-                .w(px(20.0))
-                .h(px(20.0))
-                .rounded(px(4.0))
-                .items_center()
-                .justify_center()
-                .hover(|s| s.bg(move || theme().muted))
-                .child(
-                    text("×")
-                        .text_size(px(13.0))
-                        .text_color(move || theme().muted_foreground),
-                ),
-        );
+        .child(crate::shell::app_menu::close_x_button(
+            t!("recent.remove", name = name_remove),
+            20.0,
+            10.0,
+            10.0,
+            move || recent.remove(path_remove.clone()),
+        ));
 
     view()
         .w(move || px(card_w() + if thumb_padding() { 18.0 } else { 0.0 }))
@@ -1791,22 +1782,13 @@ fn list_row(
                         .text_color(move || theme().muted_foreground),
                 ),
         )
-        .child(
-            button()
-                .accessibility_label(t!("recent.remove", name = name))
-                .on_press(move || recent.remove(path_remove.clone()))
-                .w(px(28.0))
-                .h(px(28.0))
-                .rounded(px(6.0))
-                .items_center()
-                .justify_center()
-                .hover(|s| s.bg(move || theme().muted))
-                .child(
-                    text("×")
-                        .text_size(px(15.0))
-                        .text_color(move || theme().muted_foreground),
-                ),
-        )
+        .child(crate::shell::app_menu::close_x_button(
+            t!("recent.remove", name = name),
+            26.0,
+            12.0,
+            13.0,
+            move || recent.remove(path_remove.clone()),
+        ))
 }
 
 /// The workspaces, each a chip with its colour, icon, name and tab count; pressing one switches to it.

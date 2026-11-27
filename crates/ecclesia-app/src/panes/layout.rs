@@ -226,16 +226,33 @@ impl Layout {
     }
 
     /// Configures the layout into a grid of `count` tiled panes (`2..=4`) and equalizes sizes (V.12).
+    #[cfg(test)]
     pub(crate) fn tile(&mut self, count: usize) {
+        let _ = self.tile_in(count, Side::Right);
+    }
+
+    /// Configures the layout into `count` tiled panes (`2..=4`) oriented by `side`:
+    /// `Side::Right | Side::Left` arranges 2 panes side-by-side (`[0, 1]`), while
+    /// `Side::Down | Side::Up` arranges 2 panes top-and-bottom (`[0, 2]`).
+    /// Returns the ordered list of opened cell indices matching the tiled tabs.
+    pub(crate) fn tile_in(&mut self, count: usize, side: Side) -> Vec<usize> {
         let count = count.clamp(2, CELLS);
-        self.open = match count {
-            2 => [true, true, false, false],
-            3 => [true, true, true, false],
-            _ => [true, true, true, true],
+        let vertical_stack = matches!(side, Side::Down | Side::Up);
+        let cells = match (count, vertical_stack) {
+            (2, false) => vec![0, 1],
+            (2, true) => vec![0, 2],
+            (3, false) => vec![0, 1, 2],
+            (3, true) => vec![0, 2, 3],
+            _ => vec![0, 1, 2, 3],
         };
-        self.active = 0;
+        self.open = [false; CELLS];
+        for &cell in &cells {
+            self.open[cell] = true;
+        }
+        self.active = cells[0];
         self.maximized = None;
         self.equalize();
+        cells
     }
 
     /// Collapses the grid back to a single pane at cell 0 (V.12 untile).
@@ -482,5 +499,19 @@ mod tests {
         assert_eq!(layout.column_size(0), Some(EQUAL));
         assert_eq!(layout.column_size(1), Some(EQUAL));
         assert_eq!(layout.row_size(0), None, "one row: it takes the room");
+    }
+
+    #[test]
+    fn tile_in_supports_vertical_and_horizontal_split_orientations() {
+        let mut layout = Layout::default();
+        assert_eq!(layout.tile_in(2, Side::Right), vec![0, 1]);
+        assert!(layout.is_open(0) && layout.is_open(1) && !layout.is_open(2) && !layout.is_open(3));
+
+        assert_eq!(layout.tile_in(2, Side::Down), vec![0, 2]);
+        assert!(layout.is_open(0) && !layout.is_open(1) && layout.is_open(2) && !layout.is_open(3));
+        assert!(layout.row_open(0) && layout.row_open(1));
+
+        assert_eq!(layout.tile_in(3, Side::Down), vec![0, 2, 3]);
+        assert_eq!(layout.count(), 3);
     }
 }

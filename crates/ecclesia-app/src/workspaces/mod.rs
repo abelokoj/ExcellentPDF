@@ -99,14 +99,14 @@ pub(crate) enum WorkspaceAction {
 /// Which of the workspace dialogs is open.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Dialog {
-    /// The list, to switch.
+    /// The Vivaldi-style workspace dropdown to switch, reorder, edit, or delete workspaces.
     Switch,
     /// The list, to send the shown tab to the one picked.
     Send(Transfer),
-    /// The shown workspace's edit dialog.
-    Edit,
+    /// A workspace's edit dialog.
+    Edit(WorkspaceId),
     /// "Delete this workspace?": move its tabs or close them.
-    Delete,
+    Delete(WorkspaceId),
     /// The list, to open the one picked in a new window (W.8).
     Window,
     /// What came of an export or an import (W.11).
@@ -224,6 +224,11 @@ impl Workspaces {
     /// The shown workspace's row (tracked).
     pub(crate) fn shown(self) -> Option<Workspace> {
         let id = self.shown.get();
+        self.workspace(id)
+    }
+
+    /// Workspace `id`'s row (tracked).
+    pub(crate) fn workspace(self, id: WorkspaceId) -> Option<Workspace> {
         self.list
             .with(|list| list.iter().find(|w| w.id == id).cloned())
     }
@@ -240,6 +245,16 @@ impl Workspaces {
             .into_iter()
             .map(|pane| pane.tabs.count())
             .sum()
+    }
+
+    /// How many tabs workspace `id` has (live count for the shown workspace, saved count for others).
+    pub(crate) fn tab_count_of(self, id: WorkspaceId) -> usize {
+        if id == self.shown.get() {
+            self.shown_tab_count()
+        } else {
+            self.list
+                .with(|list| list.iter().find(|w| w.id == id).map_or(0, |w| w.tabs))
+        }
     }
 
     /// The open dialog, if any (tracked).
@@ -262,8 +277,11 @@ impl Workspaces {
         match action {
             WorkspaceAction::Switcher => self.set_dialog(Some(Dialog::Switch)),
             WorkspaceAction::New(start) => self.create(start),
-            WorkspaceAction::Edit => self.set_dialog(Some(Dialog::Edit)),
-            WorkspaceAction::Shift(step) => self.shift(step),
+            WorkspaceAction::Edit => {
+                let id = self.shown.get_untracked();
+                self.set_dialog(Some(Dialog::Edit(id)));
+            }
+            WorkspaceAction::Shift(step) => self.shift_id(self.shown.get_untracked(), step),
             WorkspaceAction::SendTab(send) => {
                 if self.list.with_untracked(Vec::len) > 1 {
                     self.set_dialog(Some(Dialog::Send(send)));
@@ -442,9 +460,8 @@ impl Workspaces {
         }
     }
 
-    /// Gives the shown workspace a new look.
-    pub(crate) fn restyle(self, look: Look) {
-        let id = self.shown.get_untracked();
+    /// Gives workspace `id` a new look.
+    pub(crate) fn restyle_id(self, id: WorkspaceId, look: Look) {
         let saved = look.clone();
         self.write(move |tx| workspaces::restyle(tx, id, &saved));
         self.list.update(|list| {
@@ -456,30 +473,57 @@ impl Workspaces {
         });
     }
 
-    /// The workspace the shown one's tabs go to when it is deleted, and that is shown then: one no other window
-    /// shows (W.8).
-    pub(crate) fn neighbour(self) -> Option<Workspace> {
-        let shown = self.shown.get();
+    /// The workspace `target`'s tabs go to when it is deleted: one no other window shows (W.8).
+    pub(crate) fn neighbour_for(self, target: WorkspaceId) -> Option<Workspace> {
         let ids: Vec<WorkspaceId> = self.list.with(|list| list.iter().map(|w| w.id).collect());
-        let to = neighbour(&windows::free_for(self.window, &ids), shown)?;
+        let to = neighbour(&windows::free_for(self.window, &ids), target)?;
         self.list
             .with(|list| list.iter().find(|w| w.id == to).cloned())
     }
 
-    /// Deletes the shown workspace (W.3), moving its tabs to its neighbour or closing them. The last workspace stays.
+    /// Deletes workspace `id` (W.3), moving its tabs to its neighbour or closing them. The last workspace stays.
     /// Edits are saved as they are made (K.15), so closing tabs here loses no work.
-    pub(crate) fn delete_shown(self, tabs_go: ClosingTabs) {
-        let Some(to) = self.neighbour().map(|w| w.id) else {
+    pub(crate) fn delete_id(self, id: WorkspaceId, tabs_go: ClosingTabs) {
+        if id == self.shown.get_untracked() {
+            let Some(to) = self.neighbour_for(id).map(|w| w.id) else {
+                return;
+            };
+            let tabs = match tabs_go {
+                ClosingTabs::Move => self.panes.take_every_tab(),
+                ClosingTabs::Close => Vec::new(),
+            };
+            self.switch(to);
+            self.panes.active().tabs.adopt(tabs);
+            self.write(move |tx| workspaces::delete(tx, id).map(drop));
+            self.reload();
             return;
-        };
-        let gone = self.shown.get_untracked();
-        let tabs = match tabs_go {
-            ClosingTabs::Move => self.panes.take_every_tab(),
-            ClosingTabs::Close => Vec::new(),
-        };
-        self.switch(to);
-        self.panes.active().tabs.adopt(tabs);
-        self.write(move |tx| workspaces::delete(tx, gone).map(drop));
+        }
+        if self.list.with_untracked(Vec::len) <= 1 || self.in_other_window(id) {
+            return;
+        }
+        if tabs_go == ClosingTabs::Move
+            && let Some(dest) = self.neighbour_for(id).map(|w| w.id)
+        {
+            let restored = session::load(id).unwrap_or_default();
+            let mut moved = Vec::new();
+            for mut pane_tabs in restored.tabs {
+                while let Some(tab_id) = pane_tabs.all().first().map(|t| t.id) {
+                    if let Some(closed) = pane_tabs.take(tab_id) {
+                        moved.push(closed);
+                    } else {
+                        break;
+                    }
+                }
+            }
+            if dest == self.shown.get_untracked() {
+                self.panes.active().tabs.adopt(moved);
+            } else {
+                for tab in &moved {
+                    session::add_to(dest, tab);
+                }
+            }
+        }
+        self.write(move |tx| workspaces::delete(tx, id).map(drop));
         self.reload();
     }
 
@@ -570,17 +614,41 @@ impl Workspaces {
         self.reload();
         self.switch(id);
         self.panes.active().tabs.adopt(tabs);
-        self.set_dialog(Some(Dialog::Edit));
+        self.set_dialog(Some(Dialog::Edit(id)));
     }
 
-    /// Moves the shown workspace one place in the list.
-    fn shift(self, step: Step) {
-        let shown = self.shown.get_untracked();
-        let order = shifted(&self.ids(), shown, step);
+    /// Moves workspace `id` one place up or down in the list.
+    pub(crate) fn shift_id(self, id: WorkspaceId, step: Step) {
+        let order = shifted(&self.ids(), id, step);
         let ids = order.clone();
         self.write(move |tx| workspaces::reorder(tx, &ids));
         self.list
-            .update(|list| list.sort_by_key(|w| order.iter().position(|&id| id == w.id)));
+            .update(|list| list.sort_by_key(|w| order.iter().position(|&wid| wid == w.id)));
+    }
+
+    /// Steps workspace `id` by `delta` vertical slots (positive = down, negative = up), persisting
+    /// the new order and returning `true` if its position changed.
+    pub(crate) fn step_workspace_by(self, id: WorkspaceId, delta: isize) -> bool {
+        if delta == 0 {
+            return false;
+        }
+        let mut order = self.ids();
+        let Some(from) = order.iter().position(|&wid| wid == id) else {
+            return false;
+        };
+        let to = from
+            .saturating_add_signed(delta)
+            .min(order.len().saturating_sub(1));
+        if to == from {
+            return false;
+        }
+        let moved = order.remove(from);
+        order.insert(to, moved);
+        let ids = order.clone();
+        self.write(move |tx| workspaces::reorder(tx, &ids));
+        self.list
+            .update(|list| list.sort_by_key(|w| order.iter().position(|&wid| wid == w.id)));
+        true
     }
 
     /// The workspaces' ids, in order.

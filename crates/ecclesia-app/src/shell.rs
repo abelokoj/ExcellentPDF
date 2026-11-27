@@ -1814,6 +1814,7 @@ fn window_bar(
                         of_active(panes, move |pane| {
                             tabs::tab_strip(
                                 pane.tabs,
+                                panes,
                                 pane.home_open,
                                 pane.editing,
                                 workspaces,
@@ -2231,21 +2232,7 @@ fn right_sidebar(
 
 /// Compact `×` close button in the left drawer and right sidebar headers.
 fn drawer_close_button(on_close: impl Fn() + 'static) -> impl IntoElement {
-    button()
-        .accessibility_label(t!("sidebar.close_panel"))
-        .on_press(on_close)
-        .w(px(24.0))
-        .h(px(24.0))
-        .flex_shrink(0.0)
-        .rounded(px(5.0))
-        .items_center()
-        .justify_center()
-        .hover(|s| s.bg(move || theme().sidebar_accent))
-        .active(|s| s.opacity(0.7))
-        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
-        .child(app_menu::chrome_icon(ChromeIcon::CloseX, 12.0, move || {
-            theme().muted_foreground
-        }))
+    app_menu::close_x_button(t!("sidebar.close_panel"), 24.0, 12.0, 5.0, on_close)
 }
 
 /// The one button of a panel's message, in the primary colour, labelled by the translation `key`.

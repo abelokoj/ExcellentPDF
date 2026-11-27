@@ -327,24 +327,19 @@ pub(crate) fn template_packs_dialog(state: NotebooksState) -> impl IntoElement {
                             move || pid != "builtin",
                             move || {
                                 let p2 = item.pack_id.clone();
-                                nsh_base::button()
-                                    .accessibility_label(t!("notebooks.packs.remove"))
-                                    .h(px(26.0))
-                                    .px_1()
-                                    .rounded(px(4.0))
-                                    .hover(|s| s.bg(move || theme().muted))
-                                    .on_press(move || {
+                                crate::shell::app_menu::close_x_button(
+                                    t!("notebooks.packs.remove"),
+                                    24.0,
+                                    11.0,
+                                    5.0,
+                                    move || {
                                         if let Ok(mut cat) = TemplatePackCatalog::open(packs_dir())
                                         {
                                             let _ = cat.remove(&p2);
                                             refresh();
                                         }
-                                    })
-                                    .child(
-                                        text("×")
-                                            .text_size(px(12.0))
-                                            .text_color(move || theme().muted_foreground),
-                                    )
+                                    },
+                                )
                             },
                         )),
                 )

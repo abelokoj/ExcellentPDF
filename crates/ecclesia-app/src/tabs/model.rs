@@ -527,6 +527,42 @@ impl Tabs {
         }
     }
 
+    /// Browser-style `Ctrl+Click` multi-selection: when starting a new selection on a tab other than
+    /// the active one, includes the active tab first so two tabs are immediately selected.
+    pub(crate) fn ctrl_toggle_selected(&mut self, id: TabId) {
+        if self.get(id).is_none() {
+            return;
+        }
+        if self.selected.is_empty()
+            && let Some(active) = self.active
+            && active != id
+        {
+            self.selected.push(active);
+        }
+        self.toggle_selected(id);
+    }
+
+    /// Browser-style `Shift+Click` range selection: selects every tab from the active tab (or the
+    /// first selected tab) through `id` inclusive in strip order.
+    pub(crate) fn select_range_to(&mut self, id: TabId) {
+        let Some(end) = self.index_of(id) else {
+            return;
+        };
+        let anchor = self
+            .selected
+            .first()
+            .copied()
+            .or(self.active)
+            .and_then(|tab_id| self.index_of(tab_id))
+            .unwrap_or(end);
+        let (lo, hi) = if anchor <= end {
+            (anchor, end)
+        } else {
+            (end, anchor)
+        };
+        self.selected = self.tabs[lo..=hi].iter().map(|tab| tab.id).collect();
+    }
+
     /// The currently multi-selected tab ids in selection order (V.12).
     pub(crate) fn selected_ids(&self) -> &[TabId] {
         &self.selected
@@ -892,5 +928,24 @@ mod tests {
         assert_eq!(tabs.get(ids[0]).and_then(|t| t.group), None);
         assert_eq!(tabs.get(ids[1]).and_then(|t| t.group), Some(group));
         assert_eq!(tabs.get(ids[2]).and_then(|t| t.group), Some(group));
+    }
+
+    #[test]
+    fn ctrl_and_shift_selection_select_multiple_tabs_for_split() {
+        let (mut tabs, ids) = tabs(&["a", "b", "c", "d"]);
+        tabs.activate(ids[0]);
+        assert!(tabs.selected_ids().is_empty());
+
+        // Ctrl+Click on another tab automatically includes the active tab first.
+        tabs.ctrl_toggle_selected(ids[2]);
+        assert_eq!(tabs.selected_ids(), &[ids[0], ids[2]]);
+
+        // Ctrl+Click again deselects that tab.
+        tabs.ctrl_toggle_selected(ids[2]);
+        assert_eq!(tabs.selected_ids(), &[ids[0]]);
+
+        // Shift+Click selects the contiguous range from the anchor to the clicked tab.
+        tabs.select_range_to(ids[3]);
+        assert_eq!(tabs.selected_ids(), &[ids[0], ids[1], ids[2], ids[3]]);
     }
 }
