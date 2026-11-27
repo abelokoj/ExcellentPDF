@@ -224,6 +224,19 @@ pub type ex_font_loader = ::core::option::Option<
 unsafe extern "C" {
     pub fn ex_set_font_loader(loader: ex_font_loader);
 }
+pub type ex_system_font_lookup = ::core::option::Option<
+    unsafe extern "C" fn(
+        name: *const ::core::ffi::c_char,
+        bold: ::core::ffi::c_int,
+        italic: ::core::ffi::c_int,
+        path_buf: *mut ::core::ffi::c_char,
+        path_cap: ::core::ffi::c_int,
+        face_index: *mut ::core::ffi::c_int,
+    ) -> ::core::ffi::c_int,
+>;
+unsafe extern "C" {
+    pub fn ex_set_system_font_lookup(lookup: ex_system_font_lookup);
+}
 unsafe extern "C" {
     pub fn ex_new_context(out: *mut *mut fz_context, err: *mut ex_error) -> ::core::ffi::c_int;
 }
@@ -281,6 +294,15 @@ unsafe extern "C" {
         ctx: *mut fz_context,
         doc: *mut fz_document,
         out: *mut ::core::ffi::c_int,
+        err: *mut ex_error,
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn ex_style_document(
+        ctx: *mut fz_context,
+        doc: *mut fz_document,
+        use_document_css: ::core::ffi::c_int,
+        user_css: *const ::core::ffi::c_char,
         err: *mut ex_error,
     ) -> ::core::ffi::c_int;
 }

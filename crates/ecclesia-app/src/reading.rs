@@ -37,6 +37,12 @@ pub(crate) const READING_THEME: &str = "reading_theme";
 pub(crate) const READING_INK: &str = "reading_ink";
 pub(crate) const READING_PAPER: &str = "reading_paper";
 pub(crate) const REFLOW_FONT_SIZE: &str = "reflow_font_size";
+/// Settings key for the system font family name used for reflowable documents (`None` = built-in default).
+pub(crate) const REFLOW_FONT_FAMILY: &str = "reflow_font_family";
+/// Settings key for whether reflowable documents apply their own embedded CSS (`true` by default).
+pub(crate) const REFLOW_USE_DOCUMENT_CSS: &str = "reflow_use_document_css";
+/// Settings key for an optional user `.css` stylesheet file path applied to reflowable documents.
+pub(crate) const REFLOW_USER_CSS_PATH: &str = "reflow_user_css_path";
 pub(crate) const REF_PREVIEW: &str = "ref_preview";
 
 /// The settings flag for the paper's grain over the pages (R.23); off by default.
@@ -108,6 +114,51 @@ impl Reading {
         self.live
             .read(|settings| settings.number(REFLOW_FONT_SIZE))
             .map_or(JsonValue::Null, JsonValue::from)
+    }
+
+    /// The canvas's `reflowStyle` prop: `{useDocumentCss, userCss}` synthesized from the chosen system font
+    /// family and optional custom `.css` file.
+    pub(crate) fn reflow_style_prop(self) -> JsonValue {
+        const MAX_CSS_BYTES: usize = 1024 * 1024;
+        self.live.read(|settings| {
+            let use_document_css = settings.flag(REFLOW_USE_DOCUMENT_CSS).unwrap_or(true);
+            let font_family = settings
+                .text(REFLOW_FONT_FAMILY)
+                .map(str::trim)
+                .filter(|s| !s.is_empty());
+            let file_css = settings
+                .text(REFLOW_USER_CSS_PATH)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .and_then(|path| match std::fs::read(path) {
+                    Ok(bytes) if bytes.len() <= MAX_CSS_BYTES => match String::from_utf8(bytes) {
+                        Ok(text) => Some(text),
+                        Err(err) => {
+                            log::warn!("custom CSS file `{path}` is not valid UTF-8: {err}");
+                            None
+                        }
+                    },
+                    Ok(bytes) => {
+                        log::warn!(
+                            "custom CSS file `{path}` is too large ({} bytes, max {MAX_CSS_BYTES})",
+                            bytes.len()
+                        );
+                        None
+                    }
+                    Err(err) => {
+                        log::warn!("cannot read custom CSS file `{path}`: {err}");
+                        None
+                    }
+                });
+            let user_css =
+                ecclesia_core::formats::build_reflow_css(font_family, file_css.as_deref());
+            let mut obj = serde_json::Map::new();
+            obj.insert("useDocumentCss".into(), JsonValue::Bool(use_document_css));
+            if let Some(css) = user_css {
+                obj.insert("userCss".into(), JsonValue::String(css));
+            }
+            JsonValue::Object(obj)
+        })
     }
 
     /// The canvas's `paperTexture` prop: the grain's strength, or 0 while the setting is off (R.23).

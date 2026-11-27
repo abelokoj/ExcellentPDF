@@ -28,7 +28,8 @@ use ecclesia_ink::shapes;
 use ecclesia_ink::stroke::InkPoint;
 use ecclesia_ink::stroke::Stroke;
 use ecclesia_mupdf::{
-    DeviceRect, DisplayList, Link, PageBox, PagePoint, PageRect, Pixmap, Reflow, Target, TextLayout,
+    DeviceRect, DisplayList, Link, PageBox, PagePoint, PageRect, Pixmap, Reflow, ReflowStyle,
+    Target, TextLayout,
 };
 use ecclesia_text::{Granularity, PageText, Selection, TextPos};
 use nsh_core::JsonValue;
@@ -165,11 +166,14 @@ struct Opened {
     labels: Option<Vec<String>>,
     /// The pages a reflowable book was laid out on (R.28); `None` for fixed pages.
     reflow: Option<Reflow>,
+    /// The style (document CSS + user CSS/font) applied to a reflowable book.
+    reflow_style: ReflowStyle,
 }
 
 /// A book laid out again (R.28): its new pages, and the page that starts where the reader was.
 struct Reflowed {
     reflow: Reflow,
+    style: ReflowStyle,
     bounds: Vec<PageRect>,
     kept: Option<usize>,
 }
@@ -179,6 +183,7 @@ struct Reloaded {
     bounds: Vec<PageRect>,
     labels: Option<Vec<String>>,
     reflow: Option<Reflow>,
+    reflow_style: ReflowStyle,
     saved: Option<SavedView>,
 }
 
@@ -272,6 +277,10 @@ pub struct PageCanvas<H: Host> {
     reading: reading::Reading,
     /// A reflowable book's text size, in points (R.28).
     font_size: f32,
+    /// Desired styling (document CSS toggle + user CSS/font) for reflowable books.
+    reflow_style: ReflowStyle,
+    /// Styling last applied to the currently open reflowable book.
+    applied_reflow_style: ReflowStyle,
     /// The pages the book shown is laid out on; `None` for fixed pages.
     reflow: Option<Reflow>,
     /// The book being laid out again for a new window size or text size.
@@ -393,6 +402,8 @@ impl<H: Host> PageCanvas<H> {
             page_colors: None,
             reading: reading::Reading::default(),
             font_size: formats::DEFAULT_FONT_SIZE,
+            reflow_style: ReflowStyle::default(),
+            applied_reflow_style: ReflowStyle::default(),
             reflow: None,
             reflowing: None,
             reflow_again: false,
@@ -421,8 +432,9 @@ impl<H: Host> PageCanvas<H> {
         self.opened_at = Some(Instant::now());
         let page_box = self.view.page_box;
         let reflow = self.reflow_size();
+        let reflow_style = self.reflow_style.clone();
         self.opening = self.in_background("open-document", move || {
-            open_document(&path, page_box, reflow)
+            open_document(&path, page_box, reflow, reflow_style)
         });
     }
 
@@ -443,7 +455,16 @@ impl<H: Host> PageCanvas<H> {
         self.reflow();
     }
 
-    /// Lays the book shown out again for the window and the text size, on a background thread, keeping the
+    /// The reader's custom CSS and document-CSS preference for reflowable books (EPUB, FB2, MOBI, HTML, Markdown).
+    pub fn set_reflow_style(&mut self, style: ReflowStyle) {
+        if self.reflow_style == style {
+            return;
+        }
+        self.reflow_style = style;
+        self.reflow();
+    }
+
+    /// Lays the book shown out again for the window, text size, and stylesheet, on a background thread, keeping the
     /// reader's place. Fixed pages, and a book already laid out so, are left alone; a change while a layout runs
     /// waits for it.
     fn reflow(&mut self) {
@@ -455,17 +476,19 @@ impl<H: Host> PageCanvas<H> {
             return;
         }
         let target = self.reflow_size();
-        if target == current {
+        let target_style = self.reflow_style.clone();
+        if target == current && target_style == self.applied_reflow_style {
             return;
         }
         let keep = self.viewport.current_page(&self.layout);
         let page_box = self.view.page_box;
         self.reflowing = self.in_background("reflow", move || {
-            let kept = document.reflow(target, keep)?;
+            let kept = document.reflow_with_style(target, &target_style, keep)?;
             let mupdf = document.mupdf()?;
             let bounds = page_boxes(&mupdf.lock().expect("document lock poisoned"), page_box)?;
             Ok(Reflowed {
                 reflow: target,
+                style: target_style,
                 bounds,
                 kept,
             })
@@ -1711,6 +1734,7 @@ impl<H: Host> PageCanvas<H> {
             Ok(opened) => {
                 self.bounds = opened.bounds;
                 self.reflow = opened.reflow;
+                self.applied_reflow_style = opened.reflow_style;
                 self.document = Some(opened.document);
                 self.view.history = Default::default();
                 // R.3: a document that reads right to left opens that way, without a setting.
@@ -1750,6 +1774,7 @@ impl<H: Host> PageCanvas<H> {
         match result {
             Ok(reflowed) => {
                 self.reflow = Some(reflowed.reflow);
+                self.applied_reflow_style = reflowed.style;
                 self.bounds = reflowed.bounds;
                 self.forget_pages();
                 // Page numbers before the layout mean other text now.
@@ -2162,7 +2187,9 @@ impl<H: Host> PageCanvas<H> {
         });
         let page_box = self.view.page_box;
         let reflow = self.reflow_size();
+        let reflow_style = self.reflow_style.clone();
         self.reloading = self.in_background("reload-document", move || {
+            document.reflow_with_style(reflow, &reflow_style, None)?;
             let mupdf = document.mupdf()?;
             let mupdf = mupdf.lock().expect("document lock poisoned");
             let reflow = mupdf.is_reflowable()?.then_some(reflow);
@@ -2175,6 +2202,7 @@ impl<H: Host> PageCanvas<H> {
                 bounds,
                 labels,
                 reflow,
+                reflow_style,
                 saved,
             })
         });
@@ -2189,6 +2217,7 @@ impl<H: Host> PageCanvas<H> {
             Ok(reloaded) => {
                 self.bounds = reloaded.bounds;
                 self.reflow = reloaded.reflow;
+                self.applied_reflow_style = reloaded.reflow_style;
                 self.forget_pages();
                 if let Some(document) = &self.document {
                     self.edits = document.edits();
@@ -2347,9 +2376,14 @@ fn page_boxes(
 /// and reads every page's size and the reading direction (on a background thread).
 // shortcut: two views of one book share its layout, so the last to lay it out wins; per-view layouts would need a
 // MuPDF document each (V.1's split views).
-fn open_document(path: &Path, page_box: PageBox, reflow: Reflow) -> document::Result<Opened> {
+fn open_document(
+    path: &Path,
+    page_box: PageBox,
+    reflow: Reflow,
+    reflow_style: ReflowStyle,
+) -> document::Result<Opened> {
     let document = registry().open(path)?;
-    document.reflow(reflow, None)?;
+    document.reflow_with_style(reflow, &reflow_style, None)?;
     let (bounds, right_to_left, labels, reflow) = {
         let mupdf = document.mupdf()?;
         let mupdf = mupdf.lock().expect("document lock poisoned");
@@ -2371,6 +2405,7 @@ fn open_document(path: &Path, page_box: PageBox, reflow: Reflow) -> document::Re
         right_to_left,
         labels,
         reflow,
+        reflow_style,
     })
 }
 

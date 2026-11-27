@@ -19,20 +19,21 @@ use crate::tabs::{Action as TabAction, Step};
 use crate::workspaces::WorkspaceAction;
 
 const APP_ICON_PNG: &[u8] = include_bytes!("../../assets/app-icon-64.png");
-const TRIANGLE_DOWN_PNG: &[u8] = include_bytes!("../../assets/icons/triangle-down.png");
-const TRIANGLE_RIGHT_PNG: &[u8] = include_bytes!("../../assets/icons/triangle-right.png");
-const TRIANGLE_LEFT_PNG: &[u8] = include_bytes!("../../assets/icons/triangle-left.png");
-const CHEVRON_DOWN_PNG: &[u8] = include_bytes!("../../assets/icons/chevron-down.png");
-const SIDEBAR_LEFT_PNG: &[u8] = include_bytes!("../../assets/icons/sidebar-left.png");
-const SIDEBAR_RIGHT_PNG: &[u8] = include_bytes!("../../assets/icons/sidebar-right.png");
-const RAIL_PAGES_PNG: &[u8] = include_bytes!("../../assets/icons/rail-pages.png");
-const RAIL_OUTLINE_PNG: &[u8] = include_bytes!("../../assets/icons/rail-outline.png");
-const RAIL_BOOKMARKS_PNG: &[u8] = include_bytes!("../../assets/icons/rail-bookmarks.png");
-const RAIL_ANNOTATIONS_PNG: &[u8] = include_bytes!("../../assets/icons/rail-annotations.png");
-const SEARCH_PNG: &[u8] = include_bytes!("../../assets/icons/search.png");
-const BOOK_PNG: &[u8] = include_bytes!("../../assets/icons/book.png");
-const PALETTE_PNG: &[u8] = include_bytes!("../../assets/icons/palette.png");
-const CLOSE_X_PNG: &[u8] = include_bytes!("../../assets/icons/close-x.png");
+const TRIANGLE_DOWN_SVG: &[u8] = include_bytes!("../../assets/icons/triangle-down.svg");
+const TRIANGLE_RIGHT_SVG: &[u8] = include_bytes!("../../assets/icons/triangle-right.svg");
+const TRIANGLE_LEFT_SVG: &[u8] = include_bytes!("../../assets/icons/triangle-left.svg");
+const CHEVRON_DOWN_SVG: &[u8] = include_bytes!("../../assets/icons/chevron-down.svg");
+const SIDEBAR_LEFT_SVG: &[u8] = include_bytes!("../../assets/icons/sidebar-left.svg");
+const SIDEBAR_RIGHT_SVG: &[u8] = include_bytes!("../../assets/icons/sidebar-right.svg");
+const RAIL_PAGES_SVG: &[u8] = include_bytes!("../../assets/icons/rail-pages.svg");
+const RAIL_OUTLINE_SVG: &[u8] = include_bytes!("../../assets/icons/rail-outline.svg");
+const RAIL_BOOKMARKS_SVG: &[u8] = include_bytes!("../../assets/icons/rail-bookmarks.svg");
+const RAIL_ANNOTATIONS_SVG: &[u8] = include_bytes!("../../assets/icons/rail-annotations.svg");
+const SEARCH_SVG: &[u8] = include_bytes!("../../assets/icons/search.svg");
+const BOOK_SVG: &[u8] = include_bytes!("../../assets/icons/book.svg");
+const PALETTE_SVG: &[u8] = include_bytes!("../../assets/icons/palette.svg");
+const CLOSE_X_SVG: &[u8] = include_bytes!("../../assets/icons/close-x.svg");
+const TRASH_SVG: &[u8] = include_bytes!("../../assets/icons/trash.svg");
 
 /// Monochrome white-on-transparent chrome icons tinted to the active theme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,11 +58,14 @@ pub(crate) enum ChromeIcon {
     RailSettings,
     /// Drawer header close icon.
     CloseX,
+    /// Trash-can delete icon for annotation and highlight removal.
+    Trash,
 }
 
 impl ChromeIcon {
     fn uri(self) -> String {
-        static CACHE: [OnceLock<String>; 10] = [
+        static CACHE: [OnceLock<String>; 11] = [
+            OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
@@ -74,19 +78,20 @@ impl ChromeIcon {
             OnceLock::new(),
         ];
         let (slot, bytes): (usize, &[u8]) = match self {
-            Self::SidebarLeft => (0, SIDEBAR_LEFT_PNG),
-            Self::SidebarRight => (1, SIDEBAR_RIGHT_PNG),
-            Self::RailPages => (2, RAIL_PAGES_PNG),
-            Self::RailOutline => (3, RAIL_OUTLINE_PNG),
-            Self::RailBookmarks => (4, RAIL_BOOKMARKS_PNG),
-            Self::RailAnnotations => (5, RAIL_ANNOTATIONS_PNG),
-            Self::RailSearch => (6, SEARCH_PNG),
-            Self::RailLibrary => (7, BOOK_PNG),
-            Self::RailSettings => (8, PALETTE_PNG),
-            Self::CloseX => (9, CLOSE_X_PNG),
+            Self::SidebarLeft => (0, SIDEBAR_LEFT_SVG),
+            Self::SidebarRight => (1, SIDEBAR_RIGHT_SVG),
+            Self::RailPages => (2, RAIL_PAGES_SVG),
+            Self::RailOutline => (3, RAIL_OUTLINE_SVG),
+            Self::RailBookmarks => (4, RAIL_BOOKMARKS_SVG),
+            Self::RailAnnotations => (5, RAIL_ANNOTATIONS_SVG),
+            Self::RailSearch => (6, SEARCH_SVG),
+            Self::RailLibrary => (7, BOOK_SVG),
+            Self::RailSettings => (8, PALETTE_SVG),
+            Self::CloseX => (9, CLOSE_X_SVG),
+            Self::Trash => (10, TRASH_SVG),
         };
         CACHE[slot]
-            .get_or_init(|| encode_data_uri("data:image/png;base64,", bytes))
+            .get_or_init(|| encode_data_uri("data:image/svg+xml;base64,", bytes))
             .clone()
     }
 }
@@ -107,25 +112,25 @@ pub(crate) fn app_icon_src() -> String {
 
 fn dropdown_arrow_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| encode_data_uri("data:image/png;base64,", TRIANGLE_DOWN_PNG))
+    SRC.get_or_init(|| encode_data_uri("data:image/svg+xml;base64,", TRIANGLE_DOWN_SVG))
         .clone()
 }
 
 fn triangle_right_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| encode_data_uri("data:image/png;base64,", TRIANGLE_RIGHT_PNG))
+    SRC.get_or_init(|| encode_data_uri("data:image/svg+xml;base64,", TRIANGLE_RIGHT_SVG))
         .clone()
 }
 
 fn triangle_left_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| encode_data_uri("data:image/png;base64,", TRIANGLE_LEFT_PNG))
+    SRC.get_or_init(|| encode_data_uri("data:image/svg+xml;base64,", TRIANGLE_LEFT_SVG))
         .clone()
 }
 
 fn tab_list_chevron_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| encode_data_uri("data:image/png;base64,", CHEVRON_DOWN_PNG))
+    SRC.get_or_init(|| encode_data_uri("data:image/svg+xml;base64,", CHEVRON_DOWN_SVG))
         .clone()
 }
 
@@ -451,4 +456,47 @@ pub(crate) fn app_menu_button(
         .child(action_item(t!("app_menu.exit"), || {
             nsh_core::element::desktop::quit();
         }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_chrome_icons_use_valid_svg_data_uris() {
+        let uris = [
+            ChromeIcon::SidebarLeft.uri(),
+            ChromeIcon::SidebarRight.uri(),
+            ChromeIcon::RailPages.uri(),
+            ChromeIcon::RailOutline.uri(),
+            ChromeIcon::RailBookmarks.uri(),
+            ChromeIcon::RailAnnotations.uri(),
+            ChromeIcon::RailSearch.uri(),
+            ChromeIcon::RailLibrary.uri(),
+            ChromeIcon::RailSettings.uri(),
+            ChromeIcon::CloseX.uri(),
+            ChromeIcon::Trash.uri(),
+            dropdown_arrow_src(),
+            triangle_right_src(),
+            triangle_left_src(),
+            tab_list_chevron_src(),
+        ];
+        for uri in uris {
+            let encoded = uri
+                .strip_prefix("data:image/svg+xml;base64,")
+                .expect("chrome icon must be an SVG data URI");
+            let decoded = base64::engine::general_purpose::STANDARD
+                .decode(encoded)
+                .expect("valid base64");
+            let xml = std::str::from_utf8(&decoded).expect("UTF-8 SVG");
+            assert!(
+                xml.contains("<svg") && xml.contains("</svg>"),
+                "valid SVG: {xml}"
+            );
+            assert!(
+                !xml.contains("currentColor"),
+                "standalone SVG must not use currentColor"
+            );
+        }
+    }
 }

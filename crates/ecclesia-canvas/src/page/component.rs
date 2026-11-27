@@ -14,7 +14,7 @@ use ecclesia_features::read::ruler::{Step, Style};
 use ecclesia_features::search::find::{Case, Direction, HitId, Marks, Options, Words};
 use ecclesia_ink::erase::Eraser;
 use ecclesia_ink::pens::{DEFAULT_SIZE, Pen, PenKind};
-use ecclesia_mupdf::PagePoint;
+use ecclesia_mupdf::{PagePoint, ReflowStyle};
 use nsh_core::JsonValue;
 
 use super::canvas::{
@@ -68,6 +68,20 @@ impl<H: Host> PageCanvas<H> {
             "pageColors" => self.set_page_colors(value.and_then(page_colors)),
             "reflowFontSize" => {
                 self.set_reflow_font_size(value.and_then(JsonValue::as_f64).map(|size| size as f32))
+            }
+            "reflowStyle" => {
+                let style = value.map_or_else(ReflowStyle::default, |val| ReflowStyle {
+                    use_document_css: val
+                        .get("useDocumentCss")
+                        .and_then(JsonValue::as_bool)
+                        .unwrap_or(true),
+                    user_css: val
+                        .get("userCss")
+                        .and_then(JsonValue::as_str)
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_owned),
+                });
+                self.set_reflow_style(style);
             }
             "edits" => self.edited(),
             "annotationColors" => {

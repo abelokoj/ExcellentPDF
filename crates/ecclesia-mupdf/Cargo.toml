@@ -10,5 +10,8 @@ description = "Safe MuPDF API: Context, Document, Page, DisplayList, Pixmap, Ste
 [dependencies]
 ecclesia-mupdf-sys.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true
+
 [lints]
 workspace = true

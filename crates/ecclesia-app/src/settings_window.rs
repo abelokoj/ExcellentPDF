@@ -44,12 +44,12 @@ use crate::reading::{
     AUTO_SCROLL_SPEED, DEFAULT_PREVIEW_DELAY, DEFAULT_PREVIEW_MAX_WIDTH, DocumentColors,
     FOCUS_SCOPE, MAX_PREVIEW_DELAY, MAX_PREVIEW_MAX_WIDTH, MIN_PREVIEW_MAX_WIDTH, PAPER_TEXTURE,
     READING_INK, READING_PAPER, REF_PREVIEW, REF_PREVIEW_DELAY, REF_PREVIEW_MAX_WIDTH,
-    REFLOW_FONT_SIZE, RULER_COLOR, RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex,
-    parse_hex,
+    REFLOW_FONT_FAMILY, REFLOW_FONT_SIZE, REFLOW_USE_DOCUMENT_CSS, REFLOW_USER_CSS_PATH,
+    RULER_COLOR, RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
 };
 use crate::reading_theme_bar;
 use crate::settings::{self, Live};
-use crate::shell::app_menu::{ChromeIcon, chrome_icon};
+use crate::shell::app_menu::{ChromeIcon, chrome_icon, dropdown_arrow};
 use crate::tabs::{
     Cycle, DEFAULT_TAB_HEIGHT_PX, DEFAULT_TAB_MIN_WIDTH_PX, MAX_TAB_HEIGHT_PX,
     MAX_TAB_MIN_WIDTH_PX, MIN_TAB_HEIGHT_PX, MIN_TAB_MIN_WIDTH_PX, TAB_CYCLE_ORDER, TAB_HEIGHT_PX,
@@ -237,6 +237,15 @@ impl SettingsSection {
                     "settings.reflow_font_size",
                     "settings.reflow_font_size_hint",
                 ),
+                (
+                    "settings.reflow_font_family",
+                    "settings.reflow_font_family_hint",
+                ),
+                (
+                    "settings.reflow_use_document_css",
+                    "settings.reflow_use_document_css_hint",
+                ),
+                ("settings.reflow_user_css", "settings.reflow_user_css_hint"),
                 ("settings.ruler_color", "settings.ruler_color_hint"),
                 ("settings.ruler_height", "settings.ruler_height_hint"),
                 ("settings.ruler_opacity", "settings.ruler_opacity_hint"),
@@ -385,6 +394,7 @@ impl SettingsSection {
             Self::Appearance => &["settings.section.appearance"],
             Self::Reading => &[
                 "settings.group.reading_colors",
+                "settings.group.reflow_books",
                 "settings.group.reading_aids",
             ],
             Self::TabsAndPanes => &[
@@ -1320,6 +1330,13 @@ fn reading_cards(
                         }
                     })),
             ),
+        ],
+    );
+
+    let reflow_card = card_from_rows(
+        "settings.group.reflow_books",
+        query,
+        vec![
             RowItem::new(
                 "settings.reflow_font_size",
                 "settings.reflow_font_size_hint",
@@ -1332,6 +1349,29 @@ fn reading_cards(
                     1.0,
                     "settings.unit.points",
                 ),
+            ),
+            RowItem::new(
+                "settings.reflow_font_family",
+                "settings.reflow_font_family_hint",
+                reflow_font_picker(live),
+            ),
+            RowItem::new(
+                "settings.reflow_use_document_css",
+                "settings.reflow_use_document_css_hint",
+                on_off(
+                    "settings.reflow_use_document_css",
+                    move || live.read(|s| s.flag(REFLOW_USE_DOCUMENT_CSS).unwrap_or(true)),
+                    move |on| {
+                        live.change(|s| {
+                            s.set_flag(REFLOW_USE_DOCUMENT_CSS, (!on).then_some(false));
+                        });
+                    },
+                ),
+            ),
+            RowItem::new(
+                "settings.reflow_user_css",
+                "settings.reflow_user_css_hint",
+                reflow_css_picker(live),
             ),
         ],
     );
@@ -1430,7 +1470,245 @@ fn reading_cards(
         ],
     );
 
-    [colors_card, aids_card].into_iter().flatten().collect()
+    [colors_card, reflow_card, aids_card]
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+/// Searchable system-font picker for reflowable books (EPUB, FB2, MOBI, HTML, Markdown).
+fn reflow_font_picker(live: Live) -> View {
+    let open = signal(false);
+    let filter = signal(String::new());
+    let chosen = move || {
+        live.read(|s| {
+            s.text(REFLOW_FONT_FAMILY)
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .map(str::to_owned)
+        })
+    };
+    let button_label = move || chosen().unwrap_or_else(|| t!("settings.reflow_font_default"));
+
+    let trigger = button()
+        .accessibility_label(t!("settings.reflow_font_family"))
+        .on_press(move || {
+            let next = !open.get();
+            if next {
+                filter.set(String::new());
+            }
+            open.set(next);
+        })
+        .h(px(32.0))
+        .min_w(px(210.0))
+        .max_w(px(260.0))
+        .px_3()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .gap_2()
+        .rounded(px(CONTROL_RADIUS))
+        .border_1()
+        .border_color(move || theme().border)
+        .bg(move || theme().background)
+        .hover(|s| s.bg(move || theme().accent))
+        .focus_visible(|s| s.border_color(move || theme().ring))
+        .child(
+            text(button_label)
+                .text_size(px(13.0))
+                .number_of_lines(1)
+                .text_color(move || theme().popover_foreground),
+        )
+        .child(dropdown_arrow());
+
+    let picker_panel = when(
+        move || open.get(),
+        move || {
+            let search = input()
+                .value(move || filter.get())
+                .placeholder(t!("settings.reflow_font_search"))
+                .label(t!("settings.reflow_font_search"))
+                .on_change(move |next: &str| filter.set(next.to_owned()))
+                .h(px(30.0))
+                .px_2p5()
+                .rounded(px(CONTROL_RADIUS))
+                .border_1()
+                .border_color(move || theme().border)
+                .bg(move || theme().background)
+                .text_size(px(12.5))
+                .text_color(move || theme().foreground)
+                .focus_visible(|s| s.border_color(move || theme().ring));
+
+            let list = dynamic(move || {
+                let needle = filter.with(|q| q.trim().to_ascii_lowercase());
+                let active = chosen();
+                let mut rows: Vec<AnyElement> = Vec::new();
+                if needle.is_empty()
+                    || t!("settings.reflow_font_default")
+                        .to_ascii_lowercase()
+                        .contains(&needle)
+                {
+                    let is_active = active.is_none();
+                    rows.push(
+                        font_option_row(t!("settings.reflow_font_default"), is_active, move || {
+                            live.change(|s| s.set_text(REFLOW_FONT_FAMILY, None));
+                            open.set(false);
+                        })
+                        .into_element(),
+                    );
+                }
+                for family in ecclesia_core::formats::system_font_families() {
+                    if !needle.is_empty() && !family.to_ascii_lowercase().contains(&needle) {
+                        continue;
+                    }
+                    let is_active = active.as_deref() == Some(family.as_str());
+                    let family_pick = family.clone();
+                    rows.push(
+                        font_option_row(family.clone(), is_active, move || {
+                            live.change(|s| {
+                                s.set_text(REFLOW_FONT_FAMILY, Some(family_pick.as_str()));
+                            });
+                            open.set(false);
+                        })
+                        .into_element(),
+                    );
+                }
+                if rows.is_empty() {
+                    return view()
+                        .px_2p5()
+                        .py_2()
+                        .child(
+                            text(t!("settings.reflow_font_none"))
+                                .text_size(px(12.0))
+                                .text_color(move || theme().muted_foreground),
+                        )
+                        .into_element();
+                }
+                let mut col = view().gap(px(2.0));
+                for row in rows {
+                    col = col.child(row);
+                }
+                col.into_element()
+            });
+
+            view()
+                .w(px(260.0))
+                .p(px(8.0))
+                .gap(px(6.0))
+                .rounded(px(8.0))
+                .border_1()
+                .border_color(move || theme().border)
+                .bg(move || theme().background)
+                .child(search)
+                .child(scroll().max_h(px(210.0)).child(list))
+        },
+    );
+
+    view()
+        .items_end()
+        .gap(px(6.0))
+        .child(trigger)
+        .child(picker_panel)
+}
+
+fn font_option_row(label: String, active: bool, on_pick: impl Fn() + 'static) -> impl IntoElement {
+    button()
+        .accessibility_label(label.clone())
+        .on_press(on_pick)
+        .w_full()
+        .h(px(28.0))
+        .px_2p5()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .rounded(px(5.0))
+        .bg(move || {
+            if active {
+                theme().accent
+            } else {
+                theme().background
+            }
+        })
+        .hover(|s| s.bg(move || theme().accent))
+        .child(
+            text(label)
+                .text_size(px(12.5))
+                .font_weight(if active {
+                    FontWeight::SEMIBOLD
+                } else {
+                    FontWeight::NORMAL
+                })
+                .number_of_lines(1)
+                .text_color(move || theme().foreground),
+        )
+}
+
+/// Custom `.css` stylesheet file picker (Browse + Clear) for reflowable documents.
+fn reflow_css_picker(live: Live) -> View {
+    let css_path = move || {
+        live.read(|s| {
+            s.text(REFLOW_USER_CSS_PATH)
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .map(str::to_owned)
+        })
+    };
+    let display_name = move || match css_path() {
+        Some(path) => std::path::Path::new(&path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map_or(path.clone(), str::to_owned),
+        None => t!("settings.reflow_user_css_none"),
+    };
+    let browse = move || {
+        let dialog = nsh_core::file_dialog::OpenDialog::files()
+            .title(t!("settings.reflow_user_css_pick"))
+            .filter(nsh_core::file_dialog::FileFilter::new(
+                t!("settings.reflow_user_css_filter"),
+                ["css"],
+            ));
+        let answer = pick_paths(dialog);
+        spawn(async move {
+            if let Ok(Some(paths)) = answer.await
+                && let Some(path) = paths.into_iter().next()
+                && let Some(utf8) = path.to_str()
+            {
+                let owned = utf8.to_owned();
+                live.change(|s| s.set_text(REFLOW_USER_CSS_PATH, Some(owned.as_str())));
+            }
+        });
+    };
+
+    view()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .child(
+            text(display_name)
+                .max_w(px(150.0))
+                .number_of_lines(1)
+                .text_size(px(12.5))
+                .text_color(move || {
+                    if css_path().is_some() {
+                        theme().foreground
+                    } else {
+                        theme().muted_foreground
+                    }
+                }),
+        )
+        .child(picker_button(
+            move || t!("settings.reflow_user_css_browse"),
+            browse,
+        ))
+        .child(when(
+            move || css_path().is_some(),
+            move || {
+                picker_button(
+                    move || t!("settings.reflow_user_css_clear"),
+                    move || live.change(|s| s.set_text(REFLOW_USER_CSS_PATH, None)),
+                )
+            },
+        ))
 }
 
 /// Segmented selector for [`AutoReloadMode`] (`Silent` / `Ask` / `Off`).

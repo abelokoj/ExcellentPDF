@@ -7,7 +7,7 @@ use std::path::Path;
 use ecclesia_mupdf_sys::{
     ex_count_pages, ex_drop_document, ex_has_page_labels, ex_is_reflowable, ex_load_page,
     ex_open_document, ex_open_document_from_bytes, ex_open_pdf, ex_page_box, ex_page_label,
-    ex_reads_right_to_left, ex_reflow, fz_document, fz_rect,
+    ex_reads_right_to_left, ex_reflow, ex_style_document, fz_document, fz_rect,
 };
 
 use crate::context::{check, drop_with_context, with_context};
@@ -25,6 +25,52 @@ pub struct Reflow {
     pub height: f32,
     /// The body text's size (the em).
     pub font_size: f32,
+}
+
+/// Custom styling applied to a reflowable document (EPUB, FB2, MOBI, HTML, Markdown).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReflowStyle {
+    /// Whether to apply the document's own CSS stylesheets (`true` by default).
+    pub use_document_css: bool,
+    /// Optional user CSS rules (synthesized font-family rule and/or custom `.css` stylesheet contents).
+    pub user_css: Option<String>,
+}
+
+impl Default for ReflowStyle {
+    fn default() -> Self {
+        Self {
+            use_document_css: true,
+            user_css: None,
+        }
+    }
+}
+
+/// Builds a combined user CSS string from an optional system font family name and an optional custom CSS
+/// stylesheet. Returns `None` when both inputs are empty.
+///
+/// The synthesized font rule targets prose elements (`body`, `p`, `li`, `div`, `td`, `th`, `blockquote`,
+/// headings) so inline/fenced code blocks in Markdown and HTML keep monospace formatting unless overridden
+/// by `custom_css`.
+pub fn build_reflow_css(font_family: Option<&str>, custom_css: Option<&str>) -> Option<String> {
+    let font = font_family.map(str::trim).filter(|s| !s.is_empty());
+    let custom = custom_css.map(str::trim).filter(|s| !s.is_empty());
+    if font.is_none() && custom.is_none() {
+        return None;
+    }
+    let mut out = String::new();
+    if let Some(family) = font {
+        let escaped = family.replace('\\', "\\\\").replace('"', "\\\"");
+        out.push_str(
+            "body, p, li, div, td, th, blockquote, h1, h2, h3, h4, h5, h6 { font-family: \"",
+        );
+        out.push_str(&escaped);
+        out.push_str("\", serif !important; }\n");
+    }
+    if let Some(css) = custom {
+        out.push_str(css);
+        out.push('\n');
+    }
+    Some(out)
 }
 
 /// An open document of any format MuPDF reads (PDF, XPS, EPUB, CBZ, images, OFD, ...).
@@ -172,6 +218,28 @@ impl Document {
         Ok(reflowable != 0)
     }
 
+    /// Applies `style` (whether to honour document CSS and optional user CSS rules) to a reflowable document.
+    /// Call [`Document::reflow`] afterwards to lay the document out with the new style.
+    ///
+    /// # Errors
+    ///
+    /// `style.user_css` contains a NUL byte, or MuPDF rejects the stylesheet.
+    pub fn set_reflow_style(&mut self, style: &ReflowStyle) -> Result<()> {
+        let css = match style.user_css.as_deref().filter(|s| !s.is_empty()) {
+            Some(text) => Some(
+                CString::new(text)
+                    .map_err(|_| MuError::argument("user CSS contains a NUL character"))?,
+            ),
+            None => None,
+        };
+        let css_ptr = css.as_ref().map_or(ptr::null(), |c| c.as_ptr());
+        let use_doc = i32::from(style.use_document_css);
+        with_context(|ctx| {
+            // SAFETY: the document is live, used by this thread only (`&mut self`), and `css_ptr` is NULL or NUL-terminated.
+            check(|err| unsafe { ex_style_document(ctx, self.raw.as_ptr(), use_doc, css_ptr, err) })
+        })
+    }
+
     /// Lays a reflowable document out on `reflow`'s pages. With `keep`, returns the page that now starts with the
     /// text page `keep` started with (or the page holding it), so the reader stays where they were. A document that
     /// isn't reflowable keeps its pages. `&mut self`: no page of the document may be loaded meanwhile, as the layout
@@ -311,5 +379,68 @@ impl Drop for Document {
     fn drop(&mut self) {
         // SAFETY: we own the document; its pages borrowed it and are gone.
         drop_with_context(|ctx| unsafe { ex_drop_document(ctx, self.raw.as_ptr()) });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Background, Matrix};
+
+    #[test]
+    fn build_reflow_css_escapes_font_and_appends_custom_css() {
+        assert_eq!(build_reflow_css(None, None), None);
+        assert_eq!(build_reflow_css(Some("  "), Some("")), None);
+
+        let css = build_reflow_css(Some("Georgia"), Some("p { line-height: 1.6; }"))
+            .expect("should build combined CSS");
+        assert!(css.contains(r#"font-family: "Georgia", serif !important;"#));
+        assert!(css.contains("p { line-height: 1.6; }"));
+    }
+
+    #[test]
+    fn markdown_reflow_applies_custom_css_and_system_font() {
+        let md = b"# Heading\n\nHello **Markdown** world with custom typography.\n";
+        let mut doc = Document::from_bytes(md, "notes.md").expect("open markdown");
+        assert!(doc.is_reflowable().expect("reflowable check"));
+
+        let reflow = Reflow {
+            width: 320.0,
+            height: 240.0,
+            font_size: 14.0,
+        };
+        doc.set_reflow_style(&ReflowStyle::default())
+            .expect("default style");
+        doc.reflow(reflow, None).expect("default reflow");
+        let default_pixels = {
+            let page = doc.load_page(0).expect("page 0");
+            page.render(&Matrix::scale(1.0, 1.0), Background::White)
+                .expect("render default")
+                .samples()
+                .to_vec()
+        };
+
+        let styled_css = build_reflow_css(
+            crate::system_font_families().first().map(String::as_str),
+            Some("body { color: #b00020 !important; }"),
+        );
+        doc.set_reflow_style(&ReflowStyle {
+            use_document_css: true,
+            user_css: styled_css,
+        })
+        .expect("apply custom style");
+        doc.reflow(reflow, None).expect("styled reflow");
+        let styled_pixels = {
+            let page = doc.load_page(0).expect("page 0");
+            page.render(&Matrix::scale(1.0, 1.0), Background::White)
+                .expect("render styled")
+                .samples()
+                .to_vec()
+        };
+
+        assert_ne!(
+            default_pixels, styled_pixels,
+            "custom CSS and system font should visibly change rendered Markdown pixels"
+        );
     }
 }

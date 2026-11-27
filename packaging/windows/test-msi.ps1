@@ -139,12 +139,25 @@ try {
         Assert-True ($null -ne $regAppRow -and $regAppRow.Value -eq 'Software\EcclesiaPDF\Capabilities') "Missing Software\RegisteredApplications entry for Ecclesia PDF"
         $progIdCmd = $regRows | Where-Object { $_.Key -eq 'Software\Classes\EcclesiaPDF.Document\shell\open\command' } | Select-Object -First 1
         Assert-True ($null -ne $progIdCmd -and $progIdCmd.Value -eq '"[INSTALLDIR]ecclesiapdf.exe" "%1"') "Missing ProgId shell\open\command entry"
-        $expectedExtensions = @('.pdf', '.xps', '.oxps', '.epub', '.cbz', '.cbr', '.mobi', '.fb2', '.djvu', '.expdf')
+        $appAumidRow = $regRows | Where-Object { $_.Key -eq 'Software\Classes\Applications\ecclesiapdf.exe' -and $_.Name -eq 'AppUserModelID' } | Select-Object -First 1
+        Assert-True ($null -ne $appAumidRow -and $appAumidRow.Value -eq 'com.ecclesiapdf.app') "Missing Applications\ecclesiapdf.exe AppUserModelID"
+        $progIdAumidRow = $regRows | Where-Object { $_.Key -eq 'Software\Classes\EcclesiaPDF.Document' -and $_.Name -eq 'AppUserModelID' } | Select-Object -First 1
+        Assert-True ($null -ne $progIdAumidRow -and $progIdAumidRow.Value -eq 'com.ecclesiapdf.app') "Missing ProgId AppUserModelID"
+        $shortcutProps = Read-Table 'MsiShortcutProperty' @('MsiShortcutProperty', 'Shortcut_', 'PropertyKey', 'PropVariantValue')
+        $startMenuAumid = $shortcutProps | Where-Object { $_.Shortcut_ -eq 'StartMenu' -and $_.PropertyKey -eq 'System.AppUserModel.ID' } | Select-Object -First 1
+        Assert-True ($null -ne $startMenuAumid -and $startMenuAumid.PropVariantValue -eq 'com.ecclesiapdf.app') "Missing StartMenu MsiShortcutProperty System.AppUserModel.ID = com.ecclesiapdf.app"
+        $expectedExtensions = @('.pdf', '.xps', '.oxps', '.epub', '.cbz', '.cbr', '.mobi', '.prc', '.fb2', '.djvu', '.expdf', '.md', '.html', '.htm', '.xhtml', '.svg')
         foreach ($ext in $expectedExtensions) {
             $capRow = $regRows | Where-Object { $_.Key -eq 'Software\EcclesiaPDF\Capabilities\FileAssociations' -and $_.Name -eq $ext } | Select-Object -First 1
             Assert-True ($null -ne $capRow -and $capRow.Value -eq 'EcclesiaPDF.Document') "Missing Capabilities\FileAssociations entry for $ext"
             $owRow = $regRows | Where-Object { $_.Key -eq "Software\Classes\$ext\OpenWithProgids" -and $_.Name -eq 'EcclesiaPDF.Document' } | Select-Object -First 1
             Assert-True ($null -ne $owRow) "Missing Software\Classes\$ext\OpenWithProgids entry for EcclesiaPDF.Document"
+            $supRow = $regRows | Where-Object { $_.Key -eq 'Software\Classes\Applications\ecclesiapdf.exe\SupportedTypes' -and $_.Name -eq $ext } | Select-Object -First 1
+            Assert-True ($null -ne $supRow) "Missing Applications\ecclesiapdf.exe\SupportedTypes entry for $ext"
+            $ctxVerb = $regRows | Where-Object { $_.Key -eq "Software\Classes\SystemFileAssociations\$ext\shell\EcclesiaPDF.Open" -and $_.Name -eq '' } | Select-Object -First 1
+            Assert-True ($null -ne $ctxVerb -and $ctxVerb.Value -eq 'Open in Ecclesia PDF') "Missing Explorer context menu verb for $ext"
+            $ctxCmd = $regRows | Where-Object { $_.Key -eq "Software\Classes\SystemFileAssociations\$ext\shell\EcclesiaPDF.Open\command" -and $_.Name -eq '' } | Select-Object -First 1
+            Assert-True ($null -ne $ctxCmd -and $ctxCmd.Value -eq '"[INSTALLDIR]ecclesiapdf.exe" "%1"') "Missing Explorer context menu command for $ext"
         }
 
         # Component table: Directory_ and KeyPath valid, FileAssoc component conditioned on REGISTERFILETYPES = "1"

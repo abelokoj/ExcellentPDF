@@ -82,14 +82,14 @@ fn compute_drag_steps(delta_x: f32, slot_stride: f32) -> (isize, f32) {
     (steps, steps as f32 * slot_stride)
 }
 
-const HOME_ICON_PNG: &[u8] = include_bytes!("../../assets/icons/home.png");
+const HOME_ICON_SVG: &[u8] = include_bytes!("../../assets/icons/home.svg");
 
 fn home_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
     SRC.get_or_init(|| {
         format!(
-            "data:image/png;base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(HOME_ICON_PNG)
+            "data:image/svg+xml;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(HOME_ICON_SVG)
         )
     })
     .clone()

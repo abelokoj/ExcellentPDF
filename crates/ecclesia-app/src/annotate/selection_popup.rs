@@ -91,16 +91,16 @@ impl ColorPickerIcon {
     }
 }
 
-/// Embedded 64×64 white-on-transparent PNG for the comment bubble action.
-const POPUP_COMMENT_PNG: &[u8] = include_bytes!("../../assets/icons/popup-comment.png");
-/// Embedded 64×64 white-on-transparent PNG for the copy overlapping-squares action.
-const POPUP_COPY_PNG: &[u8] = include_bytes!("../../assets/icons/popup-copy.png");
-/// Embedded 64×64 RGBA PNG for the rainbow color wheel picker icon.
-const PICKER_WHEEL_PNG: &[u8] = include_bytes!("../../assets/icons/color-picker-wheel.png");
-/// Embedded 64×64 RGBA PNG for the artist palette picker icon.
-const PICKER_PALETTE_PNG: &[u8] = include_bytes!("../../assets/icons/color-picker-palette.png");
-/// Embedded 64×64 RGBA PNG for the color dropper picker icon.
-const PICKER_DROPPER_PNG: &[u8] = include_bytes!("../../assets/icons/color-picker-dropper.png");
+/// Embedded white-on-transparent SVG for the comment bubble action.
+const POPUP_COMMENT_SVG: &[u8] = include_bytes!("../../assets/icons/popup-comment.svg");
+/// Embedded white-on-transparent SVG for the copy overlapping-squares action.
+const POPUP_COPY_SVG: &[u8] = include_bytes!("../../assets/icons/popup-copy.svg");
+/// Embedded multi-color SVG for the rainbow color wheel picker icon.
+const PICKER_WHEEL_SVG: &[u8] = include_bytes!("../../assets/icons/color-picker-wheel.svg");
+/// Embedded multi-color SVG for the artist palette picker icon.
+const PICKER_PALETTE_SVG: &[u8] = include_bytes!("../../assets/icons/color-picker-palette.svg");
+/// Embedded multi-color SVG for the color dropper picker icon.
+const PICKER_DROPPER_SVG: &[u8] = include_bytes!("../../assets/icons/color-picker-dropper.svg");
 
 /// Four vibrant micro-tile colors for the default [`ColorPickerIcon::Grid`] design (top-left red,
 /// top-right yellow, bottom-left green, bottom-right blue).
@@ -528,36 +528,36 @@ pub(crate) fn popup_position(anchor: SelectionPopupAnchor, est_width: f32) -> (f
     popup_position_for_height(&anchor, est_width, PILL_HEIGHT)
 }
 
-fn png_data_uri(bytes: &[u8]) -> String {
+fn svg_data_uri(bytes: &[u8]) -> String {
     format!(
-        "data:image/png;base64,{}",
+        "data:image/svg+xml;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(bytes)
     )
 }
 
 fn comment_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| png_data_uri(POPUP_COMMENT_PNG)).clone()
+    SRC.get_or_init(|| svg_data_uri(POPUP_COMMENT_SVG)).clone()
 }
 
 fn copy_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| png_data_uri(POPUP_COPY_PNG)).clone()
+    SRC.get_or_init(|| svg_data_uri(POPUP_COPY_SVG)).clone()
 }
 
 fn picker_wheel_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| png_data_uri(PICKER_WHEEL_PNG)).clone()
+    SRC.get_or_init(|| svg_data_uri(PICKER_WHEEL_SVG)).clone()
 }
 
 fn picker_palette_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| png_data_uri(PICKER_PALETTE_PNG)).clone()
+    SRC.get_or_init(|| svg_data_uri(PICKER_PALETTE_SVG)).clone()
 }
 
 fn picker_dropper_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| png_data_uri(PICKER_DROPPER_PNG)).clone()
+    SRC.get_or_init(|| svg_data_uri(PICKER_DROPPER_SVG)).clone()
 }
 
 /// Renders one of the four selectable custom color picker icons at `size` logical DIPs.
@@ -1056,7 +1056,7 @@ fn build_clicked_highlight_pill(
             move || {
                 annotate.delete_target(&target_delete);
             },
-            chrome_icon(ChromeIcon::CloseX, 14.0, move || theme().destructive),
+            chrome_icon(ChromeIcon::Trash, 16.0, move || theme().destructive),
         ));
     }
 

@@ -40,6 +40,28 @@ void ex_set_font_loader(ex_font_loader loader)
 	fz_set_builtin_font_loader(loader);
 }
 
+static ex_system_font_lookup g_system_font_lookup = NULL;
+
+void ex_set_system_font_lookup(ex_system_font_lookup lookup)
+{
+	g_system_font_lookup = lookup;
+}
+
+static fz_font *ex_load_system_font_cb(fz_context *ctx, const char *name, int bold, int italic,
+	int needs_exact_metrics)
+{
+	ex_system_font_lookup lookup = g_system_font_lookup;
+	char path[4096];
+	int index = 0;
+
+	(void)needs_exact_metrics;
+	if (!lookup || !name || !name[0])
+		return NULL;
+	if (!lookup(name, bold, italic, path, (int)sizeof path, &index))
+		return NULL;
+	return fz_new_font_from_file(ctx, NULL, path, index, 0);
+}
+
 /* The locks a base context and all its clones share; freed with the last of them. `refs` is guarded by the
  * FZ_LOCK_ALLOC mutex. */
 typedef struct ex_locks {
@@ -98,6 +120,7 @@ int ex_new_context(fz_context **out, ex_error *err)
 		fz_register_document_handlers(ctx);
 		/* SumatraPDF's OFD reader (third_party/sumatra/shared/mupdf/ofd.c); MuPDF has none of its own. */
 		fz_register_ofd_handler(ctx);
+		fz_install_load_system_font_funcs(ctx, ex_load_system_font_cb, NULL, NULL);
 	}
 	fz_catch(ctx)
 	{
@@ -232,6 +255,15 @@ int ex_is_reflowable(fz_context *ctx, fz_document *doc, int *out, ex_error *err)
 	fz_catch(ctx)
 		return ex_fail(ctx, err);
 	*out = reflowable;
+	return 0;
+}
+
+int ex_style_document(fz_context *ctx, fz_document *doc, int use_document_css, const char *user_css, ex_error *err)
+{
+	fz_try(ctx)
+		fz_style_document(ctx, doc, use_document_css ? 1 : 0, (user_css && user_css[0]) ? user_css : NULL);
+	fz_catch(ctx)
+		return ex_fail(ctx, err);
 	return 0;
 }
 
@@ -1701,6 +1733,28 @@ int ex_annot_create(fz_context *ctx, fz_document *doc, int page, const ex_annot_
 	return 0;
 }
 
+/* Compatible annotation subtype groups that may convert in-place on update while keeping the
+ * same PDF indirect object (preserving /NM id, /IRT reply threads, and /Popup links):
+ *   1 = block-highlight / shape geometries (Square, Circle, Polygon)
+ *   2 = text markup styles (Highlight, Underline, Squiggly, StrikeOut) */
+static int ex_annot_type_group(enum pdf_annot_type type)
+{
+	switch (type)
+	{
+	case PDF_ANNOT_SQUARE:
+	case PDF_ANNOT_CIRCLE:
+	case PDF_ANNOT_POLYGON:
+		return 1;
+	case PDF_ANNOT_HIGHLIGHT:
+	case PDF_ANNOT_UNDERLINE:
+	case PDF_ANNOT_SQUIGGLY:
+	case PDF_ANNOT_STRIKE_OUT:
+		return 2;
+	default:
+		return 0;
+	}
+}
+
 int ex_annot_update(fz_context *ctx, fz_document *doc, int page, const ex_annot_write *w, ex_error *err)
 {
 	pdf_page *p = NULL;
@@ -1708,10 +1762,27 @@ int ex_annot_update(fz_context *ctx, fz_document *doc, int page, const ex_annot_
 	fz_try(ctx)
 	{
 		pdf_annot *annot;
+		enum pdf_annot_type current, target;
 		p = ex_pdf_page(ctx, doc, page);
 		annot = ex_find_annot(ctx, p, w->id);
-		if ((int)pdf_annot_type(ctx, annot) != w->props.type)
-			fz_throw(ctx, FZ_ERROR_ARGUMENT, "annotation %s is of another type", w->id);
+		current = pdf_annot_type(ctx, annot);
+		target = (enum pdf_annot_type)w->props.type;
+		if (current != target)
+		{
+			int g_cur = ex_annot_type_group(current);
+			int g_dst = ex_annot_type_group(target);
+			pdf_obj *obj;
+			if (g_cur == 0 || g_cur != g_dst)
+				fz_throw(ctx, FZ_ERROR_ARGUMENT, "annotation %s is of another type", w->id);
+			obj = pdf_annot_obj(ctx, annot);
+			pdf_dict_put_drop(ctx, obj, PDF_NAME(Subtype),
+				pdf_new_name(ctx, pdf_string_from_annot_type(ctx, target)));
+			pdf_dict_del(ctx, obj, PDF_NAME(Vertices));
+			pdf_dict_del(ctx, obj, PDF_NAME(RD));
+			pdf_dict_del(ctx, obj, PDF_NAME(BE));
+			pdf_dict_del(ctx, obj, PDF_NAME(AP));
+			pdf_dirty_annot(ctx, annot);
+		}
 		ex_annot_write_to(ctx, annot, w);
 	}
 	fz_always(ctx)

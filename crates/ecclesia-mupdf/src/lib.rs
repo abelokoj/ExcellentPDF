@@ -34,6 +34,7 @@ mod link;
 mod outline;
 mod page;
 mod pixmap;
+mod system_fonts;
 mod text;
 mod writer;
 
@@ -41,7 +42,7 @@ pub use annot::{Align, Annot, AnnotData, AnnotKind, Intent, LineEnd};
 pub use attachment::Attachment;
 pub use cookie::Cookie;
 pub use display_list::DisplayList;
-pub use document::{Document, Reflow};
+pub use document::{Document, Reflow, ReflowStyle, build_reflow_css};
 pub use edit::{
     CompressFlags, CompressStats, Edit, Forms, MergeOutlineMode, MergeSourceBytes, NewOutlineEntry,
     OutlineChange, PdfPageBoxEdit, PdfPageBoxKind, PdfPageLabelRange, RedactionFlags,
@@ -59,5 +60,6 @@ pub use link::{Link, Target};
 pub use outline::{OutlineItem, OutlineStyle};
 pub use page::Page;
 pub use pixmap::{Background, Pixmap};
+pub use system_fonts::system_font_families;
 pub use text::{StextPage, TextBlock, TextChar, TextLayout, TextLine};
 pub use writer::Writer;

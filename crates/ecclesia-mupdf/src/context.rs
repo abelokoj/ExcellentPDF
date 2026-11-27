@@ -9,11 +9,12 @@ use core::ptr::{self, NonNull};
 use std::sync::{Mutex, OnceLock};
 
 use ecclesia_mupdf_sys::{
-    ex_clone_context, ex_drop_context, ex_error, ex_new_context, ex_set_font_loader, fz_context,
+    ex_clone_context, ex_drop_context, ex_error, ex_new_context, ex_set_font_loader,
+    ex_set_system_font_lookup, fz_context,
 };
 
 use crate::error::{MuError, Result};
-use crate::fonts;
+use crate::{fonts, system_fonts};
 
 /// The base context. Only used under [`BASE`]'s mutex: to clone it, and for drops on a thread whose own context is
 /// already gone.
@@ -26,8 +27,11 @@ static BASE: OnceLock<core::result::Result<Mutex<Base>, MuError>> = OnceLock::ne
 
 fn base() -> Result<&'static Mutex<Base>> {
     BASE.get_or_init(|| {
-        // SAFETY: the loader only reads static font data and is safe to call from any thread.
-        unsafe { ex_set_font_loader(Some(fonts::load)) };
+        // SAFETY: the loaders only read static/cached data and are safe to call from any thread.
+        unsafe {
+            ex_set_font_loader(Some(fonts::load));
+            ex_set_system_font_lookup(Some(system_fonts::lookup));
+        }
         let mut raw = ptr::null_mut();
         // SAFETY: `raw` is a valid out-pointer; `check` gives the error on failure.
         check(|err| unsafe { ex_new_context(&mut raw, err) })?;

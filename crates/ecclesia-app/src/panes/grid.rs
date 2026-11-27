@@ -659,8 +659,9 @@ fn apply_reading_canvas_props(
         ..
     } = pane;
     canvas
-        // Before `path`, so a book opens laid out at the reader's size, not laid out twice.
+        // Before `path`, so a book opens laid out at the reader's size and stylesheet, not laid out twice.
         .prop("reflowFontSize", move || reading.reflow_font_size_prop())
+        .prop("reflowStyle", move || reading.reflow_style_prop())
         .prop("path", move || tabs.path_prop())
         .prop("label", move || JsonValue::from(label()))
         .prop("background", move || {

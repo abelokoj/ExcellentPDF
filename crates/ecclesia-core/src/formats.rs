@@ -6,6 +6,7 @@
 //! when either changes.
 
 use ecclesia_mupdf::Reflow;
+pub use ecclesia_mupdf::{ReflowStyle, build_reflow_css, system_font_families};
 
 /// The extensions of the files the app opens, as MuPDF reads them (plan D3). DjVu, CHM and CBR are R.29's.
 pub const EXTENSIONS: &[&str] = &[

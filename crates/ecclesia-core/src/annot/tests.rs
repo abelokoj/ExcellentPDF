@@ -1569,3 +1569,168 @@ fn a_pressure_stroke_is_saved_and_drawn_as_written() {
         "from the file: {thin} px and {broad} px"
     );
 }
+
+/// Block highlights render with `/BM /Multiply` inside their MuPDF appearance stream so underlying
+/// dark text stays crisp (never opaque), and converting between block shapes (`/Square` <->
+/// `/Polygon` <-> `/Circle` <-> cloudy `/Square`) or text markup styles (`/Highlight` <->
+/// `/Underline` <-> `/Squiggly` <-> `/StrikeOut`) succeeds in-place via `Change::UpdateAnnotation`.
+#[test]
+fn block_highlight_multiplies_over_text_and_converts_shapes_in_place() {
+    use super::BlockHighlightShape;
+
+    let mut doc = Document::open_pdf(corpus()).expect("open");
+    // Locate a real text glyph band on page 0 so we can place a block highlight right over it.
+    let layout = doc
+        .load_page(0)
+        .expect("page")
+        .text(None)
+        .expect("text")
+        .layout();
+    let line = layout
+        .lines
+        .iter()
+        .find(|l| l.bbox.width() > 30.0 && l.bbox.height() > 5.0)
+        .expect("page 0 has text");
+    let rect = PageRect {
+        x0: (line.bbox.x0 - 8.0).max(0.0),
+        y0: (line.bbox.y0 - 6.0).max(0.0),
+        x1: line.bbox.x1 + 8.0,
+        y1: line.bbox.y1 + 6.0,
+    };
+
+    let count_dark_and_yellow = |document: &Document| -> (usize, usize) {
+        let pixmap = document
+            .load_page(0)
+            .expect("page")
+            .render(
+                &ecclesia_mupdf::Matrix::IDENTITY,
+                ecclesia_mupdf::Background::White,
+            )
+            .expect("render");
+        let w = pixmap.width() as usize;
+        let h = pixmap.height() as usize;
+        let ch = pixmap.samples().len() / (w * h);
+        let x0 = (rect.x0.ceil() as usize).min(w);
+        let x1 = (rect.x1.floor() as usize).min(w);
+        let y0 = (rect.y0.ceil() as usize).min(h);
+        let y1 = (rect.y1.floor() as usize).min(h);
+        let mut dark = 0usize;
+        let mut yellow = 0usize;
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let px = &pixmap.samples()[(y * w + x) * ch..][..3];
+                if px[0] < 90 && px[1] < 90 && px[2] < 90 {
+                    dark += 1;
+                } else if px[0] > 220 && px[1] > 190 && px[2] < 130 {
+                    yellow += 1;
+                }
+            }
+        }
+        (dark, yellow)
+    };
+
+    let (baseline_dark, _) = count_dark_and_yellow(&doc);
+    assert!(
+        baseline_dark > 20,
+        "expected visible dark text pixels in target rect, found {baseline_dark}"
+    );
+
+    let mut block = Annotation::new(
+        0,
+        Shape::Boxed(Boxed::Square, rect),
+        Style {
+            color: None,
+            opacity: 1.0,
+            width: 0.0,
+        },
+        "Ada",
+    );
+    block.fill = Some([0.99, 0.88, 0.28]);
+    block.multiply = true;
+    block.block_highlight = Some(BlockHighlightShape::Rectangle);
+    Operation::new("Block", vec![Change::CreateAnnotation(block.clone())])
+        .apply(&mut doc)
+        .expect("create block highlight");
+
+    let (dark_after, yellow_after) = count_dark_and_yellow(&doc);
+    assert!(
+        dark_after * 2 >= baseline_dark,
+        "Multiply block highlight must not obscure dark text: before={baseline_dark}, after={dark_after}"
+    );
+    assert!(
+        yellow_after > 50,
+        "Multiply block highlight must tint white paper yellow: yellow={yellow_after}"
+    );
+
+    // Cycle every block highlight shape in-place via UpdateAnnotation without subtype errors.
+    for next_shape in [
+        BlockHighlightShape::RoundedRect,
+        BlockHighlightShape::Oval,
+        BlockHighlightShape::Cloud,
+        BlockHighlightShape::Rectangle,
+    ] {
+        let (shape, cloud) = next_shape.into_shape(rect);
+        block.shape = shape;
+        block.cloud = cloud;
+        block.block_highlight = Some(next_shape);
+        if next_shape == BlockHighlightShape::Cloud {
+            block.style.color = block.fill;
+            block.style.width = 1.5;
+        }
+        Operation::new("Reshape", vec![Change::UpdateAnnotation(block.clone())])
+            .apply(&mut doc)
+            .unwrap_or_else(|e| panic!("shape conversion to {next_shape:?} failed: {e}"));
+        let read = page_annotations(&doc, 0).expect("read");
+        let kept = read.iter().find(|a| a.id == block.id).expect("kept id");
+        assert_eq!(kept.block_highlight, Some(next_shape));
+        let (dark_now, _) = count_dark_and_yellow(&doc);
+        assert!(
+            dark_now * 2 >= baseline_dark,
+            "dark text stays visible under {next_shape:?}: before={baseline_dark}, after={dark_now}"
+        );
+    }
+
+    // Also verify text markup kind conversions succeed in-place via UpdateAnnotation.
+    let quad = ecclesia_mupdf::Quad {
+        ul: PagePoint {
+            x: rect.x0,
+            y: rect.y0,
+        },
+        ur: PagePoint {
+            x: rect.x1,
+            y: rect.y0,
+        },
+        ll: PagePoint {
+            x: rect.x0,
+            y: rect.y1,
+        },
+        lr: PagePoint {
+            x: rect.x1,
+            y: rect.y1,
+        },
+    };
+    let mut markup = Annotation::new(
+        0,
+        Shape::Markup(Markup::Highlight, vec![quad]),
+        Style {
+            color: Some([0.99, 0.88, 0.28]),
+            opacity: 1.0,
+            width: 0.0,
+        },
+        "Ada",
+    );
+    Operation::new("Highlight", vec![Change::CreateAnnotation(markup.clone())])
+        .apply(&mut doc)
+        .expect("create highlight");
+    for kind in [
+        Markup::Underline,
+        Markup::Squiggly,
+        Markup::StrikeOut,
+        Markup::Highlight,
+    ] {
+        markup.shape = Shape::Markup(kind, vec![quad]);
+        Operation::new("Restyle", vec![Change::UpdateAnnotation(markup.clone())])
+            .apply(&mut doc)
+            .unwrap_or_else(|e| panic!("markup conversion to {kind:?} failed: {e}"));
+    }
+}

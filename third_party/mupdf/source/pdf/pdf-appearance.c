@@ -171,7 +171,10 @@ pdf_write_opacity_blend_mode(fz_context *ctx, pdf_annot *annot, fz_buffer *buf, 
 static void
 pdf_write_opacity(fz_context *ctx, pdf_annot *annot, fz_buffer *buf, pdf_obj **res)
 {
-	pdf_write_opacity_blend_mode(ctx, annot, buf, res, FZ_BLEND_NORMAL);
+	int bm = pdf_name_eq(ctx, pdf_dict_get(ctx, annot->obj, PDF_NAME(BM)), PDF_NAME(Multiply))
+		? FZ_BLEND_MULTIPLY
+		: FZ_BLEND_NORMAL;
+	pdf_write_opacity_blend_mode(ctx, annot, buf, res, bm);
 }
 
 static void

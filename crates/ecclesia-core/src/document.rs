@@ -18,7 +18,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use ecclesia_mupdf::{DisplayList, MuError, Reflow, Save, UndoState};
+use ecclesia_mupdf::{DisplayList, MuError, Reflow, ReflowStyle, Save, UndoState};
 
 pub use identity::FileId;
 
@@ -104,6 +104,8 @@ struct State {
     layouts: u64,
     /// The pages a reflowable document is laid out on, to lay it out the same way after hibernating.
     reflow: Option<Reflow>,
+    /// The styling (document CSS toggle + user CSS/font) applied to a reflowable document.
+    reflow_style: ReflowStyle,
     /// The operation log and the undo history it records; `None` when the document can't be edited.
     log: Option<Log>,
     /// Edits an earlier run logged and never saved, until they are recovered or discarded.
@@ -179,6 +181,7 @@ impl Document {
                 revisions: HashMap::new(),
                 layouts: 0,
                 reflow: None,
+                reflow_style: ReflowStyle::default(),
                 log,
                 recovery,
                 edits: 0,
@@ -215,6 +218,7 @@ impl Document {
         let id = FileId::of(&self.path)?;
         let mut document = open_mupdf(&self.path, self.log_path.is_some())?;
         if let Some(reflow) = state.reflow {
+            document.set_reflow_style(&state.reflow_style)?;
             document.reflow(reflow, None)?;
         }
         // A new journal: the log starts again from the file as it is now.
@@ -283,17 +287,38 @@ impl Document {
     ///
     /// Waking failed, or MuPDF can't lay the document out.
     pub fn reflow(&self, reflow: Reflow, keep: Option<usize>) -> Result<Option<usize>> {
-        if self.lock().reflow == Some(reflow) {
-            return Ok(keep);
+        let style = self.lock().reflow_style.clone();
+        self.reflow_with_style(reflow, &style, keep)
+    }
+
+    /// Lays a reflowable document out on `reflow`'s pages with `style` (document CSS + optional user CSS/font),
+    /// returning where the text page `keep` started with is now. Fixed-layout documents are left untouched.
+    ///
+    /// # Errors
+    ///
+    /// Waking failed, or MuPDF can't style or lay the document out.
+    pub fn reflow_with_style(
+        &self,
+        reflow: Reflow,
+        style: &ReflowStyle,
+        keep: Option<usize>,
+    ) -> Result<Option<usize>> {
+        {
+            let state = self.lock();
+            if state.reflow == Some(reflow) && state.reflow_style == *style {
+                return Ok(keep);
+            }
         }
         let mupdf = self.mupdf()?;
         let mut mupdf = mupdf.lock().expect("document lock poisoned");
         if !mupdf.is_reflowable()? {
             return Ok(keep);
         }
+        mupdf.set_reflow_style(style)?;
         let kept = mupdf.reflow(reflow, keep)?;
         let mut state = self.lock();
         state.reflow = Some(reflow);
+        state.reflow_style = style.clone();
         state.all_pages_changed();
         Ok(kept)
     }

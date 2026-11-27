@@ -47,6 +47,15 @@ typedef const unsigned char *(*ex_font_loader)(const char *file_name, int *size)
  * render with whatever fallback MuPDF finds (none, on Windows, until system fonts are wired in). */
 void ex_set_font_loader(ex_font_loader loader);
 
+/* Resolves a system font family name (plus bold/italic flags) to a UTF-8 file path and TTC face index.
+ * Writes a NUL-terminated path into `path_buf` (at most `path_cap` bytes), sets `*face_index`, and returns 1
+ * when found or 0 when not found. Must be thread-safe and never longjmp. */
+typedef int (*ex_system_font_lookup)(const char *name, int bold, int italic,
+	char *path_buf, int path_cap, int *face_index);
+
+/* Sets the process-wide resolver for system-installed fonts (used by HTML/EPUB/Markdown/MOBI/FB2). */
+void ex_set_system_font_lookup(ex_system_font_lookup lookup);
+
 /* Contexts. ex_new_context makes a base context: the default store size, every document handler registered, and real
  * locks, so clones of it may be used on other threads at the same time (one clone per thread). Every context, base
  * or clone, is dropped with ex_drop_context; the locks go with the last one. */
@@ -71,6 +80,11 @@ int ex_page_box(fz_context *ctx, fz_document *doc, int number, int box, fz_rect 
 /* 1 when the document lays its text out to a page size of the reader's choosing (EPUB, FB2, MOBI, HTML,
  * Markdown), else 0. */
 int ex_is_reflowable(fz_context *ctx, fz_document *doc, int *out, ex_error *err);
+
+/* Sets whether a reflowable document applies its own stylesheets (`use_document_css` != 0) and optional
+ * user CSS rules (`user_css`, NULL or empty for none). Takes effect on the next layout (`ex_reflow`). */
+int ex_style_document(fz_context *ctx, fz_document *doc, int use_document_css, const char *user_css,
+	ex_error *err);
 
 /* Lays a reflowable document out on pages of `w` x `h` points with text of `em` points (R.28). When `keep` is a page
  * number, the text at the start of that page is found again after the layout: `out` gets the page it is on now, else

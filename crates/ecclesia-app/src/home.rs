@@ -71,16 +71,16 @@ const TIP_KEYS: [&str; 6] = [
     "home.tip.research",
 ];
 
-const ICON_SEARCH: &[u8] = include_bytes!("../assets/icons/search.png");
-const ICON_PALETTE: &[u8] = include_bytes!("../assets/icons/palette.png");
-const ICON_KEYBOARD: &[u8] = include_bytes!("../assets/icons/keyboard.png");
-const ICON_FOLDER: &[u8] = include_bytes!("../assets/icons/folder.png");
-const ICON_CLOCK: &[u8] = include_bytes!("../assets/icons/clock.png");
-const ICON_GRID: &[u8] = include_bytes!("../assets/icons/grid.png");
-const ICON_LIST: &[u8] = include_bytes!("../assets/icons/list.png");
-const ICON_ZOOM_OUT: &[u8] = include_bytes!("../assets/icons/zoom-out.png");
-const ICON_ZOOM_IN: &[u8] = include_bytes!("../assets/icons/zoom-in.png");
-const ICON_BOOK: &[u8] = include_bytes!("../assets/icons/book.png");
+const ICON_SEARCH: &[u8] = include_bytes!("../assets/icons/search.svg");
+const ICON_PALETTE: &[u8] = include_bytes!("../assets/icons/palette.svg");
+const ICON_KEYBOARD: &[u8] = include_bytes!("../assets/icons/keyboard.svg");
+const ICON_FOLDER: &[u8] = include_bytes!("../assets/icons/folder.svg");
+const ICON_CLOCK: &[u8] = include_bytes!("../assets/icons/clock.svg");
+const ICON_GRID: &[u8] = include_bytes!("../assets/icons/grid.svg");
+const ICON_LIST: &[u8] = include_bytes!("../assets/icons/list.svg");
+const ICON_ZOOM_OUT: &[u8] = include_bytes!("../assets/icons/zoom-out.svg");
+const ICON_ZOOM_IN: &[u8] = include_bytes!("../assets/icons/zoom-in.svg");
+const ICON_BOOK: &[u8] = include_bytes!("../assets/icons/book.svg");
 
 #[derive(Clone, Copy)]
 struct HomeStyleProps {
@@ -177,7 +177,7 @@ impl HomeSvg {
         CACHE[slot]
             .get_or_init(|| {
                 format!(
-                    "data:image/png;base64,{}",
+                    "data:image/svg+xml;base64,{}",
                     base64::engine::general_purpose::STANDARD.encode(bytes)
                 )
             })

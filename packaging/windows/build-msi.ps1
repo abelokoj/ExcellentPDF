@@ -629,6 +629,7 @@ try {
         Registry               = '`Registry` CHAR(72) NOT NULL, `Root` SHORT NOT NULL, `Key` CHAR(255) NOT NULL LOCALIZABLE, `Name` CHAR(255) LOCALIZABLE, `Value` LONGCHAR LOCALIZABLE, `Component_` CHAR(72) NOT NULL PRIMARY KEY `Registry`'
         RemoveFile             = '`FileKey` CHAR(72) NOT NULL, `Component_` CHAR(72) NOT NULL, `FileName` CHAR(255) LOCALIZABLE, `DirProperty` CHAR(72) NOT NULL, `InstallMode` SHORT NOT NULL PRIMARY KEY `FileKey`'
         Shortcut               = '`Shortcut` CHAR(72) NOT NULL, `Directory_` CHAR(72) NOT NULL, `Name` CHAR(128) NOT NULL LOCALIZABLE, `Component_` CHAR(72) NOT NULL, `Target` CHAR(72) NOT NULL, `Arguments` CHAR(255), `Description` CHAR(255) LOCALIZABLE, `Hotkey` SHORT, `Icon_` CHAR(72), `IconIndex` SHORT, `ShowCmd` SHORT, `WkDir` CHAR(72) PRIMARY KEY `Shortcut`'
+        MsiShortcutProperty    = '`MsiShortcutProperty` CHAR(72) NOT NULL, `Shortcut_` CHAR(72) NOT NULL, `PropertyKey` CHAR(255) NOT NULL, `PropVariantValue` CHAR(255) NOT NULL PRIMARY KEY `MsiShortcutProperty`'
         Upgrade                = '`UpgradeCode` CHAR(38) NOT NULL, `VersionMin` CHAR(20), `VersionMax` CHAR(20), `Language` CHAR(255), `Attributes` LONG NOT NULL, `Remove` CHAR(255), `ActionProperty` CHAR(72) NOT NULL PRIMARY KEY `UpgradeCode`, `VersionMin`, `VersionMax`, `Language`, `Attributes`'
         LaunchCondition        = '`Condition` CHAR(255) NOT NULL, `Description` CHAR(255) NOT NULL LOCALIZABLE PRIMARY KEY `Condition`'
         CustomAction           = '`Action` CHAR(72) NOT NULL, `Type` SHORT NOT NULL, `Source` CHAR(72), `Target` CHAR(255) PRIMARY KEY `Action`'
@@ -740,27 +741,41 @@ try {
     # --- Registry (Root = -1: HKCU for per-user, HKLM for per-machine), RemoveFile, Shortcut ---
     $regKey = 'Software\EcclesiaPDF\Installer'
     Add-Row Registry @('AppInstalled', -1, $regKey, 'InstallDir', '[INSTALLDIR]', 'App')
+    Add-Row Registry @('AppUserModelId', -1, 'Software\Classes\Applications\ecclesiapdf.exe', 'AppUserModelID', 'com.ecclesiapdf.app', 'App')
+    Add-Row Registry @('AppFriendlyName', -1, 'Software\Classes\Applications\ecclesiapdf.exe', 'FriendlyAppName', 'Ecclesia PDF', 'App')
+    Add-Row Registry @('AppDefaultIcon', -1, 'Software\Classes\Applications\ecclesiapdf.exe\DefaultIcon', $null, '[INSTALLDIR]ecclesiapdf.exe,0', 'App')
+    Add-Row Registry @('AppShellOpenIcon', -1, 'Software\Classes\Applications\ecclesiapdf.exe\shell\open', 'Icon', '[INSTALLDIR]ecclesiapdf.exe,0', 'App')
+    Add-Row Registry @('AppShellOpenCmd', -1, 'Software\Classes\Applications\ecclesiapdf.exe\shell\open\command', $null, '"[INSTALLDIR]ecclesiapdf.exe" "%1"', 'App')
     Add-Row Registry @('ShortcutInstalled', -1, $regKey, 'StartMenuShortcut', '#1', 'StartMenu')
     Add-Row Registry @('InstallerKey', -1, $regKey, '-', $null, 'App')
 
-    # Dual-scope Default Programs / file type associations (Root = -1: HKCU for per-user, HKLM for per-machine).
+    # Dual-scope Default Programs, "Open with", and Windows Explorer right-click context menu ("Open in Ecclesia PDF")
+    # for every supported file type (Root = -1: HKCU for per-user, HKLM for per-machine).
     Add-Row Registry @('FileAssocRegistered', -1, $regKey, 'FileAssociations', '#1', 'FileAssoc')
     Add-Row Registry @('ProgIdDesc', -1, 'Software\Classes\EcclesiaPDF.Document', $null, 'Ecclesia PDF Document', 'FileAssoc')
+    Add-Row Registry @('ProgIdAppUserModelId', -1, 'Software\Classes\EcclesiaPDF.Document', 'AppUserModelID', 'com.ecclesiapdf.app', 'FileAssoc')
     Add-Row Registry @('ProgIdIcon', -1, 'Software\Classes\EcclesiaPDF.Document\DefaultIcon', $null, '[INSTALLDIR]ecclesiapdf.exe,0', 'FileAssoc')
     Add-Row Registry @('ProgIdOpenCmd', -1, 'Software\Classes\EcclesiaPDF.Document\shell\open\command', $null, '"[INSTALLDIR]ecclesiapdf.exe" "%1"', 'FileAssoc')
     Add-Row Registry @('CapAppName', -1, 'Software\EcclesiaPDF\Capabilities', 'ApplicationName', 'Ecclesia PDF', 'FileAssoc')
     Add-Row Registry @('CapAppDesc', -1, 'Software\EcclesiaPDF\Capabilities', 'ApplicationDescription', 'Fast PDF, e-book, and annotation reader', 'FileAssoc')
     Add-Row Registry @('RegAppCap', -1, 'Software\RegisteredApplications', 'Ecclesia PDF', 'Software\EcclesiaPDF\Capabilities', 'FileAssoc')
-    $fileExtensions = @('.pdf', '.xps', '.oxps', '.epub', '.cbz', '.cbr', '.mobi', '.fb2', '.djvu', '.expdf')
+    $fileExtensions = @('.pdf', '.xps', '.oxps', '.epub', '.cbz', '.cbr', '.mobi', '.prc', '.fb2', '.djvu', '.expdf', '.md', '.html', '.htm', '.xhtml', '.svg')
     foreach ($ext in $fileExtensions) {
         $extTag = $ext.TrimStart('.')
         Add-Row Registry @("OpenWith_$extTag", -1, "Software\Classes\$ext\OpenWithProgids", 'EcclesiaPDF.Document', '', 'FileAssoc')
+        Add-Row Registry @("Supported_$extTag", -1, 'Software\Classes\Applications\ecclesiapdf.exe\SupportedTypes', $ext, '', 'FileAssoc')
         Add-Row Registry @("CapExt_$extTag", -1, 'Software\EcclesiaPDF\Capabilities\FileAssociations', $ext, 'EcclesiaPDF.Document', 'FileAssoc')
+        Add-Row Registry @("CtxVerb_$extTag", -1, "Software\Classes\SystemFileAssociations\$ext\shell\EcclesiaPDF.Open", $null, 'Open in Ecclesia PDF', 'FileAssoc')
+        Add-Row Registry @("CtxIcon_$extTag", -1, "Software\Classes\SystemFileAssociations\$ext\shell\EcclesiaPDF.Open", 'Icon', '[INSTALLDIR]ecclesiapdf.exe,0', 'FileAssoc')
+        Add-Row Registry @("CtxCmd_$extTag", -1, "Software\Classes\SystemFileAssociations\$ext\shell\EcclesiaPDF.Open\command", $null, '"[INSTALLDIR]ecclesiapdf.exe" "%1"', 'FileAssoc')
     }
 
     Add-Row RemoveFile @('RemoveInstallDir', 'App', $null, 'INSTALLDIR', 2)
     Add-Row Shortcut @('StartMenu', 'ProgramMenuFolder', 'ECCLES~1|Ecclesia PDF', 'StartMenu', '[#ecclesiapdf.exe]',
         $null, 'Read, annotate and organise PDFs', $null, $null, $null, $null, 'INSTALLDIR')
+    # Match the running process's SetCurrentProcessExplicitAppUserModelID("com.ecclesiapdf.app") so pinning
+    # to the Windows taskbar never creates a duplicate taskbar button on relaunch.
+    Add-Row MsiShortcutProperty @('StartMenuAppUserModelID', 'StartMenu', 'System.AppUserModel.ID', 'com.ecclesiapdf.app')
 
     # --- Upgrades and Launch Conditions ---
     # Same or older builds are replaced (512: up to this version inclusive); a newer one stops the install (2: detect only).
