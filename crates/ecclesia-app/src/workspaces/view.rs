@@ -32,6 +32,8 @@ const ICONS: [&str; 8] = ["📚", "📄", "🎓", "💼", "🧾", "🔬", "✏�
 
 /// Embedded SVG for the stacked-layers header icon.
 const WS_LAYERS_SVG: &[u8] = include_bytes!("../../assets/icons/ws-layers.svg");
+/// Embedded SVG for the active workspace checkmark indicator.
+const WS_CHECK_SVG: &[u8] = include_bytes!("../../assets/icons/ws-check.svg");
 
 /// Curated pool of 10 crisp Phosphor vector SVG icons automatically assigned when a workspace has no custom icon.
 const WS_AUTO_SVGS: [&[u8]; 10] = [
@@ -70,6 +72,11 @@ fn svg_data_uri(bytes: &[u8]) -> String {
 fn layers_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
     SRC.get_or_init(|| svg_data_uri(WS_LAYERS_SVG)).clone()
+}
+
+fn check_icon_src() -> String {
+    static SRC: OnceLock<String> = OnceLock::new();
+    SRC.get_or_init(|| svg_data_uri(WS_CHECK_SVG)).clone()
 }
 
 /// Deterministic pseudo-random index into [`WS_AUTO_SVGS`] for a workspace with no custom icon,
@@ -439,7 +446,10 @@ fn workspace_dropdown_row(
     };
     let can_delete = move || workspaces.list().len() > 1 && !workspaces.in_other_window(ws_id);
 
-    // Two-line horizontal drag handle (`=`) on the right edge to move the workspace up or down.
+    // Right-side slot: shows an accent checkmark for the active workspace (matching Vivaldi),
+    // switching to the two-line `=` drag handle on hover/drag or for inactive workspaces so every
+    // workspace can be reordered vertically.
+    let handle_hovered = signal(false);
     let drag_handle = view()
         .label(t!("workspace.reorder_handle"))
         .w(px(28.0))
@@ -448,9 +458,10 @@ fn workspace_dropdown_row(
         .rounded(px(6.0))
         .items_center()
         .justify_center()
-        .gap(px(4.0))
         .cursor(Cursor::Grab)
         .style_when(is_dragging, |s| s.cursor(Cursor::Grabbing))
+        .on_mouse_enter(move |_: &MouseEvent| handle_hovered.set(true))
+        .on_mouse_leave(move |_: &MouseEvent| handle_hovered.set(false))
         .hover(|s| s.bg(move || theme().muted))
         .claim_touches(TouchClaim::on_move().ask(move |req: &ClaimRequest| {
             if req.event.gesture.delta.y.0.abs() >= DRAG_THRESHOLD_PX {
@@ -492,20 +503,36 @@ fn workspace_dropdown_row(
                 drag.set(None);
             }
         })
-        .child(
-            view()
-                .w(px(14.0))
-                .h(px(1.5))
-                .rounded_full()
-                .bg(move || theme().muted_foreground),
-        )
-        .child(
-            view()
-                .w(px(14.0))
-                .h(px(1.5))
-                .rounded_full()
-                .bg(move || theme().muted_foreground),
-        );
+        .child(dynamic(move || {
+            if is_active() && !handle_hovered.get() && !is_dragging() {
+                image(check_icon_src())
+                    .w(px(16.0))
+                    .h(px(16.0))
+                    .object_fit(ResizeMode::Contain)
+                    .tint_color(move || theme().primary)
+                    .into_element()
+            } else {
+                view()
+                    .items_center()
+                    .justify_center()
+                    .gap(px(4.0))
+                    .child(
+                        view()
+                            .w(px(14.0))
+                            .h(px(1.5))
+                            .rounded_full()
+                            .bg(move || theme().muted_foreground),
+                    )
+                    .child(
+                        view()
+                            .w(px(14.0))
+                            .h(px(1.5))
+                            .rounded_full()
+                            .bg(move || theme().muted_foreground),
+                    )
+                    .into_element()
+            }
+        }));
 
     // Clickable main part of the row: left icon + stacked 2-line title & tab count.
     let main_hit = button()
