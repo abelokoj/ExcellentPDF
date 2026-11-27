@@ -16,6 +16,7 @@ use ecclesia_store::workspaces::{Look, Workspace};
 use nsh_base::{
     CommandItem, MenuItemElement, button, command, context_menu, input, menu_item, theme, toggle,
 };
+use nsh_core::EllipsizeMode;
 use nsh_core::prelude::*;
 
 use super::{Dialog, Start, Transfer, WorkspaceAction, Workspaces, display_name};
@@ -148,8 +149,9 @@ pub(crate) fn switcher_button(
                 )))
             })
             .on_press(move || run(id))
-            .h(px(26.0))
-            .max_w(px(200.0))
+            .h(move || px((workspaces.live.read(crate::tabs::tab_font_size_px) + 14.0).max(26.0)))
+            .max_w(px(240.0))
+            .overflow_hidden()
             .px_2()
             .gap(px(6.0))
             .flex_row()
@@ -158,23 +160,29 @@ pub(crate) fn switcher_button(
             .hover(|s| s.bg(move || theme().sidebar_accent))
             .active(|s| s.opacity(0.7))
             .focus_visible(|s| s.border_2().border_color(move || theme().ring))
-            .child(dynamic(move || {
+            .child(view().flex_shrink(0.0).child(dynamic(move || {
                 let shown = workspaces.shown();
                 let ws_id = shown.as_ref().map_or(WorkspaceId::DEFAULT, |w| w.id);
                 let icon = shown.and_then(|w| w.icon);
                 workspace_icon_view(ws_id, icon, 15.0, move || theme().sidebar_foreground)
-            }))
+            })))
             .child(
                 text(name)
-                    .truncate()
+                    .flex_shrink(1.0)
                     .min_w(px(0.0))
+                    .number_of_lines(1u32)
+                    .text_overflow(EllipsizeMode::Middle)
                     .text_size(
                         move || px(workspaces.live.read(crate::tabs::tab_font_size_px) + 0.5),
                     )
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(move || theme().sidebar_foreground),
             )
-            .child(crate::shell::app_menu::workspace_dropdown_arrow()),
+            .child(
+                view()
+                    .flex_shrink(0.0)
+                    .child(crate::shell::app_menu::workspace_dropdown_arrow()),
+            ),
     )
 }
 

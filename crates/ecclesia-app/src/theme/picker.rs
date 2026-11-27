@@ -10,7 +10,7 @@ use nsh_core::prelude::*;
 use super::{Contrast, FAMILIES, Family, ThemeChoice, apply, save, theme_of};
 use crate::list_dialog::{list_dialog, style};
 
-/// The theme picker: every family, then every family in high contrast.
+/// The theme picker: one unified list of every theme family, preserving the user's high-contrast toggle.
 pub(crate) fn theme_picker(open: Signal<bool>, current: Signal<ThemeChoice>) -> impl IntoElement {
     live_picker(
         open,
@@ -19,8 +19,8 @@ pub(crate) fn theme_picker(open: Signal<bool>, current: Signal<ThemeChoice>) -> 
             title: "theme.picker.title",
             placeholder: "theme.picker.placeholder",
             items: theme_items,
-            choice_of: theme_choice,
-            id_of: theme_id,
+            choice_of: family_choice,
+            id_of: family_id,
             swatch: true,
         },
     )
@@ -116,22 +116,23 @@ fn live_picker(
                 .on_highlight_change(preview)
                 .on_select(choose)
                 .on_cancel(revert)
-                .render_item(move |item: &CommandEntry| row(item, picker.swatch)),
+                .render_item(move |item: &CommandEntry| {
+                    let contrast = untracked(|| current.get().contrast);
+                    row(item, picker.swatch, contrast)
+                }),
         ),
     )
 }
 
 /// A row: the theme's swatch (theme rows), its name, and a dot on the one in effect.
-fn row(item: &CommandEntry, swatch: bool) -> impl IntoElement + use<> {
-    let theme_shown = swatch
-        .then(|| theme_choice(&item.id, ThemeChoice::default()))
-        .flatten();
+fn row(item: &CommandEntry, swatch: bool, contrast: Contrast) -> impl IntoElement + use<> {
+    let family_shown = swatch.then(|| Family::find(&item.id)).flatten();
     view()
         .flex_1()
         .flex_row()
         .items_center()
         .gap_3()
-        .children(theme_shown.map(|choice| swatch_of(choice.family, choice.contrast)))
+        .children(family_shown.map(|family| swatch_of(family, contrast)))
         .child(text(item.label.clone()).flex_1())
         .child(
             view()
@@ -144,7 +145,7 @@ fn row(item: &CommandEntry, swatch: bool) -> impl IntoElement + use<> {
 }
 
 /// A small window in `family`'s colours, light or dark as the window is: its chrome strip, its page and its accent.
-fn swatch_of(family: &'static Family, contrast: Contrast) -> impl IntoElement {
+pub(crate) fn swatch_of(family: &'static Family, contrast: Contrast) -> impl IntoElement {
     let colours = theme_of(family, contrast);
     view()
         .w(px(32.0))
@@ -189,26 +190,26 @@ pub(super) fn theme_choice(id: &str, now: ThemeChoice) -> Option<ThemeChoice> {
     })
 }
 
-fn theme_items(now: ThemeChoice) -> Vec<CommandItem> {
-    [
-        (Contrast::Standard, "theme.picker.group.standard"),
-        (Contrast::High, "theme.picker.group.contrast"),
-    ]
-    .into_iter()
-    .flat_map(|(contrast, group)| {
-        FAMILIES.iter().map(move |family| {
-            let choice = ThemeChoice {
-                family,
-                contrast,
-                ..now
-            };
-            CommandItem::new(theme_id(choice), family.name())
-                .keywords([family.id])
-                .group(t!(group))
-                .checked(choice == now)
-        })
+fn family_id(choice: ThemeChoice) -> String {
+    choice.family.id.to_owned()
+}
+
+fn family_choice(id: &str, now: ThemeChoice) -> Option<ThemeChoice> {
+    Some(ThemeChoice {
+        family: Family::find(id)?,
+        ..now
     })
-    .collect()
+}
+
+fn theme_items(now: ThemeChoice) -> Vec<CommandItem> {
+    FAMILIES
+        .iter()
+        .map(|family| {
+            CommandItem::new(family.id, family.name())
+                .keywords([family.id])
+                .checked(family == now.family)
+        })
+        .collect()
 }
 
 /// The appearances, in the order the picker lists them, with their ids and localization keys.
@@ -223,15 +224,6 @@ pub(super) fn appearance_id(choice: ThemeChoice) -> String {
         .iter()
         .find(|(appearance, ..)| *appearance == choice.appearance)
         .map(|(_, id, _)| (*id).to_owned())
-        .unwrap_or_default()
-}
-
-/// The appearance `choice` uses, in the app's language.
-pub(crate) fn appearance_name(choice: ThemeChoice) -> String {
-    APPEARANCES
-        .iter()
-        .find(|(appearance, ..)| *appearance == choice.appearance)
-        .map(|&(.., label)| t!(label))
         .unwrap_or_default()
 }
 

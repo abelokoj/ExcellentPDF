@@ -124,6 +124,95 @@ pub(crate) fn on_tool_color(live: Live, data: &JsonValue) {
     });
 }
 
+/// Inline annotation color editor embedded inside the Settings window so users can adjust every
+/// tool's color and opacity live without leaving Settings.
+pub(crate) fn inline_color_editor(live: Live) -> View {
+    let tool = signal(Tool::Highlight);
+    let current = move || live.read(|s| read(s).style(tool.get()));
+    let opacity = move || current().opacity;
+    let apply_style = move |style: ToolStyle| {
+        let active_tool = untracked(|| tool.get());
+        live.change(|s| {
+            let mut colors = read(s);
+            if style != colors.style(active_tool) {
+                colors.choose(active_tool, style);
+                write(s, &colors);
+            }
+        });
+    };
+    let tabs = Tool::ALL.into_iter().fold(segmented(), |row, choice| {
+        row.child(segment(
+            tool_label(choice),
+            move || tool.get() == choice,
+            move || tool.set(choice),
+        ))
+    });
+    let picker = color_picker()
+        .value(move || Some(hsla(current())))
+        .on_change(move |event: &ColorPickerEvent| {
+            if let ColorPickerEvent::Change(value, _) = event {
+                apply_style(style_of(*value));
+            }
+        })
+        .child(
+            view()
+                .gap_3()
+                .child(
+                    color_area()
+                        .accessibility_label(t!("annotation_colors.area"))
+                        .w_full()
+                        .h(px(136.0)),
+                )
+                .child(slider(ColorChannel::Hue, "annotation_colors.hue"))
+                .child(slider(ColorChannel::Alpha, "annotation_colors.opacity"))
+                .child(
+                    view()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            color_field()
+                                .accessibility_label(t!("annotation_colors.hex"))
+                                .h(px(32.0))
+                                .px_2()
+                                .flex_1()
+                                .rounded(px(8.0))
+                                .border_1()
+                                .border_color(move || theme().input)
+                                .text_size(px(13.0)),
+                        )
+                        .child(
+                            text(move || {
+                                let percent = (opacity() * 100.0).round();
+                                t!("annotation_colors.percent", value = percent.to_string())
+                            })
+                            .text_size(px(13.0))
+                            .text_color(move || theme().muted_foreground),
+                        ),
+                )
+                .child(caption("annotation_colors.palette"))
+                .child(swatch_row(
+                    move || live.read(|s| read(s).palette.swatches(tool.get()).to_vec()),
+                    opacity,
+                ))
+                .child(caption("annotation_colors.recent"))
+                .child(swatch_row(
+                    move || live.read(|s| read(s).recent.clone()),
+                    opacity,
+                )),
+        );
+    view()
+        .w_full()
+        .p(px(14.0))
+        .gap_3()
+        .rounded(px(10.0))
+        .bg(move || theme().background)
+        .border_1()
+        .border_color(move || theme().border)
+        .child(tabs)
+        .child(picker)
+}
+
 /// The colour dialog (A.3): which tool, then its colour and opacity on NSH's picker, the palette's and the recent
 /// colours as swatches. Done keeps them (and notifies `on_pick`); Escape, Cancel or a press outside drops them and
 /// notifies `on_cancel`.

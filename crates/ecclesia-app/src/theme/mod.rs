@@ -21,7 +21,7 @@ use serde_json::{Map, Value, json};
 pub(crate) use palette::Contrast;
 use palette::{Hues, Side};
 use picker::{appearance_choice, appearance_id, theme_choice, theme_id};
-pub(crate) use picker::{appearance_name, appearance_picker, theme_picker};
+pub(crate) use picker::{appearance_picker, swatch_of, theme_picker};
 
 use crate::settings::{self, Settings};
 
@@ -36,12 +36,77 @@ pub(crate) struct Family {
     source: &'static str,
 }
 
-/// Every built-in family (plan §10.3), neutral first.
-pub(crate) const FAMILIES: [Family; 7] = [
+/// Every built-in family (plan §10.3 + SumatraPDF Enhanced + classic palettes), neutral first.
+pub(crate) const FAMILIES: [Family; 20] = [
     Family {
         id: "neutral",
         name: "theme.family.neutral",
         source: include_str!("../../../../app/themes/neutral.toml"),
+    },
+    Family {
+        id: "charcoal",
+        name: "theme.family.charcoal",
+        source: include_str!("../../../../app/themes/charcoal.toml"),
+    },
+    Family {
+        id: "catppuccin",
+        name: "theme.family.catppuccin",
+        source: include_str!("../../../../app/themes/catppuccin.toml"),
+    },
+    Family {
+        id: "gruvbox",
+        name: "theme.family.gruvbox",
+        source: include_str!("../../../../app/themes/gruvbox.toml"),
+    },
+    Family {
+        id: "monokai",
+        name: "theme.family.monokai",
+        source: include_str!("../../../../app/themes/monokai.toml"),
+    },
+    Family {
+        id: "dracula",
+        name: "theme.family.dracula",
+        source: include_str!("../../../../app/themes/dracula.toml"),
+    },
+    Family {
+        id: "nord",
+        name: "theme.family.nord",
+        source: include_str!("../../../../app/themes/nord.toml"),
+    },
+    Family {
+        id: "onedark",
+        name: "theme.family.onedark",
+        source: include_str!("../../../../app/themes/onedark.toml"),
+    },
+    Family {
+        id: "solarized",
+        name: "theme.family.solarized",
+        source: include_str!("../../../../app/themes/solarized.toml"),
+    },
+    Family {
+        id: "sumatra",
+        name: "theme.family.sumatra",
+        source: include_str!("../../../../app/themes/sumatra.toml"),
+    },
+    Family {
+        id: "slate",
+        name: "theme.family.slate",
+        source: include_str!("../../../../app/themes/slate.toml"),
+    },
+    Family {
+        id: "blue",
+        name: "theme.family.blue",
+        source: include_str!("../../../../app/themes/blue.toml"),
+    },
+    Family {
+        id: "amber",
+        name: "theme.family.amber",
+        source: include_str!("../../../../app/themes/amber.toml"),
+    },
+    Family {
+        id: "espresso",
+        name: "theme.family.espresso",
+        source: include_str!("../../../../app/themes/espresso.toml"),
     },
     Family {
         id: "aurora",

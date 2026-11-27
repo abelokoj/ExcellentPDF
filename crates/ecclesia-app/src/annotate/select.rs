@@ -113,7 +113,7 @@ impl AnnotateState {
             .collect();
         let name = match drag.grip {
             Grip::Move => t!("select.move"),
-            Grip::Corner(_) => t!("select.resize"),
+            Grip::Corner(_) | Grip::Edge(_) => t!("select.resize"),
             Grip::Vertex(_) => t!("select.reshape"),
         };
         self.apply(name, changes);

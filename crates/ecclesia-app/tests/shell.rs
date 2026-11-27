@@ -193,18 +193,30 @@ fn the_settings_window_opens_from_its_key_and_hands_over_to_the_theme_picker() {
     app.wait_for("Light or dark")
         .expect("Appearance section shows again");
 
-    app.press("role:dialog >> text:Neutral")
-        .expect("the theme row's button");
-    app.wait_for("role:dialog[Theme]")
-        .expect("the theme picker opens in its place");
+    // Selecting a theme and toggling High contrast happen inline without leaving Settings.
+    app.press("role:dialog >> text:Catppuccin")
+        .expect("select Catppuccin theme inline");
     app.settle();
     assert!(
-        !app.screen().shows("Light or dark"),
-        "the settings window closed"
+        app.screen().shows("Light or dark"),
+        "choosing a theme keeps the user inside Settings"
     );
+    app.press("role:dialog >> label:High contrast")
+        .expect("toggle High contrast inline");
+    app.settle();
+    assert!(
+        app.screen().shows("Light or dark"),
+        "toggling High contrast keeps the user inside Settings"
+    );
+    // Restore default Neutral + Standard contrast so headless state stays clean.
+    app.press("role:dialog >> label:High contrast")
+        .expect("restore standard contrast");
+    app.press("role:dialog >> text:Neutral")
+        .expect("restore Neutral theme");
+    app.settle();
     app.press_key("escape").expect("Escape");
     app.wait_for_gone("role:dialog", wait)
-        .expect("the picker closes");
+        .expect("settings closes on Escape");
 }
 
 /// U.4: at 200 % scaling a 1280 × 800 screen is 640 × 400 points; the home page and the palette still fit and work.

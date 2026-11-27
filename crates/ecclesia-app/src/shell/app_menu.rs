@@ -155,8 +155,8 @@ pub(crate) fn workspace_dropdown_arrow() -> impl IntoElement {
 /// Renders the softly rounded right-pointing triangle matching the top-left app triangle for submenu triggers.
 pub(crate) fn submenu_arrow_right() -> impl IntoElement {
     image(triangle_right_src())
-        .w(px(10.5))
-        .h(px(14.0))
+        .w(px(7.35))
+        .h(px(9.8))
         .object_fit(ResizeMode::Contain)
         .tint_color(move || theme().popover_foreground)
 }
@@ -164,8 +164,8 @@ pub(crate) fn submenu_arrow_right() -> impl IntoElement {
 /// Renders the softly rounded left-pointing triangle matching the top-left app triangle for submenu back rows.
 pub(crate) fn submenu_arrow_left() -> impl IntoElement {
     image(triangle_left_src())
-        .w(px(10.5))
-        .h(px(14.0))
+        .w(px(7.35))
+        .h(px(9.8))
         .object_fit(ResizeMode::Contain)
         .tint_color(move || theme().popover_foreground)
 }

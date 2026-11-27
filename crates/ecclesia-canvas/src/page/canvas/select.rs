@@ -7,11 +7,12 @@
 //! instead (`annotLasso`: `{page, path: [[x, y]], add}`). The models are `ecclesia-features`' `annotate::edit` and
 //! `annotate::lasso`.
 
+use ecclesia_core::transform::Rotation;
 use ecclesia_features::annotate::edit::Grip;
 use ecclesia_mupdf::{PagePoint, PageRect};
 use serde_json::Value;
 
-use super::PageCanvas;
+use super::{Cursor, PageCanvas};
 use crate::Rect;
 use crate::page::host::{Host, InkPixel};
 use crate::page::placement::Placement;
@@ -20,9 +21,10 @@ use crate::page::placement::Placement;
 const OUTLINE: u32 = 0x2f6fde;
 /// Inside a grip.
 const GRIP_FILL: u32 = 0xffffff;
-/// A grip's half width, and how near the pointer must come to take hold of one, in pixels.
-const GRIP: f32 = 4.0;
-const REACH: f32 = 7.0;
+/// A grip's half width, handle reach, and side-edge grab distance at 96 dpi.
+const GRIP: f32 = 4.5;
+const REACH: f32 = 9.0;
+const EDGE_REACH: f32 = 6.0;
 /// A drag shorter than this, in pixels, is a click.
 const CLICK: f32 = 4.0;
 
@@ -49,8 +51,8 @@ pub(super) struct Selected {
     snapshot: bool,
     /// A loop under way.
     looping: Option<Loop>,
-    /// Whether the pointer is over a grip or an item it would move, for the cursor.
-    hover: bool,
+    /// Which grip the pointer is currently hovering over, for directional resize / move cursors.
+    hover: Option<Grip>,
 }
 
 /// A drag on item `item`'s `grip`, from where the button went down to where the mouse is, page points.
@@ -118,9 +120,23 @@ impl<H: Host> PageCanvas<H> {
         self.selected.snapshot = on;
     }
 
-    /// Whether the pointer would take hold of the selection, or has, for the cursor.
-    pub(super) fn over_selected(&self) -> bool {
-        self.selected.drag.is_some() || self.selected.hover
+    /// Pointer cursor shape for the active selection drag or hovered grip, if any.
+    pub(super) fn selected_cursor(&self) -> Option<Cursor> {
+        let grip = self
+            .selected
+            .drag
+            .map(|drag| drag.grip)
+            .or(self.selected.hover)?;
+        Some(grip_cursor(grip, self.view.rotation))
+    }
+
+    /// Pointer cursor shape evaluated live at client pixel (`x`, `y`) over the selection.
+    pub(super) fn selected_cursor_at(&self, x: i32, y: i32) -> Option<Cursor> {
+        if let Some(drag) = self.selected.drag {
+            return Some(grip_cursor(drag.grip, self.view.rotation));
+        }
+        let (_, grip) = self.grip_at(x, y)?;
+        Some(grip_cursor(grip, self.view.rotation))
     }
 
     /// Page, id and bounds of the single selected annotation when exactly one annotation is
@@ -223,8 +239,7 @@ impl<H: Host> PageCanvas<H> {
             self.selected.looping = Some(looping);
             return true;
         }
-        let hover = at.is_some_and(|(x, y)| self.grip_at(x, y).is_some());
-        self.selected.hover = hover;
+        self.selected.hover = at.and_then(|(x, y)| self.grip_at(x, y).map(|(_, grip)| grip));
         false
     }
 
@@ -306,10 +321,14 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
-    /// The selected item and grip at client pixel (`x`, `y`): a grip within reach first, then the inside of an
-    /// unlocked item's bounds, which moves it.
+    /// The selected item and grip at client pixel (`x`, `y`): explicit corner/edge handles within reach first,
+    /// then any border side of an edge-resizable item (e.g. a block highlight), then the inside of an unlocked
+    /// item's bounds, which moves it.
     fn grip_at(&self, x: i32, y: i32) -> Option<(usize, Grip)> {
         let page = self.selected.page;
+        let scale = self.dpi_scale().max(1.0);
+        let reach = REACH * scale;
+        let edge_reach = EDGE_REACH * scale;
         let movable = || {
             self.selected
                 .items
@@ -320,20 +339,67 @@ impl<H: Host> PageCanvas<H> {
         let grip = movable().find_map(|(at, item)| {
             item.grips
                 .iter()
-                .find(|(_, point)| self.screen_distance(page, *point, x, y) <= REACH)
+                .find(|(_, point)| self.screen_distance(page, *point, x, y) <= reach)
                 .map(|(grip, _)| (at, *grip))
         });
-        grip.or_else(|| {
-            let point = self.point_on(page, x, y)?;
-            let slop = REACH / self.viewport.scale().max(f32::EPSILON);
-            movable()
-                .find(|(_, item)| {
-                    let b = item.bounds;
-                    (b.x0 - slop..=b.x1 + slop).contains(&point.x)
-                        && (b.y0 - slop..=b.y1 + slop).contains(&point.y)
-                })
-                .map(|(at, _)| (at, Grip::Move))
-        })
+        if grip.is_some() {
+            return grip;
+        }
+        if let Some(placement) =
+            Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page)
+        {
+            let px = x as f32;
+            let py = y as f32;
+            let to_screen = |pt: PagePoint| {
+                let (lx, ly) = placement.to_layout(pt);
+                self.viewport.to_screen_point(lx, ly)
+            };
+            let edge_hit = movable().find_map(|(at, item)| {
+                if !item
+                    .grips
+                    .iter()
+                    .any(|(grip, _)| matches!(grip, Grip::Edge(_)))
+                {
+                    return None;
+                }
+                let b = item.bounds;
+                let tl = to_screen(PagePoint { x: b.x0, y: b.y0 });
+                let tr = to_screen(PagePoint { x: b.x1, y: b.y0 });
+                let br = to_screen(PagePoint { x: b.x1, y: b.y1 });
+                let bl = to_screen(PagePoint { x: b.x0, y: b.y1 });
+                let sides = [
+                    (Grip::Edge(0), tl, tr),
+                    (Grip::Edge(1), tr, br),
+                    (Grip::Edge(2), br, bl),
+                    (Grip::Edge(3), bl, tl),
+                ];
+                sides
+                    .into_iter()
+                    .filter_map(|(grip, a, b_pt)| {
+                        let dist = point_to_segment_distance(px, py, a, b_pt);
+                        (dist <= edge_reach).then_some((grip, dist))
+                    })
+                    .min_by(|a, b_cmp| a.1.total_cmp(&b_cmp.1))
+                    .map(|(grip, _)| (at, grip))
+            });
+            if edge_hit.is_some() {
+                return edge_hit;
+            }
+        }
+        let point = self.point_on(page, x, y)?;
+        let slop = reach / self.viewport.scale().max(f32::EPSILON);
+        movable()
+            .find(|(_, item)| {
+                let b = item.bounds;
+                let has_edges = item
+                    .grips
+                    .iter()
+                    .any(|(grip, _)| matches!(grip, Grip::Edge(_)));
+                let pad = if has_edges { 0.0 } else { slop };
+                (b.x0 - pad..=b.x1 + pad).contains(&point.x)
+                    && (b.y0 - pad..=b.y1 + pad).contains(&point.y)
+            })
+            .map(|(at, _)| (at, Grip::Move))
     }
 
     /// Draws the selection: each item's outline and grips, a drag's outline where it would go, and a marquee.
@@ -412,27 +478,80 @@ impl<H: Host> PageCanvas<H> {
         self.host.polyline(&ring, OUTLINE)
     }
 
-    /// A grip at `point` on page `page`: a small white square ringed in the outline's colour.
+    /// A grip at `point` on page `page`: a crisp white square ringed in the outline's colour, scaled for DPI.
     fn grip(&mut self, page: usize, point: PagePoint) -> Result<(), H::Error> {
         let Some(placement) =
             Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page)
         else {
             return Ok(());
         };
+        let scale = self.dpi_scale().max(1.0);
+        let half = GRIP * scale;
+        let border = 1.5 * scale;
         let (lx, ly) = placement.to_layout(point);
         let (x, y) = self.viewport.to_screen_point(lx, ly);
-        let square = |half: f32| Rect {
-            x0: x - half,
-            y0: y - half,
-            x1: x + half,
-            y1: y + half,
+        let square = |h: f32| Rect {
+            x0: x - h,
+            y0: y - h,
+            x1: x + h,
+            y1: y + h,
         };
-        self.host.fill(&square(GRIP), OUTLINE)?;
-        self.host.fill(&square(GRIP - 1.5), GRIP_FILL)
+        self.host.fill(&square(half), OUTLINE)?;
+        self.host.fill(&square((half - border).max(1.0)), GRIP_FILL)
     }
 }
 
-/// Where `item`'s bounds would be after `drag`: moved, or with the dragged corner or vertex at the mouse.
+/// Maps `grip` to the directional pointer cursor shape, accounting for page `rotation`.
+fn grip_cursor(grip: Grip, rotation: Rotation) -> Cursor {
+    let quarter_turned = matches!(rotation, Rotation::Clockwise | Rotation::Anticlockwise);
+    match grip {
+        Grip::Corner(0 | 2) => {
+            if quarter_turned {
+                Cursor::ResizeNesw
+            } else {
+                Cursor::ResizeNwse
+            }
+        }
+        Grip::Corner(1 | 3) => {
+            if quarter_turned {
+                Cursor::ResizeNwse
+            } else {
+                Cursor::ResizeNesw
+            }
+        }
+        Grip::Edge(0 | 2) => {
+            if quarter_turned {
+                Cursor::ResizeEw
+            } else {
+                Cursor::ResizeNs
+            }
+        }
+        Grip::Edge(1 | 3) => {
+            if quarter_turned {
+                Cursor::ResizeNs
+            } else {
+                Cursor::ResizeEw
+            }
+        }
+        Grip::Move | Grip::Corner(_) | Grip::Edge(_) | Grip::Vertex(_) => Cursor::Pan,
+    }
+}
+
+/// Shortest Euclidean distance from `(px, py)` to the line segment `a`–`b`.
+fn point_to_segment_distance(px: f32, py: f32, a: (f32, f32), b: (f32, f32)) -> f32 {
+    let dx = b.0 - a.0;
+    let dy = b.1 - a.1;
+    let len_sq = dx * dx + dy * dy;
+    if len_sq <= f32::EPSILON {
+        return (px - a.0).hypot(py - a.1);
+    }
+    let t = (((px - a.0) * dx + (py - a.1) * dy) / len_sq).clamp(0.0, 1.0);
+    let proj_x = a.0 + t * dx;
+    let proj_y = a.1 + t * dy;
+    (px - proj_x).hypot(py - proj_y)
+}
+
+/// Where `item`'s bounds would be after `drag`: moved, or resized from a corner, edge or vertex.
 fn dragged_bounds(item: &Item, drag: Drag) -> PageRect {
     let b = item.bounds;
     let (dx, dy) = (drag.to.x - drag.from.x, drag.to.y - drag.from.y);
@@ -443,6 +562,31 @@ fn dragged_bounds(item: &Item, drag: Drag) -> PageRect {
             x1: b.x1 + dx,
             y1: b.y1 + dy,
         },
+        Grip::Edge(0) => PageRect {
+            x0: b.x0,
+            y0: drag.to.y.min(b.y1),
+            x1: b.x1,
+            y1: drag.to.y.max(b.y1),
+        },
+        Grip::Edge(1) => PageRect {
+            x0: drag.to.x.min(b.x0),
+            y0: b.y0,
+            x1: drag.to.x.max(b.x0),
+            y1: b.y1,
+        },
+        Grip::Edge(2) => PageRect {
+            x0: b.x0,
+            y0: drag.to.y.min(b.y0),
+            x1: b.x1,
+            y1: drag.to.y.max(b.y0),
+        },
+        Grip::Edge(3) => PageRect {
+            x0: drag.to.x.min(b.x1),
+            y0: b.y0,
+            x1: drag.to.x.max(b.x1),
+            y1: b.y1,
+        },
+        Grip::Edge(_) => b,
         Grip::Corner(_) | Grip::Vertex(_) => {
             // The other grips stay; the bounds take in the dragged one where the mouse is.
             let others = item
@@ -575,5 +719,79 @@ mod tests {
             (grown.x0, grown.y0, grown.x1, grown.y1),
             (0.0, 0.0, 20.0, 30.0)
         );
+        let top = dragged_bounds(&item, drag(Grip::Edge(0), PagePoint { x: 8.0, y: -5.0 }));
+        assert_eq!((top.x0, top.y0, top.x1, top.y1), (0.0, -5.0, 10.0, 10.0));
+        let right = dragged_bounds(&item, drag(Grip::Edge(1), PagePoint { x: 25.0, y: 3.0 }));
+        assert_eq!(
+            (right.x0, right.y0, right.x1, right.y1),
+            (0.0, 0.0, 25.0, 10.0)
+        );
+        let bottom = dragged_bounds(&item, drag(Grip::Edge(2), PagePoint { x: 4.0, y: 18.0 }));
+        assert_eq!(
+            (bottom.x0, bottom.y0, bottom.x1, bottom.y1),
+            (0.0, 0.0, 10.0, 18.0)
+        );
+        let left = dragged_bounds(&item, drag(Grip::Edge(3), PagePoint { x: -4.0, y: 7.0 }));
+        assert_eq!(
+            (left.x0, left.y0, left.x1, left.y1),
+            (-4.0, 0.0, 10.0, 10.0)
+        );
+    }
+
+    #[test]
+    fn grip_cursors_reflect_all_eight_directions_and_page_rotation() {
+        assert_eq!(
+            grip_cursor(Grip::Corner(0), Rotation::Upright),
+            Cursor::ResizeNwse
+        );
+        assert_eq!(
+            grip_cursor(Grip::Corner(2), Rotation::Upright),
+            Cursor::ResizeNwse
+        );
+        assert_eq!(
+            grip_cursor(Grip::Corner(1), Rotation::Upright),
+            Cursor::ResizeNesw
+        );
+        assert_eq!(
+            grip_cursor(Grip::Corner(3), Rotation::Upright),
+            Cursor::ResizeNesw
+        );
+        assert_eq!(
+            grip_cursor(Grip::Edge(0), Rotation::Upright),
+            Cursor::ResizeNs
+        );
+        assert_eq!(
+            grip_cursor(Grip::Edge(2), Rotation::Upright),
+            Cursor::ResizeNs
+        );
+        assert_eq!(
+            grip_cursor(Grip::Edge(1), Rotation::Upright),
+            Cursor::ResizeEw
+        );
+        assert_eq!(
+            grip_cursor(Grip::Edge(3), Rotation::Upright),
+            Cursor::ResizeEw
+        );
+        assert_eq!(grip_cursor(Grip::Move, Rotation::Upright), Cursor::Pan);
+
+        assert_eq!(
+            grip_cursor(Grip::Corner(0), Rotation::Clockwise),
+            Cursor::ResizeNesw
+        );
+        assert_eq!(
+            grip_cursor(Grip::Corner(1), Rotation::Clockwise),
+            Cursor::ResizeNwse
+        );
+        assert_eq!(
+            grip_cursor(Grip::Edge(0), Rotation::Clockwise),
+            Cursor::ResizeEw
+        );
+        assert_eq!(
+            grip_cursor(Grip::Edge(1), Rotation::Clockwise),
+            Cursor::ResizeNs
+        );
+
+        assert!((point_to_segment_distance(5.0, 3.0, (0.0, 0.0), (10.0, 0.0)) - 3.0).abs() < 1e-4);
+        assert!((point_to_segment_distance(14.0, 3.0, (0.0, 0.0), (10.0, 0.0)) - 5.0).abs() < 1e-4);
     }
 }

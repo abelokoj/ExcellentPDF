@@ -874,6 +874,70 @@ fn glyph_button(
         )
 }
 
+/// Inline toolbar customizer embedded inside the Settings window so users can configure every
+/// mode's toolbar live without leaving Settings.
+pub(crate) fn inline_customize_panel(live: Live) -> View {
+    let modes = Modes::new(live);
+    let initial = untracked(|| modes.current());
+    modes.editing.set(Some(initial));
+    let editing = move || modes.editing.get().unwrap_or_default();
+    view()
+        .w_full()
+        .p(px(14.0))
+        .gap_3()
+        .rounded(px(10.0))
+        .bg(move || theme().background)
+        .border_1()
+        .border_color(move || theme().border)
+        .child(
+            text(t!("toolbar.customize_hint"))
+                .text_size(px(12.0))
+                .line_height(px(18.0))
+                .text_color(move || theme().muted_foreground),
+        )
+        .child(dialog_modes(modes))
+        .child(dynamic(move || {
+            let mode = editing();
+            let toolbar = modes.toolbar(mode);
+            untracked(move || on_toolbar(modes, mode, &toolbar).into_element())
+        }))
+        .child(dynamic(move || {
+            let mode = editing();
+            let toolbar = modes.toolbar(mode);
+            untracked(move || addable(modes, mode, &toolbar).into_element())
+        }))
+        .child(when(
+            move || modes.notice.with(Option::is_some),
+            move || {
+                text(move || modes.notice.get().unwrap_or_default())
+                    .text_size(px(12.0))
+                    .line_height(px(18.0))
+                    .text_color(move || theme().popover_foreground)
+            },
+        ))
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .pt_1()
+                .child(dialog_button(t!("toolbar.reset"), Tone::Quiet, move || {
+                    let mode = untracked(editing);
+                    modes.set_toolbar(mode, &default_toolbar(mode));
+                }))
+                .child(dialog_button(
+                    t!("toolbar.export"),
+                    Tone::Quiet,
+                    move || modes.export(),
+                ))
+                .child(dialog_button(
+                    t!("toolbar.import"),
+                    Tone::Quiet,
+                    move || modes.import(),
+                )),
+        )
+}
+
 /// The customize dialog, while it is open.
 pub(crate) fn customize_dialog(modes: Modes) -> impl IntoElement {
     when(

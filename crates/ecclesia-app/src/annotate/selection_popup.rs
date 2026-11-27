@@ -126,7 +126,14 @@ const MARGIN: f32 = 8.0;
 /// Width of each circular color swatch button in logical DIPs.
 const SWATCH_SIZE: f32 = 24.0;
 /// Width and height of each action icon button inside the pill in logical DIPs.
-const ACTION_SIZE: f32 = 30.0;
+const ACTION_SIZE: f32 = 34.0;
+/// Gap between adjacent action icon buttons inside the pill in logical DIPs.
+const ACTION_GAP: f32 = 4.0;
+/// Rendered box size of SVG action icons inside the pill in logical DIPs (sized so Phosphor
+/// artwork with built-in viewBox padding matches the 24 DIP visual height of the swatch circles).
+const POPUP_SVG_ICON_SIZE: f32 = 27.0;
+/// Visual size of the custom color picker glyph inside the pill in logical DIPs.
+const PICKER_ICON_SIZE: f32 = 24.0;
 /// Default vibrant yellow tint for the Highlight `A` button band.
 const HIGHLIGHT_BAND_YELLOW: u32 = 0xFD_E047;
 /// Dark ink color for the `A` glyph rendered over the yellow highlight band (legible in light and dark themes).
@@ -487,7 +494,7 @@ fn estimate_pill_width(editable: bool, item_count: usize) -> f32 {
     // Five circular swatch dots plus the 6th custom color picker icon button.
     let swatch_slots = SWATCHES.len() + 1;
     let swatches = if editable {
-        swatch_slots as f32 * SWATCH_SIZE + (swatch_slots.saturating_sub(1) as f32) * 8.0 + 4.0
+        swatch_slots as f32 * SWATCH_SIZE + (swatch_slots.saturating_sub(1) as f32) * 8.0 + 6.0
     } else {
         0.0
     };
@@ -497,7 +504,7 @@ fn estimate_pill_width(editable: bool, item_count: usize) -> f32 {
         0.0
     };
     let actions = if item_count > 0 {
-        item_count as f32 * ACTION_SIZE + (item_count.saturating_sub(1) as f32) * 6.0
+        item_count as f32 * ACTION_SIZE + (item_count.saturating_sub(1) as f32) * ACTION_GAP
     } else {
         0.0
     };
@@ -925,32 +932,32 @@ fn build_clicked_highlight_pill(
                 .on_press(move || {
                     annotate.pick_for_target(target_pick.clone(), target_slot, color_tool);
                 })
-                .w(px(SWATCH_SIZE + 4.0))
-                .h(px(SWATCH_SIZE + 4.0))
+                .w(px(SWATCH_SIZE + 6.0))
+                .h(px(SWATCH_SIZE + 6.0))
                 .rounded(px(7.0))
                 .items_center()
                 .justify_center()
                 .hover(|s| s.bg(move || theme().accent))
                 .active(|s| s.opacity(0.80))
                 .focus_visible(|s| s.border_1().border_color(move || theme().ring))
-                .child(picker_icon_glyph(picker_icon, 21.0)),
+                .child(picker_icon_glyph(picker_icon, PICKER_ICON_SIZE)),
         );
         pill = pill
             .child(swatches)
-            .child(view().w(px(1.0)).h(px(22.0)).bg(move || theme().border));
+            .child(view().w(px(1.0)).h(px(26.0)).bg(move || theme().border));
     }
 
     let has_comment = !annotation.contents.trim().is_empty();
     let comment_icon = view()
         .relative()
-        .w(px(22.0))
-        .h(px(22.0))
+        .w(px(POPUP_SVG_ICON_SIZE))
+        .h(px(POPUP_SVG_ICON_SIZE))
         .items_center()
         .justify_center()
         .child(
             image(comment_icon_src())
-                .w(px(18.0))
-                .h(px(18.0))
+                .w(px(POPUP_SVG_ICON_SIZE))
+                .h(px(POPUP_SVG_ICON_SIZE))
                 .object_fit(ResizeMode::Contain)
                 .tint_color(move || theme().popover_foreground),
         );
@@ -960,8 +967,8 @@ fn build_clicked_highlight_pill(
                 .absolute()
                 .top(px(0.0))
                 .right(px(0.0))
-                .w(px(6.0))
-                .h(px(6.0))
+                .w(px(7.0))
+                .h(px(7.0))
                 .rounded_full()
                 .bg(move || theme().primary),
         )
@@ -976,7 +983,7 @@ fn build_clicked_highlight_pill(
     let mut actions = view()
         .flex_row()
         .items_center()
-        .gap(px(6.0))
+        .gap(px(ACTION_GAP))
         .child(highlight_pill_action(
             "annotate.popup.item.comment",
             comment_open,
@@ -993,8 +1000,8 @@ fn build_clicked_highlight_pill(
                 dismiss_soon(annotate);
             },
             image(copy_icon_src())
-                .w(px(18.0))
-                .h(px(18.0))
+                .w(px(POPUP_SVG_ICON_SIZE))
+                .h(px(POPUP_SVG_ICON_SIZE))
                 .object_fit(ResizeMode::Contain)
                 .tint_color(move || theme().popover_foreground),
         ))
@@ -1007,7 +1014,7 @@ fn build_clicked_highlight_pill(
                 dismiss_soon(annotate);
             },
             text("⊞")
-                .text_size(px(16.0))
+                .text_size(px(24.0))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(move || theme().popover_foreground),
         ))
@@ -1020,7 +1027,7 @@ fn build_clicked_highlight_pill(
                 dismiss_soon(annotate);
             },
             text("Aa")
-                .text_size(px(13.0))
+                .text_size(px(19.0))
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(move || theme().popover_foreground),
         ))
@@ -1032,7 +1039,7 @@ fn build_clicked_highlight_pill(
                 bookmarks.run(BookmarkAction::Add, canvas);
                 dismiss_soon(annotate);
             },
-            chrome_icon(ChromeIcon::RailBookmarks, 16.0, move || {
+            chrome_icon(ChromeIcon::RailBookmarks, POPUP_SVG_ICON_SIZE, move || {
                 theme().popover_foreground
             }),
         ))
@@ -1043,7 +1050,7 @@ fn build_clicked_highlight_pill(
             move || {
                 annotate.open_in_sidebar(&target_sidebar);
             },
-            chrome_icon(ChromeIcon::SidebarRight, 16.0, move || {
+            chrome_icon(ChromeIcon::SidebarRight, POPUP_SVG_ICON_SIZE, move || {
                 theme().popover_foreground
             }),
         ));
@@ -1056,7 +1063,9 @@ fn build_clicked_highlight_pill(
             move || {
                 annotate.delete_target(&target_delete);
             },
-            chrome_icon(ChromeIcon::Trash, 16.0, move || theme().destructive),
+            chrome_icon(ChromeIcon::Trash, POPUP_SVG_ICON_SIZE, move || {
+                theme().destructive
+            }),
         ));
     }
 
@@ -1070,7 +1079,7 @@ fn dismiss_soon(annotate: AnnotateState) {
     }));
 }
 
-/// One crisp 30×30 icon button inside the clicked-highlight pill.
+/// One crisp icon button inside the clicked-highlight pill.
 fn highlight_pill_action(
     label_key: &'static str,
     active: bool,
@@ -1138,8 +1147,8 @@ fn build_block_shape_bar(
             let btn = button()
                 .accessibility_label(t!(block_shape_label_key(shape)))
                 .on_press(move || annotate.set_target_block_shape(&target_shape, shape))
-                .w(px(26.0))
-                .h(px(24.0))
+                .w(px(28.0))
+                .h(px(26.0))
                 .rounded(px(6.0))
                 .items_center()
                 .justify_center()
@@ -1183,7 +1192,7 @@ fn build_block_shape_bar(
         .focus_visible(|s| s.border_1().border_color(move || theme().ring))
         .child(
             text("∅")
-                .text_size(px(12.0))
+                .text_size(px(14.0))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(move || theme().muted_foreground),
         );
@@ -1259,27 +1268,27 @@ const fn block_shape_label_key(shape: BlockHighlightShape) -> &'static str {
 fn block_shape_glyph(shape: BlockHighlightShape) -> AnyElement {
     match shape {
         BlockHighlightShape::Rectangle => view()
-            .w(px(14.0))
-            .h(px(10.0))
+            .w(px(16.0))
+            .h(px(12.0))
             .border_1()
             .border_color(move || theme().popover_foreground)
             .into_element(),
         BlockHighlightShape::RoundedRect => view()
-            .w(px(14.0))
-            .h(px(10.0))
-            .rounded(px(3.5))
+            .w(px(16.0))
+            .h(px(12.0))
+            .rounded(px(4.0))
             .border_1()
             .border_color(move || theme().popover_foreground)
             .into_element(),
         BlockHighlightShape::Oval => view()
-            .w(px(15.0))
-            .h(px(10.0))
+            .w(px(17.0))
+            .h(px(12.0))
             .rounded_full()
             .border_1()
             .border_color(move || theme().popover_foreground)
             .into_element(),
         BlockHighlightShape::Cloud => text("☁")
-            .text_size(px(13.0))
+            .text_size(px(15.0))
             .text_color(move || theme().popover_foreground)
             .into_element(),
     }
@@ -1547,12 +1556,12 @@ fn build_pill(
     }
 
     if editable && !items.is_empty() {
-        pill = pill.child(view().w(px(1.0)).h(px(22.0)).bg(move || theme().border));
+        pill = pill.child(view().w(px(1.0)).h(px(26.0)).bg(move || theme().border));
     }
 
     if !items.is_empty() {
         let actions = items.iter().copied().fold(
-            view().flex_row().items_center().gap(px(6.0)),
+            view().flex_row().items_center().gap(px(ACTION_GAP)),
             |row, item| {
                 row.child(action_button(
                     annotate,
@@ -1629,15 +1638,15 @@ fn custom_color_picker_button(
                 annotate.dismiss_selection_popup();
             }));
         })
-        .w(px(SWATCH_SIZE + 4.0))
-        .h(px(SWATCH_SIZE + 4.0))
+        .w(px(SWATCH_SIZE + 6.0))
+        .h(px(SWATCH_SIZE + 6.0))
         .rounded(px(7.0))
         .items_center()
         .justify_center()
         .hover(|s| s.bg(move || theme().accent))
         .active(|s| s.opacity(0.80))
         .focus_visible(|s| s.border_1().border_color(move || theme().ring))
-        .child(picker_icon_glyph(picker_icon, 21.0))
+        .child(picker_icon_glyph(picker_icon, PICKER_ICON_SIZE))
 }
 
 /// One action icon button on the right side of the floating pill.
@@ -1772,21 +1781,21 @@ fn item_glyph(item: PopupItem, picker_icon: ColorPickerIcon) -> AnyElement {
     match item {
         PopupItem::Highlight => view()
             .relative()
-            .w(px(24.0))
-            .h(px(22.0))
+            .w(px(28.0))
+            .h(px(26.0))
             .items_center()
             .justify_center()
             .child(
                 view()
                     .absolute()
-                    .w(px(22.0))
-                    .h(px(10.0))
-                    .rounded(px(2.0))
+                    .w(px(26.0))
+                    .h(px(12.0))
+                    .rounded(px(2.5))
                     .bg(Hsla::from(rgb(HIGHLIGHT_BAND_YELLOW))),
             )
             .child(
                 text("A")
-                    .text_size(px(16.0))
+                    .text_size(px(21.0))
                     .font_weight(FontWeight::MEDIUM)
                     .text_color(Hsla::from(rgb(HIGHLIGHT_GLYPH_INK))),
             )
@@ -1796,27 +1805,27 @@ fn item_glyph(item: PopupItem, picker_icon: ColorPickerIcon) -> AnyElement {
             .justify_center()
             .child(
                 text("A")
-                    .text_size(px(16.0))
+                    .text_size(px(21.0))
                     .font_weight(FontWeight::MEDIUM)
                     .text_color(move || theme().popover_foreground),
             )
             .child(
                 view()
-                    .w(px(16.0))
-                    .h(px(2.0))
+                    .w(px(20.0))
+                    .h(px(2.5))
                     .rounded(px(1.0))
                     .bg(Hsla::from(rgb(UNDERLINE_RED))),
             )
             .into_element(),
         PopupItem::Comment => image(comment_icon_src())
-            .w(px(18.0))
-            .h(px(18.0))
+            .w(px(POPUP_SVG_ICON_SIZE))
+            .h(px(POPUP_SVG_ICON_SIZE))
             .object_fit(ResizeMode::Contain)
             .tint_color(move || theme().popover_foreground)
             .into_element(),
         PopupItem::Copy => image(copy_icon_src())
-            .w(px(18.0))
-            .h(px(18.0))
+            .w(px(POPUP_SVG_ICON_SIZE))
+            .h(px(POPUP_SVG_ICON_SIZE))
             .object_fit(ResizeMode::Contain)
             .tint_color(move || theme().popover_foreground)
             .into_element(),
@@ -1825,52 +1834,54 @@ fn item_glyph(item: PopupItem, picker_icon: ColorPickerIcon) -> AnyElement {
             .justify_center()
             .child(
                 text("A")
-                    .text_size(px(14.0))
+                    .text_size(px(19.0))
                     .font_weight(FontWeight::MEDIUM)
                     .text_color(move || theme().popover_foreground),
             )
             .child(
                 text("~")
-                    .text_size(px(11.0))
+                    .text_size(px(14.0))
                     .font_weight(FontWeight::BOLD)
                     .text_color(Hsla::from(rgb(SQUIGGLY_ORANGE))),
             )
             .into_element(),
         PopupItem::StrikeOut => text("S")
-            .text_size(px(15.0))
+            .text_size(px(21.0))
             .font_weight(FontWeight::MEDIUM)
             .line_through()
             .text_color(move || theme().popover_foreground)
             .into_element(),
         PopupItem::Replace => text("⇄")
-            .text_size(px(15.0))
+            .text_size(px(21.0))
             .font_weight(FontWeight::MEDIUM)
             .text_color(move || theme().popover_foreground)
             .into_element(),
         PopupItem::Insert => text("^")
-            .text_size(px(16.0))
+            .text_size(px(22.0))
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(move || theme().popover_foreground)
             .into_element(),
         PopupItem::Dictionary => text("Aa")
-            .text_size(px(13.0))
+            .text_size(px(19.0))
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(move || theme().popover_foreground)
             .into_element(),
         PopupItem::Translate => text("文")
-            .text_size(px(14.0))
+            .text_size(px(20.0))
             .font_weight(FontWeight::MEDIUM)
             .text_color(move || theme().popover_foreground)
             .into_element(),
         PopupItem::ReadAloud => text("▶")
-            .text_size(px(12.0))
+            .text_size(px(18.0))
             .text_color(move || theme().popover_foreground)
             .into_element(),
-        PopupItem::Bookmark => chrome_icon(ChromeIcon::RailBookmarks, 16.0, move || {
-            theme().popover_foreground
-        })
-        .into_element(),
-        PopupItem::CustomColor => picker_icon_glyph(picker_icon, 18.0),
+        PopupItem::Bookmark => {
+            chrome_icon(ChromeIcon::RailBookmarks, POPUP_SVG_ICON_SIZE, move || {
+                theme().popover_foreground
+            })
+            .into_element()
+        }
+        PopupItem::CustomColor => picker_icon_glyph(picker_icon, PICKER_ICON_SIZE),
     }
 }
 

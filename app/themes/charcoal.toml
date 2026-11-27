@@ -1,0 +1,13 @@
+# Charcoal: SumatraPDF's classic low-glare graphite & warm charcoal surfaces with crisp steel accents.
+hue = 240
+chroma = 0.05
+tint = 0.45
+
+[dark]
+background = "oklch(0.20 0.006 240)"
+card = "oklch(0.23 0.006 240)"
+popover = "oklch(0.25 0.006 240)"
+sidebar = "oklch(0.18 0.006 240)"
+page-area = "oklch(0.14 0.004 240)"
+primary = "oklch(0.84 0.04 240)"
+sidebar-primary = "oklch(0.84 0.04 240)"

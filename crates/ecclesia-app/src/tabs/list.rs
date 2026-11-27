@@ -11,6 +11,7 @@ use base64::Engine as _;
 use ecclesia_store::workspace::WorkspaceId;
 use ecclesia_store::workspaces::Workspace;
 use nsh_base::{MenuItemElement, button, dialog, input, menu, menu_item, menu_separator, theme};
+use nsh_core::EllipsizeMode;
 use nsh_core::prelude::*;
 
 use super::model::Tabs;
@@ -115,6 +116,7 @@ struct TabListCx {
     expanded: Signal<[bool; 4]>,
     query: Signal<String>,
     state: TabState,
+    home_open: Signal<bool>,
     workspaces: Workspaces,
 }
 
@@ -122,6 +124,7 @@ struct TabListCx {
 pub(crate) fn tab_list(
     open: Signal<bool>,
     state: TabState,
+    home_open: Signal<bool>,
     recent: RecentState,
     workspaces: Workspaces,
 ) -> impl IntoElement {
@@ -260,6 +263,51 @@ pub(crate) fn tab_list(
             .disabled(move || width.get() >= MAX_WIDTH),
         );
 
+    let home_active = move || !state.has_tabs() || home_open.get();
+    let home_btn = button()
+        .accessibility_label(t!("home.tab"))
+        .on_press(move || {
+            home_open.set(true);
+            close();
+        })
+        .w(px(36.0))
+        .h(px(36.0))
+        .flex_shrink(0.0)
+        .rounded(px(8.0))
+        .items_center()
+        .justify_center()
+        .border_1()
+        .border_color(move || {
+            if home_active() {
+                theme().primary
+            } else {
+                theme().border
+            }
+        })
+        .bg(move || {
+            if home_active() {
+                theme().accent
+            } else {
+                theme().background
+            }
+        })
+        .hover(|s| s.bg(move || theme().accent))
+        .active(|s| s.opacity(0.8))
+        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(
+            image(super::home_icon_src())
+                .w(px(18.0))
+                .h(px(18.0))
+                .object_fit(ResizeMode::Contain)
+                .tint_color(move || {
+                    if home_active() {
+                        theme().primary
+                    } else {
+                        theme().foreground
+                    }
+                }),
+        );
+
     let search_bar = view()
         .flex_row()
         .items_center()
@@ -267,6 +315,7 @@ pub(crate) fn tab_list(
         .px(px(12.0))
         .pt(px(12.0))
         .pb(px(10.0))
+        .child(home_btn)
         .child(
             view()
                 .flex_1()
@@ -310,6 +359,7 @@ pub(crate) fn tab_list(
         expanded,
         query,
         state,
+        home_open,
         workspaces,
     };
 
@@ -449,6 +499,7 @@ fn section_card(
         expanded,
         query,
         state,
+        home_open,
         workspaces,
     } = cx;
     let idx = section as usize;
@@ -568,7 +619,7 @@ fn section_card(
         let rows = each(
             entries,
             |entry: &TabEntry| entry.key.clone(),
-            move |entry, _| tab_entry_row(entry, state, workspaces, close),
+            move |entry, _| tab_entry_row(entry, state, home_open, workspaces, close),
         );
         scroll()
             .max_h(px(360.0))
@@ -597,6 +648,7 @@ fn section_card(
 fn tab_entry_row(
     entry: ReadSignal<TabEntry>,
     state: TabState,
+    home_open: Signal<bool>,
     workspaces: Workspaces,
     close: impl Fn() + Copy + 'static,
 ) -> impl IntoElement {
@@ -619,18 +671,22 @@ fn tab_entry_row(
             match action {
                 RowAction::Show(id) => {
                     close();
+                    home_open.set(false);
                     state.show(id);
                 }
                 RowAction::Elsewhere(ws_id, path) => {
                     close();
+                    home_open.set(false);
                     workspaces.show_tab(ws_id, path);
                 }
                 RowAction::CloseCopies(id) => {
+                    home_open.set(false);
                     state.show(id);
                     state.run(super::Action::CloseDuplicates);
                 }
                 RowAction::Reopen(path) => {
                     close();
+                    home_open.set(false);
                     state.reopen(&path);
                 }
             }
@@ -654,7 +710,8 @@ fn tab_entry_row(
             text(title)
                 .flex_1()
                 .min_w(px(0.0))
-                .truncate()
+                .number_of_lines(1u32)
+                .text_overflow(EllipsizeMode::Middle)
                 .text_size(px(13.0))
                 .font_weight(if active() {
                     FontWeight::SEMIBOLD
@@ -675,7 +732,8 @@ fn tab_entry_row(
                 .bg(move || theme().muted)
                 .child(
                     text(badge)
-                        .truncate()
+                        .number_of_lines(1u32)
+                        .text_overflow(EllipsizeMode::Middle)
                         .text_size(px(11.5))
                         .text_color(move || theme().muted_foreground),
                 ),

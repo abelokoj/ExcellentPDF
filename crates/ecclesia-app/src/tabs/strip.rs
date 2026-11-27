@@ -15,6 +15,7 @@ use nsh_base::{
     MenuItemElement, SubmenuElement, button, context_menu, menu_item, menu_separator, submenu,
     tabs, theme,
 };
+use nsh_core::EllipsizeMode;
 use nsh_core::prelude::*;
 
 use super::group_dialog::color_name;
@@ -85,7 +86,7 @@ fn compute_drag_steps(delta_x: f32, slot_stride: f32) -> (isize, f32) {
 
 const HOME_ICON_SVG: &[u8] = include_bytes!("../../assets/icons/home.svg");
 
-fn home_icon_src() -> String {
+pub(crate) fn home_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
     SRC.get_or_init(|| {
         format!(
@@ -415,7 +416,8 @@ fn group_chip(state: TabState, id: GroupId) -> impl IntoElement {
         .child(when(named, move || {
             text(name)
                 .max_w(px(140.0))
-                .truncate()
+                .number_of_lines(1u32)
+                .text_overflow(EllipsizeMode::Middle)
                 .text_size(px(12.0))
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(ink)
@@ -625,7 +627,8 @@ fn tab_view(
             text(title)
                 .flex_1()
                 .min_w(px(0.0))
-                .truncate()
+                .number_of_lines(1u32)
+                .text_overflow(EllipsizeMode::Middle)
                 .text_size(move || px(tab_font_px()))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(move || {

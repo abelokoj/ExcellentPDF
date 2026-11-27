@@ -21,27 +21,31 @@ pub enum Grip {
     Move,
     /// A corner of its bounds, clockwise from the top left: it is resized, the opposite corner kept.
     Corner(usize),
+    /// An edge midpoint of its bounds, clockwise from the top (0=top, 1=right, 2=bottom, 3=left):
+    /// it is resized along one axis, the opposite edge kept.
+    Edge(usize),
     /// One of a line's ends or a polygon's corners: that point moves.
     Vertex(usize),
 }
 
 impl Grip {
-    /// Its name in the canvas's events: `move`, `corner` or `vertex`.
+    /// Its name in the canvas's events: `move`, `corner`, `edge` or `vertex`.
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
             Self::Move => "move",
             Self::Corner(_) => "corner",
+            Self::Edge(_) => "edge",
             Self::Vertex(_) => "vertex",
         }
     }
 
-    /// Its index: a corner's or a vertex's; 0 for a move.
+    /// Its index: a corner's, edge's or vertex's; 0 for a move.
     #[must_use]
     pub fn index(self) -> usize {
         match self {
             Self::Move => 0,
-            Self::Corner(index) | Self::Vertex(index) => index,
+            Self::Corner(index) | Self::Edge(index) | Self::Vertex(index) => index,
         }
     }
 
@@ -51,6 +55,7 @@ impl Grip {
         match name {
             "move" => Some(Self::Move),
             "corner" if index < 4 => Some(Self::Corner(index)),
+            "edge" if index < 4 => Some(Self::Edge(index)),
             "vertex" => Some(Self::Vertex(index)),
             _ => None,
         }
@@ -195,6 +200,12 @@ pub fn grips(annotation: &Annotation) -> Vec<(Grip, PagePoint)> {
                     .into_iter()
                     .enumerate()
                     .map(|(index, point)| (Grip::Corner(index), point))
+                    .chain(
+                        edges(rect)
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, point)| (Grip::Edge(index), point)),
+                    )
                     .collect()
             })
             .unwrap_or_default();
@@ -243,6 +254,30 @@ pub fn corners(rect: PageRect) -> [PagePoint; 4] {
     ]
 }
 
+/// `rect`'s edge midpoints, clockwise from the top (0=top, 1=right, 2=bottom, 3=left).
+pub fn edges(rect: PageRect) -> [PagePoint; 4] {
+    let mid_x = (rect.x0 + rect.x1) * 0.5;
+    let mid_y = (rect.y0 + rect.y1) * 0.5;
+    [
+        PagePoint {
+            x: mid_x,
+            y: rect.y0,
+        },
+        PagePoint {
+            x: rect.x1,
+            y: mid_y,
+        },
+        PagePoint {
+            x: mid_x,
+            y: rect.y1,
+        },
+        PagePoint {
+            x: rect.x0,
+            y: mid_y,
+        },
+    ]
+}
+
 /// `annotation` after a drag on `grip` from `from` to `to`, page points; `None` when it can't be dragged so.
 #[must_use]
 pub fn dragged(
@@ -256,15 +291,19 @@ pub fn dragged(
     }
     let shape = match grip {
         Grip::Move => moved_shape(&annotation.shape, to.x - from.x, to.y - from.y),
-        Grip::Corner(index) => {
+        Grip::Corner(index) | Grip::Edge(index) => {
             if !grips(annotation)
                 .iter()
-                .any(|(grip, _)| *grip == Grip::Corner(index))
+                .any(|(candidate, _)| *candidate == grip)
             {
                 return None;
             }
             let old = bounds(annotation)?;
-            let new = resized(old, index, to);
+            let new = match grip {
+                Grip::Corner(_) => resized(old, index, to),
+                Grip::Edge(_) => resized_edge(old, index, to),
+                _ => unreachable!(),
+            };
             if annotation.block_highlight == Some(BlockHighlightShape::RoundedRect) {
                 let (shape, _) = BlockHighlightShape::RoundedRect.into_shape(new);
                 shape
@@ -372,25 +411,59 @@ fn normalized(rect: PageRect) -> PageRect {
     }
 }
 
+/// Keeps `to` at least [`MIN_SIZE`] away from `from`, preserving its side when closer.
+fn clamp_min_span(from: f32, to: f32) -> f32 {
+    if (to - from).abs() >= MIN_SIZE {
+        to
+    } else if to >= from {
+        from + MIN_SIZE
+    } else {
+        from - MIN_SIZE
+    }
+}
+
 /// `old` with corner `index` dragged to `to`, the opposite corner kept, no side shorter than [`MIN_SIZE`]. The
 /// dragged corner may cross the kept one: the box flips.
 pub(super) fn resized(old: PageRect, index: usize, to: PagePoint) -> PageRect {
     let kept = corners(old)[(index + 2) % 4];
-    let away = |from: f32, to: f32| {
-        if (to - from).abs() >= MIN_SIZE {
-            to
-        } else if to >= from {
-            from + MIN_SIZE
-        } else {
-            from - MIN_SIZE
-        }
-    };
     normalized(PageRect {
         x0: kept.x,
         y0: kept.y,
-        x1: away(kept.x, to.x),
-        y1: away(kept.y, to.y),
+        x1: clamp_min_span(kept.x, to.x),
+        y1: clamp_min_span(kept.y, to.y),
     })
+}
+
+/// `old` with edge `index` (0=top, 1=right, 2=bottom, 3=left) dragged to `to`, the opposite edge and perpendicular
+/// span kept, no side shorter than [`MIN_SIZE`]. Crossing the opposite edge flips the box along that axis.
+pub(super) fn resized_edge(old: PageRect, index: usize, to: PagePoint) -> PageRect {
+    match index {
+        0 => normalized(PageRect {
+            x0: old.x0,
+            y0: clamp_min_span(old.y1, to.y),
+            x1: old.x1,
+            y1: old.y1,
+        }),
+        1 => normalized(PageRect {
+            x0: old.x0,
+            y0: old.y0,
+            x1: clamp_min_span(old.x0, to.x),
+            y1: old.y1,
+        }),
+        2 => normalized(PageRect {
+            x0: old.x0,
+            y0: old.y0,
+            x1: old.x1,
+            y1: clamp_min_span(old.y0, to.y),
+        }),
+        3 => normalized(PageRect {
+            x0: clamp_min_span(old.x1, to.x),
+            y0: old.y0,
+            x1: old.x1,
+            y1: old.y1,
+        }),
+        _ => old,
+    }
 }
 
 /// `point` in `old` mapped to the same place in `new`.
@@ -792,29 +865,37 @@ mod tests {
     }
 
     #[test]
-    fn rounded_rect_block_highlight_uses_four_corner_grips_and_regenerates_corners() {
+    fn rounded_rect_block_highlight_uses_eight_resize_grips_and_regenerates_corners() {
         let initial = rect(50.0, 60.0, 150.0, 120.0);
         let (shape, _) = BlockHighlightShape::RoundedRect.into_shape(initial);
         let mut block = Annotation::new(0, shape, Style::default(), "Ada");
         block.block_highlight = Some(BlockHighlightShape::RoundedRect);
 
         let handles = grips(&block);
-        assert_eq!(handles.len(), 4);
+        assert_eq!(handles.len(), 8);
         assert!(
-            handles
+            handles[..4]
                 .iter()
                 .enumerate()
                 .all(|(i, (grip, _))| *grip == Grip::Corner(i)),
-            "rounded-rect block highlight exposes 4 corner grips, not 32 vertex grips"
+            "block highlight exposes 4 corner grips first"
+        );
+        assert!(
+            handles[4..]
+                .iter()
+                .enumerate()
+                .all(|(i, (grip, _))| *grip == Grip::Edge(i)),
+            "block highlight exposes 4 edge grips (top, right, bottom, left)"
         );
 
+        // Diagonal corner resize regenerates smooth rounded corners.
         let resized_annot = dragged(
             &block,
             Grip::Corner(2),
             point(150.0, 120.0),
             point(350.0, 160.0),
         )
-        .expect("resizes rounded block highlight");
+        .expect("resizes rounded block highlight from corner");
         let Shape::Path(Path::Polygon, ref vertices) = resized_annot.shape else {
             panic!("expected rounded polygon");
         };
@@ -827,9 +908,74 @@ mod tests {
                 "resizing regenerates smooth proportional corners: got {actual:?}, expected {exp:?}"
             );
         }
-        for v in vertices {
-            assert!((49.999..=350.001).contains(&v.x));
-            assert!((59.999..=160.001).contains(&v.y));
-        }
+
+        let assert_rect_near = |actual: Option<PageRect>, expected: PageRect| {
+            let actual = actual.expect("bounds present");
+            assert!(
+                (actual.x0 - expected.x0).abs() < 1e-3
+                    && (actual.y0 - expected.y0).abs() < 1e-3
+                    && (actual.x1 - expected.x1).abs() < 1e-3
+                    && (actual.y1 - expected.y1).abs() < 1e-3,
+                "expected {expected:?}, got {actual:?}"
+            );
+        };
+
+        // Resizing from each of the 4 edges moves only that edge and regenerates smooth corners.
+        let top_grown = dragged(
+            &block,
+            Grip::Edge(0),
+            point(100.0, 60.0),
+            point(110.0, 30.0),
+        )
+        .expect("resizes top edge");
+        assert_rect_near(bounds(&top_grown), rect(50.0, 30.0, 150.0, 120.0));
+
+        let right_shrunk = dragged(
+            &block,
+            Grip::Edge(1),
+            point(150.0, 90.0),
+            point(120.0, 95.0),
+        )
+        .expect("resizes right edge");
+        assert_rect_near(bounds(&right_shrunk), rect(50.0, 60.0, 120.0, 120.0));
+
+        let bottom_grown = dragged(
+            &block,
+            Grip::Edge(2),
+            point(100.0, 120.0),
+            point(90.0, 180.0),
+        )
+        .expect("resizes bottom edge");
+        assert_rect_near(bounds(&bottom_grown), rect(50.0, 60.0, 150.0, 180.0));
+
+        let left_grown = dragged(&block, Grip::Edge(3), point(50.0, 90.0), point(20.0, 80.0))
+            .expect("resizes left edge");
+        assert_rect_near(bounds(&left_grown), rect(20.0, 60.0, 150.0, 120.0));
+
+        // Rectangular block highlight also supports all 8 directions and flips cleanly past opposite edge.
+        let (rect_shape, _) = BlockHighlightShape::Rectangle.into_shape(initial);
+        let mut rect_block = Annotation::new(0, rect_shape, Style::default(), "Ada");
+        rect_block.block_highlight = Some(BlockHighlightShape::Rectangle);
+        assert_eq!(grips(&rect_block).len(), 8);
+        let flipped_left = dragged(
+            &rect_block,
+            Grip::Edge(3),
+            point(50.0, 90.0),
+            point(200.0, 90.0),
+        )
+        .expect("flips left edge past right");
+        assert_eq!(bounds(&flipped_left), Some(rect(150.0, 60.0, 200.0, 120.0)));
+        let clamped_top = dragged(
+            &rect_block,
+            Grip::Edge(0),
+            point(100.0, 60.0),
+            point(100.0, 119.0),
+        )
+        .expect("enforces MIN_SIZE");
+        assert_eq!(bounds(&clamped_top), Some(rect(50.0, 116.0, 150.0, 120.0)));
+
+        assert_eq!(Grip::parse("edge", 0), Some(Grip::Edge(0)));
+        assert_eq!(Grip::parse("edge", 3), Some(Grip::Edge(3)));
+        assert_eq!(Grip::parse("edge", 4), None);
     }
 }

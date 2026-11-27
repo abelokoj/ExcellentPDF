@@ -20,10 +20,16 @@ pub enum ReadingTheme {
     App,
     /// Near-black on white.
     Light,
+    /// Soft cool paper tint (SumatraPDF Enhanced Soft Paper).
+    SoftPaper,
     /// Brown ink on warm paper.
     Sepia,
     /// Light grey on dark grey.
     Dark,
+    /// Crisp off-white on midnight charcoal (SumatraPDF Enhanced Charcoal).
+    Charcoal,
+    /// Warm cream ink on roasted espresso paper (SumatraPDF Enhanced Warm Espresso).
+    Espresso,
     /// Grey on pure black, which an OLED screen leaves unlit.
     Oled,
     /// White on black, yellow links.
@@ -34,11 +40,14 @@ pub enum ReadingTheme {
 
 impl ReadingTheme {
     /// Every theme, in the order they are offered.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 10] = [
         Self::App,
         Self::Light,
+        Self::SoftPaper,
         Self::Sepia,
         Self::Dark,
+        Self::Charcoal,
+        Self::Espresso,
         Self::Oled,
         Self::HighContrast,
         Self::Custom,
@@ -49,8 +58,11 @@ impl ReadingTheme {
         match self {
             Self::App => "app",
             Self::Light => "light",
+            Self::SoftPaper => "soft_paper",
             Self::Sepia => "sepia",
             Self::Dark => "dark",
+            Self::Charcoal => "charcoal",
+            Self::Espresso => "espresso",
             Self::Oled => "oled",
             Self::HighContrast => "contrast",
             Self::Custom => "custom",
@@ -67,8 +79,11 @@ impl ReadingTheme {
         let (ink, paper, link) = match self {
             Self::App | Self::Custom => return None,
             Self::Light => ([0x1a, 0x1a, 0x1a], [0xff, 0xff, 0xff], None),
+            Self::SoftPaper => ([0x18, 0x1a, 0x1d], [0xf0, 0xf2, 0xf5], None),
             Self::Sepia => ([0x5b, 0x46, 0x36], [0xf4, 0xec, 0xd8], None),
             Self::Dark => ([0xdc, 0xdc, 0xdc], [0x1e, 0x1e, 0x1e], Some(LINK_ON_DARK)),
+            Self::Charcoal => ([0xec, 0xec, 0xec], [0x24, 0x26, 0x29], Some(LINK_ON_DARK)),
+            Self::Espresso => ([0xe8, 0xde, 0xc8], [0x2b, 0x25, 0x20], Some(LINK_ON_DARK)),
             Self::Oled => ([0xc8, 0xc8, 0xc8], [0x00, 0x00, 0x00], Some(LINK_ON_DARK)),
             Self::HighContrast => (
                 [0xff, 0xff, 0xff],

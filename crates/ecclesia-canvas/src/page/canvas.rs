@@ -749,8 +749,8 @@ impl<H: Host> PageCanvas<H> {
             cursor
         } else if self.is_drawing_tool() || self.is_block_selecting() {
             Cursor::Cross
-        } else if self.over_selected() {
-            Cursor::Pan
+        } else if let Some(cursor) = self.selected_cursor() {
+            cursor
         } else if self.selecting || (self.over_text && self.hovered.is_none()) {
             Cursor::Text
         } else if self.hovered.is_some() {
@@ -760,11 +760,15 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
-    /// The pointer's shape at client pixel (`x`, `y`), checking live popover resize edges first.
+    /// The pointer's shape at client pixel (`x`, `y`), checking live popover and selection resize edges first.
     pub fn cursor_at(&self, x: i32, y: i32) -> Cursor {
         if self.reading.is_panning() {
             Cursor::Pan
         } else if let Some(cursor) = self.popover_cursor_at(x, y) {
+            cursor
+        } else if self.is_drawing_tool() || self.is_block_selecting() {
+            Cursor::Cross
+        } else if let Some(cursor) = self.selected_cursor_at(x, y) {
             cursor
         } else {
             self.cursor()

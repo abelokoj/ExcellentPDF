@@ -10,7 +10,7 @@
 //! in-window modal dialog. Every change takes effect and persists immediately, so there is no Save
 //! or Cancel button; Escape or the window's close button closes Settings.
 
-use ecclesia_core::darkmode::{Palette, Rgb};
+use ecclesia_core::darkmode::{Palette, ReadingTheme, Rgb};
 use ecclesia_core::formats::{DEFAULT_FONT_SIZE, FONT_SIZES};
 use ecclesia_core::print::Scaling;
 use ecclesia_features::read::autoscroll::{DEFAULT_SPEED, SPEEDS};
@@ -21,6 +21,7 @@ use nsh_base::{SliderValue, button, input, number_input, slider, switch, theme, 
 use nsh_core::desktop::WindowKind;
 use nsh_core::element::desktop::{OpenChange, WindowRef, current_window, open_window};
 use nsh_core::keymap::When;
+use nsh_core::platform::Appearance;
 use nsh_core::prelude::*;
 
 use crate::annotate::selection_popup::{ColorPickerIcon, PopupItem, selection_popup_settings_rows};
@@ -223,6 +224,7 @@ impl SettingsSection {
             Self::Appearance => &[
                 ("settings.theme", "settings.theme_hint"),
                 ("settings.appearance", "settings.appearance_hint"),
+                ("settings.high_contrast", "settings.high_contrast_hint"),
                 ("settings.language", "settings.language_hint"),
                 (
                     "settings.follow_system_contrast",
@@ -1005,15 +1007,15 @@ fn section_cards(
     hand_over: impl Fn(CommandId) + Copy + 'static,
 ) -> Vec<View> {
     match section {
-        SettingsSection::Appearance => appearance_cards(live, theme_choice, hand_over, query),
-        SettingsSection::Reading => reading_cards(live, hand_over, query),
+        SettingsSection::Appearance => appearance_cards(live, theme_choice, query),
+        SettingsSection::Reading => reading_cards(live, query),
         SettingsSection::TabsAndPanes => tabs_and_panes_cards(live, query),
         SettingsSection::HomePage => home_cards(live, query),
-        SettingsSection::Annotations => annotations_cards(live, hand_over, query),
+        SettingsSection::Annotations => annotations_cards(live, query),
         SettingsSection::PrintAndLinks => print_and_links_cards(live, query),
         SettingsSection::Shortcuts => shortcuts_cards(live, query),
         SettingsSection::Help => help_cards(live, hand_over, query),
-        SettingsSection::Advanced => advanced_cards(live, hand_over, query),
+        SettingsSection::Advanced => advanced_cards(live, query),
     }
 }
 
@@ -1134,28 +1136,116 @@ fn card_row(
 fn appearance_cards(
     live: Live,
     theme_choice: Signal<ThemeChoice>,
-    hand_over: impl Fn(CommandId) + Copy + 'static,
     query: Option<&str>,
 ) -> Vec<View> {
-    let theme_name = move || {
-        let choice = theme_choice.get();
-        match choice.contrast {
-            themes::Contrast::High => t!("settings.theme_high", name = choice.family.name()),
-            themes::Contrast::Standard => choice.family.name(),
-        }
+    let apply_choice = move |next: ThemeChoice| {
+        theme_choice.set(next);
+        themes::apply(next);
+        themes::save(next);
     };
+
+    let appearance_bar = [
+        (Appearance::System, "appearance.system"),
+        (Appearance::Light, "appearance.light"),
+        (Appearance::Dark, "appearance.dark"),
+    ]
+    .into_iter()
+    .fold(segmented(), |row, (mode, label)| {
+        row.child(segment(
+            label,
+            move || theme_choice.get().appearance == mode,
+            move || {
+                let mut next = theme_choice.get_untracked();
+                next.appearance = mode;
+                apply_choice(next);
+            },
+        ))
+    });
+
+    let theme_grid = dynamic(move || {
+        let current = theme_choice.get();
+        themes::FAMILIES.iter().fold(
+            view().flex_row().flex_wrap().gap(px(8.0)),
+            |grid, family| {
+                let selected = current.family == family;
+                grid.child(
+                    button()
+                        .accessibility_label(family.name())
+                        .on_press(move || {
+                            let mut next = theme_choice.get_untracked();
+                            next.family = family;
+                            apply_choice(next);
+                        })
+                        .h(px(36.0))
+                        .px(px(10.0))
+                        .flex_row()
+                        .items_center()
+                        .gap(px(8.0))
+                        .rounded(px(8.0))
+                        .border_1()
+                        .border_color(move || {
+                            if selected {
+                                theme().primary
+                            } else {
+                                theme().border
+                            }
+                        })
+                        .bg(move || {
+                            if selected {
+                                theme().accent
+                            } else {
+                                theme().background
+                            }
+                        })
+                        .hover(|s| s.bg(move || theme().accent))
+                        .active(|s| s.opacity(0.85))
+                        .focus_visible(|s| s.border_color(move || theme().ring))
+                        .child(themes::swatch_of(family, current.contrast))
+                        .child(
+                            text(family.name())
+                                .text_size(px(12.5))
+                                .font_weight(if selected {
+                                    FontWeight::SEMIBOLD
+                                } else {
+                                    FontWeight::MEDIUM
+                                })
+                                .text_color(move || theme().foreground),
+                        ),
+                )
+            },
+        )
+    });
+
+    let theme_row_matches = query.is_none_or(|needle| {
+        matches_query(&t!("settings.section.appearance"), needle)
+            || matches_query(&t!("settings.theme"), needle)
+            || matches_query(&t!("settings.theme_hint"), needle)
+            || themes::FAMILIES
+                .iter()
+                .any(|f| matches_query(&f.name(), needle))
+    });
+
     let rows = vec![
-        RowItem::new(
-            "settings.theme",
-            "settings.theme_hint",
-            picker_button(theme_name, move || hand_over(CommandId::ChooseTheme)),
-        ),
         RowItem::new(
             "settings.appearance",
             "settings.appearance_hint",
-            picker_button(
-                move || themes::appearance_name(theme_choice.get()),
-                move || hand_over(CommandId::ChooseAppearance),
+            appearance_bar,
+        ),
+        RowItem::new(
+            "settings.high_contrast",
+            "settings.high_contrast_hint",
+            on_off(
+                "settings.high_contrast",
+                move || theme_choice.get().contrast == themes::Contrast::High,
+                move |on| {
+                    let mut next = theme_choice.get_untracked();
+                    next.contrast = if on {
+                        themes::Contrast::High
+                    } else {
+                        themes::Contrast::Standard
+                    };
+                    apply_choice(next);
+                },
             ),
         ),
         RowItem::new(
@@ -1177,20 +1267,63 @@ fn appearance_cards(
             ),
         ),
     ];
-    card_from_rows("settings.section.appearance", query, rows)
-        .into_iter()
-        .collect()
+
+    let row_query =
+        query.filter(|needle| !matches_query(&t!("settings.section.appearance"), needle));
+    let mut card_rows: Vec<View> = Vec::new();
+    if theme_row_matches {
+        card_rows.push(
+            view()
+                .px(px(16.0))
+                .py(px(14.0))
+                .gap(px(10.0))
+                .child(
+                    view()
+                        .gap(px(2.0))
+                        .child(
+                            text(move || t!("settings.theme"))
+                                .text_size(px(13.5))
+                                .font_weight(FontWeight::MEDIUM)
+                                .text_color(move || theme().foreground),
+                        )
+                        .child(
+                            text(move || t!("settings.theme_hint"))
+                                .text_size(px(12.0))
+                                .text_color(move || theme().muted_foreground),
+                        ),
+                )
+                .child(theme_grid),
+        );
+    }
+    let filtered_rows: Vec<RowItem> = match row_query {
+        None => rows,
+        Some(needle) => rows
+            .into_iter()
+            .filter(|item| {
+                matches_query(&t!(item.label), needle) || matches_query(&t!(item.hint), needle)
+            })
+            .collect(),
+    };
+    for item in filtered_rows {
+        let divider = if card_rows.is_empty() {
+            RowDivider::First
+        } else {
+            RowDivider::Divided
+        };
+        card_rows.push(card_row(divider, item.label, item.hint, item.control));
+    }
+    if card_rows.is_empty() {
+        Vec::new()
+    } else {
+        vec![settings_card("settings.section.appearance", card_rows)]
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Section 2: Reading
 // ---------------------------------------------------------------------------
 
-fn reading_cards(
-    live: Live,
-    hand_over: impl Fn(CommandId) + Copy + 'static,
-    query: Option<&str>,
-) -> Vec<View> {
+fn reading_cards(live: Live, query: Option<&str>) -> Vec<View> {
     let default = ruler::Style::default();
     let default_color = format!("#{:06x}", default.color);
     let color = move || {
@@ -1281,9 +1414,74 @@ fn reading_cards(
             RowItem::new(
                 "settings.reading_theme",
                 "settings.reading_theme_hint",
-                picker_button(
-                    move || t!(reading_theme_bar::label(reading.reading_theme())),
-                    move || hand_over(CommandId::ChooseReadingTheme),
+                ReadingTheme::ALL.into_iter().fold(
+                    view()
+                        .flex_row()
+                        .flex_wrap()
+                        .justify_end()
+                        .gap(px(6.0))
+                        .max_w(px(380.0)),
+                    |grid, choice| {
+                        let selected = move || reading.reading_theme() == choice;
+                        let palette = move || reading.palette(choice);
+                        let color = |rgb| Hsla::parse_hex(&hex(rgb)).expect("hex() writes #rrggbb");
+                        grid.child(
+                            button()
+                                .accessibility_label(t!(reading_theme_bar::label(choice)))
+                                .on_press(move || reading.set_reading_theme(choice))
+                                .h(px(30.0))
+                                .pl(px(5.0))
+                                .pr(px(9.0))
+                                .flex_row()
+                                .items_center()
+                                .gap(px(6.0))
+                                .rounded(px(7.0))
+                                .border_1()
+                                .border_color(move || {
+                                    if selected() {
+                                        theme().primary
+                                    } else {
+                                        theme().border
+                                    }
+                                })
+                                .bg(move || {
+                                    if selected() {
+                                        theme().accent
+                                    } else {
+                                        theme().background
+                                    }
+                                })
+                                .hover(|s| s.bg(move || theme().accent))
+                                .focus_visible(|s| s.border_color(move || theme().ring))
+                                .child(
+                                    view()
+                                        .w(px(18.0))
+                                        .h(px(18.0))
+                                        .rounded(px(4.0))
+                                        .border_1()
+                                        .border_color(move || theme().border)
+                                        .bg(move || color(palette().paper))
+                                        .items_center()
+                                        .justify_center()
+                                        .child(
+                                            text("A")
+                                                .text_size(px(11.0))
+                                                .font_weight(FontWeight::SEMIBOLD)
+                                                .text_color(move || color(palette().ink)),
+                                        ),
+                                )
+                                .child(
+                                    text(move || t!(reading_theme_bar::label(choice)))
+                                        .text_size(px(12.0))
+                                        .font_weight(if selected() {
+                                            FontWeight::SEMIBOLD
+                                        } else {
+                                            FontWeight::MEDIUM
+                                        })
+                                        .text_color(move || theme().foreground),
+                                ),
+                        )
+                    },
                 ),
             ),
             RowItem::new(
@@ -2081,15 +2279,14 @@ fn home_cards(live: Live, query: Option<&str>) -> Vec<View> {
 // Section 5: Annotations & Modes
 // ---------------------------------------------------------------------------
 
-fn annotations_cards(
-    live: Live,
-    hand_over: impl Fn(CommandId) + Copy + 'static,
-    query: Option<&str>,
-) -> Vec<View> {
+fn annotations_cards(live: Live, query: Option<&str>) -> Vec<View> {
     use crate::annotate::margin::MARGIN_NOTES;
     use crate::annotate::{POLYGON_SIDES, STAR_POINTS, colors};
     use ecclesia_features::annotate::colors::Palette as AnnotPalette;
     use ecclesia_features::annotate::polygons::{DEFAULT_SIDES, SIDES};
+
+    let colors_open = signal(false);
+    let toolbar_open = signal(false);
 
     let counts = (f64::from(*SIDES.start()), f64::from(*SIDES.end()));
     let palette = [
@@ -2123,10 +2320,17 @@ fn annotations_cards(
             RowItem::new(
                 "settings.annotation_colors",
                 "settings.annotation_colors_hint",
-                picker_button(
-                    move || t!("settings.annotation_colors_choose"),
-                    move || hand_over(CommandId::AnnotationColors),
-                ),
+                view()
+                    .items_end()
+                    .gap(px(10.0))
+                    .child(picker_button(
+                        move || t!("settings.annotation_colors_choose"),
+                        move || colors_open.update(|open| *open = !*open),
+                    ))
+                    .child(when(
+                        move || colors_open.get(),
+                        move || view().w(px(360.0)).child(colors::inline_color_editor(live)),
+                    )),
             ),
             RowItem::new(
                 "settings.margin_notes",
@@ -2191,10 +2395,21 @@ fn annotations_cards(
             RowItem::new(
                 "settings.toolbar",
                 "settings.toolbar_hint",
-                picker_button(
-                    move || t!("settings.toolbar_customize"),
-                    move || hand_over(CommandId::CustomizeToolbar),
-                ),
+                view()
+                    .items_end()
+                    .gap(px(10.0))
+                    .child(picker_button(
+                        move || t!("settings.toolbar_customize"),
+                        move || toolbar_open.update(|open| *open = !*open),
+                    ))
+                    .child(when(
+                        move || toolbar_open.get(),
+                        move || {
+                            view()
+                                .w(px(460.0))
+                                .child(crate::modes::inline_customize_panel(live))
+                        },
+                    )),
             ),
         ],
     );
@@ -2325,11 +2540,7 @@ fn tidy_protocols(text: &str) -> String {
 // Advanced Settings (Security & Sandbox, Packs & Services, settings.toml Inspector)
 // ---------------------------------------------------------------------------
 
-fn advanced_cards(
-    live: Live,
-    hand_over: impl Fn(CommandId) + Copy + 'static,
-    query: Option<&str>,
-) -> Vec<View> {
+fn advanced_cards(live: Live, query: Option<&str>) -> Vec<View> {
     let mut cards = Vec::new();
     if let Some(card) = security_card(live, query) {
         cards.push(card);
@@ -2337,7 +2548,7 @@ fn advanced_cards(
     if let Some(card) = packs_card(live, query) {
         cards.push(card);
     }
-    if let Some(card) = phase5_card(live, hand_over, query) {
+    if let Some(card) = phase5_card(live, query) {
         cards.push(card);
     }
     if let Some(card) = phase6_7_card(live, query) {
@@ -2559,15 +2770,13 @@ fn packs_card(live: Live, query: Option<&str>) -> Option<View> {
 
 /// Phase 5 settings: Folder watch (F.9), Workspace rules (W.12), SyncTeX preset (R.27),
 /// Bionic reading (R.22), Neural offline voice (U.6), and UI control channel (E.4).
-fn phase5_card(
-    live: Live,
-    hand_over: impl Fn(CommandId) + Copy + 'static,
-    query: Option<&str>,
-) -> Option<View> {
+fn phase5_card(live: Live, query: Option<&str>) -> Option<View> {
     use crate::shell::control_channel::CONTROL_CHANNEL_ENABLED;
     use crate::shell::reading_extra::{BIONIC_ENABLED, SYNCTEX_PRESET};
     use crate::study_ui::{StudyState, phase5::NEURAL_VOICE_ID};
     use ecclesia_features::library::{Library, WatchDepth};
+
+    let rules_open = signal(false);
 
     let watch_status = signal(String::new());
     let add_watched_folder = move || {
@@ -2682,10 +2891,21 @@ fn phase5_card(
             RowItem::new(
                 "settings.workspace_rules",
                 "settings.workspace_rules_hint",
-                picker_button(
-                    move || t!("command.workspace_rules"),
-                    move || hand_over(CommandId::WorkspaceRules),
-                ),
+                view()
+                    .items_end()
+                    .gap(px(10.0))
+                    .child(picker_button(
+                        move || t!("command.workspace_rules"),
+                        move || rules_open.update(|open| *open = !*open),
+                    ))
+                    .child(when(
+                        move || rules_open.get(),
+                        move || {
+                            view()
+                                .w(px(460.0))
+                                .child(crate::shell::library_ui::inline_workspace_rules_panel())
+                        },
+                    )),
             ),
             RowItem::new(
                 "settings.control_channel",

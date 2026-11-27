@@ -163,8 +163,11 @@ pub(crate) fn label(choice: ReadingTheme) -> &'static str {
     match choice {
         ReadingTheme::App => "reading_theme.app",
         ReadingTheme::Light => "reading_theme.light",
+        ReadingTheme::SoftPaper => "reading_theme.soft_paper",
         ReadingTheme::Sepia => "reading_theme.sepia",
         ReadingTheme::Dark => "reading_theme.dark",
+        ReadingTheme::Charcoal => "reading_theme.charcoal",
+        ReadingTheme::Espresso => "reading_theme.espresso",
         ReadingTheme::Oled => "reading_theme.oled",
         ReadingTheme::HighContrast => "reading_theme.contrast",
         ReadingTheme::Custom => "reading_theme.custom",

@@ -1249,7 +1249,8 @@ fn window_chrome_dialogs(args: ChromeDialogs, run: impl Fn(CommandId) + Copy + '
         palette(palette_open, panes.active().pages, run)
     }));
     dialogs = dialogs.child(when(tab_list_open, move || {
-        tabs::tab_list(tab_list_open, panes.active().tabs, recent, workspaces)
+        let pane = panes.active();
+        tabs::tab_list(tab_list_open, pane.tabs, pane.home_open, recent, workspaces)
     }));
     dialogs = dialogs.child(workspaces::workspace_dialogs(workspaces, run));
     dialogs = dialogs.child(when(

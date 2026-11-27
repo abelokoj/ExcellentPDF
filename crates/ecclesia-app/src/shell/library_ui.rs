@@ -1237,6 +1237,163 @@ pub(crate) fn notes_backlinks_dialog(
     list_dialog(t!("command.library_notes"), close, card(body))
 }
 
+/// Inline Workspace Templates & Path Auto-Routing Rules panel embedded directly inside Settings so
+/// users can create and delete templates and routing rules without leaving the Settings window.
+pub(crate) fn inline_workspace_rules_panel() -> View {
+    let tmpl_name = signal(String::new());
+    let rule_name = signal(String::new());
+    let folder_prefix = signal(String::new());
+    let tick = signal(0_u64);
+
+    let save_tmpl_action = move || {
+        let name = untracked(|| tmpl_name.get());
+        if name.trim().is_empty() {
+            return;
+        }
+        let Some(store) = app_library::store() else {
+            return;
+        };
+        let template = WorkspaceTemplate {
+            id: new_id(),
+            name: name.trim().to_owned(),
+            icon: None,
+            color: None,
+            layout: None,
+            items: Vec::new(),
+            created_at: now_secs(),
+        };
+        if store
+            .write(move |tx| save_template(tx, &template))
+            .wait()
+            .is_ok()
+        {
+            tmpl_name.set(String::new());
+            tick.update(|n| *n += 1);
+        }
+    };
+
+    let save_rule_action = move || {
+        let rname = untracked(|| rule_name.get());
+        let prefix = untracked(|| folder_prefix.get());
+        if rname.trim().is_empty() || prefix.trim().is_empty() {
+            return;
+        }
+        let Some(store) = app_library::store() else {
+            return;
+        };
+        let rule = RoutingRule {
+            id: new_id(),
+            name: rname.trim().to_owned(),
+            folder_prefix: PathBuf::from(prefix.trim()),
+            workspace_id: Some(WorkspaceId::DEFAULT),
+            workspace_name: String::new(),
+            priority: 10,
+            enabled: true,
+        };
+        if store.write(move |tx| save_rule(tx, &rule)).wait().is_ok() {
+            rule_name.set(String::new());
+            folder_prefix.set(String::new());
+            tick.update(|n| *n += 1);
+        }
+    };
+
+    view()
+        .w_full()
+        .p(px(14.0))
+        .gap_3()
+        .rounded(px(10.0))
+        .bg(move || theme().background)
+        .border_1()
+        .border_color(move || theme().border)
+        .child(caption("workspace.templates.heading"))
+        .child(
+            view()
+                .flex_row()
+                .gap_2()
+                .child(
+                    field(input().value(move || tmpl_name.get()))
+                        .flex_1()
+                        .on_change(move |s: &str| tmpl_name.set(s.to_owned()))
+                        .placeholder(t!("workspace.templates.placeholder"))
+                        .label(t!("workspace.templates.placeholder")),
+                )
+                .child(action_button(
+                    "workspace.templates.save",
+                    Tone::Plain,
+                    save_tmpl_action,
+                )),
+        )
+        .child(caption("workspace.rules.heading"))
+        .child(
+            view()
+                .flex_row()
+                .gap_2()
+                .child(
+                    field(input().value(move || rule_name.get()))
+                        .w(px(160.0))
+                        .on_change(move |s: &str| rule_name.set(s.to_owned()))
+                        .placeholder(t!("workspace.rules.name_placeholder"))
+                        .label(t!("workspace.rules.name_placeholder")),
+                )
+                .child(
+                    field(input().value(move || folder_prefix.get()))
+                        .flex_1()
+                        .on_change(move |s: &str| folder_prefix.set(s.to_owned()))
+                        .placeholder(t!("workspace.rules.prefix_placeholder"))
+                        .label(t!("workspace.rules.prefix_placeholder")),
+                )
+                .child(action_button(
+                    "workspace.rules.add",
+                    Tone::Plain,
+                    save_rule_action,
+                )),
+        )
+        .child(scroll().max_h(px(180.0)).child(dynamic(move || {
+            let _ = tick.get();
+            let Some(store) = app_library::store() else {
+                return view();
+            };
+            let tmpls = store.read(list_templates).unwrap_or_default();
+            let rules = store.read(list_rules).unwrap_or_default();
+            let mut col = view().gap_2();
+            for tmpl in tmpls {
+                col = col.child(
+                    text(tmpl.name)
+                        .text_size(px(12.0))
+                        .text_color(move || theme().foreground),
+                );
+            }
+            for r in rules {
+                let rid = r.id.clone();
+                let line = format!("{} — {}", r.name, r.folder_prefix.display());
+                col = col.child(
+                    view()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            text(line)
+                                .flex_1()
+                                .text_size(px(12.0))
+                                .text_color(move || theme().muted_foreground),
+                        )
+                        .child(crate::shell::app_menu::close_x_button(
+                            t!("workspace.rules.delete"),
+                            24.0,
+                            11.0,
+                            5.0,
+                            move || {
+                                let rid2 = rid.clone();
+                                let _ = store.write(move |tx| delete_rule(tx, &rid2)).wait();
+                                tick.update(|n| *n += 1);
+                            },
+                        )),
+                );
+            }
+            col
+        })))
+}
+
 /// Workspace Templates & Path Auto-Routing Rules dialog (plan W.12).
 pub(crate) fn workspace_rules_dialog(
     state: LibraryUiState,
