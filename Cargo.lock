@@ -814,6 +814,7 @@ name = "ecclesia-mupdf"
 version = "0.1.0"
 dependencies = [
  "ecclesia-mupdf-sys",
+ "windows",
 ]
 
 [[package]]
