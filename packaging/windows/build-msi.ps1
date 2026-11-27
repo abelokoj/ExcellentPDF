@@ -780,6 +780,11 @@ try {
     Add-Row CustomAction @('SetScopeSummaryUser', 51, 'SCOPESUMMARY', 'Current user only (no administrator privileges required)')
     Add-Row CustomAction @('SetScopeSummaryMachine', 51, 'SCOPESUMMARY', 'All users on this computer (requires administrator privileges)')
     Add-Row CustomAction @('SetInstallDirMachine', 35, 'INSTALLDIR', '[MACHINEINSTALLDIR]')
+    # Type 98 = 34 (EXE in Directory) + 64 (synchronous, ignore exit code): runs invisibly via conhost --headless
+    # before InstallValidate so any running ecclesiapdf.exe saves its session via WM_CLOSE and exits cleanly
+    # (falling back to /F if stuck), preventing locked-file reboot prompts on install, upgrade, repair, or remove.
+    $stopRunningCmd = '"[System64Folder]conhost.exe" --headless "[System64Folder]cmd.exe" /d /c "tasklist /NH | findstr /I /B ecclesiapdf.exe >nul && (taskkill /IM ecclesiapdf.exe /T >nul 2>&1 & ping -n 2 127.0.0.1 >nul & taskkill /F /IM ecclesiapdf.exe /T >nul 2>&1)"'
+    Add-Row CustomAction @('StopRunningApp', 98, 'System64Folder', $stopRunningCmd)
     # Type 226 = 34 (EXE in Directory) + 192 (async, ignore exit code); invoked from ExitDialog (unelevated user session).
     Add-Row CustomAction @('LaunchApp', 226, 'INSTALLDIR', '"[INSTALLDIR]ecclesiapdf.exe"')
     Add-Row CustomAction @('OpenDefaultApps', 226, 'System64Folder', '"[System64Folder]cmd.exe" /c start "" "ms-settings:defaultapps"')
@@ -1188,6 +1193,7 @@ try {
     Add-Row ActionText @('CostInitialize',         'Computing space requirements',            $null)
     Add-Row ActionText @('FileCost',               'Computing space requirements',            $null)
     Add-Row ActionText @('CostFinalize',           'Computing space requirements',            $null)
+    Add-Row ActionText @('StopRunningApp',         'Closing running instances of Ecclesia PDF', $null)
     Add-Row ActionText @('InstallValidate',        'Validating install',                      $null)
     Add-Row ActionText @('InstallInitialize',      'Preparing installation',                  $null)
     Add-Row ActionText @('RemoveExistingProducts', 'Removing older versions of EcclesiaPDF', 'Application: [1]')
@@ -1249,6 +1255,7 @@ try {
     Add-Row InstallExecuteSequence @('InitMachineDir',         'NOT MACHINEINSTALLDIR AND %ProgramW6432', 1011)
     Add-Row InstallExecuteSequence @('InitMachineDirFallback', 'NOT MACHINEINSTALLDIR', 1012)
     Add-Row InstallExecuteSequence @('SetInstallDirMachine',   'NOT Installed AND NOT USERCUSTOMDIR AND (ALLUSERS = "1" OR NOT MSIINSTALLPERUSER)', 1025)
+    Add-Row InstallExecuteSequence @('StopRunningApp',         $null, 1350)
     Add-Row InstallExecuteSequence @('InstallValidate',        $null, 1400)
     Add-Row InstallExecuteSequence @('InstallInitialize',      $null, 1500)
     Add-Row InstallExecuteSequence @('RemoveExistingProducts', $null, 1501)

@@ -291,6 +291,13 @@ try {
         $customActions = @{}
         foreach ($r in (Read-Table 'CustomAction' @('Action', 'Type'))) { $customActions[$r.Action] = [int]$r.Type }
         Assert-True ($customActions.ContainsKey('OpenDefaultApps') -and $customActions['OpenDefaultApps'] -eq 226) "CustomAction OpenDefaultApps missing or not Type 226"
+        Assert-True ($customActions.ContainsKey('StopRunningApp') -and $customActions['StopRunningApp'] -eq 98) "CustomAction StopRunningApp missing or not Type 98 (sync, ignore exit)"
+        $execSeq = @{}
+        foreach ($r in (Read-Table 'InstallExecuteSequence' @('Action', 'Sequence'))) { $execSeq[$r.Action] = [int]$r.Sequence }
+        Assert-True ($execSeq.ContainsKey('StopRunningApp') -and $execSeq.ContainsKey('InstallValidate') -and $execSeq['StopRunningApp'] -lt $execSeq['InstallValidate']) "StopRunningApp must run in InstallExecuteSequence before InstallValidate"
+        $adminSeq = @{}
+        foreach ($r in (Read-Table 'AdminExecuteSequence' @('Action', 'Sequence'))) { $adminSeq[$r.Action] = [int]$r.Sequence }
+        Assert-True (-not $adminSeq.ContainsKey('StopRunningApp')) "AdminExecuteSequence must not run StopRunningApp"
         $browseEvents = @{}
         foreach ($ev in (Read-Table 'ControlEvent' @('Dialog_', 'Control_', 'Event', 'Argument', 'Condition'))) {
             Assert-True ($dialogs.ContainsKey($ev.Dialog_) -and $controlsByDialog[$ev.Dialog_].ContainsKey($ev.Control_)) "ControlEvent references missing control '$($ev.Dialog_).$($ev.Control_)'"
