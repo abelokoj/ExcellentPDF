@@ -23,7 +23,7 @@ use nsh_core::element::desktop::{OpenChange, WindowRef, current_window, open_win
 use nsh_core::keymap::When;
 use nsh_core::prelude::*;
 
-use crate::annotate::selection_popup::{PopupItem, selection_popup_settings_rows};
+use crate::annotate::selection_popup::{ColorPickerIcon, PopupItem, selection_popup_settings_rows};
 use crate::autoreload::{AUTO_RELOAD_MODE, AutoReloadMode};
 use crate::commands::{COMMANDS, CommandId};
 use crate::home::{
@@ -302,6 +302,10 @@ impl SettingsSection {
                 (
                     "settings.section.selection_popup",
                     "annotate.popup.customize_hint",
+                ),
+                (
+                    "annotate.popup.picker_icon",
+                    "annotate.popup.picker_icon_hint",
                 ),
             ],
             Self::PrintAndLinks => &[
@@ -1915,6 +1919,11 @@ fn annotations_cards(
     let popup_matches = query.is_none_or(|needle| {
         matches_query(&t!("settings.section.selection_popup"), needle)
             || matches_query(&t!("annotate.popup.customize_hint"), needle)
+            || matches_query(&t!("annotate.popup.picker_icon"), needle)
+            || matches_query(&t!("annotate.popup.picker_icon_hint"), needle)
+            || ColorPickerIcon::ALL
+                .iter()
+                .any(|icon| matches_query(&t!(icon.label_key()), needle))
             || PopupItem::ALL
                 .iter()
                 .any(|item| matches_query(&t!(item.label_key()), needle))

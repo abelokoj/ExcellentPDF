@@ -25,18 +25,86 @@ use crate::study_ui::StudyState;
 /// Settings key persisting the ordered list of action items enabled in the text-selection popup.
 pub(crate) const SELECTION_POPUP_ITEMS: &str = "selection_popup_items";
 
-/// Default four vibrant circular swatch colors matching the floating pill reference design.
-pub(crate) const SWATCHES: [(u32, &str); 4] = [
-    (0xFF_CA28, "annotate.popup.color.yellow"),
-    (0xEF_4444, "annotate.popup.color.red"),
-    (0x21_96F3, "annotate.popup.color.blue"),
-    (0x43_A047, "annotate.popup.color.green"),
+/// Settings key persisting which custom color picker icon design shows as the 6th swatch button.
+pub(crate) const COLOR_PICKER_ICON: &str = "selection_popup_color_picker_icon";
+
+/// Original five pastel default highlighter swatch colors (`STANDARD_LIGHT`: yellow, green, blue,
+/// pink, orange) designed to keep black PDF text sharp and legible underneath.
+pub(crate) const SWATCHES: [(u32, &str); 5] = [
+    (0xFD_E047, "annotate.popup.color.yellow"),
+    (0x86_EFAC, "annotate.popup.color.green"),
+    (0x93_C5FD, "annotate.popup.color.blue"),
+    (0xF9_A8D4, "annotate.popup.color.pink"),
+    (0xFD_BA74, "annotate.popup.color.orange"),
 ];
+
+/// Four selectable designs for the custom color picker button (the 6th icon beside the 5 swatches).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum ColorPickerIcon {
+    /// Rounded frame containing a 2×2 grid of coral, yellow, green, and blue rounded tiles (default).
+    #[default]
+    Grid,
+    /// Smooth 360° rainbow color wheel ring.
+    Wheel,
+    /// Artist's palette with four paint dabs and thumb cutout.
+    Palette,
+    /// Angled color dropper / pipette with vibrant spectrum droplet.
+    Dropper,
+}
+
+impl ColorPickerIcon {
+    /// Every selectable design in settings display order.
+    pub(crate) const ALL: [Self; 4] = [Self::Grid, Self::Wheel, Self::Palette, Self::Dropper];
+
+    /// Stable identifier stored in `settings.toml` under [`COLOR_PICKER_ICON`].
+    pub(crate) const fn id(self) -> &'static str {
+        match self {
+            Self::Grid => "grid",
+            Self::Wheel => "wheel",
+            Self::Palette => "palette",
+            Self::Dropper => "dropper",
+        }
+    }
+
+    /// Parses a settings identifier back into a [`ColorPickerIcon`].
+    pub(crate) fn parse(raw: &str) -> Option<Self> {
+        match raw.trim() {
+            "grid" => Some(Self::Grid),
+            "wheel" => Some(Self::Wheel),
+            "palette" => Some(Self::Palette),
+            "dropper" => Some(Self::Dropper),
+            _ => None,
+        }
+    }
+
+    /// Localization key for this design's human-readable label.
+    pub(crate) const fn label_key(self) -> &'static str {
+        match self {
+            Self::Grid => "annotate.popup.picker_icon.grid",
+            Self::Wheel => "annotate.popup.picker_icon.wheel",
+            Self::Palette => "annotate.popup.picker_icon.palette",
+            Self::Dropper => "annotate.popup.picker_icon.dropper",
+        }
+    }
+}
 
 /// Embedded 64×64 white-on-transparent PNG for the comment bubble action.
 const POPUP_COMMENT_PNG: &[u8] = include_bytes!("../../assets/icons/popup-comment.png");
 /// Embedded 64×64 white-on-transparent PNG for the copy overlapping-squares action.
 const POPUP_COPY_PNG: &[u8] = include_bytes!("../../assets/icons/popup-copy.png");
+/// Embedded 64×64 RGBA PNG for the rainbow color wheel picker icon.
+const PICKER_WHEEL_PNG: &[u8] = include_bytes!("../../assets/icons/color-picker-wheel.png");
+/// Embedded 64×64 RGBA PNG for the artist palette picker icon.
+const PICKER_PALETTE_PNG: &[u8] = include_bytes!("../../assets/icons/color-picker-palette.png");
+/// Embedded 64×64 RGBA PNG for the color dropper picker icon.
+const PICKER_DROPPER_PNG: &[u8] = include_bytes!("../../assets/icons/color-picker-dropper.png");
+
+/// Four vibrant micro-tile colors for the default [`ColorPickerIcon::Grid`] design (top-left red,
+/// top-right yellow, bottom-left green, bottom-right blue).
+const GRID_TILE_RED: u32 = 0xF1_5555;
+const GRID_TILE_YELLOW: u32 = 0xFB_C736;
+const GRID_TILE_GREEN: u32 = 0x34_C77B;
+const GRID_TILE_BLUE: u32 = 0x53_9BFF;
 
 /// Floating pill height in logical DIPs.
 const PILL_HEIGHT: f32 = 44.0;
@@ -353,16 +421,43 @@ pub(crate) fn toggle_item(live: Live, item: PopupItem) {
     live.change(|settings| toggle_item_in(settings, item));
 }
 
-/// Resets the selection-popup items back to [`PopupItem::DEFAULT`].
+/// Reads the selected custom color picker icon style from `settings`, defaulting to [`ColorPickerIcon::Grid`].
+pub(crate) fn selected_picker_icon(settings: &Settings) -> ColorPickerIcon {
+    settings
+        .text(COLOR_PICKER_ICON)
+        .and_then(ColorPickerIcon::parse)
+        .unwrap_or_default()
+}
+
+/// Persists `icon` into `settings`, clearing the key when it equals the default [`ColorPickerIcon::Grid`].
+fn write_picker_icon(settings: &mut Settings, icon: ColorPickerIcon) {
+    if icon == ColorPickerIcon::default() {
+        settings.set_text(COLOR_PICKER_ICON, None);
+    } else {
+        settings.set_text(COLOR_PICKER_ICON, Some(icon.id()));
+    }
+}
+
+/// Persists `icon` into `live`'s settings and saves `settings.toml`.
+pub(crate) fn set_picker_icon(live: Live, icon: ColorPickerIcon) {
+    live.change(|settings| write_picker_icon(settings, icon));
+}
+
+/// Resets the selection-popup items and color picker icon style back to their defaults.
 pub(crate) fn reset_defaults(live: Live) {
-    live.change(|settings| settings.set_text(SELECTION_POPUP_ITEMS, None));
+    live.change(|settings| {
+        settings.set_text(SELECTION_POPUP_ITEMS, None);
+        settings.set_text(COLOR_PICKER_ICON, None);
+    });
 }
 
 /// Estimates the floating pill's width in logical DIPs for clamping within the viewport.
 fn estimate_pill_width(editable: bool, item_count: usize) -> f32 {
     let padding = 28.0;
+    // Five circular swatch dots plus the 6th custom color picker icon button.
+    let swatch_slots = SWATCHES.len() + 1;
     let swatches = if editable {
-        SWATCHES.len() as f32 * SWATCH_SIZE + (SWATCHES.len().saturating_sub(1) as f32) * 10.0
+        swatch_slots as f32 * SWATCH_SIZE + (swatch_slots.saturating_sub(1) as f32) * 8.0 + 4.0
     } else {
         0.0
     };
@@ -392,26 +487,93 @@ pub(crate) fn popup_position(anchor: SelectionPopupAnchor, est_width: f32) -> (f
     (left, top)
 }
 
+fn png_data_uri(bytes: &[u8]) -> String {
+    format!(
+        "data:image/png;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    )
+}
+
 fn comment_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| {
-        format!(
-            "data:image/png;base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(POPUP_COMMENT_PNG)
-        )
-    })
-    .clone()
+    SRC.get_or_init(|| png_data_uri(POPUP_COMMENT_PNG)).clone()
 }
 
 fn copy_icon_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
-    SRC.get_or_init(|| {
-        format!(
-            "data:image/png;base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(POPUP_COPY_PNG)
-        )
-    })
-    .clone()
+    SRC.get_or_init(|| png_data_uri(POPUP_COPY_PNG)).clone()
+}
+
+fn picker_wheel_icon_src() -> String {
+    static SRC: OnceLock<String> = OnceLock::new();
+    SRC.get_or_init(|| png_data_uri(PICKER_WHEEL_PNG)).clone()
+}
+
+fn picker_palette_icon_src() -> String {
+    static SRC: OnceLock<String> = OnceLock::new();
+    SRC.get_or_init(|| png_data_uri(PICKER_PALETTE_PNG)).clone()
+}
+
+fn picker_dropper_icon_src() -> String {
+    static SRC: OnceLock<String> = OnceLock::new();
+    SRC.get_or_init(|| png_data_uri(PICKER_DROPPER_PNG)).clone()
+}
+
+/// Renders one of the four selectable custom color picker icons at `size` logical DIPs.
+pub(crate) fn picker_icon_glyph(icon: ColorPickerIcon, size: f32) -> AnyElement {
+    match icon {
+        ColorPickerIcon::Grid => {
+            let tile = ((size - 8.0) / 2.0).max(4.0);
+            let corner = (size * 0.28).clamp(4.0, 8.0);
+            let tile_corner = (tile * 0.28).clamp(1.5, 3.0);
+            let tile_box = |color: u32| {
+                view()
+                    .w(px(tile))
+                    .h(px(tile))
+                    .rounded(px(tile_corner))
+                    .bg(Hsla::from(rgb(color)))
+            };
+            view()
+                .w(px(size))
+                .h(px(size))
+                .rounded(px(corner))
+                .border_2()
+                .border_color(move || theme().popover_foreground)
+                .items_center()
+                .justify_center()
+                .gap(px(1.5))
+                .child(
+                    view()
+                        .flex_row()
+                        .gap(px(1.5))
+                        .child(tile_box(GRID_TILE_RED))
+                        .child(tile_box(GRID_TILE_YELLOW)),
+                )
+                .child(
+                    view()
+                        .flex_row()
+                        .gap(px(1.5))
+                        .child(tile_box(GRID_TILE_GREEN))
+                        .child(tile_box(GRID_TILE_BLUE)),
+                )
+                .into_element()
+        }
+        ColorPickerIcon::Wheel => image(picker_wheel_icon_src())
+            .w(px(size))
+            .h(px(size))
+            .object_fit(ResizeMode::Contain)
+            .into_element(),
+        ColorPickerIcon::Palette => image(picker_palette_icon_src())
+            .w(px(size))
+            .h(px(size))
+            .object_fit(ResizeMode::Contain)
+            .into_element(),
+        ColorPickerIcon::Dropper => image(picker_dropper_icon_src())
+            .w(px(size))
+            .h(px(size))
+            .object_fit(ResizeMode::Contain)
+            .into_element(),
+    }
 }
 
 /// Absolute pass-through overlay hosting the floating text-selection pill above the page canvas.
@@ -441,6 +603,7 @@ pub(crate) fn selection_popup_overlay(
             if !anchor.editable && visible_items.is_empty() {
                 return view().into_element();
             }
+            let picker_icon = live.read(selected_picker_icon);
             let est_width = estimate_pill_width(anchor.editable, visible_items.len());
             let (left, top) = popup_position(anchor, est_width);
             let pill = build_pill(
@@ -448,8 +611,8 @@ pub(crate) fn selection_popup_overlay(
                 canvas,
                 study,
                 bookmarks,
-                anchor.editable,
-                anchor.selection_kind(),
+                anchor,
+                picker_icon,
                 &visible_items,
             );
             let with_menu = attach_customization_menu(live, pill);
@@ -463,16 +626,19 @@ pub(crate) fn selection_popup_overlay(
         }))
 }
 
-/// Builds the floating pill container with circular color swatches, hairline divider, and action buttons.
+/// Builds the floating pill container with five pastel color swatches, the 6th custom color picker
+/// button, a hairline divider, and customizable action buttons.
 fn build_pill(
     annotate: AnnotateState,
     canvas: ElementRef,
     study: StudyState,
     bookmarks: BookmarkState,
-    editable: bool,
-    selection_kind: SelectionKind,
+    anchor: SelectionPopupAnchor,
+    picker_icon: ColorPickerIcon,
     items: &[PopupItem],
 ) -> View {
+    let editable = anchor.editable;
+    let selection_kind = anchor.selection_kind();
     let mut pill = view()
         .pointer_events(PointerEvents::Auto)
         .flex_row()
@@ -487,18 +653,25 @@ fn build_pill(
         .shadow_lg();
 
     if editable {
-        let swatches = SWATCHES.into_iter().fold(
-            view().flex_row().items_center().gap(px(10.0)),
-            |row, (color, label_key)| {
-                row.child(swatch_button(
-                    annotate,
-                    canvas,
-                    selection_kind,
-                    color,
-                    label_key,
-                ))
-            },
-        );
+        let swatches = SWATCHES
+            .into_iter()
+            .fold(
+                view().flex_row().items_center().gap(px(8.0)),
+                |row, (color, label_key)| {
+                    row.child(swatch_button(
+                        annotate,
+                        canvas,
+                        selection_kind,
+                        color,
+                        label_key,
+                    ))
+                },
+            )
+            .child(custom_color_picker_button(
+                annotate,
+                selection_kind,
+                picker_icon,
+            ));
         pill = pill.child(swatches);
     }
 
@@ -516,6 +689,7 @@ fn build_pill(
                     study,
                     bookmarks,
                     selection_kind,
+                    picker_icon,
                     item,
                 ))
             },
@@ -526,7 +700,7 @@ fn build_pill(
     pill
 }
 
-/// One vibrant circular swatch button on the left side of the floating pill.
+/// One pastel circular swatch button on the left side of the floating pill.
 fn swatch_button(
     annotate: AnnotateState,
     canvas: ElementRef,
@@ -557,10 +731,42 @@ fn swatch_button(
         .h(px(SWATCH_SIZE))
         .rounded_full()
         .bg(Hsla::from(rgb(color)))
+        .border_1()
+        .border_color(Hsla::from(rgba(0x0000_0026)))
         .shadow_sm()
         .hover(|s| s.border_2().border_color(move || theme().ring))
         .active(|s| s.opacity(0.85))
         .focus_visible(|s| s.border_2().border_color(move || theme().ring))
+}
+
+/// The 6th button to the right of the five default color swatches: opens the full custom color
+/// picker for the active markup tool using the user's chosen [`ColorPickerIcon`] design.
+fn custom_color_picker_button(
+    annotate: AnnotateState,
+    selection_kind: SelectionKind,
+    picker_icon: ColorPickerIcon,
+) -> impl IntoElement {
+    button()
+        .accessibility_label(t!("annotate.popup.item.custom_color"))
+        .on_press(move || {
+            let tool = match selection_kind {
+                SelectionKind::Block => ColorTool::Highlight,
+                SelectionKind::Text => untracked(|| annotate.active_markup_tool()).color_tool(),
+            };
+            annotate.pick(tool);
+            drop(set_timeout(Duration::ZERO, move || {
+                annotate.dismiss_selection_popup();
+            }));
+        })
+        .w(px(SWATCH_SIZE + 4.0))
+        .h(px(SWATCH_SIZE + 4.0))
+        .rounded(px(7.0))
+        .items_center()
+        .justify_center()
+        .hover(|s| s.bg(move || theme().accent))
+        .active(|s| s.opacity(0.80))
+        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(picker_icon_glyph(picker_icon, 21.0))
 }
 
 /// One action icon button on the right side of the floating pill.
@@ -570,6 +776,7 @@ fn action_button(
     study: StudyState,
     bookmarks: BookmarkState,
     selection_kind: SelectionKind,
+    picker_icon: ColorPickerIcon,
     item: PopupItem,
 ) -> impl IntoElement {
     let active_mode = match item {
@@ -597,7 +804,7 @@ fn action_button(
         .hover(|s| s.bg(move || theme().accent))
         .active(|s| s.opacity(0.75))
         .focus_visible(|s| s.border_1().border_color(move || theme().ring))
-        .child(item_glyph(item))
+        .child(item_glyph(item, picker_icon))
 }
 
 /// Executes the selected popup item action against the canvas or pane controller.
@@ -679,7 +886,7 @@ fn run_item(
 }
 
 /// Renders the visual icon or typographic glyph for `item`.
-fn item_glyph(item: PopupItem) -> AnyElement {
+fn item_glyph(item: PopupItem, picker_icon: ColorPickerIcon) -> AnyElement {
     match item {
         PopupItem::Highlight => view()
             .relative()
@@ -781,10 +988,7 @@ fn item_glyph(item: PopupItem) -> AnyElement {
             theme().popover_foreground
         })
         .into_element(),
-        PopupItem::CustomColor => chrome_icon(ChromeIcon::RailSettings, 16.0, move || {
-            theme().popover_foreground
-        })
-        .into_element(),
+        PopupItem::CustomColor => picker_icon_glyph(picker_icon, 18.0),
     }
 }
 
@@ -850,23 +1054,84 @@ fn attach_customization_menu(live: Live, pill: View) -> impl IntoElement {
     )
 }
 
-/// Settings rows allowing the user to enable/disable each selection-popup item and reset to defaults
-/// inside Settings → Annotations & ink.
+/// Settings rows allowing the user to pick the custom color picker icon style, enable/disable
+/// each selection-popup item, and reset to defaults inside Settings → Annotations & ink.
 pub(crate) fn selection_popup_settings_rows(live: Live) -> Vec<View> {
-    let mut rows = Vec::with_capacity(PopupItem::ALL.len() + 1);
-    for (idx, item) in PopupItem::ALL.into_iter().enumerate() {
+    let mut rows = Vec::with_capacity(PopupItem::ALL.len() + 2);
+    let chosen_icon = move || live.read(selected_picker_icon);
+    let icon_choices = ColorPickerIcon::ALL.into_iter().fold(
+        view().flex_row().items_center().gap(px(8.0)),
+        |row, icon| {
+            let active = move || chosen_icon() == icon;
+            row.child(
+                button()
+                    .accessibility_label(t!(icon.label_key()))
+                    .on_press(move || set_picker_icon(live, icon))
+                    .px(px(10.0))
+                    .py(px(6.0))
+                    .rounded(px(8.0))
+                    .flex_row()
+                    .items_center()
+                    .gap(px(7.0))
+                    .border_1()
+                    .border_color(move || {
+                        if active() {
+                            theme().primary
+                        } else {
+                            theme().border
+                        }
+                    })
+                    .bg(move || {
+                        if active() {
+                            theme().accent
+                        } else {
+                            theme().background
+                        }
+                    })
+                    .hover(|s| s.bg(move || theme().accent))
+                    .focus_visible(|s| s.border_color(move || theme().ring))
+                    .child(picker_icon_glyph(icon, 20.0))
+                    .child(
+                        text(move || t!(icon.label_key()))
+                            .text_size(px(12.0))
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(move || theme().foreground),
+                    ),
+            )
+        },
+    );
+    rows.push(
+        view()
+            .px(px(16.0))
+            .py(px(12.0))
+            .gap(px(8.0))
+            .child(
+                view()
+                    .gap(px(2.0))
+                    .child(
+                        text(move || t!("annotate.popup.picker_icon"))
+                            .text_size(px(13.0))
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(move || theme().foreground),
+                    )
+                    .child(
+                        text(move || t!("annotate.popup.picker_icon_hint"))
+                            .text_size(px(12.0))
+                            .text_color(move || theme().muted_foreground),
+                    ),
+            )
+            .child(icon_choices),
+    );
+    for item in PopupItem::ALL {
         let enabled = move || live.read(enabled_items).contains(&item);
-        let row_base = view()
+        let row = view()
             .flex_row()
             .items_center()
             .gap(px(16.0))
             .px(px(16.0))
-            .py(px(10.0));
-        let row = if idx == 0 {
-            row_base
-        } else {
-            row_base.border_t_1().border_t_color(move || theme().border)
-        };
+            .py(px(10.0))
+            .border_t_1()
+            .border_t_color(move || theme().border);
         rows.push(
             row.child(
                 text(move || t!(item.label_key()))
@@ -1033,5 +1298,24 @@ mod tests {
                 PopupItem::CustomColor,
             ]
         );
+    }
+
+    #[test]
+    fn swatches_restore_five_original_pastel_defaults_and_picker_icons_round_trip() {
+        let expected = colors_model::Palette::Standard.swatches(ColorTool::Highlight);
+        let actual: Vec<u32> = SWATCHES.iter().map(|(color, _)| *color).collect();
+        assert_eq!(actual, expected.to_vec());
+
+        let mut settings = Settings::default();
+        assert_eq!(selected_picker_icon(&settings), ColorPickerIcon::Grid);
+        for icon in ColorPickerIcon::ALL {
+            write_picker_icon(&mut settings, icon);
+            assert_eq!(selected_picker_icon(&settings), icon);
+            if icon == ColorPickerIcon::Grid {
+                assert!(settings.text(COLOR_PICKER_ICON).is_none());
+            } else {
+                assert_eq!(settings.text(COLOR_PICKER_ICON), Some(icon.id()));
+            }
+        }
     }
 }

@@ -211,4 +211,128 @@ mod tests {
         drop((doc, reopened));
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    /// Generates a minimal valid multi-page PDF with `pages` letter-sized pages and valid xref.
+    fn minimal_multipage_pdf(pages: usize) -> Vec<u8> {
+        use std::fmt::Write as _;
+        let mut out = String::from("%PDF-1.4\n");
+        let mut offsets: Vec<usize> = Vec::with_capacity(pages + 3);
+        offsets.push(0); // object 0 (free)
+        // Object 1: Catalog
+        offsets.push(out.len());
+        out.push_str("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+        // Object 2: Pages root
+        offsets.push(out.len());
+        out.push_str("2 0 obj\n<< /Type /Pages /Kids [");
+        for i in 0..pages {
+            let _ = write!(out, "{} 0 R ", i + 3);
+        }
+        let _ = writeln!(out, "] /Count {pages} >>\nendobj");
+        // Objects 3..=pages+2: individual pages
+        for i in 0..pages {
+            offsets.push(out.len());
+            let _ = writeln!(
+                out,
+                "{} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj",
+                i + 3
+            );
+        }
+        let xref_pos = out.len();
+        let _ = writeln!(out, "xref\n0 {}", pages + 3);
+        out.push_str("0000000000 65535 f \n");
+        for &offset in offsets.iter().skip(1) {
+            let _ = writeln!(out, "{offset:010} 00000 n ");
+        }
+        let _ = write!(
+            out,
+            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n",
+            pages + 3
+        );
+        out.into_bytes()
+    }
+
+    #[test]
+    fn stress_50_pdfs_with_2000_pages_each_hibernated_and_concurrent() {
+        use std::time::Instant;
+
+        const FILE_COUNT: usize = 50;
+        const PAGE_COUNT: usize = 2000;
+
+        let dir = std::env::temp_dir().join(format!(
+            "ecclesia-core-stress-50x2000-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("stress folder");
+
+        let template = minimal_multipage_pdf(PAGE_COUNT);
+        let paths: Vec<PathBuf> = (0..FILE_COUNT)
+            .map(|i| {
+                let p = dir.join(format!("book-{i:02}.pdf"));
+                std::fs::write(&p, &template).expect("write stress pdf");
+                p
+            })
+            .collect();
+
+        let registry = Registry::with_log_dir(dir.join("logs"));
+
+        // 1. Real EcclesiaPDF tab-hibernation model: only the active tab holds an Arc<Document>.
+        let hibernated_start = Instant::now();
+        for path in &paths {
+            let doc = registry.open(path).expect("open hibernated stress pdf");
+            assert_eq!(registry.len(), 1, "only the active tab stays parsed");
+            let mupdf = doc.mupdf().expect("awake");
+            let guard = mupdf.lock().expect("lock");
+            assert_eq!(guard.page_count().expect("page_count"), PAGE_COUNT);
+            let first = guard
+                .page_box(0, ecclesia_mupdf::PageBox::Media)
+                .expect("first page");
+            let last = guard
+                .page_box(PAGE_COUNT - 1, ecclesia_mupdf::PageBox::Media)
+                .expect("last page");
+            assert!((first.x1 - 612.0).abs() < 1.0 && (last.y1 - 792.0).abs() < 1.0);
+            drop(guard);
+            drop(mupdf);
+            drop(doc);
+            assert!(registry.is_empty(), "inactive tab releases MuPDF handle");
+        }
+        let hibernated_ms = hibernated_start.elapsed().as_secs_f64() * 1000.0;
+
+        // 2. Worst-case concurrent load: all 50 x 2,000-page PDFs (100,000 pages) open at once.
+        let concurrent_start = Instant::now();
+        let mut open_docs = Vec::with_capacity(FILE_COUNT);
+        for path in &paths {
+            let doc = registry.open(path).expect("open concurrent stress pdf");
+            let mupdf = doc.mupdf().expect("awake");
+            let count = mupdf.lock().expect("lock").page_count().expect("count");
+            assert_eq!(count, PAGE_COUNT);
+            open_docs.push(doc);
+        }
+        let concurrent_ms = concurrent_start.elapsed().as_secs_f64() * 1000.0;
+        assert_eq!(registry.len(), FILE_COUNT);
+
+        // Measure full page-box scan of one 2,000-page document (what PageCanvas::open runs).
+        let boxes_start = Instant::now();
+        {
+            let mupdf = open_docs[0].mupdf().expect("awake");
+            let guard = mupdf.lock().expect("lock");
+            for page in 0..PAGE_COUNT {
+                let _ = guard
+                    .page_box(page, ecclesia_mupdf::PageBox::Media)
+                    .expect("page_box");
+            }
+        }
+        let boxes_ms = boxes_start.elapsed().as_secs_f64() * 1000.0;
+
+        drop(open_docs);
+        assert!(
+            registry.is_empty(),
+            "all 50 documents cleanly freed on drop"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+
+        eprintln!(
+            "STRESS 50x2000 (100,000 pages): hibernated_cycle={hibernated_ms:.1}ms, all_50_open={concurrent_ms:.1}ms, 2000_page_bounds_scan={boxes_ms:.1}ms"
+        );
+    }
 }

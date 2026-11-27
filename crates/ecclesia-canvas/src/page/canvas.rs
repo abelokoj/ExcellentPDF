@@ -1971,10 +1971,9 @@ impl<H: Host> PageCanvas<H> {
         quads
     }
 
-    /// Draws again the pages an edit, an undo or a redo changed (A.1): their display lists and tiles go, so they
-    /// are recorded and rendered again.
-    // shortcut: a changed page shows its paper until its new tiles arrive; keep the old tiles until then if the
-    // flash shows.
+    /// Draws again the pages an edit, an undo or a redo changed (A.1): their display lists are
+    /// rebuilt and their existing tiles are marked stale so previous pixels stay visible on screen
+    /// until the updated tiles arrive (zero blank-page blink).
     fn notice_edits(&mut self) {
         let Some(document) = self.document.clone() else {
             return;
@@ -1999,7 +1998,7 @@ impl<H: Host> PageCanvas<H> {
         self.ink.retain(|ink| !stale.contains(&ink.page));
         for page in stale {
             self.lists.remove(&page);
-            self.tiles.forget_page(page);
+            self.tiles.mark_page_stale(page);
         }
     }
 

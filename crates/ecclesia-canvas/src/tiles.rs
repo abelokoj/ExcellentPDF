@@ -125,11 +125,44 @@ pub fn visible_tiles(layout: &Layout, viewport: &Viewport) -> Vec<TileKey> {
     tiles
 }
 
-/// A tile being rendered (its job, `J`) or rendered (its bitmap, `B`).
+/// A tile being rendered (its job, `J`), rendered (its bitmap, `B`), or waiting to refresh after an
+/// in-place page edit while keeping its previous bitmap visible so the page never flashes blank.
 #[derive(Debug)]
 enum Slot<J, B> {
     Pending(J),
-    Ready { bitmap: B, bytes: usize, used: u64 },
+    Ready {
+        bitmap: B,
+        bytes: usize,
+        used: u64,
+    },
+    /// Previous revision's bitmap kept on screen while the page's updated display list is recorded.
+    Stale {
+        bitmap: B,
+        bytes: usize,
+        used: u64,
+    },
+    /// Previous revision's bitmap kept on screen while its replacement tile renders.
+    Refreshing {
+        job: J,
+        bitmap: B,
+        bytes: usize,
+        used: u64,
+    },
+}
+
+impl<J, B> Slot<J, B> {
+    fn bitmap_bytes(&self) -> usize {
+        match self {
+            Self::Pending(_) => 0,
+            Self::Ready { bytes, .. }
+            | Self::Stale { bytes, .. }
+            | Self::Refreshing { bytes, .. } => *bytes,
+        }
+    }
+
+    fn has_bitmap(&self) -> bool {
+        !matches!(self, Self::Pending(_))
+    }
 }
 
 /// The tiles of one document. Dropping a pending tile's job cancels it.
@@ -157,20 +190,57 @@ impl<J, B> TileCache<J, B> {
         self.frame += 1;
     }
 
-    /// True when `key` is rendered or rendering.
+    /// True when `key` is up-to-date or already rendering at the current revision.
+    ///
+    /// Returns `false` for stale tiles so the canvas schedules a replacement render while keeping
+    /// the previous bitmap visible.
     pub fn contains(&self, key: &TileKey) -> bool {
-        self.slots.contains_key(key)
+        matches!(
+            self.slots.get(key),
+            Some(Slot::Pending(_) | Slot::Ready { .. } | Slot::Refreshing { .. })
+        )
     }
 
-    /// `key` is rendering through `job`.
+    /// `key` is rendering through `job`, retaining any previous bitmap on screen until `job` finishes.
     pub fn request(&mut self, key: TileKey, job: J) {
-        self.slots.insert(key, Slot::Pending(job));
+        let next = match self.slots.remove(&key) {
+            Some(
+                Slot::Ready {
+                    bitmap,
+                    bytes,
+                    used,
+                }
+                | Slot::Stale {
+                    bitmap,
+                    bytes,
+                    used,
+                }
+                | Slot::Refreshing {
+                    bitmap,
+                    bytes,
+                    used,
+                    ..
+                },
+            ) => Slot::Refreshing {
+                job,
+                bitmap,
+                bytes,
+                used,
+            },
+            Some(Slot::Pending(_)) | None => Slot::Pending(job),
+        };
+        self.slots.insert(key, next);
     }
 
-    /// `key`'s bitmap, if it is rendered; it counts as used in this frame.
+    /// `key`'s bitmap, if rendered (including a stale fallback kept visible during refresh); it counts
+    /// as used in this frame.
     pub fn ready(&mut self, key: &TileKey) -> Option<&B> {
         match self.slots.get_mut(key) {
-            Some(Slot::Ready { bitmap, used, .. }) => {
+            Some(
+                Slot::Ready { bitmap, used, .. }
+                | Slot::Stale { bitmap, used, .. }
+                | Slot::Refreshing { bitmap, used, .. },
+            ) => {
                 *used = self.frame;
                 Some(bitmap)
             }
@@ -183,26 +253,29 @@ impl<J, B> TileCache<J, B> {
         let mut keys: Vec<TileKey> = self
             .slots
             .iter()
-            .filter(|(k, slot)| {
-                k.page == page && k.bucket != bucket && matches!(slot, Slot::Ready { .. })
-            })
+            .filter(|(k, slot)| k.page == page && k.bucket != bucket && slot.has_bitmap())
             .map(|(k, _)| *k)
             .collect();
         keys.sort_by_key(|k| std::cmp::Reverse((k.bucket - bucket).abs()));
         keys
     }
 
-    /// Asks `take` about every pending job: `Some(Some((bitmap, bytes)))` when it rendered, `Some(None)` when it
-    /// failed or was cancelled (the slot is dropped), `None` while it runs. True when anything changed.
+    /// Asks `take` about every pending or refreshing job: `Some(Some((bitmap, bytes)))` when it rendered,
+    /// `Some(None)` when it failed or was cancelled (the slot is dropped), `None` while it runs. True when
+    /// anything changed.
     pub fn poll(&mut self, mut take: impl FnMut(&mut J) -> Option<Option<(B, usize)>>) -> bool {
         let frame = self.frame;
         let mut changed = false;
         let mut failed = Vec::new();
         for (key, slot) in &mut self.slots {
-            let Slot::Pending(job) = slot else { continue };
-            match take(job) {
+            let result = match slot {
+                Slot::Pending(job) | Slot::Refreshing { job, .. } => take(job),
+                Slot::Ready { .. } | Slot::Stale { .. } => continue,
+            };
+            match result {
                 Some(Some((bitmap, bytes))) => {
-                    self.bytes += bytes;
+                    let old_bytes = slot.bitmap_bytes();
+                    self.bytes = self.bytes.saturating_sub(old_bytes) + bytes;
                     *slot = Slot::Ready {
                         bitmap,
                         bytes,
@@ -215,16 +288,26 @@ impl<J, B> TileCache<J, B> {
             }
         }
         for key in failed {
-            self.slots.remove(&key);
+            if let Some(removed) = self.slots.remove(&key) {
+                self.bytes = self.bytes.saturating_sub(removed.bitmap_bytes());
+            }
             changed = true;
         }
         changed
     }
 
-    /// Drops (and so cancels) the pending tiles not in `needed`: their pages left the viewport, or the zoom moved on.
+    /// Drops (and so cancels) the pending, stale, or refreshing tiles not in `needed`: their pages left the
+    /// viewport, or the zoom moved on.
     pub fn cancel_unneeded(&mut self, needed: &HashSet<TileKey>) {
-        self.slots
-            .retain(|key, slot| matches!(slot, Slot::Ready { .. }) || needed.contains(key));
+        let mut freed = 0;
+        self.slots.retain(|key, slot| {
+            if matches!(slot, Slot::Ready { .. }) || needed.contains(key) {
+                return true;
+            }
+            freed += slot.bitmap_bytes();
+            false
+        });
+        self.bytes = self.bytes.saturating_sub(freed);
     }
 
     /// Drops the least recently drawn bitmaps until the ones not drawn in this frame fit the budget.
@@ -236,7 +319,9 @@ impl<J, B> TileCache<J, B> {
             .slots
             .iter()
             .filter_map(|(key, slot)| match slot {
-                Slot::Ready { used, bytes, .. } if *used < self.frame => {
+                Slot::Ready { used, bytes, .. } | Slot::Stale { used, bytes, .. }
+                    if *used < self.frame =>
+                {
                     Some((*used, *key, *bytes))
                 }
                 _ => None,
@@ -248,23 +333,66 @@ impl<J, B> TileCache<J, B> {
                 break;
             }
             self.slots.remove(&key);
-            self.bytes -= bytes;
+            self.bytes = self.bytes.saturating_sub(bytes);
         }
     }
 
-    /// Drops page `page`'s tiles: it changed (A.1).
+    /// Marks page `page`'s rendered tiles stale so replacement tiles are rendered while keeping the
+    /// previous bitmaps on screen until the refreshed tiles arrive (eliminating blank-page flashes
+    /// after highlighting or editing annotations).
+    pub fn mark_page_stale(&mut self, page: usize) {
+        let keys: Vec<TileKey> = self
+            .slots
+            .keys()
+            .copied()
+            .filter(|key| key.page == page)
+            .collect();
+        for key in keys {
+            let Some(slot) = self.slots.remove(&key) else {
+                continue;
+            };
+            match slot {
+                Slot::Pending(_) => {}
+                Slot::Ready {
+                    bitmap,
+                    bytes,
+                    used,
+                }
+                | Slot::Stale {
+                    bitmap,
+                    bytes,
+                    used,
+                }
+                | Slot::Refreshing {
+                    bitmap,
+                    bytes,
+                    used,
+                    ..
+                } => {
+                    self.slots.insert(
+                        key,
+                        Slot::Stale {
+                            bitmap,
+                            bytes,
+                            used,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    /// Drops page `page`'s tiles completely.
     pub fn forget_page(&mut self, page: usize) {
         let mut freed = 0;
         self.slots.retain(|key, slot| {
             if key.page != page {
                 return true;
             }
-            if let Slot::Ready { bytes, .. } = slot {
-                freed += *bytes;
-            }
+            freed += slot.bitmap_bytes();
             false
         });
-        self.bytes -= freed;
+        self.bytes = self.bytes.saturating_sub(freed);
     }
 
     /// Drops everything: another document, or the bitmaps' device was lost.
@@ -373,5 +501,42 @@ mod tests {
             .map(|k| k.bucket)
             .collect();
         assert_eq!(others, [2, 7]);
+    }
+
+    #[test]
+    fn mark_page_stale_keeps_previous_bitmap_visible_until_refresh_finishes() {
+        let mut cache: TileCache<&'static str, &'static str> = TileCache::new(1024);
+        let tile = key(0, 4096);
+        let needed: HashSet<TileKey> = [tile].into_iter().collect();
+
+        cache.request(tile, "initial");
+        cache.begin_frame();
+        assert!(cache.poll(|_| Some(Some(("v1", 100)))));
+        assert_eq!(cache.bytes(), 100);
+        assert_eq!(cache.ready(&tile), Some(&"v1"));
+
+        // An in-place annotation edit marks page 0 stale: the tile needs re-rendering (`contains`
+        // is false), yet `ready` continues serving `"v1"` so the page never blinks blank white.
+        cache.mark_page_stale(0);
+        assert!(!cache.contains(&tile));
+        assert_eq!(cache.ready(&tile), Some(&"v1"));
+        assert_eq!(cache.bytes(), 100);
+
+        // Staying in `needed` preserves the stale fallback while the display list builds.
+        cache.cancel_unneeded(&needed);
+        assert_eq!(cache.ready(&tile), Some(&"v1"));
+
+        // Scheduling the refreshed render transitions to Refreshing, keeping `"v1"` visible until
+        // `"v2"` completes and swaps in atomically.
+        cache.request(tile, "refresh");
+        assert!(cache.contains(&tile));
+        assert_eq!(cache.ready(&tile), Some(&"v1"));
+        assert!(!cache.poll(|_| None));
+        assert_eq!(cache.ready(&tile), Some(&"v1"));
+
+        cache.begin_frame();
+        assert!(cache.poll(|job| (*job == "refresh").then_some(Some(("v2", 120)))));
+        assert_eq!(cache.ready(&tile), Some(&"v2"));
+        assert_eq!(cache.bytes(), 120);
     }
 }
