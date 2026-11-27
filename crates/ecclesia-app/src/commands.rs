@@ -32,9 +32,17 @@ pub(crate) enum CommandId {
     ChooseTheme,
     ChooseAppearance,
     ToggleSidebar,
+    /// Shows or hides the mode toolbar (`F8`).
+    ToggleToolbar,
+    /// Toggles the application menu (`F9`).
+    ToggleMenuBar,
+    /// Opens or closes the Table of Contents (Outline) drawer (`Shift+F12`).
+    ToggleOutline,
     ToggleInspector,
     /// Opens the go-to box (R.6).
     GoToPage,
+    /// Opens the Custom Zoom dialog (`Ctrl+Y`).
+    CustomZoom,
     /// Full screen on or off (R.19); F11 does it too, done by the platform itself.
     ToggleFullScreen,
     /// The reading ruler tints its band, or dims the page around it (R.20).
@@ -45,6 +53,20 @@ pub(crate) enum CommandId {
     ChooseReadingTheme,
     /// Opens files in new tabs (R.12).
     OpenFile,
+    /// Opens the next document in the active file's folder (`Ctrl+Shift+Right`).
+    OpenNextInFolder,
+    /// Opens the previous document in the active file's folder (`Ctrl+Shift+Left`).
+    OpenPrevInFolder,
+    /// Renames the active document on disk (`F2`).
+    RenameFile,
+    /// Saves a copy of the active document to a new path (`Ctrl+Shift+S`).
+    SaveAs,
+    /// Reloads the active document from disk (`Ctrl+R`).
+    ReloadDocument,
+    /// Opens the Document Properties dialog for the active document (`Ctrl+D`, `Alt+Enter`).
+    DocumentProperties,
+    /// Opens a new empty application window (`Ctrl+Shift+N`).
+    NewWindow,
     /// The tab list (R.12): every tab, searchable.
     TabList,
     /// Offers the app for its document types and opens the system's default-apps settings (R.11).
@@ -395,6 +417,13 @@ impl CommandId {
                 self,
                 Self::Canvas(_)
                     | Self::GoToPage
+                    | Self::CustomZoom
+                    | Self::OpenNextInFolder
+                    | Self::OpenPrevInFolder
+                    | Self::RenameFile
+                    | Self::SaveAs
+                    | Self::ReloadDocument
+                    | Self::DocumentProperties
                     | Self::Outline(_)
                     | Self::Bookmark(_)
                     | Self::Find(_)
@@ -521,12 +550,75 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &[],
     },
     Command {
+        id: CommandId::OpenNextInFolder,
+        name: "file.next_in_folder",
+        label: "command.next_in_folder",
+        group: "command.group.file",
+        // Official SumatraPDF: Ctrl+Shift+Right (CmdOpenNextFileInFolder).
+        keys: &["mod+shift+right"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::OpenPrevInFolder,
+        name: "file.prev_in_folder",
+        label: "command.prev_in_folder",
+        group: "command.group.file",
+        // Official SumatraPDF: Ctrl+Shift+Left (CmdOpenPrevFileInFolder).
+        keys: &["mod+shift+left"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::RenameFile,
+        name: "file.rename",
+        label: "command.rename_file",
+        group: "command.group.file",
+        // Official SumatraPDF: F2 (CmdRenameFile), page-scoped so Outline/Bookmarks keep F2.
+        keys: &[],
+        page_keys: &["f2"],
+    },
+    Command {
         id: CommandId::Save,
         name: "file.save",
         label: "command.save",
         group: "command.group.file",
         // Enhanced's CmdSave.
         keys: &["mod+s"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::SaveAs,
+        name: "file.save_as",
+        label: "command.save_as",
+        group: "command.group.file",
+        // Official SumatraPDF: Ctrl+Shift+S (CmdSaveAs).
+        keys: &["mod+shift+s"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ReloadDocument,
+        name: "file.reload",
+        label: "command.reload_document",
+        group: "command.group.file",
+        // Official SumatraPDF: Ctrl+R (CmdReloadDocument).
+        keys: &["mod+r"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::DocumentProperties,
+        name: "document.properties",
+        label: "command.document_properties",
+        group: "command.group.file",
+        // Official SumatraPDF: Ctrl+D (CmdProperties) and Windows Alt+Enter.
+        keys: &["mod+d", "alt+enter"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::NewWindow,
+        name: "window.new",
+        label: "command.new_window",
+        group: "command.group.file",
+        // Official SumatraPDF: Ctrl+Shift+N (CmdNewWindow).
+        keys: &["mod+shift+n"],
         page_keys: &[],
     },
     Command {
@@ -739,6 +831,33 @@ pub(crate) const COMMANDS: &[Command] = &[
         page_keys: &[],
     },
     Command {
+        id: CommandId::ToggleToolbar,
+        name: "view.toolbar",
+        label: "command.toggle_toolbar",
+        group: "command.group.view",
+        // Official SumatraPDF: F8 (CmdToggleToolbar).
+        keys: &["f8"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ToggleMenuBar,
+        name: "view.menu_bar",
+        label: "command.toggle_menu_bar",
+        group: "command.group.view",
+        // Official SumatraPDF: F9 (CmdToggleMenuBar).
+        keys: &["f9"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::ToggleOutline,
+        name: "view.outline",
+        label: "command.toggle_outline",
+        group: "command.group.view",
+        // Official SumatraPDF: Shift+F12 (Table of Contents / Outline).
+        keys: &["shift+f12"],
+        page_keys: &[],
+    },
+    Command {
         id: CommandId::ToggleInspector,
         name: "view.inspector",
         label: "command.toggle_inspector",
@@ -761,8 +880,8 @@ pub(crate) const COMMANDS: &[Command] = &[
         name: "edit.redo",
         label: "command.redo",
         group: "command.group.edit",
-        // Enhanced's CmdRedo (Ctrl+Shift+Z), plus standard Ctrl+Y alias.
-        keys: &["mod+shift+z", "mod+y"],
+        // Enhanced's CmdRedo (Ctrl+Shift+Z); Ctrl+Y is SumatraPDF's Custom Zoom.
+        keys: &["mod+shift+z"],
         page_keys: &[],
     },
     Command {
@@ -1334,9 +1453,9 @@ pub(crate) const COMMANDS: &[Command] = &[
         name: "view.fit_page",
         label: "command.fit_page",
         group: "command.group.zoom",
-        // Enhanced's CmdZoomFitPage (Ctrl+0) and CmdToggleZoom (z).
+        // Enhanced's CmdZoomFitPage (Ctrl+0).
         keys: &["mod+0"],
-        page_keys: &["z"],
+        page_keys: &[],
     },
     Command {
         id: CommandId::Canvas("fitHeight"),
@@ -1345,6 +1464,33 @@ pub(crate) const COMMANDS: &[Command] = &[
         group: "command.group.zoom",
         // Pairs with Enhanced's Ctrl+0 / Ctrl+1 / Ctrl+2 / Ctrl+3 fit chords.
         keys: &["mod+3"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Canvas("zoomToSelection"),
+        name: "view.zoom_to_selection",
+        label: "command.zoom_to_selection",
+        group: "command.group.zoom",
+        // Official SumatraPDF: Ctrl+4 (CmdZoomToSelection).
+        keys: &["mod+4"],
+        page_keys: &[],
+    },
+    Command {
+        id: CommandId::Canvas("toggleZoom"),
+        name: "view.toggle_zoom",
+        label: "command.toggle_zoom",
+        group: "command.group.zoom",
+        // Official SumatraPDF: z (CmdToggleZoom cycles Fit Page / Fit Width / Fit Height).
+        keys: &[],
+        page_keys: &["z"],
+    },
+    Command {
+        id: CommandId::CustomZoom,
+        name: "view.custom_zoom",
+        label: "command.custom_zoom",
+        group: "command.group.zoom",
+        // Official SumatraPDF: Ctrl+Y (CmdZoomCustom).
+        keys: &["mod+y"],
         page_keys: &[],
     },
     Command {
@@ -1471,9 +1617,9 @@ pub(crate) const COMMANDS: &[Command] = &[
         name: "go.to_page",
         label: "command.go_to_page",
         group: "command.group.navigate",
-        // Enhanced's CmdGoToPage.
+        // Enhanced's CmdGoToPage: Ctrl+G anywhere, plus g / Shift+G on the pages.
         keys: &["mod+g"],
-        page_keys: &["g"],
+        page_keys: &["g", "shift+g"],
     },
     Command {
         id: CommandId::Canvas("firstPage"),
@@ -1712,8 +1858,8 @@ pub(crate) const COMMANDS: &[Command] = &[
         name: "bookmark.add",
         label: "command.bookmark_add",
         group: "command.group.bookmarks",
-        // Plan B.6; Enhanced has no key for CmdFavoriteAdd.
-        keys: &["mod+d"],
+        // Plan B.6; Ctrl+D belongs to SumatraPDF's Document Properties.
+        keys: &["mod+alt+d"],
         page_keys: &[],
     },
     Command {
@@ -1792,8 +1938,8 @@ pub(crate) const COMMANDS: &[Command] = &[
         name: "view.focus_mode",
         label: "command.focus_mode",
         group: "command.group.read",
-        // Enhanced has no focus mode.
-        keys: &[],
+        // Official SumatraPDF: F7 reading aid / caret focus toggle.
+        keys: &["f7"],
         page_keys: &[],
     },
     Command {
@@ -2545,7 +2691,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         name: "notebook.condense_slides",
         label: "command.condense_slides",
         group: "command.group.notebook",
-        keys: &["mod+alt+d"],
+        keys: &["mod+alt+shift+d"],
         page_keys: &[],
     },
     Command {
@@ -2715,7 +2861,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         name: "study.read_aloud",
         label: "command.read_aloud",
         group: "command.group.study",
-        keys: &["mod+shift+s"],
+        keys: &["mod+alt+shift+v"],
         page_keys: &[],
     },
     Command {
@@ -3388,6 +3534,8 @@ fn window_key_options(id: CommandId) -> KeyOptions {
         id,
         CommandId::Tab(TabAction::Cycle(_) | TabAction::Move(_))
             | CommandId::Workspace(WorkspaceAction::Cycle(_))
+            | CommandId::OpenNextInFolder
+            | CommandId::OpenPrevInFolder
             | CommandId::Canvas("historyBack" | "historyForward")
             | CommandId::Find(FindAction::Next | FindAction::Previous)
             | CommandId::OpenPalette
@@ -3507,6 +3655,17 @@ mod tests {
         );
         assert!(!CommandId::Undo.is_available(false));
         assert!(!CommandId::Outline(OutlineAction::Add).is_available(false));
+        assert!(!CommandId::CustomZoom.is_available(false));
+        assert!(!CommandId::RenameFile.is_available(false));
+        assert!(!CommandId::SaveAs.is_available(false));
+        assert!(!CommandId::ReloadDocument.is_available(false));
+        assert!(!CommandId::DocumentProperties.is_available(false));
+        assert!(!CommandId::OpenNextInFolder.is_available(false));
+        assert!(!CommandId::OpenPrevInFolder.is_available(false));
+        assert!(CommandId::NewWindow.is_available(false));
+        assert!(CommandId::ToggleToolbar.is_available(false));
+        assert!(CommandId::ToggleMenuBar.is_available(false));
+        assert!(CommandId::ToggleOutline.is_available(false));
     }
 
     #[test]
@@ -3571,6 +3730,9 @@ mod tests {
             "fitWidth",
             "fitPage",
             "fitHeight",
+            "zoomToSelection",
+            "setZoom",
+            "toggleZoom",
         ];
 
         for command in COMMANDS {
@@ -3655,8 +3817,10 @@ mod tests {
             CommandId::ToggleFullScreen,
             CommandId::ToggleDocumentColors,
             CommandId::GoToPage,
+            CommandId::RenameFile,
             CommandId::Canvas("highlight"),
             CommandId::Canvas("toggleContinuous"),
+            CommandId::Canvas("toggleZoom"),
             CommandId::BlockSelect,
         ] {
             let opts = page_key_options(id);

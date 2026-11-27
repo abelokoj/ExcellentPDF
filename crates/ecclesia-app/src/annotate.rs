@@ -33,9 +33,11 @@ pub(crate) use ecclesia_features::annotate::freetext::Kind;
 pub(crate) use list::annotation_list;
 pub(crate) use note::note_panel;
 
-use ecclesia_core::annot::{Annotation, Markup, Style, TextStyle, page_annotations};
+use ecclesia_core::annot::{
+    Annotation, BlockHighlightShape, Markup, Style, TextStyle, page_annotations,
+};
 use ecclesia_core::edit::{Change, Operation};
-use ecclesia_features::annotate::colors::Tool as ColorTool;
+use ecclesia_features::annotate::colors::{Tool as ColorTool, ToolStyle};
 use ecclesia_features::annotate::edit;
 use ecclesia_features::annotate::erase::Erased;
 use ecclesia_features::annotate::freetext;
@@ -93,6 +95,17 @@ pub(crate) enum Placing {
     Tape,
 }
 
+/// Which color channel of a clicked highlight or block highlight the custom color dialog edits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TargetColorSlot {
+    /// Text markup color (highlight, underline, squiggly, or strikeout).
+    Highlight,
+    /// Block highlight background fill color.
+    BlockFill,
+    /// Block highlight border/edge color.
+    BlockEdge,
+}
+
 /// A pane's annotating: its document's edits, the replacement or insertion waiting for its text, the tool whose
 /// colour is being chosen, and the note open in the inspector.
 #[derive(Clone, Copy)]
@@ -103,6 +116,8 @@ pub(crate) struct AnnotateState {
     asking: Signal<Option<replace::Request>>,
     /// The tool the colour dialog opened on (A.3).
     picking: Signal<Option<ColorTool>>,
+    /// Optional clicked highlight target and color channel being edited by the custom colour dialog.
+    picking_target: Signal<Option<(Target, TargetColorSlot)>>,
     /// The note open in the inspector (A.4).
     noting: Signal<Option<note::Noting>>,
     /// Its text as typed, saved when the reader is done.
@@ -169,6 +184,8 @@ pub(crate) struct AnnotateState {
     selection_popup: Signal<Option<selection_popup::SelectionPopupAnchor>>,
     /// Active markup tool used when clicking one of the circular color swatches in the selection popup.
     active_markup_tool: Signal<selection_popup::ActiveMarkupTool>,
+    /// Whether the inline quick-comment card below the clicked-highlight popup is open.
+    popup_comment_open: Signal<bool>,
 }
 
 impl AnnotateState {
@@ -178,6 +195,7 @@ impl AnnotateState {
             live,
             asking: signal(None),
             picking: signal(None),
+            picking_target: signal(None),
             noting: signal(None),
             draft: signal(String::new()),
             reveals: signal(0),
@@ -213,6 +231,7 @@ impl AnnotateState {
             ocr_open: signal(false),
             selection_popup: signal(None),
             active_markup_tool: signal(selection_popup::ActiveMarkupTool::default()),
+            popup_comment_open: signal(false),
         }
     }
 
@@ -221,9 +240,20 @@ impl AnnotateState {
         self.selection_popup.get()
     }
 
-    /// Hides the floating text-selection popup immediately.
+    /// Hides the floating text-selection popup and closes any open inline comment card immediately.
     pub(crate) fn dismiss_selection_popup(self) {
+        self.popup_comment_open.set(false);
         self.selection_popup.set(None);
+    }
+
+    /// Whether the inline quick-comment card below the clicked-highlight popup is open (tracked).
+    pub(crate) fn popup_comment_open(self) -> bool {
+        self.popup_comment_open.get()
+    }
+
+    /// Opens or closes the inline quick-comment card below the clicked-highlight popup.
+    pub(crate) fn set_popup_comment_open(self, open: bool) {
+        self.popup_comment_open.set(open);
     }
 
     /// Active markup mode used when clicking a swatch dot on the floating selection popup (tracked).
@@ -704,8 +734,155 @@ impl AnnotateState {
         if self.select_press(target.clone(), add) {
             return;
         }
-        if let Some(target) = target {
-            self.open_note(&target);
+        let Some(target) = target else {
+            self.dismiss_selection_popup();
+            return;
+        };
+        if self
+            .annotation(&target)
+            .is_some_and(|annotation| annotation.is_highlight_popup_target())
+        {
+            return;
+        }
+        self.open_note(&target);
+    }
+
+    /// Looks up `target` in the active document's current annotations.
+    pub(crate) fn annotation_by_target(self, target: &Target) -> Option<Annotation> {
+        self.annotation(target)
+    }
+
+    /// Current document edit revision (tracked), so floating popups react to edits and undo/redo.
+    pub(crate) fn edit_revision(self) -> u64 {
+        self.editing.revision()
+    }
+
+    /// Opens `target` in the right Inspector sidebar and dismisses the floating popup.
+    pub(crate) fn open_in_sidebar(self, target: &Target) {
+        self.dismiss_selection_popup();
+        self.open_note(target);
+    }
+
+    /// Applies `change` to `target`, respecting lock rules, as one undoable edit named `name`.
+    fn change_target(
+        self,
+        target: &Target,
+        name: String,
+        change: impl FnOnce(&Annotation) -> Option<Change>,
+    ) {
+        if let Some(change) = self
+            .annotation(target)
+            .and_then(|a| change(&a).filter(|change| rules::allows(&a, change)))
+        {
+            self.editing.apply(&Operation::new(name, vec![change]));
+        }
+    }
+
+    /// Writes `comment` into `target`'s note contents as one undoable edit.
+    pub(crate) fn save_annotation_comment(self, target: &Target, comment: &str) {
+        self.change_target(target, t!("note.edit"), |annotation| {
+            notes::write(annotation, comment)
+        });
+    }
+
+    /// Recolors `target`'s highlight/markup color to `rgb_hex` as one undoable edit, updating the
+    /// saved highlight tool color when highlight color memory is enabled.
+    pub(crate) fn recolor_target_highlight(self, target: &Target, rgb_hex: u32) {
+        let rgb = ToolStyle::new(rgb_hex, 0.5).rgb();
+        self.change_target(target, t!("inspector.color_edit"), |annotation| {
+            markup::set_highlight_color(annotation, rgb)
+        });
+        colors::remember_highlight_choice(self.live, rgb_hex);
+    }
+
+    /// Sets or clears `target`'s block-highlight background fill color as one undoable edit.
+    pub(crate) fn set_target_block_fill(self, target: &Target, color: Option<u32>) {
+        let rgb = color.map(|hex| ToolStyle::new(hex, 0.5).rgb());
+        self.change_target(target, t!("annotate.popup.block_fill_edit"), |annotation| {
+            markup::set_block_fill(annotation, rgb)
+        });
+        if let Some(rgb_hex) = color {
+            colors::remember_highlight_choice(self.live, rgb_hex);
+        }
+    }
+
+    /// Sets or clears `target`'s block-highlight border/edge color as one undoable edit.
+    pub(crate) fn set_target_block_edge(self, target: &Target, color: Option<u32>) {
+        let rgb = color.map(|hex| ToolStyle::new(hex, 0.5).rgb());
+        self.change_target(target, t!("annotate.popup.block_edge_edit"), |annotation| {
+            markup::set_block_edge(annotation, rgb)
+        });
+    }
+
+    /// Changes `target`'s block-highlight shape as one undoable edit.
+    pub(crate) fn set_target_block_shape(self, target: &Target, shape: BlockHighlightShape) {
+        self.change_target(
+            target,
+            t!("annotate.popup.block_shape_edit"),
+            |annotation| markup::set_block_shape(annotation, shape),
+        );
+    }
+
+    /// Converts `target`'s text markup style (highlight, underline, squiggly, or strikeout) as one undoable edit.
+    pub(crate) fn set_target_markup_kind(self, target: &Target, kind: Markup) {
+        self.change_target(
+            target,
+            t!("annotate.popup.markup_style_edit"),
+            |annotation| markup::set_markup_kind(annotation, kind),
+        );
+    }
+
+    /// Toggles `target`'s locked state as one undoable edit.
+    pub(crate) fn toggle_target_lock(self, target: &Target) {
+        let Some(annotation) = self.annotation(target) else {
+            return;
+        };
+        let next = !annotation.locked;
+        let name = if next {
+            t!("inspector.lock_edit")
+        } else {
+            t!("inspector.unlock_edit")
+        };
+        self.change_target(target, name, |a| rules::set_locked(a, next));
+    }
+
+    /// Deletes `target` if unlocked as one undoable edit, clearing selection and dismissing the popup.
+    pub(crate) fn delete_target(self, target: &Target) {
+        let Some(annotation) = self.annotation(target) else {
+            return;
+        };
+        if annotation.locked {
+            return;
+        }
+        let change = Change::DeleteAnnotation {
+            page: target.page,
+            id: target.id.clone(),
+        };
+        if self
+            .editing
+            .apply(&Operation::new(t!("select.delete"), vec![change]))
+        {
+            if untracked(|| self.noting.get()).is_some_and(|noting| noting.target == *target) {
+                self.noting.set(None);
+            }
+            self.clear_selection();
+            self.dismiss_selection_popup();
+        }
+    }
+
+    /// Copies `target`'s quoted passage text (falling back to its comment contents) to the clipboard.
+    pub(crate) fn copy_target_quote(self, target: &Target) {
+        let Some(annotation) = self.annotation(target) else {
+            return;
+        };
+        let quote = annotation
+            .anchor
+            .as_ref()
+            .map(|q| q.exact.trim())
+            .filter(|text| !text.is_empty())
+            .unwrap_or_else(|| annotation.contents.trim());
+        if !quote.is_empty() {
+            drop(set_clipboard(quote.to_owned()));
         }
     }
 
@@ -716,6 +893,13 @@ impl AnnotateState {
 
     /// Opens the colour dialog on `tool` (A.3).
     pub(crate) fn pick(self, tool: ColorTool) {
+        self.picking_target.set(None);
+        self.picking.set(Some(tool));
+    }
+
+    /// Opens the colour dialog targeting `target`'s `slot` color channel.
+    pub(crate) fn pick_for_target(self, target: Target, slot: TargetColorSlot, tool: ColorTool) {
+        self.picking_target.set(Some((target, slot)));
         self.picking.set(Some(tool));
     }
 
@@ -745,9 +929,18 @@ impl AnnotateState {
             "annotMarquee" => self.marquee(&event.data),
             "annotLasso" => self.looped(&event.data),
             "margin" => self.margin_moved(&event.data),
-            "selectionPopup" => self
-                .selection_popup
-                .set(selection_popup::SelectionPopupAnchor::parse(&event.data)),
+            "selectionPopup" => {
+                let next = selection_popup::SelectionPopupAnchor::parse(&event.data);
+                let prev_target = untracked(|| {
+                    self.selection_popup
+                        .with(|anchor| anchor.as_ref().and_then(|a| a.annotation.clone()))
+                });
+                let next_target = next.as_ref().and_then(|a| a.annotation.clone());
+                if prev_target != next_target {
+                    self.popup_comment_open.set(false);
+                }
+                self.selection_popup.set(next);
+            }
             "blockSelectCleared" => self.clear_block_select(),
             "toolColor" => colors::on_tool_color(self.live, &event.data),
             "pickColor" => {
@@ -825,9 +1018,44 @@ impl AnnotateState {
     }
 }
 
-/// The colour dialog (A.3), on the tool it was opened for.
+/// The colour dialog (A.3), on the tool it was opened for (or targeting a clicked highlight's color channel).
 pub(crate) fn color_dialog(state: AnnotateState) -> impl IntoElement {
-    colors::color_dialog(state.live, state.picking)
+    let target_pick = untracked(|| state.picking_target.get());
+    let initial_color = target_pick.as_ref().and_then(|(target, slot)| {
+        let annotation = state.annotation(target)?;
+        let rgb = match slot {
+            TargetColorSlot::Highlight => annotation.style.color,
+            TargetColorSlot::BlockFill => annotation.fill,
+            TargetColorSlot::BlockEdge => annotation.style.color,
+        }?;
+        Some(note::packed(rgb))
+    });
+    let has_target = target_pick.is_some();
+    colors::color_dialog(
+        state.live,
+        state.picking,
+        initial_color,
+        has_target,
+        move |_tool, style| {
+            if let Some((target, slot)) = untracked(|| state.picking_target.get()) {
+                state.picking_target.set(None);
+                match slot {
+                    TargetColorSlot::Highlight => {
+                        state.recolor_target_highlight(&target, style.color);
+                    }
+                    TargetColorSlot::BlockFill => {
+                        state.set_target_block_fill(&target, Some(style.color));
+                    }
+                    TargetColorSlot::BlockEdge => {
+                        state.set_target_block_edge(&target, Some(style.color));
+                    }
+                }
+            }
+        },
+        move || {
+            state.picking_target.set(None);
+        },
+    )
 }
 
 /// The dialog that asks for the text of a proposed replacement or insertion (A.2). Replacing starts from the text
@@ -1021,7 +1249,7 @@ mod tests {
     use std::path::Path;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use ecclesia_core::annot::{Markup, Shape, page_annotations};
+    use ecclesia_core::annot::{BlockHighlightShape, Boxed, Markup, Shape, page_annotations};
     use ecclesia_core::document::Document;
     use ecclesia_core::edit::Operation;
     use ecclesia_features::annotate::colors::ToolStyle;
@@ -1098,23 +1326,28 @@ mod tests {
             let mupdf = shared.lock().expect("lock for verification");
             page_annotations(&mupdf, 0).expect("read page 0 annotations")
         };
-        let highlights: Vec<_> = annotations
-            .iter()
-            .filter(|a| matches!(a.shape, Shape::Markup(Markup::Highlight, _)))
-            .collect();
-        assert!(
-            highlights.len() >= 2,
-            "expected both text and standalone block highlights, got {}",
-            highlights.len()
-        );
-        let has_swatch_color = highlights.iter().any(|a| {
-            a.style.color.is_some_and(|c| {
+        let rgb_matches = |actual: Option<[f32; 3]>| {
+            actual.is_some_and(|c| {
                 (c[0] - swatch_rgb[0]).abs() < 0.02
                     && (c[1] - swatch_rgb[1]).abs() < 0.02
                     && (c[2] - swatch_rgb[2]).abs() < 0.02
             })
+        };
+        let text_highlight = annotations
+            .iter()
+            .find(|a| matches!(a.shape, Shape::Markup(Markup::Highlight, _)));
+        assert!(
+            text_highlight.is_some_and(|a| rgb_matches(a.style.color)),
+            "text highlight must carry exact swatch RGB"
+        );
+        let block_highlight = annotations.iter().find(|a| {
+            matches!(a.shape, Shape::Boxed(Boxed::Square, _))
+                && a.block_highlight == Some(BlockHighlightShape::Rectangle)
         });
-        assert!(has_swatch_color, "highlight must carry exact swatch RGB");
+        assert!(
+            block_highlight.is_some_and(|a| rgb_matches(a.fill)),
+            "block highlight must be Square + Rectangle with exact swatch fill RGB"
+        );
 
         drop(shared);
         drop(document);

@@ -20,6 +20,8 @@ use crate::workspaces::WorkspaceAction;
 
 const APP_ICON_PNG: &[u8] = include_bytes!("../../assets/app-icon-64.png");
 const TRIANGLE_DOWN_PNG: &[u8] = include_bytes!("../../assets/icons/triangle-down.png");
+const TRIANGLE_RIGHT_PNG: &[u8] = include_bytes!("../../assets/icons/triangle-right.png");
+const TRIANGLE_LEFT_PNG: &[u8] = include_bytes!("../../assets/icons/triangle-left.png");
 const CHEVRON_DOWN_PNG: &[u8] = include_bytes!("../../assets/icons/chevron-down.png");
 const SIDEBAR_LEFT_PNG: &[u8] = include_bytes!("../../assets/icons/sidebar-left.png");
 const SIDEBAR_RIGHT_PNG: &[u8] = include_bytes!("../../assets/icons/sidebar-right.png");
@@ -109,6 +111,18 @@ fn dropdown_arrow_src() -> String {
         .clone()
 }
 
+fn triangle_right_src() -> String {
+    static SRC: OnceLock<String> = OnceLock::new();
+    SRC.get_or_init(|| encode_data_uri("data:image/png;base64,", TRIANGLE_RIGHT_PNG))
+        .clone()
+}
+
+fn triangle_left_src() -> String {
+    static SRC: OnceLock<String> = OnceLock::new();
+    SRC.get_or_init(|| encode_data_uri("data:image/png;base64,", TRIANGLE_LEFT_PNG))
+        .clone()
+}
+
 fn tab_list_chevron_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
     SRC.get_or_init(|| encode_data_uri("data:image/png;base64,", CHEVRON_DOWN_PNG))
@@ -131,6 +145,24 @@ pub(crate) fn workspace_dropdown_arrow() -> impl IntoElement {
         .h(px(10.5))
         .object_fit(ResizeMode::Contain)
         .tint_color(move || theme().sidebar_foreground)
+}
+
+/// Renders the softly rounded right-pointing triangle matching the top-left app triangle for submenu triggers.
+pub(crate) fn submenu_arrow_right() -> impl IntoElement {
+    image(triangle_right_src())
+        .w(px(10.5))
+        .h(px(14.0))
+        .object_fit(ResizeMode::Contain)
+        .tint_color(move || theme().popover_foreground)
+}
+
+/// Renders the softly rounded left-pointing triangle matching the top-left app triangle for submenu back rows.
+pub(crate) fn submenu_arrow_left() -> impl IntoElement {
+    image(triangle_left_src())
+        .w(px(10.5))
+        .h(px(14.0))
+        .object_fit(ResizeMode::Contain)
+        .tint_color(move || theme().popover_foreground)
 }
 
 /// Renders the Vivaldi-style downward chevron for the top-right tab-list dropdown button.
@@ -208,7 +240,18 @@ fn action_item(label: String, select: impl Fn() + 'static) -> MenuItemElement {
         )
 }
 
-fn menu_row(label: String, trailing: &str) -> impl IntoElement {
+/// Direction of the softly rounded submenu arrow.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SubmenuArrow {
+    Right,
+    Left,
+}
+
+fn menu_row(label: String, arrow: SubmenuArrow) -> impl IntoElement {
+    let icon = match arrow {
+        SubmenuArrow::Right => submenu_arrow_right().into_element(),
+        SubmenuArrow::Left => submenu_arrow_left().into_element(),
+    };
     view()
         .flex_row()
         .items_center()
@@ -224,11 +267,7 @@ fn menu_row(label: String, trailing: &str) -> impl IntoElement {
                 .text_size(px(13.0))
                 .text_color(move || theme().popover_foreground),
         )
-        .child(
-            text(trailing.to_string())
-                .text_size(px(13.0))
-                .text_color(move || theme().muted_foreground),
-        )
+        .child(icon)
 }
 
 fn divider() -> impl IntoElement {
@@ -247,8 +286,8 @@ fn build_submenu(
 ) -> nsh_base::SubmenuElement {
     let mut sub = submenu()
         .offset(px(2.0))
-        .trigger(menu_row(label.clone(), "›"))
-        .back(menu_row(label, "‹"));
+        .trigger(menu_row(label.clone(), SubmenuArrow::Right))
+        .back(menu_row(label, SubmenuArrow::Left));
     for entry in items {
         sub = match entry {
             Some(id) => sub.child(command_item(id, run, has_document)),

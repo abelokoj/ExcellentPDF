@@ -1,7 +1,8 @@
 //! Finding the citation under the pointer, and its entry in the references by plain text when the document has no
 //! link to follow. Ported from SumatraPDF Enhanced's `src/RefHoverTextDetect.cpp`.
 
-use super::{PageText, Rect, fold, is_space};
+use super::layout::detect_page_columns;
+use super::{PageText, Rect, RectF, fold, is_space};
 
 /// How far from the pointer, in points, the nearest glyph may be.
 const MAX_POINTER_DIST: i64 = 30;
@@ -111,9 +112,28 @@ fn glyph_span_bounds(text: &PageText, start: usize, end: usize) -> Rect {
 pub fn detect_author_year(text: &PageText, x: i32, y: i32) -> Option<AuthorYear> {
     let cursor = nearest_glyph(text, x, y)?;
 
-    // Three lines around the pointer's, as one string: line breaks and runs of spaces (kerning in Word PDFs puts
-    // spaces inside words, "et  al .") become one space. Each character remembers its glyph.
+    // Three lines around the pointer's (restricted to the pointer's column on two-column pages),
+    // as one string: line breaks and runs of spaces (kerning in Word PDFs puts spaces inside
+    // words, "et  al .") become one space. Each character remembers its glyph.
     let c = text.rect(cursor);
+    let page_right = text.ink().map(|(_, _, r)| r.right()).max().unwrap_or(0);
+    let page_bottom = text.ink().map(|(_, _, r)| r.bottom()).max().unwrap_or(0);
+    let col_filter: Option<(i32, i32)> = detect_page_columns(
+        text,
+        RectF::new(
+            0.0,
+            0.0,
+            (page_right + 40) as f32,
+            (page_bottom + 40) as f32,
+        ),
+    )
+    .map(|cols| {
+        if c.x < cols.gutter_mid {
+            (i32::MIN, cols.gutter_mid)
+        } else {
+            (cols.gutter_mid, i32::MAX)
+        }
+    });
     let line_h = if c.dy + 4 < 12 { 14 } else { c.dy + 4 };
     let (y_min, y_max) = (c.y - line_h - 2, c.y + line_h * 2 + 2);
     let mut s: Vec<char> = Vec::new();
@@ -125,7 +145,12 @@ pub fn detect_author_year(text: &PageText, x: i32, y: i32) -> Option<AuthorYear>
         if r.y < y_min || r.y > y_max {
             continue;
         }
-        let line_break = prev_y.is_some_and(|p| r.y > p + 2);
+        if let Some((col_lo, col_hi)) = col_filter
+            && (r.x < col_lo || r.x >= col_hi)
+        {
+            continue;
+        }
+        let line_break = prev_y.is_some_and(|p: i32| (r.y - p).abs() > 2);
         if i == cursor {
             cursor_pos = Some(s.len());
         }
@@ -300,22 +325,38 @@ pub fn detect_author_year(text: &PageText, x: i32, y: i32) -> Option<AuthorYear>
     })
 }
 
-/// The reference entry for an author-year citation: a line starting at the page's left text edge with the surname
-/// (or, for a surname of three letters or more, with it within the line's first 30 characters, for a surname the
-/// extraction broke up), whose next 600 characters hold the year. A match in brackets ("(Smith") or at `source`
-/// (the citation itself) doesn't count.
+/// The reference entry for an author-year citation: a line starting at any column's left text edge
+/// with the surname (or, for a surname of three letters or more, with it within the line's first
+/// 30 characters, for a surname the extraction broke up), whose next 600 characters hold the year.
+/// A match in brackets ("(Smith") or at `source` (the citation itself) doesn't count.
 pub fn find_surname(
     text: &PageText,
     surname: &str,
     year: u16,
     source: Option<Rect>,
 ) -> Option<Anchor> {
+    const GAP: i32 = 8;
     let name: Vec<char> = surname.chars().map(fold).collect();
     if name.is_empty() {
         return None;
     }
     let chars = text.chars();
     let left_x = text.ink().map(|(_, _, r)| r.x).min()?;
+    let right_x = text
+        .ink()
+        .map(|(_, _, r)| r.right())
+        .max()
+        .unwrap_or(left_x);
+    let bottom_y = text.ink().map(|(_, _, r)| r.bottom()).max().unwrap_or(0);
+    let two_cols = detect_page_columns(
+        text,
+        RectF::new(0.0, 0.0, (right_x + 40) as f32, (bottom_y + 40) as f32),
+    );
+    let col_left_for = |x: i32| match two_cols {
+        Some(cols) if x >= cols.gutter_mid => cols.right.left,
+        Some(cols) => cols.left.left,
+        None => left_x,
+    };
     let year: Vec<char> = format!("{:04}", year % 10000).chars().collect();
     let starts_with = |k: usize| {
         k + name.len() <= chars.len()
@@ -325,14 +366,17 @@ pub fn find_surname(
                 .eq(name.iter().copied())
     };
 
-    let mut prev_y: Option<i32> = None;
-    let mut line_first = None;
     for (i, _, r) in text.ink() {
-        if prev_y.is_none_or(|p| r.y > p + 2) {
-            line_first = Some(i);
+        let col_left = col_left_for(r.x);
+        if r.x > col_left + 20 {
+            continue;
         }
-        prev_y = Some(r.y);
-        if line_first != Some(i) || r.x > left_x + 20 {
+        // Must start its line (within its column): no ink immediately to its left on the same line.
+        let y_tol = if r.dy > 6 { r.dy / 2 } else { 4 };
+        let crowded = text.ink().any(|(j, _, o)| {
+            j != i && (o.y - r.y).abs() <= y_tol && o.x < r.x && o.right() > r.x - GAP
+        });
+        if crowded {
             continue;
         }
         let found = if starts_with(i) {
@@ -523,8 +567,8 @@ pub fn find_numeric_reference(
     number: u32,
     source: Option<Rect>,
 ) -> Option<Anchor> {
-    /// Wider than a space between words, narrower than a gutter or a hanging indent.
-    const GAP: i32 = 12;
+    /// Wider than a space between words, narrower than a LaTeX two-column gutter (>= 10 pt) or hanging indent.
+    const GAP: i32 = 9;
     if number == 0 {
         return None;
     }

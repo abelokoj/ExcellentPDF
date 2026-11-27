@@ -144,7 +144,11 @@ impl AnnotateState {
         } else {
             taken
         };
-        if let [only] = selection.as_slice() {
+        if let [only] = selection.as_slice()
+            && self
+                .annotation(only)
+                .is_none_or(|annotation| !annotation.is_highlight_popup_target())
+        {
             self.open_note(only);
         }
         self.selected.set(selection);
@@ -203,6 +207,7 @@ impl AnnotateState {
             self.close_note();
             self.apply(name, changes);
             self.selected.set(Vec::new());
+            self.dismiss_selection_popup();
         }
     }
 

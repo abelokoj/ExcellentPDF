@@ -373,6 +373,9 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
     let theme_open = signal(false);
     let appearance_open = signal(false);
     let goto_open = signal(false);
+    let custom_zoom_open = signal(false);
+    let rename_open = signal(false);
+    let toolbar_visible = signal(true);
     let settings_win = SettingsWindow::new();
     if role == Role::Main {
         let _ = app
@@ -429,6 +432,8 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
                 || theme_open.get()
                 || appearance_open.get()
                 || goto_open.get()
+                || custom_zoom_open.get()
+                || rename_open.get()
                 || settings_win.is_modal_open()
                 || tab_list_open.get()
                 || app_menu_open.get()
@@ -543,15 +548,83 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
                     .left_rail_visible
                     .update(|visible| *visible = !*visible);
             }
+            CommandId::ToggleToolbar => {
+                toolbar_visible.update(|visible| *visible = !*visible);
+            }
+            CommandId::ToggleMenuBar => {
+                app_menu_open.update(|open| *open = !*open);
+            }
+            CommandId::ToggleOutline => {
+                sidebars.left_rail_visible.set(true);
+                sidebars.left_expanded.update(|current| {
+                    if *current == Some(Panel::Outline) {
+                        *current = None;
+                    } else {
+                        *current = Some(Panel::Outline);
+                    }
+                });
+            }
             CommandId::ToggleInspector => {
                 sidebars.right_open.update(|open| *open = !*open);
             }
-            CommandId::GoToPage => goto_open.set(true),
+            CommandId::GoToPage => {
+                if untracked(|| pane.tabs.has_shown()) {
+                    goto_open.set(true);
+                }
+            }
+            CommandId::CustomZoom => {
+                if untracked(|| pane.tabs.has_shown()) {
+                    custom_zoom_open.set(true);
+                }
+            }
             CommandId::ToggleFullScreen => full_screen.toggle(),
             CommandId::ToggleRulerInvert => reading.toggle_invert(),
             CommandId::ToggleDocumentColors => reading.toggle_document_colors(),
             CommandId::ChooseReadingTheme => reading_theme_open.set(true),
-            CommandId::OpenFile => tabs::pick_documents(move |paths| workspaces.open_paths(paths)),
+            CommandId::OpenFile => tabs::pick_documents(move |paths| {
+                workspaces.open_paths(paths);
+                onboarding.make_way();
+                panes.active().home_open.set(false);
+            }),
+            CommandId::OpenNextInFolder => {
+                if let Some(path) = pane.tabs.adjacent_in_folder(crate::tabs::Step::Next) {
+                    workspaces.open_paths(vec![path]);
+                    panes.active().home_open.set(false);
+                }
+            }
+            CommandId::OpenPrevInFolder => {
+                if let Some(path) = pane.tabs.adjacent_in_folder(crate::tabs::Step::Previous) {
+                    workspaces.open_paths(vec![path]);
+                    panes.active().home_open.set(false);
+                }
+            }
+            CommandId::RenameFile => {
+                if untracked(|| pane.tabs.has_shown() && !pane.find.is_open()) {
+                    rename_open.set(true);
+                }
+            }
+            CommandId::SaveAs => pane.editing.save_as_copy(),
+            CommandId::ReloadDocument => {
+                if let Some(path) = untracked(|| pane.tabs.shown_path()) {
+                    let resolved = crate::expdf::resolve_open_path(&path);
+                    match ecclesia_core::shared::registry().reload(&resolved) {
+                        Ok(_) => {
+                            pane.editing.on_external_reload(&resolved);
+                            to_canvas("reload");
+                        }
+                        Err(err) => {
+                            log::warn!("reload: cannot reload {}: {err}", resolved.display());
+                            to_canvas("reload");
+                        }
+                    }
+                }
+            }
+            CommandId::DocumentProperties => {
+                if untracked(|| pane.tabs.has_shown()) {
+                    pane.tabs.open_properties_shown();
+                }
+            }
+            CommandId::NewWindow => workspaces.new_empty_window(),
             CommandId::TabList => tab_list_open.set(true),
             CommandId::SetDefaultViewer => crate::open::set_as_default_viewer(),
             CommandId::Tab(action) => pane.tabs.run(action),
@@ -969,6 +1042,8 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             theme_open,
             appearance_open,
             goto_open,
+            custom_zoom_open,
+            rename_open,
             live,
             theme_choice,
             recent,
@@ -1029,30 +1104,36 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             reading_theme_open,
             app_menu_open,
         ))
-        .child(modes::mode_bar(
-            modes,
-            move || panes.active().pages.count() > 0,
-            move || full_screen.is_on(),
-            (sidebars.left_rail_visible, sidebars.right_open),
-            move |id| {
-                let pane = panes.slots()[panes.active_cell()];
-                pane.annotate.is_on(id)
-                    || pane.present.is_on(id)
-                    || pane.study.is_on(id)
-                    || (id == CommandId::ReflowMode && pane.reading_extra.is_reflow_open())
-                    || (id == CommandId::BionicReading && pane.reading_extra.is_bionic_on())
-                    || (id == CommandId::CadView && pro_pdf_ui.is_cad_active(live))
-                    || (id == CommandId::MeasureTool && pro_pdf_ui.is_measure_active())
-                    || (id == CommandId::ScreencastRecord && pro_pdf_ui.is_screencast_active())
-                    || id == CommandId::Snapshot && pane.snapshot.is_on()
-            },
-            run,
-            // H.7: the favourite pens lead the Write mode's toolbar.
+        .child(when(
+            move || toolbar_visible.get(),
             move || {
-                crate::annotate::favorites::favorites_bar(
-                    panes.slots()[panes.active_cell()].annotate,
+                modes::mode_bar(
+                    modes,
+                    move || panes.active().pages.count() > 0,
+                    move || full_screen.is_on(),
+                    (sidebars.left_rail_visible, sidebars.right_open),
+                    move |id| {
+                        let pane = panes.slots()[panes.active_cell()];
+                        pane.annotate.is_on(id)
+                            || pane.present.is_on(id)
+                            || pane.study.is_on(id)
+                            || (id == CommandId::ReflowMode && pane.reading_extra.is_reflow_open())
+                            || (id == CommandId::BionicReading && pane.reading_extra.is_bionic_on())
+                            || (id == CommandId::CadView && pro_pdf_ui.is_cad_active(live))
+                            || (id == CommandId::MeasureTool && pro_pdf_ui.is_measure_active())
+                            || (id == CommandId::ScreencastRecord
+                                && pro_pdf_ui.is_screencast_active())
+                            || id == CommandId::Snapshot && pane.snapshot.is_on()
+                    },
+                    run,
+                    // H.7: the favourite pens lead the Write mode's toolbar.
+                    move || {
+                        crate::annotate::favorites::favorites_bar(
+                            panes.slots()[panes.active_cell()].annotate,
+                        )
+                        .into_element()
+                    },
                 )
-                .into_element()
             },
         ))
         .child(workspace_body(sidebars, dialog_open, panes, shared, run))
@@ -1132,6 +1213,8 @@ struct ChromeDialogs {
     theme_open: Signal<bool>,
     appearance_open: Signal<bool>,
     goto_open: Signal<bool>,
+    custom_zoom_open: Signal<bool>,
+    rename_open: Signal<bool>,
     live: settings::Live,
     theme_choice: Signal<themes::ThemeChoice>,
     recent: RecentState,
@@ -1141,7 +1224,8 @@ struct ChromeDialogs {
 }
 
 /// Window-chrome modal dialogs (palette, tab list, workspaces, settings fallback, pickers, go-to,
-/// customize toolbar), split out of [`window_shell`] to keep debug-mode stack frames bounded.
+/// custom zoom, rename file, customize toolbar), split out of [`window_shell`] to keep debug-mode
+/// stack frames bounded.
 #[inline(never)]
 fn window_chrome_dialogs(args: ChromeDialogs, run: impl Fn(CommandId) + Copy + 'static) -> View {
     let ChromeDialogs {
@@ -1151,6 +1235,8 @@ fn window_chrome_dialogs(args: ChromeDialogs, run: impl Fn(CommandId) + Copy + '
         theme_open,
         appearance_open,
         goto_open,
+        custom_zoom_open,
+        rename_open,
         live,
         theme_choice,
         recent,
@@ -1179,6 +1265,17 @@ fn window_chrome_dialogs(args: ChromeDialogs, run: impl Fn(CommandId) + Copy + '
     dialogs = dialogs.child(when(goto_open, move || {
         let pane = panes.active();
         goto::goto_dialog(goto_open, pane.pages, move |index| pane.go_to(index))
+    }));
+    dialogs = dialogs.child(when(custom_zoom_open, move || {
+        let pane = panes.active();
+        goto::custom_zoom_dialog(custom_zoom_open, move |pct| {
+            pane.canvas
+                .command("setZoom", serde_json::json!({ "percent": pct }));
+        })
+    }));
+    dialogs = dialogs.child(when(rename_open, move || {
+        let pane = panes.active();
+        goto::rename_dialog(rename_open, pane.tabs)
     }));
     dialogs = dialogs.child(modes::customize_dialog(modes));
     dialogs
@@ -1715,7 +1812,13 @@ fn window_bar(
                     move || !reading_theme_open.get(),
                     move || {
                         of_active(panes, move |pane| {
-                            tabs::tab_strip(pane.tabs, pane.home_open, pane.editing, run)
+                            tabs::tab_strip(
+                                pane.tabs,
+                                pane.home_open,
+                                pane.editing,
+                                workspaces,
+                                run,
+                            )
                         })
                     },
                 )),

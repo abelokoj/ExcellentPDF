@@ -17,7 +17,7 @@ mod model;
 mod properties;
 mod strip;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use ecclesia_core::formats::EXTENSIONS;
 use nsh_core::JsonValue;
@@ -280,6 +280,16 @@ impl TabState {
         self.properties_for.set(Some(id));
     }
 
+    /// Opens the document Properties dialog for the currently shown tab, if any.
+    pub(crate) fn open_properties_shown(self) {
+        if let Some(id) = self
+            .tabs
+            .with_untracked(|tabs| tabs.active().map(|tab| tab.id))
+        {
+            self.open_properties(id);
+        }
+    }
+
     /// Closes the document Properties dialog.
     pub(crate) fn close_properties(self) {
         self.properties_for.set(None);
@@ -416,6 +426,37 @@ impl TabState {
         {
             drop(set_clipboard(path.to_string_lossy().into_owned()));
         }
+    }
+
+    /// Returns the next or previous supported document in the shown tab's folder, wrapping around.
+    pub(crate) fn adjacent_in_folder(self, step: Step) -> Option<PathBuf> {
+        let current = untracked(|| self.shown_path())?;
+        adjacent_document_in_folder(&current, step)
+    }
+
+    /// Renames the currently shown tab's file on disk and updates the tab in place.
+    pub(crate) fn rename_shown_file(self, new_name: &str) -> Result<PathBuf, String> {
+        let (id, old_path) = self
+            .tabs
+            .with_untracked(|tabs| {
+                tabs.active()
+                    .filter(|tab| !tab.missing)
+                    .map(|tab| (tab.id, tab.path.clone()))
+            })
+            .ok_or_else(|| t!("rename.no_document"))?;
+        let final_name = validate_rename_filename(&old_path, new_name)
+            .ok_or_else(|| t!("rename.invalid_name"))?;
+        let parent = old_path.parent().ok_or_else(|| t!("rename.invalid_name"))?;
+        let target = parent.join(&final_name);
+        if target == old_path {
+            return Ok(old_path);
+        }
+        if target.exists() {
+            return Err(t!("rename.already_exists"));
+        }
+        std::fs::rename(&old_path, &target).map_err(|err| err.to_string())?;
+        self.tabs.update(|tabs| tabs.relocate(id, target.clone()));
+        Ok(target)
     }
 
     /// Persists the current open tabs (path, page, pinned, custom colour) as the saved tab group.
@@ -606,6 +647,24 @@ impl TabState {
                 taken = tabs.take(id);
             }
         });
+        taken
+    }
+
+    /// Takes tab `id` out at its current page and view, saving them first if it is currently shown.
+    pub(crate) fn take_tab(self, id: TabId) -> Option<Closed> {
+        let was_shown = self
+            .tabs
+            .with_untracked(|tabs| tabs.active().map(|tab| tab.id) == Some(id));
+        if was_shown {
+            self.leave_shown();
+        }
+        let mut taken = None;
+        self.tabs.update(|tabs| {
+            taken = tabs.take(id);
+        });
+        if was_shown && taken.is_some() {
+            self.arrive();
+        }
         taken
     }
 
@@ -1039,6 +1098,96 @@ fn deserialize_tab_group(values: &[toml::Value]) -> Vec<SavedGroupEntry> {
         .collect()
 }
 
+/// Whether `path` has a lowercase file extension listed in [`EXTENSIONS`].
+fn is_supported_document_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| {
+            let lower = ext.to_ascii_lowercase();
+            EXTENSIONS.contains(&lower.as_str())
+        })
+}
+
+/// Filters `candidates` to supported documents, sorts them case-insensitively by file name
+/// (breaking ties by exact path), and returns the next or previous entry relative to `current`.
+fn select_adjacent_document(
+    current: &Path,
+    mut candidates: Vec<PathBuf>,
+    step: Step,
+) -> Option<PathBuf> {
+    candidates.retain(|path| is_supported_document_path(path));
+    candidates.sort_by(|a, b| {
+        let a_key = a
+            .file_name()
+            .map(|name| name.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        let b_key = b
+            .file_name()
+            .map(|name| name.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        a_key.cmp(&b_key).then_with(|| a.cmp(b))
+    });
+    if candidates.len() < 2 {
+        return None;
+    }
+    let current_name_lower = current
+        .file_name()
+        .map(|name| name.to_string_lossy().to_ascii_lowercase());
+    let pos = candidates
+        .iter()
+        .position(|path| path == current)
+        .or_else(|| {
+            let target = current_name_lower.as_deref()?;
+            candidates.iter().position(|path| {
+                path.file_name()
+                    .is_some_and(|name| name.to_string_lossy().to_ascii_lowercase() == target)
+            })
+        })?;
+    let len = candidates.len();
+    let next = match step {
+        Step::Next => (pos + 1) % len,
+        Step::Previous => (pos + len - 1) % len,
+    };
+    candidates.into_iter().nth(next)
+}
+
+/// Lists regular files in `current`'s parent directory and returns the adjacent supported document.
+fn adjacent_document_in_folder(current: &Path, step: Step) -> Option<PathBuf> {
+    let parent = current.parent()?;
+    if parent.as_os_str().is_empty() {
+        return None;
+    }
+    let entries = std::fs::read_dir(parent).ok()?;
+    let candidates: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file())
+        .collect();
+    select_adjacent_document(current, candidates, step)
+}
+
+/// Validates and normalizes `new_name` for renaming `old_path`, preserving the original extension
+/// when `new_name` does not specify one.
+fn validate_rename_filename(old_path: &Path, new_name: &str) -> Option<String> {
+    let trimmed = new_name.trim();
+    if trimmed.is_empty()
+        || trimmed == "."
+        || trimmed == ".."
+        || trimmed.chars().any(|c| {
+            matches!(c, '/' | '\\' | '<' | '>' | ':' | '"' | '|' | '?' | '*') || c.is_control()
+        })
+    {
+        return None;
+    }
+    if Path::new(trimmed).extension().is_none()
+        && let Some(orig_ext) = old_path.extension().and_then(|ext| ext.to_str())
+        && !orig_ext.is_empty()
+    {
+        return Some(format!("{trimmed}.{orig_ext}"));
+    }
+    Some(trimmed.to_owned())
+}
+
 /// What a tab command does to the shown tab.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
@@ -1136,5 +1285,94 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn select_adjacent_document_sorts_case_insensitively_filters_and_wraps() {
+        let candidates = vec![
+            PathBuf::from("C:/docs/zebra.PDF"),
+            PathBuf::from("C:/docs/notes.txt"),
+            PathBuf::from("C:/docs/Alpha.epub"),
+            PathBuf::from("C:/docs/beta.pdf"),
+            PathBuf::from("C:/docs/readme"),
+        ];
+        let alpha = PathBuf::from("C:/docs/Alpha.epub");
+        let beta = PathBuf::from("C:/docs/beta.pdf");
+        let zebra = PathBuf::from("C:/docs/zebra.PDF");
+
+        assert_eq!(
+            select_adjacent_document(&alpha, candidates.clone(), Step::Next),
+            Some(beta.clone())
+        );
+        assert_eq!(
+            select_adjacent_document(&zebra, candidates.clone(), Step::Next),
+            Some(alpha.clone())
+        );
+        assert_eq!(
+            select_adjacent_document(&alpha, candidates.clone(), Step::Previous),
+            Some(zebra.clone())
+        );
+        // Case-insensitive filename fallback matches on Windows paths differing only in case.
+        assert_eq!(
+            select_adjacent_document(
+                Path::new("C:/docs/BETA.PDF"),
+                candidates.clone(),
+                Step::Next
+            ),
+            Some(zebra)
+        );
+        // Fewer than two supported documents yields None.
+        assert_eq!(
+            select_adjacent_document(
+                &beta,
+                vec![beta.clone(), PathBuf::from("C:/docs/notes.txt")],
+                Step::Next,
+            ),
+            None
+        );
+        // Current file not present in the folder yields None.
+        assert_eq!(
+            select_adjacent_document(Path::new("C:/docs/missing.pdf"), candidates, Step::Next),
+            None
+        );
+    }
+
+    #[test]
+    fn validate_rename_filename_trims_preserves_extension_and_rejects_invalid() {
+        let pdf = Path::new("C:/docs/old.pdf");
+        assert_eq!(
+            validate_rename_filename(pdf, "  Report  "),
+            Some("Report.pdf".to_owned())
+        );
+        assert_eq!(
+            validate_rename_filename(pdf, "Report.epub"),
+            Some("Report.epub".to_owned())
+        );
+        assert_eq!(
+            validate_rename_filename(Path::new("C:/docs/README"), "NOTES"),
+            Some("NOTES".to_owned())
+        );
+        for invalid in [
+            "",
+            "   ",
+            ".",
+            "..",
+            "sub/report.pdf",
+            "sub\\report.pdf",
+            "bad:name.pdf",
+            "bad*name.pdf",
+            "bad?name.pdf",
+            "bad<name.pdf",
+            "bad>name.pdf",
+            "bad\"name.pdf",
+            "bad|name.pdf",
+            "bad\0name.pdf",
+        ] {
+            assert_eq!(
+                validate_rename_filename(pdf, invalid),
+                None,
+                "expected {invalid:?} to be rejected"
+            );
+        }
     }
 }

@@ -10,17 +10,20 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use base64::Engine as _;
+use ecclesia_core::annot::{Annotation, BlockHighlightShape, Markup, Shape};
 use ecclesia_features::annotate::colors::{self as colors_model, Tool as ColorTool};
-use nsh_base::{button, context_menu, menu_item, menu_separator, theme};
+use ecclesia_features::annotate::notes::Target;
+use nsh_base::{button, context_menu, input, menu_item, menu_separator, theme};
 use nsh_core::JsonValue;
 use nsh_core::prelude::*;
 
-use super::AnnotateState;
-use crate::bookmarks::{BookmarkAction, BookmarkState};
+use super::{AnnotateState, TargetColorSlot, colors};
+use crate::bookmarks::{BookmarkAction, BookmarkState, field};
 use crate::settings::{Live, Settings};
 use crate::settings_window::on_off;
 use crate::shell::app_menu::{ChromeIcon, chrome_icon};
 use crate::study_ui::StudyState;
+use crate::tabs::{Tone, action_button as dialog_action_button};
 
 /// Settings key persisting the ordered list of action items enabled in the text-selection popup.
 pub(crate) const SELECTION_POPUP_ITEMS: &str = "selection_popup_items";
@@ -108,6 +111,14 @@ const GRID_TILE_BLUE: u32 = 0x53_9BFF;
 
 /// Floating pill height in logical DIPs.
 const PILL_HEIGHT: f32 = 44.0;
+/// Compact shape/fill/edge sub-pill height for clicked block highlights in logical DIPs.
+const SHAPE_BAR_HEIGHT: f32 = 34.0;
+/// Vertical gap between stacked floating popovers (pill, shape bar, comment card) in logical DIPs.
+const STACK_GAP: f32 = 6.0;
+/// Width of the inline quick-comment card below a clicked highlight in logical DIPs.
+const COMMENT_CARD_WIDTH: f32 = 320.0;
+/// Estimated height of the inline quick-comment card for viewport clamping in logical DIPs.
+const COMMENT_CARD_HEIGHT: f32 = 148.0;
 /// Vertical clearance between the selected text and the floating pill in logical DIPs.
 const GAP: f32 = 10.0;
 /// Minimum edge inset inside the canvas viewport in logical DIPs.
@@ -305,8 +316,18 @@ enum SelectionKind {
     Block,
 }
 
+/// Which color channel of a clicked block highlight the swatch strip edits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum BlockColorSlot {
+    /// Background fill color (default).
+    #[default]
+    Fill,
+    /// Border / edge color.
+    Edge,
+}
+
 /// Logical-DIP anchor geometry reported by the page canvas's `selectionPopup` event.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct SelectionPopupAnchor {
     /// Horizontal center of the first selected line or topmost block region in logical DIPs.
     pub(crate) x: f32,
@@ -322,6 +343,8 @@ pub(crate) struct SelectionPopupAnchor {
     pub(crate) editable: bool,
     /// Whether the anchor comes from a rectangular block selection rather than text selection.
     pub(crate) block: bool,
+    /// Clicked annotation target when the popup anchors to a single selected annotation on the canvas.
+    pub(crate) annotation: Option<Target>,
 }
 
 impl SelectionPopupAnchor {
@@ -336,6 +359,11 @@ impl SelectionPopupAnchor {
                 .filter(|value| value.is_finite())
                 .map(|value| value as f32)
         };
+        let annotation = data.get("annotation").and_then(|annot| {
+            let page = usize::try_from(annot.get("page")?.as_u64()?).ok()?;
+            let id = annot.get("id")?.as_str()?.to_owned();
+            (!id.is_empty()).then_some(Target { page, id })
+        });
         Some(Self {
             x: number("x")?,
             top_y: number("topY")?,
@@ -350,10 +378,11 @@ impl SelectionPopupAnchor {
                 .get("block")
                 .and_then(JsonValue::as_bool)
                 .unwrap_or(false),
+            annotation,
         })
     }
 
-    const fn selection_kind(self) -> SelectionKind {
+    const fn selection_kind(&self) -> SelectionKind {
         if self.block {
             SelectionKind::Block
         } else {
@@ -443,11 +472,12 @@ pub(crate) fn set_picker_icon(live: Live, icon: ColorPickerIcon) {
     live.change(|settings| write_picker_icon(settings, icon));
 }
 
-/// Resets the selection-popup items and color picker icon style back to their defaults.
+/// Resets the selection-popup items, color picker icon style, and highlight color memory to defaults.
 pub(crate) fn reset_defaults(live: Live) {
     live.change(|settings| {
         settings.set_text(SELECTION_POPUP_ITEMS, None);
         settings.set_text(COLOR_PICKER_ICON, None);
+        settings.set_flag(colors::REMEMBER_HIGHLIGHT_COLOR, None);
     });
 }
 
@@ -474,17 +504,28 @@ fn estimate_pill_width(editable: bool, item_count: usize) -> f32 {
     padding + swatches + divider + actions
 }
 
-/// Computes `(left, top)` in logical DIPs for a floating pill of width `est_width`, preferring
-/// placement above the selection and flipping below when too close to the top edge.
-pub(crate) fn popup_position(anchor: SelectionPopupAnchor, est_width: f32) -> (f32, f32) {
-    let top = if anchor.top_y >= PILL_HEIGHT + GAP + MARGIN {
-        anchor.top_y - PILL_HEIGHT - GAP
+/// Computes `(left, top)` in logical DIPs for a floating popup stack of size `(est_width, height)`,
+/// preferring placement above the anchor and flipping below near the top edge.
+fn popup_position_for_height(
+    anchor: &SelectionPopupAnchor,
+    est_width: f32,
+    height: f32,
+) -> (f32, f32) {
+    let top = if anchor.top_y >= height + GAP + MARGIN {
+        anchor.top_y - height - GAP
     } else {
-        (anchor.bottom_y + GAP).min((anchor.view_h - PILL_HEIGHT - MARGIN).max(MARGIN))
+        (anchor.bottom_y + GAP).min((anchor.view_h - height - MARGIN).max(MARGIN))
     };
     let max_left = (anchor.view_w - est_width - MARGIN).max(MARGIN);
     let left = (anchor.x - est_width / 2.0).clamp(MARGIN, max_left);
     (left, top)
+}
+
+/// Computes `(left, top)` in logical DIPs for a floating pill of width `est_width`, preferring
+/// placement above the selection and flipping below when too close to the top edge.
+#[cfg(test)]
+pub(crate) fn popup_position(anchor: SelectionPopupAnchor, est_width: f32) -> (f32, f32) {
+    popup_position_for_height(&anchor, est_width, PILL_HEIGHT)
 }
 
 fn png_data_uri(bytes: &[u8]) -> String {
@@ -576,7 +617,8 @@ pub(crate) fn picker_icon_glyph(icon: ColorPickerIcon, size: f32) -> AnyElement 
     }
 }
 
-/// Absolute pass-through overlay hosting the floating text-selection pill above the page canvas.
+/// Absolute pass-through overlay hosting the floating selection and clicked-highlight popups above
+/// the page canvas.
 pub(crate) fn selection_popup_overlay(
     annotate: AnnotateState,
     canvas: ElementRef,
@@ -584,14 +626,48 @@ pub(crate) fn selection_popup_overlay(
     bookmarks: BookmarkState,
 ) -> impl IntoElement {
     let live = annotate.live_settings();
+    let color_slot = signal(BlockColorSlot::Fill);
+    let last_target = stored(None::<Target>);
     view()
         .absolute()
         .inset_0()
         .pointer_events(PointerEvents::BoxNone)
         .child(dynamic(move || {
             let Some(anchor) = annotate.selection_popup_anchor() else {
+                last_target.with(|slot| *slot = None);
                 return view().into_element();
             };
+            if let Some(target) = anchor.annotation.clone() {
+                let target_changed = last_target.with(|slot| {
+                    let changed = slot.as_ref() != Some(&target);
+                    if changed {
+                        *slot = Some(target.clone());
+                    }
+                    changed
+                });
+                if target_changed {
+                    color_slot.set(BlockColorSlot::Fill);
+                }
+                let _revision = annotate.edit_revision();
+                let Some(annotation) = annotate.annotation_by_target(&target) else {
+                    return view().into_element();
+                };
+                if !annotation.is_highlight_popup_target() {
+                    return view().into_element();
+                }
+                let ctx = ClickedHighlightCtx {
+                    annotate,
+                    canvas,
+                    study,
+                    bookmarks,
+                    anchor: &anchor,
+                    target,
+                    annotation: &annotation,
+                    color_slot,
+                };
+                return clicked_highlight_popup(ctx);
+            }
+            last_target.with(|slot| *slot = None);
             let visible_items: Vec<PopupItem> = live
                 .read(enabled_items)
                 .into_iter()
@@ -605,13 +681,13 @@ pub(crate) fn selection_popup_overlay(
             }
             let picker_icon = live.read(selected_picker_icon);
             let est_width = estimate_pill_width(anchor.editable, visible_items.len());
-            let (left, top) = popup_position(anchor, est_width);
+            let (left, top) = popup_position_for_height(&anchor, est_width, PILL_HEIGHT);
             let pill = build_pill(
                 annotate,
                 canvas,
                 study,
                 bookmarks,
-                anchor,
+                &anchor,
                 picker_icon,
                 &visible_items,
             );
@@ -626,6 +702,801 @@ pub(crate) fn selection_popup_overlay(
         }))
 }
 
+/// Returns whether an annotation's RGB channel matches `swatch_hex` within floating-point tolerance.
+fn rgb_near(actual: Option<[f32; 3]>, swatch_hex: u32) -> bool {
+    let Some(color) = actual else {
+        return false;
+    };
+    let swatch = colors_model::ToolStyle::new(swatch_hex, 1.0).rgb();
+    (color[0] - swatch[0]).abs() < 0.04
+        && (color[1] - swatch[1]).abs() < 0.04
+        && (color[2] - swatch[2]).abs() < 0.04
+}
+
+/// Borrowed context for rendering the clicked-highlight floating popup stack.
+struct ClickedHighlightCtx<'a> {
+    annotate: AnnotateState,
+    canvas: ElementRef,
+    study: StudyState,
+    bookmarks: BookmarkState,
+    anchor: &'a SelectionPopupAnchor,
+    target: Target,
+    annotation: &'a Annotation,
+    color_slot: Signal<BlockColorSlot>,
+}
+
+/// Derived state for one render of a clicked-highlight floating pill.
+struct ClickedHighlightState {
+    can_edit: bool,
+    is_block: bool,
+    slot: BlockColorSlot,
+    active_color: Option<[f32; 3]>,
+    current_markup_kind: Option<Markup>,
+    picker_icon: ColorPickerIcon,
+    comment_open: bool,
+}
+
+/// Renders the floating popup stack for a clicked text highlight or block highlight: main pill
+/// (5 swatches + custom picker + student/researcher/teacher actions), optional block-highlight
+/// shape/fill/edge sub-pill bar, and optional inline quick-comment card.
+fn clicked_highlight_popup(ctx: ClickedHighlightCtx<'_>) -> AnyElement {
+    let live = ctx.annotate.live_settings();
+    let picker_icon = live.read(selected_picker_icon);
+    let block_shape = ctx.annotation.block_highlight;
+    let is_block = block_shape.is_some();
+    let can_edit = ctx.anchor.editable && !ctx.annotation.locked;
+    let comment_open = ctx.annotate.popup_comment_open();
+    let slot = if is_block {
+        ctx.color_slot.get()
+    } else {
+        BlockColorSlot::Fill
+    };
+    let current_markup_kind = match ctx.annotation.shape {
+        Shape::Markup(kind, _) => Some(kind),
+        _ => None,
+    };
+    let active_color = if is_block {
+        match slot {
+            BlockColorSlot::Fill => ctx.annotation.fill,
+            BlockColorSlot::Edge => ctx.annotation.style.color,
+        }
+    } else {
+        ctx.annotation.style.color
+    };
+
+    let state = ClickedHighlightState {
+        can_edit,
+        is_block,
+        slot,
+        active_color,
+        current_markup_kind,
+        picker_icon,
+        comment_open,
+    };
+
+    let action_count = if can_edit { 7 } else { 6 };
+    let est_width = estimate_pill_width(can_edit, action_count).max(if comment_open {
+        COMMENT_CARD_WIDTH
+    } else {
+        0.0
+    });
+    let base_height = if is_block && can_edit {
+        PILL_HEIGHT + STACK_GAP + SHAPE_BAR_HEIGHT
+    } else {
+        PILL_HEIGHT
+    };
+    let (left, mut top) = popup_position_for_height(ctx.anchor, est_width, base_height);
+    if comment_open {
+        let total_height = base_height + STACK_GAP + COMMENT_CARD_HEIGHT;
+        top = top.min((ctx.anchor.view_h - total_height - MARGIN).max(MARGIN));
+    }
+
+    let pill = build_clicked_highlight_pill(&ctx, &state);
+    let with_menu = attach_highlight_context_menu(&ctx, current_markup_kind, pill);
+
+    let mut stack = view()
+        .absolute()
+        .left(px(left))
+        .top(px(top))
+        .items_center()
+        .gap(px(STACK_GAP))
+        .pointer_events(PointerEvents::BoxNone)
+        .child(view().pointer_events(PointerEvents::Auto).child(with_menu));
+
+    if let Some(active_shape) = block_shape
+        && can_edit
+    {
+        stack = stack.child(view().pointer_events(PointerEvents::Auto).child(
+            build_block_shape_bar(
+                ctx.annotate,
+                ctx.target.clone(),
+                active_shape,
+                ctx.color_slot,
+                slot,
+                active_color.is_none(),
+            ),
+        ));
+    }
+
+    if comment_open {
+        stack = stack.child(view().pointer_events(PointerEvents::Auto).child(
+            build_inline_comment_card(ctx.annotate, ctx.target, &ctx.annotation.contents),
+        ));
+    }
+
+    stack.into_element()
+}
+
+/// Builds the main floating pill for a clicked highlight: swatches + custom picker on the left,
+/// hairline divider, and Comment, Copy, Flashcard, Dictionary, Bookmark, Sidebar, Delete on the right.
+fn build_clicked_highlight_pill(
+    ctx: &ClickedHighlightCtx<'_>,
+    state: &ClickedHighlightState,
+) -> View {
+    let annotate = ctx.annotate;
+    let canvas = ctx.canvas;
+    let study = ctx.study;
+    let bookmarks = ctx.bookmarks;
+    let target = &ctx.target;
+    let annotation = ctx.annotation;
+    let can_edit = state.can_edit;
+    let is_block = state.is_block;
+    let slot = state.slot;
+    let active_color = state.active_color;
+    let current_markup_kind = state.current_markup_kind;
+    let picker_icon = state.picker_icon;
+    let comment_open = state.comment_open;
+
+    let mut pill = view()
+        .pointer_events(PointerEvents::Auto)
+        .flex_row()
+        .items_center()
+        .h(px(PILL_HEIGHT))
+        .px(px(14.0))
+        .gap(px(10.0))
+        .rounded_full()
+        .bg(move || theme().popover)
+        .border_1()
+        .border_color(move || theme().border)
+        .shadow_lg();
+
+    if can_edit {
+        let mut swatches = view().flex_row().items_center().gap(px(8.0));
+        for (color, label_key) in SWATCHES {
+            let selected = rgb_near(active_color, color);
+            let target_btn = target.clone();
+            let btn = button()
+                .accessibility_label(t!(label_key))
+                .on_press(move || {
+                    if is_block {
+                        match slot {
+                            BlockColorSlot::Fill => {
+                                annotate.set_target_block_fill(&target_btn, Some(color));
+                            }
+                            BlockColorSlot::Edge => {
+                                annotate.set_target_block_edge(&target_btn, Some(color));
+                            }
+                        }
+                    } else {
+                        annotate.recolor_target_highlight(&target_btn, color);
+                    }
+                })
+                .w(px(SWATCH_SIZE))
+                .h(px(SWATCH_SIZE))
+                .rounded_full()
+                .bg(Hsla::from(rgb(color)))
+                .shadow_sm()
+                .hover(|s| s.border_2().border_color(move || theme().ring))
+                .active(|s| s.opacity(0.85))
+                .focus_visible(|s| s.border_2().border_color(move || theme().ring));
+            let btn = if selected {
+                btn.border_2().border_color(move || theme().foreground)
+            } else {
+                btn.border_1().border_color(Hsla::from(rgba(0x0000_0026)))
+            };
+            swatches = swatches.child(btn);
+        }
+
+        let target_pick = target.clone();
+        let target_slot = if is_block {
+            match slot {
+                BlockColorSlot::Fill => TargetColorSlot::BlockFill,
+                BlockColorSlot::Edge => TargetColorSlot::BlockEdge,
+            }
+        } else {
+            TargetColorSlot::Highlight
+        };
+        let color_tool = if is_block {
+            match slot {
+                BlockColorSlot::Fill => ColorTool::Highlight,
+                BlockColorSlot::Edge => ColorTool::Shape,
+            }
+        } else {
+            match current_markup_kind {
+                Some(Markup::Underline) => ColorTool::Underline,
+                Some(Markup::Squiggly) => ColorTool::Squiggly,
+                Some(Markup::StrikeOut) => ColorTool::StrikeOut,
+                _ => ColorTool::Highlight,
+            }
+        };
+        swatches = swatches.child(
+            button()
+                .accessibility_label(t!("annotate.popup.item.custom_color"))
+                .on_press(move || {
+                    annotate.pick_for_target(target_pick.clone(), target_slot, color_tool);
+                })
+                .w(px(SWATCH_SIZE + 4.0))
+                .h(px(SWATCH_SIZE + 4.0))
+                .rounded(px(7.0))
+                .items_center()
+                .justify_center()
+                .hover(|s| s.bg(move || theme().accent))
+                .active(|s| s.opacity(0.80))
+                .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+                .child(picker_icon_glyph(picker_icon, 21.0)),
+        );
+        pill = pill
+            .child(swatches)
+            .child(view().w(px(1.0)).h(px(22.0)).bg(move || theme().border));
+    }
+
+    let has_comment = !annotation.contents.trim().is_empty();
+    let comment_icon = view()
+        .relative()
+        .w(px(22.0))
+        .h(px(22.0))
+        .items_center()
+        .justify_center()
+        .child(
+            image(comment_icon_src())
+                .w(px(18.0))
+                .h(px(18.0))
+                .object_fit(ResizeMode::Contain)
+                .tint_color(move || theme().popover_foreground),
+        );
+    let comment_icon = if has_comment {
+        comment_icon.child(
+            view()
+                .absolute()
+                .top(px(0.0))
+                .right(px(0.0))
+                .w(px(6.0))
+                .h(px(6.0))
+                .rounded_full()
+                .bg(move || theme().primary),
+        )
+    } else {
+        comment_icon
+    };
+
+    let target_copy = target.clone();
+    let target_sidebar = target.clone();
+    let target_delete = target.clone();
+
+    let mut actions = view()
+        .flex_row()
+        .items_center()
+        .gap(px(6.0))
+        .child(highlight_pill_action(
+            "annotate.popup.item.comment",
+            comment_open,
+            false,
+            move || annotate.set_popup_comment_open(!untracked(|| annotate.popup_comment_open())),
+            comment_icon,
+        ))
+        .child(highlight_pill_action(
+            "annotate.popup.item.copy",
+            false,
+            false,
+            move || {
+                annotate.copy_target_quote(&target_copy);
+                dismiss_soon(annotate);
+            },
+            image(copy_icon_src())
+                .w(px(18.0))
+                .h(px(18.0))
+                .object_fit(ResizeMode::Contain)
+                .tint_color(move || theme().popover_foreground),
+        ))
+        .child(highlight_pill_action(
+            "annotate.popup.action.flashcard",
+            false,
+            false,
+            move || {
+                study.open_flashcard();
+                dismiss_soon(annotate);
+            },
+            text("⊞")
+                .text_size(px(16.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(move || theme().popover_foreground),
+        ))
+        .child(highlight_pill_action(
+            "annotate.popup.item.dictionary",
+            false,
+            false,
+            move || {
+                study.open_dictionary();
+                dismiss_soon(annotate);
+            },
+            text("Aa")
+                .text_size(px(13.0))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(move || theme().popover_foreground),
+        ))
+        .child(highlight_pill_action(
+            "annotate.popup.item.bookmark",
+            false,
+            false,
+            move || {
+                bookmarks.run(BookmarkAction::Add, canvas);
+                dismiss_soon(annotate);
+            },
+            chrome_icon(ChromeIcon::RailBookmarks, 16.0, move || {
+                theme().popover_foreground
+            }),
+        ))
+        .child(highlight_pill_action(
+            "annotate.popup.action.open_sidebar",
+            false,
+            false,
+            move || {
+                annotate.open_in_sidebar(&target_sidebar);
+            },
+            chrome_icon(ChromeIcon::SidebarRight, 16.0, move || {
+                theme().popover_foreground
+            }),
+        ));
+
+    if can_edit {
+        actions = actions.child(highlight_pill_action(
+            "annotate.popup.action.delete",
+            false,
+            true,
+            move || {
+                annotate.delete_target(&target_delete);
+            },
+            chrome_icon(ChromeIcon::CloseX, 14.0, move || theme().destructive),
+        ));
+    }
+
+    pill.child(actions)
+}
+
+/// Schedules immediate dismissal of the floating popup on the next tick.
+fn dismiss_soon(annotate: AnnotateState) {
+    drop(set_timeout(Duration::ZERO, move || {
+        annotate.dismiss_selection_popup();
+    }));
+}
+
+/// One crisp 30×30 icon button inside the clicked-highlight pill.
+fn highlight_pill_action(
+    label_key: &'static str,
+    active: bool,
+    destructive: bool,
+    on_press: impl Fn() + 'static,
+    glyph: impl IntoElement,
+) -> impl IntoElement {
+    let base = button()
+        .accessibility_label(t!(label_key))
+        .on_press(on_press)
+        .w(px(ACTION_SIZE))
+        .h(px(ACTION_SIZE))
+        .rounded(px(6.0))
+        .items_center()
+        .justify_center()
+        .active(|s| s.opacity(0.75))
+        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(glyph);
+    let base = if active {
+        base.bg(move || theme().muted)
+    } else {
+        base
+    };
+    if destructive {
+        base.hover(|s| s.bg(Hsla::from(rgba(0xDC26_2622))))
+    } else {
+        base.hover(|s| s.bg(move || theme().accent))
+    }
+}
+
+/// Compact floating sub-pill docked below the main pill for clicked block highlights:
+/// `Fill` | `Edge` channel toggle, 4 shape buttons (`Rectangle`, `RoundedRect`, `Oval`, `Cloud`),
+/// and a `None` swatch button (`∅`) to clear the active fill or border color.
+fn build_block_shape_bar(
+    annotate: AnnotateState,
+    target: Target,
+    active_shape: BlockHighlightShape,
+    color_slot: Signal<BlockColorSlot>,
+    slot: BlockColorSlot,
+    is_none: bool,
+) -> View {
+    let slot_pill = view()
+        .flex_row()
+        .items_center()
+        .gap(px(2.0))
+        .p(px(2.0))
+        .rounded_full()
+        .bg(move || theme().muted)
+        .child(slot_toggle_button(
+            "annotate.popup.slot.fill",
+            slot == BlockColorSlot::Fill,
+            move || color_slot.set(BlockColorSlot::Fill),
+        ))
+        .child(slot_toggle_button(
+            "annotate.popup.slot.edge",
+            slot == BlockColorSlot::Edge,
+            move || color_slot.set(BlockColorSlot::Edge),
+        ));
+
+    let shapes = BlockHighlightShape::ALL.into_iter().fold(
+        view().flex_row().items_center().gap(px(4.0)),
+        |row, shape| {
+            let selected = shape == active_shape;
+            let target_shape = target.clone();
+            let btn = button()
+                .accessibility_label(t!(block_shape_label_key(shape)))
+                .on_press(move || annotate.set_target_block_shape(&target_shape, shape))
+                .w(px(26.0))
+                .h(px(24.0))
+                .rounded(px(6.0))
+                .items_center()
+                .justify_center()
+                .hover(|s| s.bg(move || theme().accent))
+                .active(|s| s.opacity(0.75))
+                .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+                .child(block_shape_glyph(shape));
+            let btn = if selected {
+                btn.bg(move || theme().muted)
+                    .border_1()
+                    .border_color(move || theme().ring)
+            } else {
+                btn
+            };
+            row.child(btn)
+        },
+    );
+
+    let target_none = target;
+    let none_btn = button()
+        .accessibility_label(t!("annotate.popup.color.none"))
+        .on_press(move || match slot {
+            BlockColorSlot::Fill => annotate.set_target_block_fill(&target_none, None),
+            BlockColorSlot::Edge => annotate.set_target_block_edge(&target_none, None),
+        })
+        .w(px(24.0))
+        .h(px(24.0))
+        .rounded_full()
+        .items_center()
+        .justify_center()
+        .border_1()
+        .border_color(move || {
+            if is_none {
+                theme().ring
+            } else {
+                theme().border
+            }
+        })
+        .hover(|s| s.bg(move || theme().accent))
+        .active(|s| s.opacity(0.75))
+        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(
+            text("∅")
+                .text_size(px(12.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(move || theme().muted_foreground),
+        );
+    let none_btn = if is_none {
+        none_btn.bg(move || theme().muted)
+    } else {
+        none_btn
+    };
+
+    view()
+        .flex_row()
+        .items_center()
+        .h(px(SHAPE_BAR_HEIGHT))
+        .px(px(10.0))
+        .gap(px(8.0))
+        .rounded_full()
+        .bg(move || theme().popover)
+        .border_1()
+        .border_color(move || theme().border)
+        .shadow_lg()
+        .child(slot_pill)
+        .child(view().w(px(1.0)).h(px(16.0)).bg(move || theme().border))
+        .child(shapes)
+        .child(view().w(px(1.0)).h(px(16.0)).bg(move || theme().border))
+        .child(none_btn)
+}
+
+/// One segment of the compact `Fill` | `Edge` mini-pill toggle.
+fn slot_toggle_button(
+    label_key: &'static str,
+    active: bool,
+    on_press: impl Fn() + 'static,
+) -> impl IntoElement {
+    let btn = button()
+        .accessibility_label(t!(label_key))
+        .on_press(on_press)
+        .h(px(22.0))
+        .px(px(8.0))
+        .rounded_full()
+        .items_center()
+        .justify_center()
+        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+        .child(
+            text(move || t!(label_key))
+                .text_size(px(11.5))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(move || {
+                    if active {
+                        theme().popover_foreground
+                    } else {
+                        theme().muted_foreground
+                    }
+                }),
+        );
+    if active {
+        btn.bg(move || theme().background).shadow_sm()
+    } else {
+        btn.hover(|s| s.bg(move || theme().accent))
+    }
+}
+
+/// Localization key for a [`BlockHighlightShape`].
+const fn block_shape_label_key(shape: BlockHighlightShape) -> &'static str {
+    match shape {
+        BlockHighlightShape::Rectangle => "annotate.popup.shape.rectangle",
+        BlockHighlightShape::RoundedRect => "annotate.popup.shape.rounded_rect",
+        BlockHighlightShape::Oval => "annotate.popup.shape.oval",
+        BlockHighlightShape::Cloud => "annotate.popup.shape.cloud",
+    }
+}
+
+/// Crisp miniature shape icon for the block-highlight shape bar.
+fn block_shape_glyph(shape: BlockHighlightShape) -> AnyElement {
+    match shape {
+        BlockHighlightShape::Rectangle => view()
+            .w(px(14.0))
+            .h(px(10.0))
+            .border_1()
+            .border_color(move || theme().popover_foreground)
+            .into_element(),
+        BlockHighlightShape::RoundedRect => view()
+            .w(px(14.0))
+            .h(px(10.0))
+            .rounded(px(3.5))
+            .border_1()
+            .border_color(move || theme().popover_foreground)
+            .into_element(),
+        BlockHighlightShape::Oval => view()
+            .w(px(15.0))
+            .h(px(10.0))
+            .rounded_full()
+            .border_1()
+            .border_color(move || theme().popover_foreground)
+            .into_element(),
+        BlockHighlightShape::Cloud => text("☁")
+            .text_size(px(13.0))
+            .text_color(move || theme().popover_foreground)
+            .into_element(),
+    }
+}
+
+/// Inline quick-comment card docked directly below the clicked-highlight pill.
+fn build_inline_comment_card(annotate: AnnotateState, target: Target, initial_text: &str) -> View {
+    let in_fields = KeyOptions {
+        when: nsh_core::keymap::When::Always,
+        ..KeyOptions::default()
+    };
+    on_key_with("escape", in_fields, move |_| {
+        annotate.set_popup_comment_open(false);
+    });
+
+    let draft = signal(initial_text.to_owned());
+    let target_submit = target.clone();
+    let target_save = target.clone();
+    let target_sidebar = target;
+
+    let text_field = field(input().value(move || draft.get()))
+        .on_change(move |value: &str| draft.set(value.to_owned()))
+        .on_submit(move |_: &str| {
+            let value = untracked(|| draft.get());
+            annotate.save_annotation_comment(&target_submit, &value);
+            annotate.set_popup_comment_open(false);
+        })
+        .placeholder(t!("annotate.popup.comment_placeholder"))
+        .label(t!("annotate.popup.comment_title"))
+        .auto_focus(true);
+
+    view()
+        .w(px(COMMENT_CARD_WIDTH))
+        .p_3()
+        .gap_2()
+        .rounded(px(10.0))
+        .bg(move || theme().popover)
+        .border_1()
+        .border_color(move || theme().border)
+        .shadow_lg()
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .gap_2()
+                .child(
+                    text(move || t!("annotate.popup.comment_title"))
+                        .text_size(px(13.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(move || theme().popover_foreground),
+                )
+                .child(
+                    button()
+                        .accessibility_label(t!("annotate.popup.action.open_sidebar"))
+                        .on_press(move || annotate.open_in_sidebar(&target_sidebar))
+                        .px(px(6.0))
+                        .py(px(2.0))
+                        .rounded(px(4.0))
+                        .hover(|s| s.bg(move || theme().accent))
+                        .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+                        .child(
+                            text(move || t!("annotate.popup.action.open_sidebar"))
+                                .text_size(px(11.5))
+                                .font_weight(FontWeight::MEDIUM)
+                                .text_color(move || theme().primary),
+                        ),
+                ),
+        )
+        .child(text_field)
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .justify_end()
+                .gap_2()
+                .child(dialog_action_button(
+                    "annotate.popup.comment_cancel",
+                    Tone::Plain,
+                    move || annotate.set_popup_comment_open(false),
+                ))
+                .child(crate::shell::primary_button(
+                    "annotate.popup.comment_save",
+                    move || {
+                        let value = untracked(|| draft.get());
+                        annotate.save_annotation_comment(&target_save, &value);
+                        annotate.set_popup_comment_open(false);
+                    },
+                )),
+        )
+}
+
+/// Wraps a clicked-highlight pill in a right-click menu exposing extra study tools (Cloze,
+/// Translate, Read Aloud), markup style conversion, Lock/Unlock, and Open in Sidebar.
+fn attach_highlight_context_menu(
+    ctx: &ClickedHighlightCtx<'_>,
+    current_markup_kind: Option<Markup>,
+    pill: View,
+) -> impl IntoElement {
+    let annotate = ctx.annotate;
+    let study = ctx.study;
+    let target = ctx.target.clone();
+    let editable = ctx.anchor.editable;
+    let locked = ctx.annotation.locked;
+    let mut menu = context_menu()
+        .trigger(pill)
+        .popup_class("w-60 p-1 rounded-lg border border-border bg-popover shadow-lg")
+        .child(highlight_menu_row(
+            "annotate.popup.action.cloze",
+            false,
+            move || {
+                study.open_cloze();
+                dismiss_soon(annotate);
+            },
+        ))
+        .child(highlight_menu_row(
+            "annotate.popup.item.translate",
+            false,
+            move || {
+                study.open_translate();
+                dismiss_soon(annotate);
+            },
+        ))
+        .child(highlight_menu_row(
+            "annotate.popup.item.read_aloud",
+            false,
+            move || {
+                study.toggle_read_aloud();
+                dismiss_soon(annotate);
+            },
+        ));
+
+    if let Some(cur_kind) = current_markup_kind
+        && editable
+        && !locked
+    {
+        menu = menu.child(
+            menu_separator()
+                .h(px(1.0))
+                .my(px(4.0))
+                .bg(move || theme().border),
+        );
+        for (kind, key) in [
+            (Markup::Highlight, "markup.highlight"),
+            (Markup::Underline, "markup.underline"),
+            (Markup::Squiggly, "markup.squiggly"),
+            (Markup::StrikeOut, "markup.strikeout"),
+        ] {
+            let target_kind = target.clone();
+            menu = menu.child(highlight_menu_row(key, cur_kind == kind, move || {
+                annotate.set_target_markup_kind(&target_kind, kind);
+            }));
+        }
+    }
+
+    if editable {
+        let target_lock = target.clone();
+        let target_sidebar = target;
+        let lock_key = if locked {
+            "annotate.popup.action.unlock"
+        } else {
+            "annotate.popup.action.lock"
+        };
+        menu = menu
+            .child(
+                menu_separator()
+                    .h(px(1.0))
+                    .my(px(4.0))
+                    .bg(move || theme().border),
+            )
+            .child(highlight_menu_row(lock_key, false, move || {
+                annotate.toggle_target_lock(&target_lock);
+            }))
+            .child(highlight_menu_row(
+                "annotate.popup.action.open_sidebar",
+                false,
+                move || {
+                    annotate.open_in_sidebar(&target_sidebar);
+                },
+            ));
+    }
+
+    menu
+}
+
+/// One row inside the clicked-highlight right-click context menu.
+fn highlight_menu_row(
+    label_key: &'static str,
+    checked: bool,
+    on_select: impl Fn() + 'static,
+) -> impl IntoElement {
+    menu_item()
+        .checked(move || checked.then_some(true))
+        .accessibility_label(t!(label_key))
+        .on_select(on_select)
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .h(px(30.0))
+        .px_2()
+        .rounded(px(6.0))
+        .hover(|s| s.bg(move || theme().accent))
+        .focus(|s| s.bg(move || theme().accent))
+        .child(
+            text(if checked { "✓" } else { "" })
+                .w(px(14.0))
+                .text_size(px(13.0))
+                .text_color(move || theme().primary),
+        )
+        .child(
+            text(move || t!(label_key))
+                .flex_1()
+                .text_size(px(13.0))
+                .text_color(move || theme().popover_foreground),
+        )
+}
+
 /// Builds the floating pill container with five pastel color swatches, the 6th custom color picker
 /// button, a hairline divider, and customizable action buttons.
 fn build_pill(
@@ -633,7 +1504,7 @@ fn build_pill(
     canvas: ElementRef,
     study: StudyState,
     bookmarks: BookmarkState,
-    anchor: SelectionPopupAnchor,
+    anchor: &SelectionPopupAnchor,
     picker_icon: ColorPickerIcon,
     items: &[PopupItem],
 ) -> View {
@@ -819,10 +1690,21 @@ fn run_item(
     match item {
         PopupItem::Highlight => {
             annotate.set_active_markup_tool(ActiveMarkupTool::Highlight);
-            canvas.command(
-                "markWithColor",
-                serde_json::json!({ "kind": "highlight", "note": false }),
-            );
+            let remember = untracked(|| {
+                annotate
+                    .live_settings()
+                    .read(colors::remember_highlight_color)
+            });
+            let payload = if remember {
+                serde_json::json!({ "kind": "highlight", "note": false })
+            } else {
+                serde_json::json!({
+                    "kind": "highlight",
+                    "color": colors_model::hex(colors::DEFAULT_HIGHLIGHT_HEX),
+                    "note": false,
+                })
+            };
+            canvas.command("markWithColor", payload);
         }
         PopupItem::Underline => {
             annotate.set_active_markup_tool(ActiveMarkupTool::Underline);
@@ -1057,7 +1939,7 @@ fn attach_customization_menu(live: Live, pill: View) -> impl IntoElement {
 /// Settings rows allowing the user to pick the custom color picker icon style, enable/disable
 /// each selection-popup item, and reset to defaults inside Settings → Annotations & ink.
 pub(crate) fn selection_popup_settings_rows(live: Live) -> Vec<View> {
-    let mut rows = Vec::with_capacity(PopupItem::ALL.len() + 2);
+    let mut rows = Vec::with_capacity(PopupItem::ALL.len() + 3);
     let chosen_icon = move || live.read(selected_picker_icon);
     let icon_choices = ColorPickerIcon::ALL.into_iter().fold(
         view().flex_row().items_center().gap(px(8.0)),
@@ -1121,6 +2003,37 @@ pub(crate) fn selection_popup_settings_rows(live: Live) -> Vec<View> {
                     ),
             )
             .child(icon_choices),
+    );
+    rows.push(
+        view()
+            .flex_row()
+            .items_center()
+            .gap(px(16.0))
+            .px(px(16.0))
+            .py(px(10.0))
+            .border_t_1()
+            .border_t_color(move || theme().border)
+            .child(
+                view()
+                    .flex_1()
+                    .gap(px(2.0))
+                    .child(
+                        text(move || t!("annotate.popup.remember_color"))
+                            .text_size(px(13.0))
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(move || theme().foreground),
+                    )
+                    .child(
+                        text(move || t!("annotate.popup.remember_color_hint"))
+                            .text_size(px(12.0))
+                            .text_color(move || theme().muted_foreground),
+                    ),
+            )
+            .child(on_off(
+                "annotate.popup.remember_color",
+                move || live.read(colors::remember_highlight_color),
+                move |on| colors::set_remember_highlight_color(live, on),
+            )),
     );
     for item in PopupItem::ALL {
         let enabled = move || live.read(enabled_items).contains(&item);
@@ -1235,6 +2148,7 @@ mod tests {
             view_h: 600.0,
             editable: true,
             block: false,
+            annotation: None,
         };
         let (left, top) = popup_position(centered, width);
         assert!((top - (220.0 - PILL_HEIGHT - GAP)).abs() < 0.01);
@@ -1248,10 +2162,51 @@ mod tests {
             view_h: 600.0,
             editable: true,
             block: false,
+            annotation: None,
         };
         let (clamped_left, flipped_top) = popup_position(near_top, width);
         assert!((flipped_top - (44.0 + GAP)).abs() < 0.01);
         assert!((clamped_left - MARGIN).abs() < 0.01);
+    }
+
+    #[test]
+    fn parses_clicked_annotation_anchor_and_matches_swatch_rgb() {
+        let anchor = SelectionPopupAnchor::parse(&serde_json::json!({
+            "visible": true,
+            "x": 300.0,
+            "topY": 160.0,
+            "bottomY": 210.0,
+            "viewW": 1000.0,
+            "viewH": 800.0,
+            "editable": true,
+            "annotation": { "page": 3, "id": "hl-42" },
+        }))
+        .expect("annotation anchor parses");
+        assert_eq!(
+            anchor.annotation,
+            Some(Target {
+                page: 3,
+                id: String::from("hl-42"),
+            })
+        );
+
+        let empty_id = SelectionPopupAnchor::parse(&serde_json::json!({
+            "visible": true,
+            "x": 300.0,
+            "topY": 160.0,
+            "bottomY": 210.0,
+            "viewW": 1000.0,
+            "viewH": 800.0,
+            "editable": true,
+            "annotation": { "page": 0, "id": "" },
+        }))
+        .expect("anchor with empty id still parses as selection");
+        assert!(empty_id.annotation.is_none());
+
+        let yellow = colors_model::ToolStyle::new(0xFD_E047, 1.0).rgb();
+        assert!(rgb_near(Some(yellow), 0xFD_E047));
+        assert!(!rgb_near(Some(yellow), 0x86_EFAC));
+        assert!(!rgb_near(None, 0xFD_E047));
     }
 
     #[test]

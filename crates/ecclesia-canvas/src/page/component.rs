@@ -121,7 +121,8 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
-    /// `zoomIn`, `zoomOut`, `actualSize`, `screenDown`, `screenUp`, `stepLeft`, `stepRight` (R.3), `historyBack`, `historyForward`, `firstPage`,
+    /// `zoomIn`, `zoomOut`, `actualSize`, `setZoom` (`{"percent": n}`, 10 to 6400), `toggleZoom`,
+    /// `zoomToSelection`, `screenDown`, `screenUp`, `stepLeft`, `stepRight` (R.3), `historyBack`, `historyForward`, `firstPage`,
     /// `lastPage`, `goToPage` (`{"index": n}`, from 0), `setView` (a `view` event's data; with only a `page`: that
     /// page), `follow` (V.8: `{page, across, down, fit, zoom}`, `fit` and `zoom` optional; no history), `goToPoint` (`{page, x, y, zoom}`, page points; `zoom` may be `null`), `copy`, `selectAll` (the
     /// reader's page), `readerPlace` (B.1, B.4, B.6: answered by the event of that name), and the view
@@ -144,6 +145,12 @@ impl<H: Host> PageCanvas<H> {
             "zoomIn" => canvas.zoom_step(ZoomChange::In),
             "zoomOut" => canvas.zoom_step(ZoomChange::Out),
             "actualSize" => canvas.actual_size(),
+            "setZoom" => match args.get("percent").and_then(JsonValue::as_f64) {
+                Some(pct) => canvas.set_zoom_percent(pct as f32),
+                None => log::warn!("page canvas: setZoom without a numeric percent: {args}"),
+            },
+            "toggleZoom" => canvas.toggle_zoom(),
+            "zoomToSelection" => canvas.zoom_to_selection(),
             "screenDown" => canvas.scroll_screen(1.0),
             "screenUp" => canvas.scroll_screen(-1.0),
             "stepLeft" => canvas.step_side(Side::Left),

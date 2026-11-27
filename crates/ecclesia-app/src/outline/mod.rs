@@ -702,14 +702,8 @@ fn color_menu() -> nsh_base::SubmenuElement {
             )
     };
     submenu()
-        .trigger(
-            row(t!("outline.color")).child(
-                text("›")
-                    .text_size(px(13.0))
-                    .text_color(move || theme().muted_foreground),
-            ),
-        )
-        .back(row(t!("outline.color_back")))
+        .trigger(row(t!("outline.color")).child(crate::shell::app_menu::submenu_arrow_right()))
+        .back(row(t!("outline.color_back")).child(crate::shell::app_menu::submenu_arrow_left()))
 }
 
 /// A Colour submenu item: a dot of the swatch (an outlined empty dot for none) and the command's label.

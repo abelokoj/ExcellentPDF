@@ -526,3 +526,101 @@ fn palette_alias_and_tab_switching_shortcuts_work() {
     app.wait_for("Home")
         .expect("closing both tabs returns to Home");
 }
+
+#[test]
+fn sumatrapdf_shortcuts_and_page_keys_work_end_to_end() {
+    let wait = std::time::Duration::from_secs(5);
+    let mut app = start();
+    let file =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/zlib-manual.pdf");
+    app.on_pick_paths(vec![file])
+        .expect("the open dialog answers");
+    app.press_key("mod+o").expect("Ctrl+O");
+    app.wait_for("zlib-manual.pdf")
+        .expect("the document opens in a tab");
+
+    // Both `g` and `Shift+G` open Go to page while reading.
+    app.press_key("g").expect("g opens Go to page");
+    app.wait_for("role:dialog[Go to page]")
+        .expect("g opens Go to page dialog");
+    app.press_key("escape").expect("Escape closes Go to page");
+    app.wait_for_gone("role:dialog", wait)
+        .expect("Go to page closes");
+
+    app.press_key("shift+g").expect("Shift+G opens Go to page");
+    app.wait_for("role:dialog[Go to page]")
+        .expect("Shift+G opens Go to page dialog");
+    app.press_key("escape").expect("Escape closes Go to page");
+    app.wait_for_gone("role:dialog", wait)
+        .expect("Go to page closes");
+
+    // Find bar traps 'g' while open, and closing Find with Escape immediately restores `g`.
+    app.press_key("mod+f").expect("Ctrl+F opens Find bar");
+    app.wait_for("text:Find in document")
+        .expect("Find bar opens");
+    app.type_text("text:Find in document", "g")
+        .expect("typing 'g' inside Find bar");
+    app.settle();
+    assert!(
+        !app.screen()
+            .matches("role:dialog[Go to page]")
+            .expect("valid Go to page selector"),
+        "typing 'g' inside Find bar must not open Go to page"
+    );
+    app.press_key("escape").expect("Escape closes Find bar");
+    app.wait_for_gone("text:Find in document", wait)
+        .expect("Find bar closes");
+    app.press_key("g")
+        .expect("g opens Go to page immediately after closing Find");
+    app.wait_for("role:dialog[Go to page]")
+        .expect("Go to page opens right after Find closes");
+    app.press_key("escape").expect("Escape closes Go to page");
+    app.wait_for_gone("role:dialog", wait)
+        .expect("Go to page closes");
+
+    // Ctrl+Y opens Custom Zoom dialog.
+    app.press_key("mod+y").expect("Ctrl+Y opens Custom zoom");
+    app.wait_for("role:dialog[Custom zoom]")
+        .expect("Custom zoom dialog opens");
+    app.press_key("escape").expect("Escape closes Custom zoom");
+    app.wait_for_gone("role:dialog", wait)
+        .expect("Custom zoom dialog closes");
+
+    // Ctrl+D opens Document Properties dialog.
+    app.press_key("mod+d")
+        .expect("Ctrl+D opens Document Properties");
+    app.wait_for("role:dialog[Document Properties]")
+        .expect("Document Properties dialog opens");
+    app.press_key("escape")
+        .expect("Escape closes Document Properties");
+    app.wait_for_gone("role:dialog", wait)
+        .expect("Document Properties dialog closes");
+
+    // F2 opens Rename file dialog on the pages.
+    app.press_key("f2").expect("F2 opens Rename file");
+    app.wait_for("role:dialog[Rename file]")
+        .expect("Rename file dialog opens");
+    app.press_key("escape").expect("Escape closes Rename file");
+    app.wait_for_gone("role:dialog", wait)
+        .expect("Rename file dialog closes");
+
+    // F8 hides and shows the mode toolbar.
+    app.wait_for("text:Customize")
+        .expect("mode toolbar starts visible");
+    app.press_key("f8").expect("F8 hides mode toolbar");
+    app.wait_for_gone("text:Customize", wait)
+        .expect("mode toolbar hides on F8");
+    app.press_key("f8").expect("F8 shows mode toolbar again");
+    app.wait_for("text:Customize")
+        .expect("mode toolbar reappears on F8");
+
+    // Shift+F12 opens and closes the Outline (TOC) drawer.
+    app.press_key("shift+f12")
+        .expect("Shift+F12 opens Outline drawer");
+    app.wait_for("text:Outline")
+        .expect("Outline drawer opens on Shift+F12");
+    app.press_key("shift+f12")
+        .expect("Shift+F12 closes Outline drawer");
+    app.wait_for_gone("text:Outline", wait)
+        .expect("Outline drawer closes on Shift+F12");
+}

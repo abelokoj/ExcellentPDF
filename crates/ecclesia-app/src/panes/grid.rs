@@ -744,8 +744,12 @@ fn build_page_canvas(
         .on_native_event(move |event: &NativeEvent| {
             match &*event.name {
                 "press" => {
-                    // Defer past NSH's `Item::Hosted` pointer-down `blur_window` so clicking the
-                    // PDF canvas reliably focuses `pages` and clears any stale toolbar button focus.
+                    // Blur the Find bar's TextInput immediately (hosted native items on Windows do
+                    // not auto-blur TextInput), then focus `pages` both synchronously (so
+                    // `on_focus_in` clears sidebar focus flags right away) and deferred past NSH's
+                    // `Item::Hosted` pointer-down `blur_window`.
+                    find.blur_input();
+                    focus.focus();
                     focus_pages_deferred(focus);
                     if let Some((_, pt)) =
                         ecclesia_features::annotate::notes::parse_press(&event.data)

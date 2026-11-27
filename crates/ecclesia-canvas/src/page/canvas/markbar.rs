@@ -19,6 +19,7 @@ use super::PageCanvas;
 use super::refhover::luminance;
 use crate::Rect;
 use crate::page::host::{Host, Wash};
+use crate::page::placement::Placement;
 
 /// The colour cells: the palette's five swatches, then the custom colour.
 const DOTS: usize = 6;
@@ -95,8 +96,9 @@ pub(crate) enum NoteMode {
     OpenNote,
 }
 
-/// Rounded logical-DIP anchor geometry last emitted for the external text-selection popup.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Rounded logical-DIP anchor geometry last emitted for the external text, block, or
+/// selected-annotation popup.
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct SelectionPopupGeometry {
     x: i32,
     top_y: i32,
@@ -105,6 +107,7 @@ struct SelectionPopupGeometry {
     view_h: i32,
     editable: bool,
     block: bool,
+    annotation: Option<(usize, String)>,
 }
 
 /// The bar's state.
@@ -203,8 +206,8 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
-    /// Computes and emits deduplicated logical-DIP anchor geometry for the external text or
-    /// rectangular block selection popup.
+    /// Computes and emits deduplicated logical-DIP anchor geometry for the external text,
+    /// rectangular block, or single-annotation selection popup.
     pub(super) fn update_external_popup(&mut self) {
         let s = self.dpi_scale().max(f32::EPSILON);
         let anchor = if !self.selecting && self.selection.is_some_and(|sel| !sel.is_collapsed()) {
@@ -214,15 +217,56 @@ impl<H: Host> PageCanvas<H> {
                     let center_x = (first.iter().map(|p| p.0).sum::<f32>() / 4.0) / s;
                     let top_y = first.iter().map(|p| p.1).fold(f32::MAX, f32::min) / s;
                     let bottom_y = last.iter().map(|p| p.1).fold(f32::MIN, f32::max) / s;
-                    Some((center_x, top_y, bottom_y, false))
+                    Some((center_x, top_y, bottom_y, false, None))
                 }
                 _ => None,
             }
+        } else if let Some((cx, top, bottom)) = self.block_selection_screen_bounds() {
+            Some((cx / s, top / s, bottom / s, true, None))
+        } else if let Some((page, id, rect)) = self.single_selected_bounds() {
+            let id = id.to_owned();
+            Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page).map(
+                |placement| {
+                    let corners = [
+                        PagePoint {
+                            x: rect.x0,
+                            y: rect.y0,
+                        },
+                        PagePoint {
+                            x: rect.x1,
+                            y: rect.y0,
+                        },
+                        PagePoint {
+                            x: rect.x1,
+                            y: rect.y1,
+                        },
+                        PagePoint {
+                            x: rect.x0,
+                            y: rect.y1,
+                        },
+                    ];
+                    let mut min_x = f32::INFINITY;
+                    let mut max_x = f32::NEG_INFINITY;
+                    let mut min_y = f32::INFINITY;
+                    let mut max_y = f32::NEG_INFINITY;
+                    for corner in corners {
+                        let (lx, ly) = placement.to_layout(corner);
+                        let (sx, sy) = self.viewport.to_screen_point(lx, ly);
+                        min_x = min_x.min(sx);
+                        max_x = max_x.max(sx);
+                        min_y = min_y.min(sy);
+                        max_y = max_y.max(sy);
+                    }
+                    let center_x = ((min_x + max_x) * 0.5) / s;
+                    let top_y = min_y / s;
+                    let bottom_y = max_y / s;
+                    (center_x, top_y, bottom_y, false, Some((page, id)))
+                },
+            )
         } else {
-            self.block_selection_screen_bounds()
-                .map(|(cx, top, bottom)| (cx / s, top / s, bottom / s, true))
+            None
         };
-        let Some((center_x, top_y, bottom_y, block)) = anchor else {
+        let Some((center_x, top_y, bottom_y, block, annotation)) = anchor else {
             self.clear_external_popup();
             return;
         };
@@ -241,14 +285,25 @@ impl<H: Host> PageCanvas<H> {
             view_h: view_h.round() as i32,
             editable,
             block,
+            annotation: annotation.clone(),
         };
-        if self.markbar.last_popup == Some(next) {
+        if self.markbar.last_popup.as_ref() == Some(&next) {
             return;
         }
         self.markbar.last_popup = Some(next);
-        self.emit(
-            "selectionPopup",
-            serde_json::json!({
+        let payload = match annotation {
+            Some((page, id)) => serde_json::json!({
+                "visible": true,
+                "x": center_x,
+                "topY": top_y,
+                "bottomY": bottom_y,
+                "viewW": view_w,
+                "viewH": view_h,
+                "editable": editable,
+                "block": block,
+                "annotation": { "page": page, "id": id },
+            }),
+            None => serde_json::json!({
                 "visible": true,
                 "x": center_x,
                 "topY": top_y,
@@ -258,7 +313,8 @@ impl<H: Host> PageCanvas<H> {
                 "editable": editable,
                 "block": block,
             }),
-        );
+        };
+        self.emit("selectionPopup", payload);
     }
 
     /// Uses `tool` on the selection, block selection, or an insert at the click's caret; waits for

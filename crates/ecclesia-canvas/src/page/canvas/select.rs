@@ -123,6 +123,16 @@ impl<H: Host> PageCanvas<H> {
         self.selected.drag.is_some() || self.selected.hover
     }
 
+    /// Page, id and bounds of the single selected annotation when exactly one annotation is
+    /// selected and no drag is under way, for anchoring the external floating selection popup.
+    pub(super) fn single_selected_bounds(&self) -> Option<(usize, &str, PageRect)> {
+        if self.selected.drag.is_some() || self.selected.items.len() != 1 {
+            return None;
+        }
+        let item = self.selected.items.first()?;
+        Some((self.selected.page, item.id.as_str(), item.bounds))
+    }
+
     /// The left button went down at client pixel (`x`, `y`): on a selected annotation's grip, or inside one, a drag
     /// starts. Returns whether it did, when the window should capture the mouse.
     pub(super) fn select_down(&mut self, x: i32, y: i32) -> bool {

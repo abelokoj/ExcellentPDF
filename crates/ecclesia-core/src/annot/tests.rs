@@ -269,6 +269,7 @@ fn annotation() -> impl Strategy<Value = Annotation> {
                     multiply: open,
                     widths: Vec::new(),
                     tape: locked && closed,
+                    block_highlight: None,
                 }
             },
         )

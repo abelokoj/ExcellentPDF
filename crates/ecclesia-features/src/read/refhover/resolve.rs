@@ -212,6 +212,17 @@ pub fn dest_y_from_source(
     dest: &PageText,
     matching: Match,
 ) -> Option<f32> {
+    dest_point_from_source(src, source, dest, matching).map(|(_, y)| y)
+}
+
+/// Like [`dest_y_from_source`], returning both `(x, y)` in page points so multi-column targets
+/// keep their exact column coordinate instead of falling back to the left column.
+fn dest_point_from_source(
+    src: &PageText,
+    source: RectF,
+    dest: &PageText,
+    matching: Match,
+) -> Option<(f32, f32)> {
     if source.is_empty() || src.is_empty() || dest.is_empty() {
         return None;
     }
@@ -230,7 +241,7 @@ pub fn dest_y_from_source(
                 *slot = Some(r);
             }
         }
-        at_start.or(anywhere).map(|r| r.y as f32)
+        at_start.or(anywhere).map(|r| (r.x as f32, r.y as f32))
     };
     match matching {
         Match::Any => words.iter().find_map(|w| best(w)),
@@ -238,22 +249,26 @@ pub fn dest_y_from_source(
     }
 }
 
-/// The citation's words (runs of two or more ASCII letters and digits under `source`, grown by 2 pt), best first:
-/// parenthesized ones, then longer ones. At most 16, from the first 511 glyphs, as in Enhanced.
-fn source_words(src: &PageText, source: RectF) -> Vec<Vec<char>> {
+/// Raw characters under `source` on `src` (grown by 2 pt), capped at 511 glyphs.
+fn source_raw_chars(src: &PageText, source: RectF) -> Vec<char> {
     const MAX_GLYPHS: usize = 511;
-    const MAX_WORDS: usize = 16;
     // Enhanced truncates the float box to whole points before growing it.
     let (l, t) = (source.x as i32 - 2, source.y as i32 - 2);
     let (r, b) = (source.right() as i32 + 2, source.bottom() as i32 + 2);
-    let raw: Vec<char> = src
-        .chars()
+    src.chars()
         .iter()
         .zip(src.rects())
         .filter(|(_, g)| g.right() >= l && g.x <= r && g.bottom() >= t && g.y <= b)
         .map(|(c, _)| *c)
         .take(MAX_GLYPHS)
-        .collect();
+        .collect()
+}
+
+/// The citation's words (runs of two or more ASCII letters and digits under `source`, grown by 2 pt), best first:
+/// parenthesized ones, then longer ones. At most 16, from the first 511 glyphs, as in Enhanced.
+fn source_words(src: &PageText, source: RectF) -> Vec<Vec<char>> {
+    const MAX_WORDS: usize = 16;
+    let raw = source_raw_chars(src, source);
 
     let mut words: Vec<(Vec<char>, bool)> = Vec::new();
     let mut i = 0;
@@ -288,12 +303,166 @@ fn word_at(text: &PageText, i: usize, word: &[char]) -> bool {
         && chars.get(end).is_none_or(|c| !c.is_ascii_alphanumeric())
 }
 
-/// Whether nothing is inked left of glyph `i` on its line (the glyphs with its top).
+/// Whether nothing is inked immediately left of glyph `i` on its line (the page margin or a
+/// multi-column gutter, so right-column lines also qualify even with a 10 pt LaTeX `\columnsep`).
 fn starts_line(text: &PageText, i: usize) -> bool {
+    const COL_GAP: i32 = 9;
     let r = text.rect(i);
-    !text
-        .ink()
-        .any(|(j, _, g)| j != i && g.y == r.y && g.x < r.x)
+    let y_tol = (r.dy / 2).max(3);
+    !text.ink().any(|(j, _, g)| {
+        j != i && (g.y - r.y).abs() <= y_tol && g.x < r.x && g.right() > r.x - COL_GAP
+    })
+}
+
+/// Extracts all candidate `(x, y)` anchors on `dest` near `target_y` (within `NEAR_Y_TOL` pt)
+/// matching the hovered citation or cross-reference under `source` on `src`. Handles:
+/// - bracketed or bare numeric references (`[5]`, `[26]`, `26` -> `[26]` at a column start),
+/// - equation numbers (`(3)`, `(2.1)` -> `(3)` / `(2.1)` near `target_y`),
+/// - words/labels (`Smith`, `Figure`, `Table`, `Section`, `Foo10`) at a column start.
+fn anchors_near_y(
+    src: &PageText,
+    source: RectF,
+    dest: &PageText,
+    target_y: f32,
+) -> Vec<(f32, f32)> {
+    const NEAR_Y_TOL: i32 = 55;
+    if source.is_empty() || src.is_empty() || dest.is_empty() || !target_y.is_finite() {
+        return Vec::new();
+    }
+    let ty = target_y as i32;
+    let raw = source_raw_chars(src, source);
+    if raw.is_empty() {
+        return Vec::new();
+    }
+    let mut hits: Vec<(f32, f32)> = Vec::new();
+
+    // 1. Numeric reference "[N]" (including single-digit references "[1]".."[9]"): match a
+    //    column-starting "[N]" on `dest` near `target_y`.
+    let trimmed: String = raw
+        .iter()
+        .copied()
+        .collect::<String>()
+        .trim()
+        .trim_matches(|c: char| matches!(c, '[' | ']' | '(' | ')' | ',' | '.' | ';'))
+        .to_owned();
+    if !trimmed.is_empty() && trimmed.chars().all(|c| c.is_ascii_digit()) {
+        let needle: Vec<char> = format!("[{trimmed}]").chars().collect();
+        for i in 0..dest.len() {
+            let r = dest.rect(i);
+            if (r.y - ty).abs() > NEAR_Y_TOL || !starts_line(dest, i) {
+                continue;
+            }
+            let end = i + needle.len();
+            if end <= dest.len() && dest.chars()[i..end] == needle[..] {
+                hits.push((r.x as f32, r.y as f32));
+            }
+        }
+        if !hits.is_empty() {
+            return hits;
+        }
+    }
+
+    // 2. Equation label "(N)" or "(N.M)" in source text (e.g. "(3)", "Eq. (2.1)"): match "(N)"
+    //    on `dest` near `target_y`.
+    let raw_str: String = raw.iter().copied().collect();
+    if let Some(open) = raw_str.find('(')
+        && let Some(rel_close) = raw_str[open + 1..].find(')')
+    {
+        let inner = &raw_str[open + 1..open + 1 + rel_close];
+        if !inner.is_empty()
+            && inner.len() <= 6
+            && inner.chars().all(|c| c.is_ascii_digit() || c == '.')
+            && inner.chars().any(|c| c.is_ascii_digit())
+        {
+            let needle: Vec<char> = format!("({inner})").chars().collect();
+            for i in 0..dest.len() {
+                let r = dest.rect(i);
+                if (r.y - ty).abs() > NEAR_Y_TOL {
+                    continue;
+                }
+                let end = i + needle.len();
+                if end <= dest.len() && dest.chars()[i..end] == needle[..] {
+                    hits.push((r.x as f32, r.y as f32));
+                }
+            }
+            if !hits.is_empty() {
+                return hits;
+            }
+        }
+    }
+
+    // 3. Best word(s) from `source_words` matching at a line/column start near `target_y`
+    //    (e.g. author surname, `[Foo10]`, `Figure`, `Table`, `Section`).
+    for word in source_words(src, source) {
+        for i in 0..dest.len() {
+            let r = dest.rect(i);
+            if (r.y - ty).abs() > NEAR_Y_TOL || !word_at(dest, i, &word) {
+                continue;
+            }
+            if starts_line(dest, i)
+                || (i > 0 && dest.chars()[i - 1] == '[' && starts_line(dest, i - 1))
+            {
+                let anchor_r = if i > 0 && dest.chars()[i - 1] == '[' {
+                    dest.rect(i - 1)
+                } else {
+                    r
+                };
+                hits.push((anchor_r.x as f32, anchor_r.y as f32));
+            }
+        }
+        if !hits.is_empty() {
+            return hits;
+        }
+    }
+    hits
+}
+
+/// Refines `(x, y)` on a multi-column destination page when `x` is unspecified/at the page origin
+/// (e.g. `/FitH`, `/XYZ null y`, `/XYZ 0 y`) OR when `x` lands in the wrong column while the
+/// opposite column holds the sole matching anchor near `y`.
+fn refine_two_column_target(
+    src: &PageText,
+    source: RectF,
+    dest: &PageText,
+    mediabox: RectF,
+    x: f32,
+    y: f32,
+) -> (f32, f32) {
+    let Some(cols) = layout::detect_page_columns(dest, mediabox) else {
+        return (x, y);
+    };
+    let hits = anchors_near_y(src, source, dest, y);
+    if hits.is_empty() {
+        return (x, y);
+    }
+    let unspecified_x = !x.is_finite() || x <= mediabox.x + 1.0;
+    if unspecified_x {
+        if let Some(&(hx, hy)) = hits
+            .iter()
+            .min_by(|a, b| (a.1 - y).abs().total_cmp(&(b.1 - y).abs()))
+        {
+            return (hx, hy);
+        }
+        return (x, y);
+    }
+
+    let in_left = (x as i32) < cols.gutter_mid;
+    let same_col_hit = hits
+        .iter()
+        .any(|&(hx, _)| ((hx as i32) < cols.gutter_mid) == in_left);
+    if same_col_hit {
+        return (x, y);
+    }
+    // No matching anchor in `x`'s column near `y`, while the opposite column has an exact match:
+    // snap to the closest opposite-column match (rescues PDFs that emit a left-margin x for
+    // right-column anchors).
+    if let Some(&(hx, hy)) = hits
+        .iter()
+        .min_by(|a, b| (a.1 - y).abs().total_cmp(&(b.1 - y).abs()))
+    {
+        return (hx, hy);
+    }
+    (x, y)
 }
 
 /// What to show for `target`, cited at `source` on page `src_page`: an equation, a reference entry or a strip of the
@@ -309,17 +478,21 @@ pub fn shown(
     let src = pages.text(src_page).unwrap_or_default();
     let dest = pages.text(page).unwrap_or_default();
     let resolve =
-        |dest: &PageText, matching: Match| dest_y_from_source(&src, source, dest, matching);
+        |dest: &PageText, matching: Match| dest_point_from_source(&src, source, dest, matching);
 
     if layout::should_resolve_dest_y(mediabox, y) {
         y = 0.0;
-        if let Some(found) = resolve(&dest, Match::Any) {
-            y = found;
-            x = x.max(0.0);
+        if let Some((found_x, found_y)) = resolve(&dest, Match::Any) {
+            x = found_x.max(0.0);
+            y = found_y;
         }
     }
 
     let prepared = dest.prepared();
+    let (rx, ry) = refine_two_column_target(&src, source, &prepared, mediabox, x, y);
+    x = rx;
+    y = ry;
+
     let first = detect_region(&prepared, mediabox, x, y, Missing::Empty);
     let search_next = match first {
         None => true,
@@ -329,12 +502,12 @@ pub fn shown(
     };
     if search_next && page + 1 < pages.count() {
         let next = pages.text(page + 1).unwrap_or_default();
-        if let Some(next_y) = resolve(&next, Match::Best) {
+        if let Some((next_x, next_y)) = resolve(&next, Match::Best) {
             let mediabox = pages.mediabox(page + 1).filter(|m| !m.is_empty())?;
             let found = detect_region(
                 &next.prepared(),
                 mediabox,
-                x.max(0.0),
+                next_x.max(0.0),
                 next_y,
                 Missing::Landscape,
             )?;
@@ -369,7 +542,9 @@ fn detect_region(
     y: f32,
     missing: Missing,
 ) -> Option<EntryRegion> {
-    if let Some(region) = layout::detect_equation_box(text, mediabox, y).filter(|r| !r.is_empty()) {
+    if let Some(region) =
+        layout::detect_equation_box_at(text, mediabox, x, y).filter(|r| !r.is_empty())
+    {
         return Some(EntryRegion {
             region,
             continuation: None,
@@ -381,7 +556,7 @@ fn detect_region(
         return Some(entry);
     }
     (missing == Missing::Landscape).then(|| EntryRegion {
-        region: layout::landscape_box(mediabox, y, text),
+        region: layout::landscape_box_at(mediabox, x, y, text),
         continuation: None,
     })
 }

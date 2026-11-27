@@ -430,6 +430,7 @@ mod tests {
             ("end", Scope::Page, CommandId::Canvas("lastPage")),
             ("mod+g", Scope::Window, CommandId::GoToPage),
             ("g", Scope::Page, CommandId::GoToPage),
+            ("shift+g", Scope::Page, CommandId::GoToPage),
             ("alt+left", Scope::Window, CommandId::Canvas("historyBack")),
             ("backspace", Scope::Page, CommandId::Canvas("historyBack")),
             (
@@ -451,10 +452,12 @@ mod tests {
             ("mod+minus", Scope::Window, CommandId::Canvas("zoomOut")),
             ("minus", Scope::Page, CommandId::Canvas("zoomOut")),
             ("mod+0", Scope::Window, CommandId::Canvas("fitPage")),
-            ("z", Scope::Page, CommandId::Canvas("fitPage")),
+            ("z", Scope::Page, CommandId::Canvas("toggleZoom")),
             ("mod+1", Scope::Window, CommandId::Canvas("actualSize")),
             ("mod+2", Scope::Window, CommandId::Canvas("fitWidth")),
             ("mod+3", Scope::Window, CommandId::Canvas("fitHeight")),
+            ("mod+4", Scope::Window, CommandId::Canvas("zoomToSelection")),
+            ("mod+y", Scope::Window, CommandId::CustomZoom),
             // Layout, view & presentation
             ("mod+6", Scope::Window, CommandId::Canvas("layoutSingle")),
             ("mod+7", Scope::Window, CommandId::Canvas("layoutFacing")),
@@ -480,7 +483,11 @@ mod tests {
             ("b", Scope::Page, CommandId::PresentBlankBlack),
             (".", Scope::Page, CommandId::PresentBlankBlack),
             ("w", Scope::Page, CommandId::PresentBlankWhite),
+            ("f7", Scope::Window, CommandId::Canvas("toggleFocus")),
+            ("f8", Scope::Window, CommandId::ToggleToolbar),
+            ("f9", Scope::Window, CommandId::ToggleMenuBar),
             ("f12", Scope::Window, CommandId::ToggleSidebar),
+            ("shift+f12", Scope::Window, CommandId::ToggleOutline),
             ("mod+alt+b", Scope::Window, CommandId::ToggleInspector),
             ("shift+i", Scope::Page, CommandId::ToggleDocumentColors),
             (
@@ -501,7 +508,19 @@ mod tests {
             ),
             // Files & tabs
             ("mod+o", Scope::Window, CommandId::OpenFile),
+            (
+                "mod+shift+right",
+                Scope::Window,
+                CommandId::OpenNextInFolder,
+            ),
+            ("mod+shift+left", Scope::Window, CommandId::OpenPrevInFolder),
+            ("f2", Scope::Page, CommandId::RenameFile),
             ("mod+s", Scope::Window, CommandId::Save),
+            ("mod+shift+s", Scope::Window, CommandId::SaveAs),
+            ("mod+r", Scope::Window, CommandId::ReloadDocument),
+            ("mod+d", Scope::Window, CommandId::DocumentProperties),
+            ("alt+enter", Scope::Window, CommandId::DocumentProperties),
+            ("mod+shift+n", Scope::Window, CommandId::NewWindow),
             ("mod+p", Scope::Window, CommandId::Print),
             ("mod+w", Scope::Window, CommandId::Tab(TabAction::Close)),
             ("mod+f4", Scope::Window, CommandId::Tab(TabAction::Close)),
@@ -561,7 +580,7 @@ mod tests {
                 CommandId::Outline(OutlineAction::Add),
             ),
             (
-                "mod+d",
+                "mod+alt+d",
                 Scope::Window,
                 CommandId::Bookmark(BookmarkAction::Add),
             ),
@@ -581,7 +600,6 @@ mod tests {
             ("mod+delete", Scope::Page, CommandId::DeleteAnnotations),
             ("mod+z", Scope::Window, CommandId::Undo),
             ("mod+shift+z", Scope::Window, CommandId::Redo),
-            ("mod+y", Scope::Window, CommandId::Redo),
             ("mod+c", Scope::Window, CommandId::Canvas("copy")),
             ("mod+insert", Scope::Window, CommandId::Canvas("copy")),
             ("mod+a", Scope::Window, CommandId::Canvas("selectAll")),
@@ -700,11 +718,12 @@ mod tests {
                 assert_eq!(binding.scope, Scope::Page, "{keys:?} on {os:?}");
             }
 
-            // Every page-scoped keystroke except `mod+shift+b` (`BlockSelect`) is classified by
-            // NSH as `edits_text() == true`, so `When::Auto` yields automatically while a text
-            // input such as the Find bar has focus.
+            // Every page-scoped keystroke except `mod+shift+b` (`BlockSelect`) and `f2`
+            // (`RenameFile`) is classified by NSH as `edits_text() == true`, so `When::Auto`
+            // yields automatically while a text input such as the Find bar has focus; `PageKeyState`
+            // additionally unmounts page keys whenever dialogs, sidebars, or Home are active.
             for binding in keymap.bindings().iter().filter(|b| b.scope == Scope::Page) {
-                if binding.id == CommandId::BlockSelect {
+                if matches!(binding.id, CommandId::BlockSelect | CommandId::RenameFile) {
                     continue;
                 }
                 let stroke =

@@ -206,6 +206,11 @@ impl FindState {
         self.input
     }
 
+    /// Removes keyboard focus from the find bar's text input so page shortcuts resume immediately.
+    pub(crate) fn blur_input(self) {
+        self.input.blur();
+    }
+
     /// Runs `action`.
     pub(crate) fn run(self, action: FindAction) {
         match action {
@@ -244,6 +249,7 @@ impl FindState {
         self.canvas.command("findClear", JsonValue::Null);
         self.hits.set(Vec::new());
         self.progress.set(Progress::default());
+        self.input.blur();
         self.pages_focus.focus();
     }
 

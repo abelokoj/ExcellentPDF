@@ -873,3 +873,225 @@ fn popover_zoom_fits_room() {
     };
     assert_eq!(zoom(&shown, 1.0, tiny), size::MIN_ZOOM);
 }
+
+#[test]
+fn two_column_left_target_not_hijacked_by_closer_right_column_baseline() {
+    // Column 1 entry sits 6 pt below dest_y while Column 2 happens to have a line right at dest_y:
+    // targeting Column 1 must NEVER jump across the gutter into Column 2.
+    let t = page(&[
+        ("[1] Left entry above.", 54, 170),
+        ("[2] Target left column entry.", 54, 206),
+        ("continuation of left entry.", 72, 220),
+        ("[3] Next left column entry.", 54, 245),
+        ("[20] Right column entry here.", 320, 200),
+        ("continuation of right entry.", 338, 214),
+        ("[21] Next right column entry.", 320, 240),
+    ]);
+    let b = entry(&t, 54.0, 200.0);
+    assert!(!b.is_empty());
+    assert!(
+        b.x <= 60.0 && b.right() < 310.0,
+        "must stay in left column: {b:?}"
+    );
+    assert!(
+        b.y >= 195.0 && b.y <= 210.0 && b.bottom() < 245.0,
+        "must frame [2]: {b:?}"
+    );
+}
+
+#[test]
+fn two_column_fith_and_wrong_margin_links_resolve_exact_right_column_entry() {
+    use super::resolve::{Place, shown};
+    let src = page(&[("Prior work [26] and [5] demonstrated this.", 54, 150)]);
+    let dest = page(&[
+        ("[1] Left column first entry.", 54, 180),
+        ("left first continuation.", 72, 194),
+        ("[2] Left column second entry.", 54, 215),
+        ("left second continuation.", 72, 229),
+        ("[5] Right column fifth entry.", 320, 180),
+        ("right fifth continuation.", 338, 194),
+        ("[26] Right column twenty-sixth.", 320, 215),
+        ("right twenty-sixth cont.", 338, 229),
+    ]);
+    let mut doc = Doc(vec![src, dest]);
+
+    // Link "/FitH 215" arrives with x = 0.0; hovering "[26]" must snap to Column 2 [26], NOT Col 1 [2].
+    let src_26 = RectF::new(54.0 + 11.0 * 6.0, 150.0, 24.0, 12.0);
+    let shown_26 = shown(
+        &mut doc,
+        0,
+        src_26,
+        Place {
+            page: 1,
+            x: 0.0,
+            y: 215.0,
+        },
+    )
+    .expect("right column [26]");
+    assert!(
+        shown_26.region.x >= 300.0
+            && shown_26.region.y >= 205.0
+            && shown_26.region.bottom() <= 250.0,
+        "expected Column 2 [26], got {shown_26:?}"
+    );
+
+    // Link with single-digit "[5]" and left-margin x = 54.0 still resolves to Column 2 [5].
+    let src_5 = RectF::new(54.0 + 20.0 * 6.0, 150.0, 18.0, 12.0);
+    let shown_5 = shown(
+        &mut doc,
+        0,
+        src_5,
+        Place {
+            page: 1,
+            x: 54.0,
+            y: 180.0,
+        },
+    )
+    .expect("right column [5]");
+    assert!(
+        shown_5.region.x >= 300.0 && shown_5.region.y >= 170.0 && shown_5.region.bottom() <= 212.0,
+        "expected Column 2 [5], got {shown_5:?}"
+    );
+}
+
+#[test]
+fn two_column_author_year_citation_and_right_column_entry_found() {
+    use super::resolve::{Lookups, shown};
+    let body = page(&[
+        ("Left column prose about unrelated topics.", 54, 200),
+        ("More left column prose on line two here.", 54, 216),
+        ("As shown by (Zimmermann et al., 2023) in", 320, 200),
+        ("our two-column evaluation right column.", 320, 216),
+    ]);
+    let refs = page(&[
+        ("Adams, A. (2019). First left entry title.", 54, 100),
+        ("Journal of Left Column, 1(2), 10-20.", 72, 114),
+        ("Brown, B. (2020). Second left entry here.", 54, 134),
+        ("Journal of Left Column, 2(3), 21-30.", 72, 148),
+        // Right column starts back at y = 100 (smaller y than previous glyph!).
+        ("Zimmermann, O. (2023). Right column work.", 320, 100),
+        ("Transactions on Two Columns, 9(4), 1-12.", 338, 114),
+        ("Zucker, Z. (2024). Next right entry here.", 320, 134),
+        ("Transactions on Two Columns, 10(1), 5-9.", 338, 148),
+    ]);
+    let mut doc = Doc(vec![body, refs]);
+    let mut lookups = Lookups::new();
+    // Pointer over "Zimmermann" in Column 2.
+    let found = lookups
+        .find(&mut doc, 0, 320 + 14 * 6, 206)
+        .expect("finds Zimmermann (2023) in right column");
+    assert_eq!(found.target.page, 1);
+    assert!(
+        found.target.x >= 315.0 && (found.target.y - 100.0).abs() < 2.0,
+        "{found:?}"
+    );
+
+    let s = shown(&mut doc, 0, found.source.into(), found.target).expect("shown");
+    assert!(s.region.x >= 305.0, "stays in right column: {s:?}");
+    assert!(
+        s.region.y <= 106.0 && s.region.bottom() < 134.0,
+        "frames Zimmermann only: {s:?}"
+    );
+}
+
+#[test]
+fn two_column_equations_stay_in_their_own_column_and_never_hijack_opposite_column() {
+    use super::layout::detect_equation_box_at;
+    let t = page(&[
+        ("Left column body before equation.", 54, 180),
+        ("E = m c^2", 110, 210),
+        ("(1)", 272, 210),
+        ("Left column body after equation.", 54, 240),
+        ("Right column body line at same y.", 320, 180),
+        ("Right column prose beside eq 1.", 320, 210),
+        ("F = m a", 390, 245),
+        ("(2)", 542, 245),
+        ("Right column body after eq 2.", 320, 275),
+    ]);
+
+    // Equation (1) in Column 1 is detected and cropped to Column 1.
+    let eq1 = detect_equation_box_at(&t, mediabox(), 54.0, 210.0).expect("Col 1 equation (1)");
+    assert!(
+        eq1.x <= 60.0 && eq1.right() < 310.0,
+        "Col 1 eq must crop to Col 1: {eq1:?}"
+    );
+
+    // Equation (2) in Column 2 is detected and cropped to Column 2.
+    let eq2 = detect_equation_box_at(&t, mediabox(), 320.0, 245.0).expect("Col 2 equation (2)");
+    assert!(
+        eq2.x >= 305.0 && eq2.right() > 540.0,
+        "Col 2 eq must crop to Col 2: {eq2:?}"
+    );
+
+    // Targeting Column 1 at y = 275 (far from Col 1 eq (1) at 210, but only 30 pt from Col 2 eq
+    // (2) at 245) must NOT be hijacked by Column 2's equation (2)!
+    assert_eq!(detect_equation_box_at(&t, mediabox(), 54.0, 275.0), None);
+}
+
+#[test]
+fn two_column_narrow_10pt_latex_gutter_stays_in_right_column() {
+    // Standard LaTeX `article [twocolumn]` uses a 10 pt `\columnsep`: Col 1 ends at 294, Col 2
+    // starts at 304 (10 pt gutter). Hovering a right-column entry must NEVER bridge into Col 1.
+    let t = page(&[
+        ("Adams, A. (2019). Left column entry text", 54, 150), // 54 + 40*6 = 294
+        ("Left Journal, 1(2), 10-20.", 72, 164),
+        ("Brown, B. (2020). Next left entry line.", 54, 184),
+        ("Smith, J. (2024). Right column entry.", 304, 150),
+        ("Right Journal, 5(1), 40-50.", 322, 164),
+        ("Taylor, T. (2025). Next right entry.", 304, 184),
+    ]);
+    let b = entry(&t, 304.0, 150.0);
+    assert!(
+        b.x >= 295.0 && b.y <= 156.0 && b.bottom() < 184.0,
+        "10 pt gutter must keep right column entry strictly in Col 2: {b:?}"
+    );
+}
+
+#[test]
+fn two_column_section_landscape_crops_to_column_while_spanning_figure_keeps_full_width() {
+    use super::layout::landscape_box_at;
+    let t = page(&[
+        ("1. Introduction to the paper.", 54, 150),
+        ("Left column text paragraph one.", 54, 170),
+        ("Left column text paragraph two.", 54, 186),
+        ("3. Experimental Results Here", 320, 150),
+        ("Right column text paragraph one.", 320, 170),
+        ("Right column text paragraph two.", 320, 186),
+        // Full-width spanning caption at bottom (crosses gutter).
+        (
+            "Figure 4: Full-width architecture diagram spanning both columns cleanly across the page.",
+            54,
+            520,
+        ),
+    ]);
+
+    let sec3 = landscape_box_at(mediabox(), 320.0, 150.0, &t);
+    assert!(
+        sec3.x >= 305.0 && sec3.dx < PAGE_W * 0.55,
+        "Section 3 in Col 2 should crop to Col 2: {sec3:?}"
+    );
+
+    let fig4 = landscape_box_at(mediabox(), 54.0, 520.0, &t);
+    assert_eq!(
+        (fig4.x, fig4.dx),
+        (0.0, PAGE_W),
+        "Spanning Figure 4 caption should stay full page width: {fig4:?}"
+    );
+}
+
+#[test]
+fn two_column_entry_not_disrupted_by_figure_caption_in_opposite_column() {
+    let t = page(&[
+        ("[12] Smith J., 2022, Great Paper Title.", 54, 200),
+        ("Proceedings of Conferences, pp. 1-10.", 72, 214),
+        ("[13] Jones A., 2023, Another Title.", 54, 240),
+        ("Right column prose line above figure.", 320, 200),
+        ("Figure 3: Results shown in right column.", 320, 340),
+        ("More right column text below figure.", 320, 360),
+    ]);
+    let b = entry(&t, 54.0, 200.0);
+    assert!(
+        b.x <= 60.0 && b.right() < 310.0 && b.bottom() < 240.0,
+        "Col 2 Figure 3 must not turn Col 1 [12] into a full-width strip: {b:?}"
+    );
+}

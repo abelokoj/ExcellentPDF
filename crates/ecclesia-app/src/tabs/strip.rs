@@ -10,6 +10,7 @@
 use std::sync::OnceLock;
 
 use base64::Engine as _;
+use ecclesia_store::workspaces::Workspace;
 use nsh_base::{
     MenuItemElement, SubmenuElement, button, context_menu, menu_item, menu_separator, submenu,
     tabs, theme,
@@ -24,6 +25,7 @@ use super::{
 use crate::commands::{self, CommandId};
 use crate::editing::Editing;
 use crate::panes::PaneAction;
+use crate::workspaces::Workspaces;
 
 /// Width of pinned compact tabs and O(1) strip bound.
 const PINNED_TAB_WIDTH: f32 = 44.0;
@@ -99,6 +101,7 @@ pub(crate) fn tab_strip(
     state: TabState,
     home_open: Signal<bool>,
     editing: Editing,
+    workspaces: Workspaces,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
     let tab_style = move || state.live.read(|s| TabStyle::parse(s.text(TAB_STYLE)));
@@ -122,7 +125,9 @@ pub(crate) fn tab_strip(
             |item: &Item| *item,
             move |item, _| match item.with_untracked(|item| *item) {
                 Item::Group(id) => group_chip(state, id).into_element(),
-                Item::Tab(id) => tab_view(state, home_open, editing, id, drag, run).into_element(),
+                Item::Tab(id) => {
+                    tab_view(state, home_open, editing, workspaces, id, drag, run).into_element()
+                }
             },
         ));
     let scroller = scroll()
@@ -424,6 +429,7 @@ fn tab_view(
     state: TabState,
     home_open: Signal<bool>,
     editing: Editing,
+    workspaces: Workspaces,
     id: TabId,
     drag: Signal<Option<TabDrag>>,
     run: impl Fn(CommandId) + Copy + 'static,
@@ -748,6 +754,7 @@ fn tab_view(
             })
             .disabled(missing),
         )
+        .child(move_to_workspace_submenu(state, workspaces, id))
         .child(tab_menu_item_reactive(
             move || {
                 if pinned() {
@@ -851,38 +858,126 @@ fn tab_menu_item_reactive(
         )
 }
 
+/// Direction of the softly rounded submenu triangle indicator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SubmenuArrow {
+    Right,
+    Left,
+}
+
+/// A trigger or back row inside a tab context menu submenu.
+fn submenu_row(label: String, arrow: SubmenuArrow) -> impl IntoElement {
+    let icon = match arrow {
+        SubmenuArrow::Right => crate::shell::app_menu::submenu_arrow_right().into_element(),
+        SubmenuArrow::Left => crate::shell::app_menu::submenu_arrow_left().into_element(),
+    };
+    view()
+        .flex_row()
+        .items_center()
+        .gap_3()
+        .h(px(30.0))
+        .px_2p5()
+        .rounded(px(6.0))
+        .hover(|s| s.bg(move || theme().accent))
+        .focus(|s| s.bg(move || theme().accent))
+        .child(
+            text(label)
+                .flex_1()
+                .text_size(px(13.0))
+                .text_color(move || theme().popover_foreground),
+        )
+        .child(icon)
+}
+
+/// The "Move to Workspace" submenu listing every other workspace plus "Move to New Workspace".
+fn move_to_workspace_submenu(state: TabState, workspaces: Workspaces, id: TabId) -> SubmenuElement {
+    let has_other_workspaces = move || {
+        let shown = workspaces.shown_id();
+        workspaces.list().iter().any(|w| w.id != shown)
+    };
+    submenu()
+        .offset(px(2.0))
+        .trigger(submenu_row(
+            t!("tabs.menu.move_to_workspace"),
+            SubmenuArrow::Right,
+        ))
+        .back(submenu_row(
+            t!("tabs.menu.move_to_workspace_back"),
+            SubmenuArrow::Left,
+        ))
+        .child(each(
+            move || {
+                let shown = workspaces.shown_id();
+                workspaces
+                    .list()
+                    .into_iter()
+                    .filter(move |w| w.id != shown)
+                    .collect::<Vec<_>>()
+            },
+            |w: &Workspace| w.id,
+            move |ws, _| {
+                let target_id = ws.with_untracked(|w| w.id);
+                let label = move || ws.with(crate::workspaces::display_name);
+                let icon = move || ws.with(|w| w.icon.clone());
+                menu_item()
+                    .on_select(move || {
+                        let _ = workspaces.move_tab_to(state, id, target_id);
+                    })
+                    .accessibility_label(move || Some(SharedString::from(label())))
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .h(px(30.0))
+                    .px_2p5()
+                    .rounded(px(6.0))
+                    .hover(|s| s.bg(move || theme().accent))
+                    .focus(|s| s.bg(move || theme().accent))
+                    .child(crate::workspaces::color_dot(move || {
+                        ws.with(|w| w.color.clone())
+                    }))
+                    .child(when(
+                        move || icon().is_some(),
+                        move || text(move || icon().unwrap_or_default()).text_size(px(13.0)),
+                    ))
+                    .child(
+                        text(label)
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .truncate()
+                            .text_size(px(13.0))
+                            .text_color(move || theme().popover_foreground),
+                    )
+            },
+        ))
+        .child(when(
+            move || !has_other_workspaces(),
+            move || tab_menu_item(t!("tabs.menu.no_other_workspaces"), || {}).disabled(true),
+        ))
+        .child(tab_menu_separator())
+        .child(tab_menu_item(
+            t!("tabs.menu.move_to_new_workspace"),
+            move || {
+                let _ = workspaces.move_tab_to_new_workspace(state, id);
+            },
+        ))
+}
+
 /// The "Change Tab Color" submenu with Default + every [`GroupColor`] swatch.
 fn tab_color_submenu(
     state: TabState,
     id: TabId,
     current: impl Fn() -> Option<GroupColor> + Copy + 'static,
 ) -> SubmenuElement {
-    let row = |label: String, trailing: &'static str| {
-        view()
-            .flex_row()
-            .items_center()
-            .gap_3()
-            .h(px(30.0))
-            .px_2p5()
-            .rounded(px(6.0))
-            .hover(|s| s.bg(move || theme().accent))
-            .focus(|s| s.bg(move || theme().accent))
-            .child(
-                text(label)
-                    .flex_1()
-                    .text_size(px(13.0))
-                    .text_color(move || theme().popover_foreground),
-            )
-            .child(
-                text(trailing)
-                    .text_size(px(13.0))
-                    .text_color(move || theme().muted_foreground),
-            )
-    };
     let base = submenu()
         .offset(px(2.0))
-        .trigger(row(t!("tabs.menu.change_color"), "›"))
-        .back(row(t!("tabs.menu.change_color_back"), "‹"));
+        .trigger(submenu_row(
+            t!("tabs.menu.change_color"),
+            SubmenuArrow::Right,
+        ))
+        .back(submenu_row(
+            t!("tabs.menu.change_color_back"),
+            SubmenuArrow::Left,
+        ));
     Some(None)
         .into_iter()
         .chain(GroupColor::ALL.into_iter().map(Some))

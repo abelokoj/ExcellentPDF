@@ -88,6 +88,12 @@ const RECORD_INK: &str = "ECCLESIAPDF_RECORD_INK";
 /// Selected text's highlight: a light blue that keeps black text black under it (drawn darkest-wins), or laid over
 /// dark paper translucent ([`Wash`]).
 const SELECTION: u32 = 0xb4d5fe;
+/// Minimum custom zoom percentage supported by [`PageCanvas::set_zoom_percent`], matching SumatraPDF.
+const MIN_ZOOM_PERCENT: f32 = 10.0;
+/// Maximum custom zoom percentage supported by [`PageCanvas::set_zoom_percent`], matching SumatraPDF.
+const MAX_ZOOM_PERCENT: f32 = 6400.0;
+/// Share of the viewport width and height filled by [`PageCanvas::zoom_to_selection`].
+const ZOOM_SELECTION_FILL: f32 = 0.85;
 
 /// The pointer's shape over the canvas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1150,6 +1156,141 @@ impl<H: Host> PageCanvas<H> {
         self.invalidate();
     }
 
+    /// Sets a custom zoom percentage (clamped to `10 %..=6400 %`, matching SumatraPDF's custom
+    /// zoom bounds) about the viewport center. Non-finite or non-positive values are ignored.
+    pub fn set_zoom_percent(&mut self, percent: f32) {
+        if !percent.is_finite() || percent <= 0.0 {
+            return;
+        }
+        let zoom = (percent.clamp(MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT) / 100.0)
+            .clamp(viewport::MIN_ZOOM, viewport::MAX_ZOOM);
+        self.viewport.set_zoom(zoom, &self.layout);
+        self.invalidate();
+    }
+
+    /// Cycles fit modes (`FitPage` -> `FitWidth` -> `FitHeight` -> `FitPage`, and `Custom` ->
+    /// `FitPage`), matching SumatraPDF's `z` (`CmdToggleZoom`).
+    pub fn toggle_zoom(&mut self) {
+        let next = match self.viewport.zoom_mode() {
+            ZoomMode::FitPage => ZoomMode::FitWidth,
+            ZoomMode::FitWidth => ZoomMode::FitHeight,
+            ZoomMode::FitHeight | ZoomMode::Custom => ZoomMode::FitPage,
+        };
+        self.view_command(ViewCommand::Fit(next));
+    }
+
+    /// Zooms to fit and center the active text or rectangular block selection (SumatraPDF's
+    /// `Ctrl+4`, `CmdZoomToSelection`), falling back to [`ZoomMode::FitWidth`] when no
+    /// non-empty selection is available.
+    pub fn zoom_to_selection(&mut self) {
+        let Some((page, rect)) = self.selection_page_rect() else {
+            self.view_command(ViewCommand::Fit(ZoomMode::FitWidth));
+            return;
+        };
+        let (view_w, view_h) = (self.viewport.width(), self.viewport.height());
+        let ppp = self.viewport.pixels_per_point();
+        let (Some(placement), Some(page_rect)) = (
+            Placement::of_page(&self.layout, &self.bounds, self.view.rotation, page),
+            self.layout.page(page),
+        ) else {
+            self.view_command(ViewCommand::Fit(ZoomMode::FitWidth));
+            return;
+        };
+        if !view_w.is_finite()
+            || !view_h.is_finite()
+            || !ppp.is_finite()
+            || view_w <= 0.0
+            || view_h <= 0.0
+            || ppp <= 0.0
+        {
+            self.view_command(ViewCommand::Fit(ZoomMode::FitWidth));
+            return;
+        }
+        let corners = [
+            PagePoint {
+                x: rect.x0,
+                y: rect.y0,
+            },
+            PagePoint {
+                x: rect.x1,
+                y: rect.y0,
+            },
+            PagePoint {
+                x: rect.x0,
+                y: rect.y1,
+            },
+            PagePoint {
+                x: rect.x1,
+                y: rect.y1,
+            },
+        ];
+        let mut lx0 = f32::INFINITY;
+        let mut ly0 = f32::INFINITY;
+        let mut lx1 = f32::NEG_INFINITY;
+        let mut ly1 = f32::NEG_INFINITY;
+        for corner in corners {
+            let (x, y) = placement.to_layout(corner);
+            lx0 = lx0.min(x);
+            ly0 = ly0.min(y);
+            lx1 = lx1.max(x);
+            ly1 = ly1.max(y);
+        }
+        let sel_w = lx1 - lx0;
+        let sel_h = ly1 - ly0;
+        if !sel_w.is_finite() || !sel_h.is_finite() || sel_w <= 0.0 || sel_h <= 0.0 {
+            self.view_command(ViewCommand::Fit(ZoomMode::FitWidth));
+            return;
+        }
+        let zoom_x = (view_w * ZOOM_SELECTION_FILL) / (sel_w * ppp);
+        let zoom_y = (view_h * ZOOM_SELECTION_FILL) / (sel_h * ppp);
+        let target_zoom = zoom_x
+            .min(zoom_y)
+            .clamp(viewport::MIN_ZOOM, viewport::MAX_ZOOM);
+        self.viewport.set_zoom(target_zoom, &self.layout);
+        let scale = self.viewport.scale();
+        let shown_w = view_w / scale;
+        let shown_h = view_h / scale;
+        let target_x = (lx0 + lx1) / 2.0 - shown_w / 2.0;
+        let target_y = (ly0 + ly1) / 2.0 - shown_h / 2.0;
+        let across = if page_rect.width() > 0.0 {
+            (target_x - page_rect.x0) / page_rect.width()
+        } else {
+            0.0
+        };
+        let down = if page_rect.height() > 0.0 {
+            (target_y - page_rect.y0) / page_rect.height()
+        } else {
+            0.0
+        };
+        self.viewport
+            .relayout(Some(viewport::Anchor { page, across, down }), &self.layout);
+        self.invalidate();
+    }
+
+    /// Returns the union bounding box (in page points) on the first selected page from either an
+    /// active non-collapsed text selection or an active block selection.
+    fn selection_page_rect(&self) -> Option<(usize, PageRect)> {
+        let text_rect = self
+            .selection
+            .filter(|selection| !selection.is_collapsed())
+            .and_then(|selection| {
+                selection.pages().find_map(|page| {
+                    let text = self.texts.get(page)?;
+                    let range = selection.range_on(page, text)?;
+                    let rect = union_quad_bounds(&text.highlight(range))?;
+                    (rect.x1 > rect.x0 && rect.y1 > rect.y0).then_some((page, rect))
+                })
+            });
+        text_rect.or_else(|| {
+            let first = self
+                .has_block_selection()
+                .then(|| self.block_regions().first().copied())
+                .flatten()?;
+            (first.rect.x1 > first.rect.x0 && first.rect.y1 > first.rect.y0)
+                .then_some((first.page, first.rect))
+        })
+    }
+
     /// Changes how the pages are shown (layout, rotation, box, fit), keeping the reader's place.
     pub fn view_command(&mut self, command: ViewCommand) {
         match self.view.apply(command, self.viewport.width()) {
@@ -2147,6 +2288,25 @@ fn is_dark([r, g, b]: [u8; 3]) -> bool {
     0.2126 * f32::from(r) + 0.7152 * f32::from(g) + 0.0722 * f32::from(b) < 128.0
 }
 
+/// Union bounding box (in page points) covering all `quads`, or `None` when empty.
+fn union_quad_bounds(quads: &[ecclesia_mupdf::Quad]) -> Option<PageRect> {
+    let mut points = quads.iter().flat_map(|q| [q.ul, q.ur, q.ll, q.lr]);
+    let first = points.next()?;
+    let mut rect = PageRect {
+        x0: first.x,
+        y0: first.y,
+        x1: first.x,
+        y1: first.y,
+    };
+    for p in points {
+        rect.x0 = rect.x0.min(p.x);
+        rect.y0 = rect.y0.min(p.y);
+        rect.x1 = rect.x1.max(p.x);
+        rect.y1 = rect.y1.max(p.y);
+    }
+    Some(rect)
+}
+
 /// Which way to zoom.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ZoomChange {
@@ -2291,13 +2451,21 @@ fn segment_quads(points: &[InkPixel]) -> Vec<ScreenQuad> {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
-    use std::sync::mpsc;
+    use std::sync::{Arc, mpsc};
     use std::time::{Duration, Instant};
 
-    use super::{PageCanvas, ZoomChange, segment_quads};
+    use super::{PageCanvas, ZoomChange, segment_quads, union_quad_bounds};
     use crate::Rect;
+    use crate::layout::{Layout, PageSize, Spec};
+    use crate::page::clicks::ClickLimits;
     use crate::page::host::{Host, InkPixel, Quad, Wake, Wash};
-    use ecclesia_mupdf::Pixmap;
+    use crate::page::placement::Placement;
+    use crate::viewport::{MAX_ZOOM, MIN_ZOOM, ZoomMode};
+    use ecclesia_core::document::Document;
+    use ecclesia_core::render::Priority;
+    use ecclesia_core::shared::pool;
+    use ecclesia_mupdf::{PageBox, PagePoint, PageRect, Pixmap, Quad as PageQuad};
+    use ecclesia_text::{Granularity, Selection, TextPos};
     use nsh_core::JsonValue;
 
     /// A test host that records uploaded tile pixels and every draw call, and starts without a
@@ -2461,6 +2629,253 @@ mod tests {
         let tiles = canvas.host().draws.len();
         let ink_pixels: usize = canvas.host().draws.iter().map(|(_, n)| *n).sum();
         (tiles, ink_pixels)
+    }
+
+    fn synthetic_canvas(
+        width: f32,
+        height: f32,
+    ) -> (PageCanvas<RecordingHost>, mpsc::Receiver<()>) {
+        let (host, wake_rx) = RecordingHost::new(width, height);
+        let mut canvas = PageCanvas::new(host, 1.0);
+        let page = PageRect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 600.0,
+            y1: 800.0,
+        };
+        canvas.bounds = vec![page, page];
+        canvas.layout = Layout::new(
+            &[
+                PageSize {
+                    width: 600.0,
+                    height: 800.0,
+                },
+                PageSize {
+                    width: 600.0,
+                    height: 800.0,
+                },
+            ],
+            Spec::default(),
+        );
+        canvas.viewport.resize(width, height, &canvas.layout);
+        canvas.viewport.set_zoom(1.0, &canvas.layout);
+        (canvas, wake_rx)
+    }
+
+    #[test]
+    fn toggle_zoom_cycles_fit_modes_and_from_custom() {
+        let (mut canvas, _wake_rx) = synthetic_canvas(800.0, 1000.0);
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::Custom);
+
+        canvas.toggle_zoom();
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::FitPage);
+
+        canvas.toggle_zoom();
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::FitWidth);
+
+        canvas.toggle_zoom();
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::FitHeight);
+
+        canvas.toggle_zoom();
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::FitPage);
+
+        canvas.command("toggleZoom", &JsonValue::Null);
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::FitWidth);
+    }
+
+    #[test]
+    fn set_zoom_percent_clamps_applies_and_ignores_invalid_values() {
+        let (mut canvas, _wake_rx) = synthetic_canvas(800.0, 1000.0);
+
+        canvas.set_zoom_percent(150.0);
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::Custom);
+        assert!((canvas.viewport.zoom() - 1.5).abs() < 1e-4);
+
+        canvas.set_zoom_percent(2.0);
+        assert!((canvas.viewport.zoom() - 0.1).abs() < 1e-4);
+
+        canvas.set_zoom_percent(10_000.0);
+        assert!((canvas.viewport.zoom() - MAX_ZOOM).abs() < 1e-4);
+
+        for invalid in [0.0, -50.0, f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            canvas.set_zoom_percent(invalid);
+            assert!(
+                (canvas.viewport.zoom() - MAX_ZOOM).abs() < 1e-4,
+                "invalid zoom {invalid} must be ignored"
+            );
+        }
+
+        canvas.command("setZoom", &serde_json::json!({ "percent": 225.0 }));
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::Custom);
+        assert!((canvas.viewport.zoom() - 2.25).abs() < 1e-4);
+
+        // Missing or non-numeric `percent` leaves zoom unchanged.
+        canvas.command("setZoom", &serde_json::json!({}));
+        assert!((canvas.viewport.zoom() - 2.25).abs() < 1e-4);
+    }
+
+    #[test]
+    fn union_quad_bounds_merges_quads_and_handles_empty() {
+        assert_eq!(union_quad_bounds(&[]), None);
+        let q1 = PageQuad {
+            ul: PagePoint { x: 20.0, y: 30.0 },
+            ur: PagePoint { x: 100.0, y: 30.0 },
+            ll: PagePoint { x: 20.0, y: 42.0 },
+            lr: PagePoint { x: 100.0, y: 42.0 },
+        };
+        let q2 = PageQuad {
+            ul: PagePoint { x: 10.0, y: 45.0 },
+            ur: PagePoint { x: 140.0, y: 45.0 },
+            ll: PagePoint { x: 10.0, y: 60.0 },
+            lr: PagePoint { x: 140.0, y: 60.0 },
+        };
+        assert_eq!(
+            union_quad_bounds(&[q1, q2]),
+            Some(PageRect {
+                x0: 10.0,
+                y0: 30.0,
+                x1: 140.0,
+                y1: 60.0,
+            })
+        );
+    }
+
+    #[test]
+    fn zoom_to_selection_falls_back_to_fit_width_when_empty() {
+        let (mut canvas, _wake_rx) = synthetic_canvas(800.0, 1000.0);
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::Custom);
+
+        canvas.zoom_to_selection();
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::FitWidth);
+
+        // Collapsed text selection also falls back to FitWidth.
+        canvas.set_zoom_percent(100.0);
+        canvas.selection = Some(Selection {
+            anchor: TextPos { page: 0, index: 5 },
+            focus: TextPos { page: 0, index: 5 },
+            granularity: Granularity::Char,
+        });
+        canvas.command("zoomToSelection", &JsonValue::Null);
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::FitWidth);
+    }
+
+    #[test]
+    fn zoom_to_selection_zooms_and_centers_block_selection() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/zlib-manual.pdf");
+        let doc = Arc::new(Document::open(&path).expect("corpus pdf opens"));
+        let (mut canvas, _wake_rx) = synthetic_canvas(800.0, 1000.0);
+        canvas.document = Some(doc);
+        canvas.set_block_select(true);
+
+        let page0 = canvas
+            .viewport
+            .to_screen(&canvas.layout.page(0).expect("page 0"));
+        let limits = ClickLimits {
+            time: 500,
+            width: 4,
+            height: 4,
+        };
+        let sx0 = (page0.x0 + 200.0) as i32;
+        let sy0 = (page0.y0 + 300.0) as i32;
+        let sx1 = (page0.x0 + 400.0) as i32;
+        let sy1 = (page0.y0 + 400.0) as i32;
+        assert!(canvas.mouse_down(sx0, sy0, 100, limits));
+        canvas.mouse_moved(Some((sx1, sy1)));
+        assert!(canvas.mouse_up(sx1, sy1));
+        assert!(canvas.has_block_selection());
+
+        let region = canvas.block_regions()[0];
+        let sel_w = region.rect.x1 - region.rect.x0;
+        let sel_h = region.rect.y1 - region.rect.y0;
+        let expected_zoom = ((800.0 * 0.85) / sel_w)
+            .min((1000.0 * 0.85) / sel_h)
+            .clamp(MIN_ZOOM, MAX_ZOOM);
+
+        canvas.command("zoomToSelection", &JsonValue::Null);
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::Custom);
+        assert!(
+            (canvas.viewport.zoom() - expected_zoom).abs() < 1e-3,
+            "expected zoom {expected_zoom}, got {}",
+            canvas.viewport.zoom()
+        );
+
+        let placement = Placement::of_page(
+            &canvas.layout,
+            &canvas.bounds,
+            canvas.view.rotation,
+            region.page,
+        )
+        .expect("page placement");
+        let (cx, cy) = placement.to_layout(PagePoint {
+            x: (region.rect.x0 + region.rect.x1) / 2.0,
+            y: (region.rect.y0 + region.rect.y1) / 2.0,
+        });
+        let (screen_x, screen_y) = canvas.viewport.to_screen_point(cx, cy);
+        assert!(
+            (screen_x - 400.0).abs() < 1.0 && (screen_y - 500.0).abs() < 1.0,
+            "expected selection center at (400, 500), got ({screen_x}, {screen_y})"
+        );
+    }
+
+    #[test]
+    fn zoom_to_selection_zooms_text_selection() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/zlib-manual.pdf");
+        let doc = Arc::new(Document::open(&path).expect("corpus pdf opens"));
+        let mupdf = doc.mupdf().expect("mupdf");
+        let page_box = {
+            let guard = mupdf.lock().expect("document lock");
+            guard.page_box(0, PageBox::Crop).expect("page 0 box")
+        };
+        let (host, wake_rx) = RecordingHost::new(800.0, 1000.0);
+        let mut canvas = PageCanvas::new(host, 1.0);
+        canvas.document = Some(doc);
+        canvas.bounds = vec![page_box];
+        canvas.layout = Layout::new(
+            &[PageSize {
+                width: page_box.x1 - page_box.x0,
+                height: page_box.y1 - page_box.y0,
+            }],
+            Spec::default(),
+        );
+        canvas.viewport.resize(800.0, 1000.0, &canvas.layout);
+        canvas.viewport.set_zoom(1.0, &canvas.layout);
+
+        let waker = Arc::clone(&canvas.waker);
+        canvas.texts.request(0..=0, |page| {
+            let job = pool().read_text(&mupdf, page, Priority::PageText);
+            let waker = Arc::clone(&waker);
+            job.when_done(move || waker.wake());
+            job
+        });
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while canvas.texts.get(0).is_none() && Instant::now() < deadline {
+            let _ = wake_rx.recv_timeout(Duration::from_millis(25));
+            canvas.texts.take_done();
+        }
+        let text = canvas.texts.get(0).expect("page 0 text loaded");
+        assert!(!text.is_empty(), "expected text on page 0");
+        let selection = Selection {
+            anchor: TextPos { page: 0, index: 0 },
+            focus: TextPos {
+                page: 0,
+                index: text.len().min(20),
+            },
+            granularity: Granularity::Char,
+        };
+        let range = selection.range_on(0, text).expect("selection range");
+        let rect = union_quad_bounds(&text.highlight(range)).expect("selection quads");
+        let expected_zoom = ((800.0 * 0.85) / (rect.x1 - rect.x0))
+            .min((1000.0 * 0.85) / (rect.y1 - rect.y0))
+            .clamp(MIN_ZOOM, MAX_ZOOM);
+
+        canvas.selection = Some(selection);
+        canvas.zoom_to_selection();
+        assert_eq!(canvas.viewport.zoom_mode(), ZoomMode::Custom);
+        assert!(
+            (canvas.viewport.zoom() - expected_zoom).abs() < 1e-3,
+            "expected zoom {expected_zoom}, got {}",
+            canvas.viewport.zoom()
+        );
     }
 
     #[test]

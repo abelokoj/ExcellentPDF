@@ -24,7 +24,7 @@ use crate::panes::{ClosingTabs, Panes};
 use crate::session::{self, Keeper, Restored};
 use crate::settings::Live;
 use crate::shell::App;
-use crate::tabs::{Closed, GroupColor, Step};
+use crate::tabs::{Closed, GroupColor, Step, TabId, TabState};
 
 pub(crate) use windows::{MAIN, WindowNo};
 
@@ -500,10 +500,52 @@ impl Workspaces {
         }
     }
 
-    /// A new workspace (W.2), shown with `start`'s tabs, and its edit dialog open to name it.
-    fn create(self, start: Start) {
+    /// Moves tab `id` from `tabs` into workspace `to`, keeping its page and view.
+    pub(crate) fn move_tab_to(self, tabs: TabState, id: TabId, to: WorkspaceId) -> bool {
+        if to == self.shown.get_untracked() {
+            return false;
+        }
+        let Some(tab) = tabs.take_tab(id) else {
+            return false;
+        };
+        // W.8: a workspace another window shows takes it there and then; its saved tabs would be written over.
+        match windows::holder(to, self.window).and_then(windows::workspaces) {
+            Some(there) => there.panes.active().tabs.adopt(vec![tab]),
+            None => session::add_to(to, &tab),
+        }
+        self.reload();
+        true
+    }
+
+    /// Moves tab `id` from `tabs` into a newly created workspace without switching away from the current workspace.
+    pub(crate) fn move_tab_to_new_workspace(self, tabs: TabState, id: TabId) -> bool {
+        let Some(tab) = tabs.take_tab(id) else {
+            return false;
+        };
+        let look = self.next_workspace_look();
+        let Some(new_id) = self.write(move |tx| workspaces::create(tx, &look)) else {
+            tabs.adopt(vec![tab]);
+            return false;
+        };
+        session::add_to(new_id, &tab);
+        self.reload();
+        true
+    }
+
+    /// Creates a new empty workspace and opens it in a window of its own.
+    pub(crate) fn new_empty_window(self) {
+        let look = self.next_workspace_look();
+        let Some(new_id) = self.write(move |tx| workspaces::create(tx, &look)) else {
+            return;
+        };
+        self.reload();
+        crate::shell::open_workspace_window(self.app, new_id);
+    }
+
+    /// Default name and rotating colour for a newly created workspace.
+    fn next_workspace_look(self) -> Look {
         let count = self.list.with_untracked(Vec::len);
-        let look = Look {
+        Look {
             name: t!("workspace.new_name", n = count + 1),
             icon: None,
             color: Some(
@@ -511,7 +553,12 @@ impl Workspaces {
                     .id()
                     .to_owned(),
             ),
-        };
+        }
+    }
+
+    /// A new workspace (W.2), shown with `start`'s tabs, and its edit dialog open to name it.
+    fn create(self, start: Start) {
+        let look = self.next_workspace_look();
         let Some(id) = self.write(move |tx| workspaces::create(tx, &look)) else {
             return;
         };

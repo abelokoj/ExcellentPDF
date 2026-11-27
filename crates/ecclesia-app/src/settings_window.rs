@@ -307,6 +307,10 @@ impl SettingsSection {
                     "annotate.popup.picker_icon",
                     "annotate.popup.picker_icon_hint",
                 ),
+                (
+                    "annotate.popup.remember_color",
+                    "annotate.popup.remember_color_hint",
+                ),
             ],
             Self::PrintAndLinks => &[
                 ("settings.print_scaling", "settings.print_scaling_hint"),
@@ -1921,6 +1925,8 @@ fn annotations_cards(
             || matches_query(&t!("annotate.popup.customize_hint"), needle)
             || matches_query(&t!("annotate.popup.picker_icon"), needle)
             || matches_query(&t!("annotate.popup.picker_icon_hint"), needle)
+            || matches_query(&t!("annotate.popup.remember_color"), needle)
+            || matches_query(&t!("annotate.popup.remember_color_hint"), needle)
             || ColorPickerIcon::ALL
                 .iter()
                 .any(|icon| matches_query(&t!(icon.label_key()), needle))

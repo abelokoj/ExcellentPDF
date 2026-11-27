@@ -238,3 +238,212 @@ impl Feedback {
         }
     }
 }
+
+/// Minimum allowed custom zoom percentage.
+const MIN_CUSTOM_ZOOM_PCT: f32 = 10.0;
+
+/// Maximum allowed custom zoom percentage.
+const MAX_CUSTOM_ZOOM_PCT: f32 = 6400.0;
+
+/// Quick preset zoom percentages shown inside [`custom_zoom_dialog`].
+const ZOOM_PRESETS: [f32; 7] = [50.0, 75.0, 100.0, 125.0, 150.0, 200.0, 300.0];
+
+/// Parses a custom zoom percentage (e.g. `"125"` or `"125%"`) within `10.0..=6400.0`.
+fn parse_zoom_percent(raw: &str) -> Option<f32> {
+    let trimmed = raw.trim().trim_end_matches('%').trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let value: f32 = trimmed.parse().ok()?;
+    (value.is_finite() && (MIN_CUSTOM_ZOOM_PCT..=MAX_CUSTOM_ZOOM_PCT).contains(&value))
+        .then_some(value)
+}
+
+/// Formats a zoom percentage without trailing `.0` for whole numbers.
+fn format_zoom_percent(percent: f32) -> String {
+    if percent.fract().abs() < 0.01 {
+        format!("{percent:.0}")
+    } else {
+        format!("{percent:.1}")
+    }
+}
+
+/// The custom zoom dialog (`Ctrl+Y`): enter a zoom percentage (`10–6400%`) or pick a quick preset;
+/// Enter applies and closes, Escape closes.
+pub(crate) fn custom_zoom_dialog(
+    open: Signal<bool>,
+    apply: impl Fn(f32) + Copy + 'static,
+) -> impl IntoElement {
+    let typed = signal(String::new());
+    let close = move || open.set(false);
+    let parsed = move || typed.with(|raw| parse_zoom_percent(raw));
+    let feedback = move || {
+        typed.with(|raw| {
+            if raw.trim().is_empty() {
+                Feedback::Hint(t!("zoom.custom.hint"))
+            } else if let Some(pct) = parse_zoom_percent(raw) {
+                Feedback::Target(t!("zoom.custom.target", percent = format_zoom_percent(pct)))
+            } else {
+                Feedback::Missing(t!("zoom.custom.invalid"))
+            }
+        })
+    };
+    let field = view()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .h(px(48.0))
+        .px_4()
+        .border_b_1()
+        .border_b_color(move || theme().border)
+        .child(
+            input()
+                .value(move || typed.get())
+                .on_change(move |text: &str| typed.set(text.to_owned()))
+                .on_submit(move |_: &str| {
+                    if let Some(pct) = parsed() {
+                        close();
+                        apply(pct);
+                    }
+                })
+                .placeholder(t!("zoom.custom.placeholder"))
+                .label(t!("zoom.custom.title"))
+                .auto_focus(true)
+                .flex_1()
+                .text_size(px(16.0))
+                .text_color(move || theme().popover_foreground),
+        )
+        .child(
+            text("%")
+                .text_size(px(14.0))
+                .text_color(move || theme().muted_foreground),
+        );
+    let mut presets = view()
+        .flex_row()
+        .flex_wrap()
+        .items_center()
+        .gap_1p5()
+        .px_4()
+        .pt_3()
+        .pb_1();
+    for preset in ZOOM_PRESETS {
+        let label = format!("{preset:.0}%");
+        presets = presets.child(
+            button()
+                .accessibility_label(label.clone())
+                .on_press(move || {
+                    close();
+                    apply(preset);
+                })
+                .h(px(28.0))
+                .px_2p5()
+                .rounded(px(6.0))
+                .border_1()
+                .border_color(move || theme().border)
+                .bg(move || theme().secondary)
+                .items_center()
+                .justify_center()
+                .hover(|s| s.bg(move || theme().accent))
+                .active(|s| s.opacity(0.75))
+                .focus_visible(|s| s.border_2().border_color(move || theme().ring))
+                .child(
+                    text(label)
+                        .text_size(px(12.0))
+                        .tabular_nums()
+                        .text_color(move || theme().secondary_foreground),
+                ),
+        );
+    }
+    let message = text(move || feedback().text())
+        .px_4()
+        .py_2()
+        .text_size(px(12.0))
+        .text_color(move || match feedback() {
+            Feedback::Missing(_) => theme().destructive,
+            Feedback::Hint(_) | Feedback::Target(_) => theme().muted_foreground,
+        });
+    list_dialog(
+        t!("zoom.custom.title"),
+        close,
+        card(view().child(field).child(presets).child(message)).w(px(420.0)),
+    )
+}
+
+/// The rename file dialog (`F2`): pre-filled with the active document's file name; Enter renames
+/// the file on disk and updates the tab, Escape closes.
+pub(crate) fn rename_dialog(open: Signal<bool>, tabs: crate::tabs::TabState) -> impl IntoElement {
+    let initial = untracked(|| tabs.shown_name()).unwrap_or_default();
+    let typed = signal(initial);
+    let error = signal(None::<String>);
+    let close = move || open.set(false);
+    let field = view()
+        .flex_row()
+        .items_center()
+        .gap_3()
+        .h(px(48.0))
+        .px_4()
+        .border_b_1()
+        .border_b_color(move || theme().border)
+        .child(
+            input()
+                .value(move || typed.get())
+                .on_change(move |text: &str| {
+                    typed.set(text.to_owned());
+                    if untracked(|| error.with(Option::is_some)) {
+                        error.set(None);
+                    }
+                })
+                .on_submit(move |_: &str| {
+                    let candidate = untracked(|| typed.get());
+                    let trimmed = candidate.trim();
+                    if trimmed.is_empty() {
+                        error.set(Some(t!("rename.empty")));
+                        return;
+                    }
+                    match tabs.rename_shown_file(trimmed) {
+                        Ok(_) => close(),
+                        Err(message) => error.set(Some(message)),
+                    }
+                })
+                .placeholder(t!("rename.placeholder"))
+                .label(t!("rename.title"))
+                .auto_focus(true)
+                .flex_1()
+                .text_size(px(15.0))
+                .text_color(move || theme().popover_foreground),
+        );
+    let message = text(move || error.get().unwrap_or_else(|| t!("rename.hint")))
+        .px_4()
+        .py_2()
+        .text_size(px(12.0))
+        .text_color(move || {
+            if error.with(Option::is_some) {
+                theme().destructive
+            } else {
+                theme().muted_foreground
+            }
+        });
+    list_dialog(
+        t!("rename.title"),
+        close,
+        card(view().child(field).child(message)).w(px(440.0)),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_zoom_parser_validates_range_and_percent_suffix() {
+        assert_eq!(parse_zoom_percent("125"), Some(125.0));
+        assert_eq!(parse_zoom_percent(" 125% "), Some(125.0));
+        assert_eq!(parse_zoom_percent("10"), Some(10.0));
+        assert_eq!(parse_zoom_percent("6400%"), Some(6400.0));
+        assert_eq!(parse_zoom_percent("9.9"), None);
+        assert_eq!(parse_zoom_percent("6401"), None);
+        assert_eq!(parse_zoom_percent(""), None);
+        assert_eq!(parse_zoom_percent("abc"), None);
+        assert_eq!(parse_zoom_percent("NaN"), None);
+    }
+}

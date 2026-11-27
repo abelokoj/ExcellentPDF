@@ -59,6 +59,119 @@ pub enum Path {
     PolyLine,
 }
 
+/// Visual shape of a resizable, re-shapable block highlight annotation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum BlockHighlightShape {
+    /// Sharp-cornered rectangle (`Shape::Boxed(Boxed::Square, rect)`).
+    #[default]
+    Rectangle,
+    /// Curved-edge rounded rectangle (`Shape::Path(Path::Polygon, rounded_rect_points(rect))`).
+    RoundedRect,
+    /// Ellipse (`Shape::Boxed(Boxed::Circle, rect)`).
+    Oval,
+    /// Scalloped/cloudy rectangle (`Shape::Boxed(Boxed::Square, rect)` with `cloud = Some(1.0)`).
+    Cloud,
+}
+
+impl BlockHighlightShape {
+    /// Every supported block highlight shape, in picker order.
+    pub const ALL: [Self; 4] = [Self::Rectangle, Self::RoundedRect, Self::Oval, Self::Cloud];
+
+    /// Stable serialized name of this shape.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Rectangle => "rectangle",
+            Self::RoundedRect => "rounded_rect",
+            Self::Oval => "oval",
+            Self::Cloud => "cloud",
+        }
+    }
+
+    /// Parses a shape from its serialized name (`"rectangle"`, `"rounded_rect"`, `"oval"`, `"cloud"`).
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "rectangle" => Some(Self::Rectangle),
+            "rounded_rect" => Some(Self::RoundedRect),
+            "oval" => Some(Self::Oval),
+            "cloud" => Some(Self::Cloud),
+            _ => None,
+        }
+    }
+
+    /// Builds a smooth 32-vertex (8 points per corner arc) clockwise polygon with rounded corners
+    /// inside the normalized `rect`.
+    #[must_use]
+    pub fn rounded_rect_points(rect: PageRect) -> Vec<PagePoint> {
+        let x0 = rect.x0.min(rect.x1);
+        let y0 = rect.y0.min(rect.y1);
+        let x1 = rect.x0.max(rect.x1);
+        let y1 = rect.y0.max(rect.y1);
+        let w = x1 - x0;
+        let h = y1 - y0;
+        let r = (w.min(h) * 0.18)
+            .clamp(3.0, 18.0)
+            .min(w * 0.45)
+            .min(h * 0.45);
+        let corners = [
+            (
+                x0 + r,
+                y0 + r,
+                std::f32::consts::PI,
+                1.5 * std::f32::consts::PI,
+            ),
+            (
+                x1 - r,
+                y0 + r,
+                1.5 * std::f32::consts::PI,
+                std::f32::consts::TAU,
+            ),
+            (x1 - r, y1 - r, 0.0, std::f32::consts::FRAC_PI_2),
+            (
+                x0 + r,
+                y1 - r,
+                std::f32::consts::FRAC_PI_2,
+                std::f32::consts::PI,
+            ),
+        ];
+        const STEPS: u8 = 8;
+        let mut points = Vec::with_capacity(corners.len() * usize::from(STEPS));
+        for (cx, cy, start, end) in corners {
+            for step in 0..STEPS {
+                let t = f32::from(step) / f32::from(STEPS - 1);
+                let angle = start + (end - start) * t;
+                points.push(PagePoint {
+                    x: (cx + r * angle.cos()).clamp(x0, x1),
+                    y: (cy + r * angle.sin()).clamp(y0, y1),
+                });
+            }
+        }
+        points
+    }
+
+    /// Converts this shape kind into its underlying PDF [`Shape`] and optional cloudy-border
+    /// intensity for the normalized bounding rectangle `rect`.
+    #[must_use]
+    pub fn into_shape(self, rect: PageRect) -> (Shape, Option<f32>) {
+        let rect = PageRect {
+            x0: rect.x0.min(rect.x1),
+            y0: rect.y0.min(rect.y1),
+            x1: rect.x0.max(rect.x1),
+            y1: rect.y0.max(rect.y1),
+        };
+        match self {
+            Self::Rectangle => (Shape::Boxed(Boxed::Square, rect), None),
+            Self::RoundedRect => (
+                Shape::Path(Path::Polygon, Self::rounded_rect_points(rect)),
+                None,
+            ),
+            Self::Oval => (Shape::Boxed(Boxed::Circle, rect), None),
+            Self::Cloud => (Shape::Boxed(Boxed::Square, rect), Some(1.0)),
+        }
+    }
+}
+
 /// What an annotation looks like on the page and where: its kind and its geometry together, so a kind never carries
 /// the wrong geometry.
 #[derive(Debug, Clone, PartialEq)]
@@ -322,6 +435,9 @@ pub struct Annotation {
     /// Whether it is tape (H.4): an opaque strip over what it hides, revealed and hidden again with a tap. Kept in the
     /// private key: other readers show a plain bar.
     pub tape: bool,
+    /// Whether this annotation is a resizable, re-shapable block highlight, and its current shape.
+    /// Kept in the private key so PDF viewers still render it as a native filled shape.
+    pub block_highlight: Option<BlockHighlightShape>,
 }
 
 impl Annotation {
@@ -356,6 +472,7 @@ impl Annotation {
             multiply: false,
             widths: Vec::new(),
             tape: false,
+            block_highlight: None,
         }
     }
 
@@ -372,6 +489,13 @@ impl Annotation {
             self.shape,
             Shape::Boxed(Boxed::FreeText | Boxed::Typewriter, _) | Shape::Callout(..)
         )
+    }
+
+    /// Whether clicking this annotation opens the floating highlight action popup (text markups and
+    /// resizable block highlights).
+    #[must_use]
+    pub fn is_highlight_popup_target(&self) -> bool {
+        matches!(self.shape, Shape::Markup(..)) || self.block_highlight.is_some()
     }
 
     /// The annotation `data` (read from page `page`) is, or `None` when the model doesn't keep its kind.
@@ -422,6 +546,9 @@ impl Annotation {
         let tape = private
             .and_then(|object| object.get("tape")?.as_bool())
             .unwrap_or(false);
+        let block_highlight = private
+            .and_then(|object| object.get("blockHighlight")?.as_str())
+            .and_then(BlockHighlightShape::from_name);
         let text = if data.kind == AnnotKind::FreeText {
             TextStyle {
                 font: Font::of(&data.font),
@@ -467,6 +594,7 @@ impl Annotation {
             multiply: data.multiply,
             widths: ink_widths(&data.strokes, &data.widths),
             tape,
+            block_highlight,
         })
     }
 
@@ -549,6 +677,9 @@ impl Annotation {
         if self.tape {
             object.insert("tape".into(), json!(true));
         }
+        if let Some(shape) = self.block_highlight {
+            object.insert("blockHighlight".into(), json!(shape.name()));
+        }
         if object.is_empty() {
             String::new()
         } else {
@@ -605,6 +736,7 @@ impl Annotation {
             "multiply": self.multiply,
             "widths": self.widths,
             "tape": self.tape,
+            "blockHighlight": self.block_highlight.map(BlockHighlightShape::name),
             "text": self.is_text_box().then(|| json!({
                 "font": self.text.font.name(),
                 "size": self.text.size,
@@ -737,6 +869,11 @@ impl Annotation {
                 .get("tape")
                 .and_then(Value::as_bool)
                 .unwrap_or_default(),
+            // Earlier logs had no block highlight metadata.
+            block_highlight: object
+                .get("blockHighlight")
+                .and_then(Value::as_str)
+                .and_then(BlockHighlightShape::from_name),
         })
     }
 }
@@ -1060,6 +1197,95 @@ fn rect_from_json(value: &Value) -> Option<PageRect> {
     match floats(value)?[..] {
         [x0, y0, x1, y1] => Some(PageRect { x0, y0, x1, y1 }),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod block_highlight_tests {
+    use super::*;
+
+    #[test]
+    fn block_highlight_shape_roundtrips_through_private_and_log_json() {
+        let rect = PageRect {
+            x0: 20.0,
+            y0: 40.0,
+            x1: 220.0,
+            y1: 140.0,
+        };
+        for kind in BlockHighlightShape::ALL {
+            assert_eq!(BlockHighlightShape::from_name(kind.name()), Some(kind));
+            let (shape, cloud) = kind.into_shape(rect);
+            let mut annot = Annotation::new(
+                1,
+                shape,
+                Style {
+                    color: None,
+                    opacity: 0.45,
+                    width: 0.0,
+                },
+                "Ada",
+            );
+            annot.fill = Some([1.0, 0.85, 0.0]);
+            annot.multiply = true;
+            annot.cloud = cloud;
+            annot.block_highlight = Some(kind);
+
+            assert!(annot.is_highlight_popup_target());
+
+            let data = annot.to_data();
+            let from_data = Annotation::from_data(1, &data).expect("modelled");
+            assert_eq!(from_data.block_highlight, Some(kind));
+            assert_eq!(from_data.cloud, cloud);
+            assert_eq!(from_data.fill, Some([1.0, 0.85, 0.0]));
+            assert!(from_data.multiply);
+
+            let from_json = Annotation::from_json(&annot.to_json()).expect("json roundtrip");
+            assert_eq!(from_json.block_highlight, Some(kind));
+            assert_eq!(from_json, annot);
+        }
+        assert_eq!(BlockHighlightShape::from_name("unknown"), None);
+
+        let plain_square = Annotation::new(
+            0,
+            Shape::Boxed(Boxed::Square, rect),
+            Style::default(),
+            "Ada",
+        );
+        assert!(!plain_square.is_highlight_popup_target());
+
+        let markup = Annotation::new(
+            0,
+            Shape::Markup(Markup::Highlight, Vec::new()),
+            Style::default(),
+            "Ada",
+        );
+        assert!(markup.is_highlight_popup_target());
+    }
+
+    #[test]
+    fn rounded_rect_points_stay_inside_normalized_rect() {
+        let rect = PageRect {
+            x0: 200.0,
+            y0: 140.0,
+            x1: 40.0,
+            y1: 60.0,
+        };
+        let points = BlockHighlightShape::rounded_rect_points(rect);
+        assert_eq!(points.len(), 32);
+        let (mut min_x, mut max_x) = (f32::INFINITY, f32::NEG_INFINITY);
+        let (mut min_y, mut max_y) = (f32::INFINITY, f32::NEG_INFINITY);
+        for p in &points {
+            assert!((40.0..=200.0).contains(&p.x), "x out of bounds: {}", p.x);
+            assert!((60.0..=140.0).contains(&p.y), "y out of bounds: {}", p.y);
+            min_x = min_x.min(p.x);
+            max_x = max_x.max(p.x);
+            min_y = min_y.min(p.y);
+            max_y = max_y.max(p.y);
+        }
+        assert!((min_x - 40.0).abs() < 1e-4);
+        assert!((max_x - 200.0).abs() < 1e-4);
+        assert!((min_y - 60.0).abs() < 1e-4);
+        assert!((max_y - 140.0).abs() < 1e-4);
     }
 }
 

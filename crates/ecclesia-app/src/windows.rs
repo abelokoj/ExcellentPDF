@@ -259,6 +259,7 @@ fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoEl
                             pane.tabs,
                             pane.home_open,
                             pane.editing,
+                            shared.workspaces,
                             run,
                         )),
                 )

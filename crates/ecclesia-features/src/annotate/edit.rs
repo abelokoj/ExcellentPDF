@@ -5,7 +5,7 @@
 //! and its edits are none.
 
 use ecclesia_core::anchor::new_id;
-use ecclesia_core::annot::{Annotation, Boxed, Shape, now};
+use ecclesia_core::annot::{Annotation, BlockHighlightShape, Boxed, Shape, now};
 use ecclesia_core::edit::Change;
 use ecclesia_mupdf::{PagePoint, PageRect, Quad};
 use serde_json::{Value, json};
@@ -188,6 +188,17 @@ pub fn grips(annotation: &Annotation) -> Vec<(Grip, PagePoint)> {
     if !can_move(annotation) {
         return Vec::new();
     }
+    if annotation.block_highlight.is_some() {
+        return bounds(annotation)
+            .map(|rect| {
+                corners(rect)
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, point)| (Grip::Corner(index), point))
+                    .collect()
+            })
+            .unwrap_or_default();
+    }
     match &annotation.shape {
         Shape::Line(from, to) => vec![(Grip::Vertex(0), *from), (Grip::Vertex(1), *to)],
         Shape::Path(_, points) => points
@@ -254,7 +265,12 @@ pub fn dragged(
             }
             let old = bounds(annotation)?;
             let new = resized(old, index, to);
-            map_shape(&annotation.shape, |point| scale(point, old, new))
+            if annotation.block_highlight == Some(BlockHighlightShape::RoundedRect) {
+                let (shape, _) = BlockHighlightShape::RoundedRect.into_shape(new);
+                shape
+            } else {
+                map_shape(&annotation.shape, |point| scale(point, old, new))
+            }
         }
         Grip::Vertex(index) => match &annotation.shape {
             Shape::Line(start, end) => match index {
@@ -773,5 +789,47 @@ mod tests {
                 .is_empty(),
             "markup stays with its text"
         );
+    }
+
+    #[test]
+    fn rounded_rect_block_highlight_uses_four_corner_grips_and_regenerates_corners() {
+        let initial = rect(50.0, 60.0, 150.0, 120.0);
+        let (shape, _) = BlockHighlightShape::RoundedRect.into_shape(initial);
+        let mut block = Annotation::new(0, shape, Style::default(), "Ada");
+        block.block_highlight = Some(BlockHighlightShape::RoundedRect);
+
+        let handles = grips(&block);
+        assert_eq!(handles.len(), 4);
+        assert!(
+            handles
+                .iter()
+                .enumerate()
+                .all(|(i, (grip, _))| *grip == Grip::Corner(i)),
+            "rounded-rect block highlight exposes 4 corner grips, not 32 vertex grips"
+        );
+
+        let resized_annot = dragged(
+            &block,
+            Grip::Corner(2),
+            point(150.0, 120.0),
+            point(350.0, 160.0),
+        )
+        .expect("resizes rounded block highlight");
+        let Shape::Path(Path::Polygon, ref vertices) = resized_annot.shape else {
+            panic!("expected rounded polygon");
+        };
+        assert_eq!(vertices.len(), 32);
+        let expected = BlockHighlightShape::rounded_rect_points(rect(50.0, 60.0, 350.0, 160.0));
+        assert_eq!(vertices.len(), expected.len());
+        for (actual, exp) in vertices.iter().zip(&expected) {
+            assert!(
+                (actual.x - exp.x).abs() < 1e-4 && (actual.y - exp.y).abs() < 1e-4,
+                "resizing regenerates smooth proportional corners: got {actual:?}, expected {exp:?}"
+            );
+        }
+        for v in vertices {
+            assert!((49.999..=350.001).contains(&v.x));
+            assert!((59.999..=160.001).contains(&v.y));
+        }
     }
 }

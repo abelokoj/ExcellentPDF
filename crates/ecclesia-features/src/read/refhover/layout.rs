@@ -363,28 +363,227 @@ pub fn strip_watermark_glyphs(text: &PageText) -> PageText {
     out
 }
 
+/// Horizontal bounds `[left, right]` of one column in page points.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct ColumnSpan {
+    pub(super) left: i32,
+    pub(super) right: i32,
+}
+
+/// Detected two-column page geometry: left column span, right column span, and gutter midpoint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct TwoColumns {
+    pub(super) left: ColumnSpan,
+    pub(super) right: ColumnSpan,
+    pub(super) gutter_mid: i32,
+}
+
+/// Detects a two-column vertical gutter across the non-spanning text lines of `text`, returning
+/// the left and right column spans when a clean central gutter (at least 8 pt wide) separates
+/// substantial left and right columns.
+pub(super) fn detect_page_columns(text: &PageText, mediabox: RectF) -> Option<TwoColumns> {
+    const MIN_GUTTER_W: i32 = 8;
+    const MIN_LEFT_COL_W: i32 = 70;
+    const MIN_RIGHT_COL_W: i32 = 50;
+    // Standard LaTeX `\columnsep` can be as narrow as 10 pt (`article [twocolumn]`) or 12 pt
+    // (`IEEEtran`), whereas normal word spaces are ~3–6 pt. Keep run merging at 7 pt so a narrow
+    // column gutter is never bridged into a false full-width line.
+    const RUN_MERGE_GAP: i32 = 7;
+
+    let page_w = mediabox.dx as i32;
+    if page_w <= 160 || text.is_empty() {
+        return None;
+    }
+
+    // Group ink glyphs into 6 pt vertical bands so full-width lines (titles, abstracts, spanning
+    // `figure*`/`table*` captions, running headers) can be excluded from column occupancy in O(n log n).
+    let mut glyphs: Vec<(i32, i32, i32)> = text
+        .ink()
+        .filter(|(_, _, r)| r.dx > 0 && r.x < page_w && r.right() > 0)
+        .map(|(_, _, r)| (r.y.div_euclid(6), r.x.max(0), r.right().min(page_w)))
+        .collect();
+    if glyphs.is_empty() {
+        return None;
+    }
+    glyphs.sort_unstable_by_key(|&(band, x0, _)| (band, x0));
+
+    let full_width_thresh = page_w * 55 / 100;
+    let mut occupied = vec![false; page_w as usize];
+    let mut i = 0;
+    while i < glyphs.len() {
+        let band = glyphs[i].0;
+        let mut runs: Vec<(i32, i32)> = Vec::new();
+        while i < glyphs.len() && glyphs[i].0 == band {
+            let (_, x0, x1) = glyphs[i];
+            if let Some(last) = runs.last_mut()
+                && x0 <= last.1 + RUN_MERGE_GAP
+            {
+                last.1 = last.1.max(x1);
+            } else {
+                runs.push((x0, x1));
+            }
+            i += 1;
+        }
+        // Skip bands that contain a full-width spanning run.
+        if runs.iter().any(|&(a, b)| b - a > full_width_thresh) {
+            continue;
+        }
+        for (a, b) in runs {
+            let lo = a.clamp(0, page_w) as usize;
+            let hi = b.clamp(0, page_w) as usize;
+            if lo < hi {
+                occupied[lo..hi].fill(true);
+            }
+        }
+    }
+
+    let search_lo = (page_w * 28 / 100).max(0) as usize;
+    let search_hi = (page_w * 72 / 100).min(page_w) as usize;
+    let mut best_gap: Option<(usize, usize)> = None;
+    let mut x = search_lo;
+    while x < search_hi {
+        if occupied[x] {
+            x += 1;
+            continue;
+        }
+        let start = x;
+        while x < search_hi && !occupied[x] {
+            x += 1;
+        }
+        let end = x;
+        if (end - start) as i32 >= MIN_GUTTER_W
+            && best_gap.is_none_or(|(bs, be)| end - start > be - bs)
+        {
+            best_gap = Some((start, end));
+        }
+    }
+    let (g_start, g_end) = best_gap?;
+
+    let left_min = (0..g_start).find(|&k| occupied[k])? as i32;
+    let left_max = (0..g_start).rev().find(|&k| occupied[k])? as i32 + 1;
+    let right_min = (g_end..page_w as usize).find(|&k| occupied[k])? as i32;
+    let right_max = (g_end..page_w as usize).rev().find(|&k| occupied[k])? as i32 + 1;
+
+    if left_max - left_min < MIN_LEFT_COL_W || right_max - right_min < MIN_RIGHT_COL_W {
+        return None;
+    }
+
+    Some(TwoColumns {
+        left: ColumnSpan {
+            left: left_min,
+            right: left_max,
+        },
+        right: ColumnSpan {
+            left: right_min,
+            right: right_max,
+        },
+        gutter_mid: ((left_max + right_min) / 2),
+    })
+}
+
+/// Whether any single-line run near `y` (within `tol` pt) bridges across `cols.gutter_mid`,
+/// indicating a full-width element (spanning `figure*`/`table*`, title, or abstract).
+fn has_spanning_line_near(text: &PageText, cols: TwoColumns, y: i32, tol: i32) -> bool {
+    let merge_gap = (cols.right.left - cols.left.right - 1).clamp(4, 8);
+    let mut glyphs: Vec<(i32, i32, i32)> = text
+        .ink()
+        .filter(|(_, _, r)| (r.y - y).abs() <= tol)
+        .map(|(_, _, r)| (r.y.div_euclid(6), r.x, r.right()))
+        .collect();
+    if glyphs.is_empty() {
+        return false;
+    }
+    glyphs.sort_unstable_by_key(|&(band, x0, _)| (band, x0));
+    let mut i = 0;
+    while i < glyphs.len() {
+        let band = glyphs[i].0;
+        let (mut run_lo, mut run_hi) = (glyphs[i].1, glyphs[i].2);
+        i += 1;
+        while i < glyphs.len() && glyphs[i].0 == band {
+            let (_, x0, x1) = glyphs[i];
+            if x0 <= run_hi + merge_gap {
+                run_hi = run_hi.max(x1);
+            } else {
+                if run_lo < cols.left.right && run_hi > cols.right.left {
+                    return true;
+                }
+                run_lo = x0;
+                run_hi = x1;
+            }
+            i += 1;
+        }
+        if run_lo < cols.left.right && run_hi > cols.right.left {
+            return true;
+        }
+    }
+    false
+}
+
+/// Returns the target column containing `(dest_x, dest_y)` on a two-column page, or `None` when
+/// the page is single-column, `dest_x` is unspecified/at the page origin, or `dest_y` lands on a
+/// full-width spanning element (`figure*`/`table*`/title/abstract).
+fn column_for_point(
+    text: &PageText,
+    mediabox: RectF,
+    dest_x: f32,
+    dest_y: f32,
+) -> Option<ColumnSpan> {
+    if !dest_x.is_finite() || dest_x <= mediabox.x + 1.0 {
+        return None;
+    }
+    let cols = detect_page_columns(text, mediabox)?;
+    if dest_y.is_finite() && dest_y >= 0.0 && has_spanning_line_near(text, cols, dest_y as i32, 18)
+    {
+        return None;
+    }
+    if (dest_x as i32) < cols.gutter_mid {
+        Some(cols.left)
+    } else {
+        Some(cols.right)
+    }
+}
+
 /// The fallback view: the page's full width from just above the target down to the last text, at most 200 pt (360
 /// at a caption). A target on a caption line takes in the figure above it; a caption below the strip is taken in
 /// whole.
 pub fn landscape_box(mediabox: RectF, dest_y: f32, text: &PageText) -> RectF {
+    landscape_box_at(mediabox, -1.0, dest_y, text)
+}
+
+/// Column-aware fallback view anchored at `(dest_x, dest_y)`: on a two-column page when `dest_x`
+/// targets one column and the content near `dest_y` does not span across the gutter, crops
+/// horizontally to that column so unrelated text from the opposite column does not dilute the
+/// preview. Single-column pages and spanning figures/tables keep the full page width.
+pub fn landscape_box_at(mediabox: RectF, dest_x: f32, dest_y: f32, text: &PageText) -> RectF {
     const FIGURE_BODY_EXTEND: f32 = 250.0;
     const MAX_LANDSCAPE: f32 = 200.0;
     const MAX_LANDSCAPE_CAPTION: f32 = 360.0;
 
+    let mut target_col = column_for_point(text, mediabox, dest_x, dest_y);
     let mut ty = if dest_y >= 0.0 {
         dest_y - ANCHOR_TOP_MARGIN
     } else {
         0.0
     }
     .max(0.0);
+    let in_col = |col: Option<ColumnSpan>, r: Rect| {
+        col.is_none_or(|c| r.x >= c.left - 15 && r.x <= c.right + 15)
+    };
     let dest_at_caption = !text.is_empty() && dest_y > 0.0 && {
         let d_y = dest_y as i32;
         (0..text.len()).any(|i| {
-            let gy = text.rect(i).y;
-            gy >= d_y - 5 && gy <= d_y + 15 && caption_label_at(text, i)
+            let r = text.rect(i);
+            in_col(target_col, r) && r.y >= d_y - 5 && r.y <= d_y + 15 && caption_label_at(text, i)
         })
     };
     if dest_at_caption {
+        // If a two-column caption actually spans across the gutter (e.g. `figure*`/`table*`),
+        // widen back to full page width so the full spanning figure is shown.
+        if let Some(cols) = detect_page_columns(text, mediabox)
+            && has_spanning_line_near(text, cols, dest_y as i32, 24)
+        {
+            target_col = None;
+        }
         ty = (ty - FIGURE_BODY_EXTEND).max(0.0);
     }
     let mut h = mediabox.dy - ty;
@@ -399,15 +598,17 @@ pub fn landscape_box(mediabox: RectF, dest_y: f32, text: &PageText) -> RectF {
     });
 
     if !text.is_empty() {
-        if let Some(caption_end) = caption_block_end(text, (ty + h) as i32, mediabox.dy as i32) {
+        if let Some(caption_end) =
+            caption_block_end(text, (ty + h) as i32, mediabox.dy as i32, target_col)
+        {
             h = h.max(caption_end as f32 + ANCHOR_TOP_MARGIN - ty);
         }
 
-        // Trim the blank margin after the last text in the strip.
+        // Trim the blank margin after the last text in the strip (within the target column).
         let (top, bottom) = (ty as i32, (ty + h) as i32);
         let last = text
             .ink()
-            .filter(|(_, _, r)| r.y >= top && r.y < bottom)
+            .filter(|(_, _, r)| in_col(target_col, *r) && r.y >= top && r.y < bottom)
             .map(|(_, _, r)| r.bottom())
             .fold(top, i32::max);
         let trimmed = last as f32 + ANCHOR_TOP_MARGIN - ty;
@@ -415,18 +616,36 @@ pub fn landscape_box(mediabox: RectF, dest_y: f32, text: &PageText) -> RectF {
             h = trimmed;
         }
     }
-    RectF::new(0.0, ty, mediabox.dx, h)
+    match target_col {
+        Some(col) => clip_to_mediabox(
+            RectF::new(
+                col.left as f32 - ENTRY_PAD,
+                ty,
+                (col.right - col.left) as f32 + 2.0 * ENTRY_PAD,
+                h,
+            ),
+            mediabox,
+        ),
+        None => RectF::new(0.0, ty, mediabox.dx, h),
+    }
 }
 
-/// The bottom of the topmost caption block starting between `top` and `bottom`: its label line and up to two more
-/// lines, stopping at a paragraph gap or where a short line is followed by a full one (the caption ended and the
-/// body began).
-fn caption_block_end(text: &PageText, top: i32, bottom: i32) -> Option<i32> {
+/// The bottom of the topmost caption block starting between `top` and `bottom` (restricted to
+/// `target_col` when set): its label line and up to two more lines, stopping at a paragraph gap or
+/// where a short line is followed by a full one (the caption ended and the body began).
+fn caption_block_end(
+    text: &PageText,
+    top: i32,
+    bottom: i32,
+    target_col: Option<ColumnSpan>,
+) -> Option<i32> {
+    let in_col = |r: Rect| target_col.is_none_or(|c| r.x >= c.left - 15 && r.x <= c.right + 15);
     let mut start = None;
     let mut best_y = i32::MAX;
     for i in 0..text.len() {
-        let gy = text.rect(i).y;
-        if gy < top || gy > bottom || gy >= best_y {
+        let r = text.rect(i);
+        let gy = r.y;
+        if !in_col(r) || gy < top || gy > bottom || gy >= best_y {
             continue;
         }
         if caption_label_at(text, i) {
@@ -436,8 +655,11 @@ fn caption_block_end(text: &PageText, top: i32, bottom: i32) -> Option<i32> {
     }
     let start = text.rect(start?);
     let line_h = if start.dy < 10 { 12 } else { start.dy };
-    // A line reaching within 30 pt of the page's text margin is full width.
-    let page_right = text.rects().iter().map(|r| r.right()).fold(0, i32::max);
+    // A line reaching within 30 pt of the column's (or page's) text margin is full width.
+    let col_right = match target_col {
+        Some(col) => col.right,
+        None => text.rects().iter().map(|r| r.right()).fold(0, i32::max),
+    };
 
     let mut end = start.y + line_h;
     let mut prev_bottom = start.y + line_h - 1;
@@ -450,8 +672,8 @@ fn caption_block_end(text: &PageText, top: i32, bottom: i32) -> Option<i32> {
         };
         let mut found = false;
         let (mut line_top, mut line_bottom, mut line_right) = (i32::MAX, -1, 0);
-        for r in text.rects() {
-            if r.y < band_top || r.y > band_bot {
+        for &r in text.rects() {
+            if !in_col(r) || r.y < band_top || r.y > band_bot {
                 continue;
             }
             found = true;
@@ -462,7 +684,7 @@ fn caption_block_end(text: &PageText, top: i32, bottom: i32) -> Option<i32> {
         if !found {
             break;
         }
-        let short = line_right < page_right - 30;
+        let short = line_right < col_right - 30;
         if line >= 1 && (line_top - prev_bottom > line_h * 7 / 10 || (!short && seen_short)) {
             break;
         }
@@ -476,9 +698,28 @@ fn caption_block_end(text: &PageText, top: i32, bottom: i32) -> Option<i32> {
 /// A labelled display equation near the target: a "(N)" or "(N.M)" at the end of its line, in the right half of the
 /// page, within 40 pt of the target. Its line, the page's full width, padded. `None` when there is none.
 pub fn detect_equation_box(text: &PageText, mediabox: RectF, dest_y: f32) -> Option<RectF> {
+    detect_equation_box_at(text, mediabox, -1.0, dest_y)
+}
+
+/// Column-aware display-equation detector: finds a trailing `(N)` or `(N.M)` label in the right
+/// half of the target column (or full page for single-column documents) within 40 pt of `dest_y`.
+/// On two-column pages this detects left-column equations, crops tightly to the target column, and
+/// prevents an equation in one column from hijacking a target in the opposite column.
+pub fn detect_equation_box_at(
+    text: &PageText,
+    mediabox: RectF,
+    dest_x: f32,
+    dest_y: f32,
+) -> Option<RectF> {
     if dest_y <= 0.0 || text.is_empty() {
         return None;
     }
+    let target_col = column_for_point(text, mediabox, dest_x, dest_y);
+    let (col_x0, col_x1) = match target_col {
+        Some(col) => (col.left, col.right),
+        None => (mediabox.x as i32, mediabox.right() as i32),
+    };
+    let half_x = col_x0 + (col_x1 - col_x0) / 2;
     let d_y = dest_y as i32;
     let chars = text.chars();
     let mut best: Option<(i32, i32)> = None;
@@ -525,14 +766,20 @@ pub fn detect_equation_box(text: &PageText, mediabox: RectF, dest_y: f32) -> Opt
         }
         let label_left = text.rect(open).x;
         let label_right = text.rect(i).right();
+        if label_left < half_x || label_right > col_x1 + 10 {
+            continue;
+        }
         let right_of = (0..chars.len()).any(|j| {
+            let r = text.rect(j);
             !(open..=i).contains(&j)
                 && !chars[j].is_whitespace()
-                && text.rect(j).y == ly
-                && text.rect(j).right() > label_right
+                && (r.y - ly).abs() <= 3
+                && r.x >= col_x0 - 10
+                && r.x <= col_x1 + 10
+                && r.right() > label_right
         });
-        // A label is the last thing on its line, and a "(N)" in the left half is a body-text marker.
-        if right_of || label_left < (mediabox.dx * 0.5) as i32 {
+        // A label is the last thing on its line within its column.
+        if right_of {
             continue;
         }
         let dist = (ly - d_y).abs();
@@ -544,11 +791,18 @@ pub fn detect_equation_box(text: &PageText, mediabox: RectF, dest_y: f32) -> Opt
     let (label_y, label_dy) = best?;
     let label_dy = if label_dy <= 0 { 12 } else { label_dy };
     let pad = label_dy as f32 + 6.0;
+    let (box_x, box_w) = match target_col {
+        Some(col) => (
+            col.left as f32 - ENTRY_PAD,
+            (col.right - col.left) as f32 + 2.0 * ENTRY_PAD,
+        ),
+        None => (0.0, mediabox.dx),
+    };
     Some(clip_to_mediabox(
         RectF::new(
-            0.0,
+            box_x,
             label_y as f32 - pad,
-            mediabox.dx,
+            box_w,
             label_dy as f32 + 2.0 * pad,
         ),
         mediabox,
@@ -558,6 +812,16 @@ pub fn detect_equation_box(text: &PageText, mediabox: RectF, dest_y: f32) -> Opt
 /// The run of glyphs on `anchor`'s line (within 3 pt) reachable without crossing a gap wider than 20 pt, which keeps
 /// it within one column. Its leftmost glyph, left edge and right edge.
 fn line_run_extent(text: &PageText, anchor: usize) -> (usize, i32, i32) {
+    line_run_extent_in(text, anchor, None)
+}
+
+/// Like [`line_run_extent`], also refusing to step outside `col` when a two-column gutter was
+/// detected (so a narrow 10–20 pt LaTeX `\columnsep` can never be bridged into the opposite column).
+fn line_run_extent_in(
+    text: &PageText,
+    anchor: usize,
+    col: Option<ColumnSpan>,
+) -> (usize, i32, i32) {
     const MAX_LINE_GAP: i32 = 20;
     let a = text.rect(anchor);
     let (mut left_idx, mut left_x, mut right_x) = (anchor, a.x, a.right());
@@ -566,6 +830,11 @@ fn line_run_extent(text: &PageText, anchor: usize) -> (usize, i32, i32) {
         extended = false;
         for (i, _, r) in text.ink() {
             if r.y < a.y - 3 || r.y > a.y + 3 {
+                continue;
+            }
+            if let Some(c) = col
+                && (r.x < c.left - 15 || r.x > c.right + 10)
+            {
                 continue;
             }
             if r.x < left_x && r.right() >= left_x - MAX_LINE_GAP {
@@ -755,25 +1024,32 @@ pub fn detect_entry_box(
             mediabox.dy,
         )));
     }
-    let landscape = || Some(EntryRegion::whole(landscape_box(mediabox, dest_y, text)));
+    let landscape = || {
+        Some(EntryRegion::whole(landscape_box_at(
+            mediabox, dest_x, dest_y, text,
+        )))
+    };
     if dest_y < 0.0 {
         return landscape();
     }
 
     let d_y = dest_y as i32;
-    // Keep to the target's column, with a little room for a "[" starting just left of it.
-    let column_left = if dest_x >= 0.0 {
-        dest_x as i32 - 15
-    } else {
-        i32::MIN
+    let target_col = column_for_point(text, mediabox, dest_x, dest_y);
+    // Keep strictly inside the target's column when two columns are detected (with room for a "["
+    // label just left of the column start), so a slightly closer baseline in the opposite column
+    // can never hijack the anchor.
+    let (column_left, column_right_limit) = match target_col {
+        Some(col) => ((col.left - 15).max(0), col.right + 10),
+        None if dest_x >= 0.0 => (dest_x as i32 - 15, i32::MAX),
+        None => (i32::MIN, i32::MAX),
     };
 
-    // 1. The entry's first glyph: on the line nearest the target (not the topmost in the band, which in two columns
-    // may be the other column's), leftmost.
+    // 1. The entry's first glyph: on the line nearest the target within the target column,
+    // leftmost.
     let mut start = None;
     let (mut best_dist, mut best_x) = (i32::MAX, i32::MAX);
     for (i, _, r) in text.ink() {
-        if r.y < d_y - 5 || r.y > d_y + 30 || r.x < column_left {
+        if r.y < d_y - 5 || r.y > d_y + 30 || r.x < column_left || r.x > column_right_limit {
             continue;
         }
         let dist = (r.y - d_y).abs();
@@ -785,9 +1061,9 @@ pub fn detect_entry_box(
     }
     let mut start = start?;
 
-    // Links often carry the source page's x; walk to the start of the line, unless already on the "[" label (walking
-    // left from it can cross a narrow gutter).
-    let (left_idx, _, line_run_right) = line_run_extent(text, start);
+    // Links often carry the source page's x; walk to the start of the line within the target
+    // column, unless already on the "[" label (walking left from it can cross a narrow gutter).
+    let (left_idx, _, line_run_right) = line_run_extent_in(text, start, target_col);
     if text.ch(start) != '[' {
         start = left_idx;
     }
@@ -1031,9 +1307,14 @@ pub fn detect_entry_box(
     if region.dx < 50.0 || region.dy < 20.0 {
         return landscape();
     }
-    // A caption anywhere below: the target is a figure, table or listing (even one whose lines start with "[TAG]").
+    // A caption below in the SAME column: the target is a figure, table or listing (even one whose
+    // lines start with "[TAG]"). Ignoring captions in the opposite column keeps two-column
+    // bibliographies intact when a figure sits beside them.
     let box_bottom = region.bottom() as i32;
-    if (0..text.len()).any(|i| text.rect(i).y > box_bottom && caption_label_at(text, i)) {
+    if (0..text.len()).any(|i| {
+        let r = text.rect(i);
+        in_column(&r) && r.y > box_bottom && caption_label_at(text, i)
+    }) {
         return landscape();
     }
     if bracket {

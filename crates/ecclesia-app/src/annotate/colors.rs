@@ -18,6 +18,34 @@ use crate::tabs::{Tone, action_button};
 /// The settings key the colours live under.
 pub(crate) const KEY: &str = "annotation";
 
+/// Settings key persisting whether picking a highlight colour updates the default highlight tool colour.
+pub(crate) const REMEMBER_HIGHLIGHT_COLOR: &str = "remember_highlight_color";
+
+/// Default pastel yellow highlight colour (`#fde047`) used when highlight colour memory is disabled.
+pub(crate) const DEFAULT_HIGHLIGHT_HEX: u32 = 0xFD_E047;
+
+/// Returns whether choosing a highlight colour updates the remembered highlight tool colour (`true` by default).
+pub(crate) fn remember_highlight_color(settings: &Settings) -> bool {
+    settings.flag(REMEMBER_HIGHLIGHT_COLOR).unwrap_or(true)
+}
+
+/// Persists whether highlight colour choices are remembered for future highlights (`true` clears the key).
+pub(crate) fn set_remember_highlight_color(live: Live, remember: bool) {
+    live.change(|s| s.set_flag(REMEMBER_HIGHLIGHT_COLOR, (!remember).then_some(false)));
+}
+
+/// Remembers `color` as `Tool::Highlight`'s saved colour when highlight colour memory is enabled.
+pub(crate) fn remember_highlight_choice(live: Live, color: u32) {
+    if !untracked(|| live.read(remember_highlight_color)) {
+        return;
+    }
+    live.change(|s| {
+        let mut colors = read(s);
+        colors.choose_color(Tool::Highlight, color);
+        write(s, &colors);
+    });
+}
+
 /// The colours the settings hold.
 pub(crate) fn read(settings: &Settings) -> Colors {
     settings
@@ -49,9 +77,27 @@ pub(crate) fn set_palette(live: Live, palette: Palette) {
     });
 }
 
+/// Effective colours exposed to the page canvas, keeping the default yellow highlight when memory is off.
+fn effective_for_canvas(settings: &Settings) -> Colors {
+    let mut colors = read(settings);
+    if !remember_highlight_color(settings) {
+        let opacity = colors.style(Tool::Highlight).opacity;
+        let style = ToolStyle::new(DEFAULT_HIGHLIGHT_HEX, opacity);
+        match colors
+            .chosen
+            .iter_mut()
+            .find(|(tool, _)| *tool == Tool::Highlight)
+        {
+            Some((_, kept)) => *kept = style,
+            None => colors.chosen.push((Tool::Highlight, style)),
+        }
+    }
+    colors
+}
+
 /// The `annotationColors` prop: the colours as the canvas reads them.
 pub(crate) fn prop(live: Live) -> JsonValue {
-    live.read(read).to_json()
+    live.read(|s| effective_for_canvas(s).to_json())
 }
 
 /// Gives `tool` `color` (the canvas's `toolColor`: `{tool, color}`), keeping its opacity.
@@ -68,6 +114,9 @@ pub(crate) fn on_tool_color(live: Live, data: &JsonValue) {
         log::warn!("toolColor: a request that doesn't parse: {data}");
         return;
     };
+    if tool == Tool::Highlight && !untracked(|| live.read(remember_highlight_color)) {
+        return;
+    }
     live.change(|s| {
         let mut colors = read(s);
         colors.choose_color(tool, color);
@@ -76,22 +125,57 @@ pub(crate) fn on_tool_color(live: Live, data: &JsonValue) {
 }
 
 /// The colour dialog (A.3): which tool, then its colour and opacity on NSH's picker, the palette's and the recent
-/// colours as swatches. Done keeps them; Escape, Cancel or a press outside drops them.
-pub(crate) fn color_dialog(live: Live, picking: Signal<Option<Tool>>) -> impl IntoElement {
-    let close = move || picking.set(None);
+/// colours as swatches. Done keeps them (and notifies `on_pick`); Escape, Cancel or a press outside drops them and
+/// notifies `on_cancel`.
+pub(crate) fn color_dialog(
+    live: Live,
+    picking: Signal<Option<Tool>>,
+    initial_color: Option<u32>,
+    has_target: bool,
+    on_pick: impl Fn(Tool, ToolStyle) + Copy + 'static,
+    on_cancel: impl Fn() + Copy + 'static,
+) -> impl IntoElement {
+    let cancel = move || {
+        picking.set(None);
+        on_cancel();
+    };
+    let finish = move || {
+        picking.set(None);
+    };
     let content = match untracked(|| picking.get()) {
-        Some(tool) => form(live, tool, close),
+        Some(tool) => form(
+            live,
+            tool,
+            initial_color,
+            has_target,
+            on_pick,
+            finish,
+            cancel,
+        ),
         None => view(),
     };
-    list_dialog(t!("annotation_colors.dialog"), close, card(content))
+    list_dialog(t!("annotation_colors.dialog"), cancel, card(content))
 }
 
-fn form(live: Live, first: Tool, close: impl Fn() + Copy + 'static) -> View {
+fn form(
+    live: Live,
+    first: Tool,
+    initial_color: Option<u32>,
+    has_target: bool,
+    on_pick: impl Fn(Tool, ToolStyle) + Copy + 'static,
+    finish: impl Fn() + Copy + 'static,
+    cancel: impl Fn() + Copy + 'static,
+) -> View {
     let colors = untracked(|| live.read(read));
     let tool = signal(first);
-    // What each tool is given in the dialog, kept only on Done.
-    let styles = signal(Tool::ALL.map(|tool| colors.style(tool)));
     let index = move |tool: Tool| Tool::ALL.iter().position(|&t| t == tool).unwrap_or(0);
+    // What each tool is given in the dialog, kept only on Done.
+    let mut initial_styles = Tool::ALL.map(|tool| colors.style(tool));
+    if let Some(rgb_hex) = initial_color {
+        let at = index(first);
+        initial_styles[at] = ToolStyle::new(rgb_hex, initial_styles[at].opacity);
+    }
+    let styles = signal(initial_styles);
     let current = move || styles.with(|styles| styles[index(tool.get())]);
     let recent = colors.recent.clone();
     let opacity = move || current().opacity;
@@ -100,17 +184,24 @@ fn form(live: Live, first: Tool, close: impl Fn() + Copy + 'static) -> View {
         styles.update(|styles| styles[at] = style);
     };
     let done = move || {
+        let active_tool = untracked(|| tool.get());
         let chosen = untracked(|| styles.get());
+        let active_style = chosen[index(active_tool)];
         live.change(|s| {
+            let remember = remember_highlight_color(s);
             let mut colors = read(s);
             for (tool, style) in Tool::ALL.into_iter().zip(chosen) {
+                if has_target && tool == Tool::Highlight && !remember {
+                    continue;
+                }
                 if style != colors.style(tool) {
                     colors.choose(tool, style);
                 }
             }
             write(s, &colors);
         });
-        close();
+        on_pick(active_tool, active_style);
+        finish();
     };
     let tabs = Tool::ALL.into_iter().fold(segmented(), |row, choice| {
         row.child(segment(
@@ -191,7 +282,7 @@ fn form(live: Live, first: Tool, close: impl Fn() + Copy + 'static) -> View {
                 .child(action_button(
                     "annotation_colors.cancel",
                     Tone::Plain,
-                    close,
+                    cancel,
                 ))
                 .child(crate::shell::primary_button("annotation_colors.done", done)),
         )
@@ -295,5 +386,26 @@ mod tests {
         assert!((back.opacity - 0.5).abs() < 0.01);
         let [r, g, b] = [16, 8, 0].map(|shift| ((back.color >> shift) & 0xff) as i32);
         assert!((r - 0x3b).abs() <= 1 && (g - 0x82).abs() <= 1 && (b - 0xf6).abs() <= 1);
+    }
+
+    #[test]
+    fn remember_highlight_color_defaults_true_and_enforces_yellow_when_off() {
+        let mut settings = Settings::default();
+        assert!(remember_highlight_color(&settings));
+
+        let mut custom = Colors::default();
+        custom.choose_color(Tool::Highlight, 0x93_C5FD);
+        write(&mut settings, &custom);
+        assert_eq!(
+            effective_for_canvas(&settings).style(Tool::Highlight).color,
+            0x93_C5FD
+        );
+
+        settings.set_flag(REMEMBER_HIGHLIGHT_COLOR, Some(false));
+        assert!(!remember_highlight_color(&settings));
+        assert_eq!(
+            effective_for_canvas(&settings).style(Tool::Highlight).color,
+            DEFAULT_HIGHLIGHT_HEX
+        );
     }
 }

@@ -5,7 +5,7 @@
 //! the new text bridges are folded in and deleted.
 
 use ecclesia_core::anchor::Quote;
-use ecclesia_core::annot::{Annotation, Markup, Shape, Style, now};
+use ecclesia_core::annot::{Annotation, BlockHighlightShape, Boxed, Markup, Shape, Style, now};
 use ecclesia_core::edit::Change;
 use ecclesia_mupdf::{PagePoint, PageRect, Quad};
 use serde_json::Value;
@@ -205,9 +205,9 @@ pub fn mark(
     changes
 }
 
-/// The changes that mark a rectangular block selection (`quads`) on page `page` as a standalone
-/// markup annotation without merging into or distorting adjacent single-line text markups.
-/// Empty when `quads` is empty.
+/// The changes that mark a rectangular block selection (`quads`) on page `page` as a resizable,
+/// re-shapable PDF block highlight annotation (a filled `/Square` with `/BM /Multiply` so dark
+/// text underneath stays crisp). Empty when `quads` is empty.
 #[must_use]
 pub fn mark_block(
     marking: Marking<'_>,
@@ -215,17 +215,132 @@ pub fn mark_block(
     quads: Vec<Quad>,
     quote: Option<Quote>,
 ) -> Vec<Change> {
-    if quads.is_empty() {
+    let Some(rect) = union_bounds(&quads) else {
         return Vec::new();
-    }
+    };
     let mut annotation = Annotation::new(
         page,
-        Shape::Markup(marking.kind, quads),
-        marking.style,
+        Shape::Boxed(Boxed::Square, rect),
+        Style {
+            color: None,
+            opacity: marking.style.opacity,
+            width: 0.0,
+        },
         marking.author,
     );
+    annotation.fill = marking.style.color;
+    annotation.multiply = true;
+    annotation.block_highlight = Some(BlockHighlightShape::Rectangle);
     annotation.anchor = quote;
     vec![Change::CreateAnnotation(annotation)]
+}
+
+/// The change that recolours a text markup's colour or a block highlight's background fill;
+/// `None` when `annotation` is locked, not a highlight target, or already uses `color`.
+#[must_use]
+pub fn set_highlight_color(annotation: &Annotation, color: [f32; 3]) -> Option<Change> {
+    if annotation.locked {
+        return None;
+    }
+    let color = color.map(|channel| channel.clamp(0.0, 1.0));
+    let mut after = annotation.clone();
+    if matches!(annotation.shape, Shape::Markup(..)) {
+        after.style.color = Some(color);
+    } else if annotation.block_highlight.is_some() {
+        after.fill = Some(color);
+    } else {
+        return None;
+    }
+    super::edit::change(annotation, after)
+}
+
+/// The change that sets a block highlight's background fill (`None` clears the fill);
+/// `None` when `annotation` is locked, not a block highlight, or unchanged.
+#[must_use]
+pub fn set_block_fill(annotation: &Annotation, fill: Option<[f32; 3]>) -> Option<Change> {
+    if annotation.locked || annotation.block_highlight.is_none() {
+        return None;
+    }
+    let mut after = annotation.clone();
+    after.fill = fill.map(|rgb| rgb.map(|channel| channel.clamp(0.0, 1.0)));
+    super::edit::change(annotation, after)
+}
+
+/// The change that sets a block highlight's border colour (`None` hides the border);
+/// `None` when `annotation` is locked, not a block highlight, or unchanged.
+#[must_use]
+pub fn set_block_edge(annotation: &Annotation, edge: Option<[f32; 3]>) -> Option<Change> {
+    if annotation.locked || annotation.block_highlight.is_none() {
+        return None;
+    }
+    let mut after = annotation.clone();
+    after.style.color = edge.map(|rgb| rgb.map(|channel| channel.clamp(0.0, 1.0)));
+    after.style.width = if after.style.color.is_some() {
+        after.style.width.max(1.5)
+    } else {
+        0.0
+    };
+    super::edit::change(annotation, after)
+}
+
+/// The change that reshapes a block highlight to `shape` while keeping its bounding rectangle;
+/// `None` when `annotation` is locked, not a block highlight, has no bounds, or is unchanged.
+#[must_use]
+pub fn set_block_shape(annotation: &Annotation, shape: BlockHighlightShape) -> Option<Change> {
+    if annotation.locked || annotation.block_highlight.is_none() {
+        return None;
+    }
+    let rect = super::edit::bounds(annotation)?;
+    let (new_shape, cloud) = shape.into_shape(rect);
+    let mut after = annotation.clone();
+    after.shape = new_shape;
+    after.cloud = cloud;
+    after.block_highlight = Some(shape);
+    if shape == BlockHighlightShape::Cloud && after.style.color.is_none() {
+        after.style.color = after.fill;
+        if after.style.color.is_some() {
+            after.style.width = after.style.width.max(1.5);
+        }
+    }
+    super::edit::change(annotation, after)
+}
+
+/// The change that converts a text markup between highlight, underline, squiggly and strikeout
+/// while preserving its quads, colour, comment and anchor; `None` when locked, not text markup,
+/// or already `kind`.
+#[must_use]
+pub fn set_markup_kind(annotation: &Annotation, kind: Markup) -> Option<Change> {
+    if annotation.locked {
+        return None;
+    }
+    let Shape::Markup(current, quads) = &annotation.shape else {
+        return None;
+    };
+    if *current == kind {
+        return None;
+    }
+    let mut after = annotation.clone();
+    after.shape = Shape::Markup(kind, quads.clone());
+    super::edit::change(annotation, after)
+}
+
+/// Normalized bounding rectangle covering every quad in `quads`; `None` when `quads` is empty.
+fn union_bounds(quads: &[Quad]) -> Option<PageRect> {
+    let mut iter = quads.iter().map(Quad::bounds);
+    let first = iter.next()?;
+    let mut out = PageRect {
+        x0: first.x0.min(first.x1),
+        y0: first.y0.min(first.y1),
+        x1: first.x0.max(first.x1),
+        y1: first.y0.max(first.y1),
+    };
+    for b in iter {
+        out.x0 = out.x0.min(b.x0).min(b.x1);
+        out.y0 = out.y0.min(b.y0).min(b.y1);
+        out.x1 = out.x1.max(b.x0).max(b.x1);
+        out.y1 = out.y1.max(b.y0).max(b.y1);
+    }
+    Some(out)
 }
 
 fn quads_of(annotation: &Annotation) -> Vec<Quad> {
@@ -478,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    fn block_request_parses_flag_and_preserves_exact_rectangular_quad() {
+    fn block_request_parses_flag_and_creates_resizable_block_highlight() {
         let value = serde_json::json!({
             "kind": "highlight",
             "block": true,
@@ -495,17 +610,30 @@ mod tests {
         assert_eq!(request.pages[0].quads.len(), 1);
 
         let block_quad = request.pages[0].quads[0];
-        let changes = mark_block(marking(YELLOW), 1, vec![block_quad], None);
+        let quote = Quote::of("hello block world", 6..11);
+        let changes = mark_block(marking(YELLOW), 1, vec![block_quad], quote.clone());
         let annotation = made(&changes);
         assert_eq!(annotation.page, 1);
-        assert_eq!(annotation.anchor, None);
-        let Shape::Markup(Markup::Highlight, quads) = &annotation.shape else {
-            panic!("expected highlight markup");
-        };
+        assert_eq!(annotation.anchor, quote);
+        assert_eq!(annotation.fill, Some(YELLOW));
+        assert_eq!(annotation.style.color, None);
+        assert_eq!(annotation.style.width, 0.0);
+        assert!(annotation.multiply);
         assert_eq!(
-            quads,
-            &[block_quad],
-            "exact rectangular quad must be preserved verbatim"
+            annotation.block_highlight,
+            Some(BlockHighlightShape::Rectangle)
+        );
+        assert_eq!(
+            annotation.shape,
+            Shape::Boxed(
+                Boxed::Square,
+                PageRect {
+                    x0: 20.0,
+                    y0: 40.0,
+                    x1: 220.0,
+                    y1: 180.0,
+                },
+            )
         );
 
         let plain = serde_json::json!({
@@ -514,5 +642,94 @@ mod tests {
             "pages": []
         });
         assert!(!Request::parse(&plain).expect("plain request parses").block);
+    }
+
+    #[test]
+    fn highlight_and_block_edit_helpers_update_style_shape_and_kind() {
+        let updated = |change: Option<Change>| match change {
+            Some(Change::UpdateAnnotation(annotation)) => annotation,
+            other => panic!("expected an update, got {other:?}"),
+        };
+
+        // Text markup recolouring and kind switching.
+        let quote = Quote::of("the quick fox", 4..9);
+        let mut text_hl = made(&mark(
+            marking(YELLOW),
+            0,
+            vec![run(10.0, 80.0, 0)],
+            quote.clone(),
+            &[],
+        ));
+        text_hl.contents = "keep me".to_owned();
+        let recoloured = updated(set_highlight_color(&text_hl, GREEN));
+        assert_eq!(recoloured.style.color, Some(GREEN));
+        assert!(set_highlight_color(&recoloured, GREEN).is_none());
+
+        let underlined = updated(set_markup_kind(&recoloured, Markup::Underline));
+        assert!(matches!(
+            underlined.shape,
+            Shape::Markup(Markup::Underline, ref quads) if quads.len() == 1
+        ));
+        assert_eq!(underlined.style.color, Some(GREEN));
+        assert_eq!(underlined.contents, "keep me");
+        assert_eq!(underlined.anchor, quote);
+        assert!(set_markup_kind(&underlined, Markup::Underline).is_none());
+
+        // Block highlight helpers: colour, fill, edge, and shapes.
+        let block = made(&mark_block(
+            marking(YELLOW),
+            2,
+            vec![run(20.0, 120.0, 0), run(20.0, 120.0, 2)],
+            None,
+        ));
+        assert!(set_markup_kind(&block, Markup::StrikeOut).is_none());
+
+        let green_block = updated(set_highlight_color(&block, GREEN));
+        assert_eq!(green_block.fill, Some(GREEN));
+        assert!(set_highlight_color(&green_block, GREEN).is_none());
+
+        let unfilled = updated(set_block_fill(&green_block, None));
+        assert_eq!(unfilled.fill, None);
+        assert!(set_block_fill(&unfilled, None).is_none());
+
+        let bordered = updated(set_block_edge(&green_block, Some([0.1, 0.2, 0.9])));
+        assert_eq!(bordered.style.color, Some([0.1, 0.2, 0.9]));
+        assert_eq!(bordered.style.width, 1.5);
+        let borderless = updated(set_block_edge(&bordered, None));
+        assert_eq!(borderless.style.color, None);
+        assert_eq!(borderless.style.width, 0.0);
+
+        let rounded = updated(set_block_shape(&block, BlockHighlightShape::RoundedRect));
+        assert_eq!(
+            rounded.block_highlight,
+            Some(BlockHighlightShape::RoundedRect)
+        );
+        assert!(matches!(
+            rounded.shape,
+            Shape::Path(ecclesia_core::annot::Path::Polygon, ref pts) if pts.len() == 32
+        ));
+        assert_eq!(rounded.cloud, None);
+
+        let oval = updated(set_block_shape(&rounded, BlockHighlightShape::Oval));
+        assert_eq!(oval.block_highlight, Some(BlockHighlightShape::Oval));
+        assert!(matches!(oval.shape, Shape::Boxed(Boxed::Circle, _)));
+
+        let cloud = updated(set_block_shape(&block, BlockHighlightShape::Cloud));
+        assert_eq!(cloud.block_highlight, Some(BlockHighlightShape::Cloud));
+        assert_eq!(cloud.cloud, Some(1.0));
+        assert_eq!(
+            cloud.style.color,
+            Some(YELLOW),
+            "cloud auto-enables a subtle border when borderless"
+        );
+        assert_eq!(cloud.style.width, 1.5);
+
+        // Locked annotations reject all edits.
+        let mut locked = block;
+        locked.locked = true;
+        assert!(set_highlight_color(&locked, GREEN).is_none());
+        assert!(set_block_fill(&locked, None).is_none());
+        assert!(set_block_edge(&locked, Some(GREEN)).is_none());
+        assert!(set_block_shape(&locked, BlockHighlightShape::Oval).is_none());
     }
 }
