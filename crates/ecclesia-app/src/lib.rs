@@ -106,6 +106,9 @@ pub fn keep_edit_logs() {
 /// The page canvas's component name (plan D5); every platform registers its own under it.
 pub(crate) const PAGE_CANVAS: &str = "ecclesia.page-canvas";
 
+/// The window bridge's component name: hooks visible top-level windows for app icons and OS file drops.
+pub(crate) const WINDOW_BRIDGE: &str = "ecclesia.window-bridge";
+
 /// The app's native components on Windows: the page canvas. NSH's own hosts (`nsh run`) call this through the
 /// attribute; the desktop binary calls it itself.
 #[native_components(windows)]

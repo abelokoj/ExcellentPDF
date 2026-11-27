@@ -9,7 +9,10 @@
 
 use nsh_base::{button, theme};
 use nsh_core::JsonValue;
-use nsh_core::element::desktop::{OpenChange, WindowRef, open_window};
+use nsh_core::desktop::WindowMode;
+#[cfg(target_os = "windows")]
+use nsh_core::element::desktop::quit;
+use nsh_core::element::desktop::{OpenChange, WindowRef, current_window, open_window};
 use nsh_core::prelude::*;
 
 use crate::commands::{self, CommandId};
@@ -135,6 +138,20 @@ pub(crate) fn pop_out(panes: Panes, shared: Shared) {
 /// What a popped-out window shows: its tabs in a bar, the pages, and the dialogs its pages ask for.
 fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoElement {
     let windows = panes.windows();
+    let window = stored(current_window());
+    let is_full_screen = move || {
+        window
+            .with(|w| w.state())
+            .is_some_and(|state| state.mode == WindowMode::FullScreen)
+    };
+    let toggle_full_screen = move || {
+        let next = if untracked(is_full_screen) {
+            WindowMode::Normal
+        } else {
+            WindowMode::FullScreen
+        };
+        window.with(|w| w.set_mode(next));
+    };
     let run = move |command: CommandId| match command {
         CommandId::Tab(action) => pane.tabs.run(action),
         CommandId::Canvas(name) => {
@@ -142,9 +159,19 @@ fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoEl
                 pane.canvas.command(name, JsonValue::Null);
             }
         }
+        CommandId::ToggleFullScreen => toggle_full_screen(),
+        CommandId::BlockSelect => pane.annotate.toggle_block_select(),
         CommandId::LeaveModes => {
+            if untracked(|| pane.find.is_open()) {
+                pane.find.run(crate::find::FindAction::Close);
+                return;
+            }
             pane.annotate.clear_selection();
+            pane.annotate.clear_block_select();
             pane.canvas.command("leaveModes", JsonValue::Null);
+            if untracked(is_full_screen) {
+                window.with(|w| w.set_mode(WindowMode::Normal));
+            }
         }
         CommandId::CutAnnotations => pane.annotate.cut(),
         CommandId::PasteAnnotations => pane.annotate.paste(pane.pages.current()),
@@ -157,9 +184,28 @@ fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoEl
         // The rest are the main window's: its dialogs, its sidebar and its panes.
         _ => {}
     };
+    let page_key_state = computed(move || {
+        if pane.covers_pages() {
+            return commands::PageKeyState::Inactive;
+        }
+        if pane.tabs.has_shown() && !pane.home_open.get() {
+            commands::PageKeyState::Active
+        } else if is_full_screen() {
+            commands::PageKeyState::FullScreenEscapeOnly
+        } else {
+            commands::PageKeyState::Inactive
+        }
+    });
     // A window's keys fire only in it, so the main window's are bound here again, to this pane.
-    // NSH's `When::Auto` yields automatically while any text input has focus.
-    commands::bind_keys(run, move |_| pane.tabs.has_shown() && !pane.covers_pages());
+    let live = panes.live();
+    effect(move || {
+        live.read(|_| ());
+        commands::bind_window_keys(run);
+    });
+    effect(move || {
+        live.read(|_| ());
+        commands::bind_page_keys(page_key_state.get(), run);
+    });
     // The window closes with its last tab.
     effect(move || {
         if !pane.tabs.has_tabs() {
@@ -180,30 +226,53 @@ fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoEl
             }
         },
     );
-    view()
+    let root = view()
         .flex_1()
+        .w_full()
+        .min_w(px(0.0))
+        .overflow_hidden()
         .direction(move || panes.live().read(crate::l10n::direction))
         .bg(move || theme().background)
         .child(
             view()
+                .w_full()
+                .min_w(px(0.0))
                 .h(move || px(panes.live().read(tabs::title_bar_height_px)))
                 .flex_shrink_0()
                 .flex_row()
                 .items_center()
                 .gap_2()
                 .px_2()
+                .overflow_hidden()
                 .bg(move || theme().sidebar)
                 .border_b_1()
                 .border_b_color(move || theme().border)
-                .child(tabs::tab_strip(
-                    pane.tabs,
-                    pane.home_open,
-                    pane.editing,
-                    run,
-                ))
+                .child(
+                    view()
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .h_full()
+                        .flex_row()
+                        .items_center()
+                        .overflow_hidden()
+                        .child(tabs::tab_strip(
+                            pane.tabs,
+                            pane.home_open,
+                            pane.editing,
+                            run,
+                        )),
+                )
                 .child(dock_button(move || windows.dock(id, panes))),
         )
-        .child(view().flex_1().child(pages))
+        .child(
+            view()
+                .flex_1()
+                .w_full()
+                .min_w(px(0.0))
+                .min_h(px(0.0))
+                .overflow_hidden()
+                .child(pages),
+        )
         .child(when(
             move || pane.tabs.editing().is_some(),
             move || tabs::group_dialog(pane.tabs),
@@ -223,7 +292,58 @@ fn popped_view(panes: Panes, pane: Pane, shared: Shared, id: u64) -> impl IntoEl
         .child(when(
             move || pane.annotate.is_picking(),
             move || crate::annotate::color_dialog(pane.annotate),
-        ))
+        ));
+    #[cfg(target_os = "windows")]
+    let root = root.child(
+        native(crate::WINDOW_BRIDGE)
+            .w(px(0.0))
+            .h(px(0.0))
+            .pointer_events(PointerEvents::None)
+            .prop("pageKeysActive", move || {
+                let active =
+                    page_key_state.get() == commands::PageKeyState::Active && !pane.find.is_open();
+                JsonValue::from(active)
+            })
+            .on_native_event(move |event: &NativeEvent| match &*event.name {
+                "osFileDrop" => {
+                    let paths = crate::open::paths_from_event(&event.data);
+                    let documents = crate::open::dropped_paths(&paths);
+                    if !documents.is_empty() {
+                        pane.tabs.open_paths(documents);
+                        pane.home_open.set(false);
+                    }
+                }
+                "osShortcut" => {
+                    if let Some(shortcut) = commands::OsShortcut::from_event(&event.data) {
+                        match shortcut {
+                            commands::OsShortcut::Quit => {
+                                pane.editing.save_now();
+                                for slot in panes.slots() {
+                                    slot.editing.save_now();
+                                }
+                                quit();
+                            }
+                            other if other.is_page_scoped() => {
+                                if untracked(|| page_key_state.get())
+                                    == commands::PageKeyState::Active
+                                    && !untracked(|| pane.find.is_open())
+                                    && let Some(cmd) = other.command()
+                                {
+                                    run(cmd);
+                                }
+                            }
+                            other => {
+                                if let Some(cmd) = other.command() {
+                                    run(cmd);
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }),
+    );
+    root
 }
 
 /// The button that docks the window, named with its shortcut.
@@ -241,6 +361,7 @@ fn dock_button(dock: impl Fn() + 'static) -> impl IntoElement {
         .on_press(dock)
         .h(px(28.0))
         .px_2()
+        .flex_shrink_0()
         .rounded(px(6.0))
         .flex_row()
         .items_center()

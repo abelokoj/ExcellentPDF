@@ -146,6 +146,8 @@ fn pane_view(
     pane.focus.on_focus_in(move || panes.focus(cell));
     view()
         .flex_1()
+        .min_w(px(0.0))
+        .overflow_hidden()
         .style_when(split, |s| s.border_2())
         .border_color(move || {
             if active() {
@@ -491,6 +493,8 @@ fn document_panel(
     let showing_home = move || !tabs.has_tabs() || pane.home_open.get();
     view()
         .flex_1()
+        .min_w(px(0.0))
+        .overflow_hidden()
         .child(when(
             move || pane.editing.recovered().is_some() && !full_screen.is_on() && !showing_home(),
             move || crate::recovery_bar::recovery_bar(pane.editing),
@@ -594,18 +598,11 @@ pub(crate) fn pages_view(
     let Pane {
         canvas,
         focus,
-        pages,
-        link_state,
-        thumbs,
         tabs,
-        outline,
         bookmarks,
-        find,
-        editing,
         annotate,
         present,
         study,
-        snapshot,
         ..
     } = pane;
     let reading = shared.reading;
@@ -614,8 +611,54 @@ pub(crate) fn pages_view(
         let name = tabs.shown_name().unwrap_or_default();
         t!("document.canvas", name = name)
     };
-    let canvas = native(crate::PAGE_CANVAS)
-        .element_ref(&canvas)
+    let canvas = build_page_canvas(pane, reading, hidden, on_event, label);
+    let canvas_host = view()
+        .flex_1()
+        .min_w(px(0.0))
+        .overflow_hidden()
+        .relative()
+        .child(canvas)
+        .child(crate::annotate::selection_popup::selection_popup_overlay(
+            annotate, canvas_ref, study, bookmarks,
+        ));
+    let pages = view()
+        .flex_1()
+        .min_w(px(0.0))
+        .overflow_hidden()
+        .focusable(true)
+        .element_ref(&focus)
+        .label(move || SharedString::from(label()))
+        .child(crate::annotate::ink_tools::eyedropper_bar(annotate))
+        .child(crate::study_ui::study_bars(study))
+        .child(crate::present_ui::present_overlays(present))
+        .child(canvas_host);
+    // The notes beside the pages (A.11), outside the focus stop so a click on a card leaves the pages' keys alone.
+    view()
+        .flex_1()
+        .min_w(px(0.0))
+        .overflow_hidden()
+        .flex_row()
+        .style_when(move || hidden() || !tabs.has_shown(), |s| s.hidden())
+        .child(pages)
+        .child(crate::annotate::margin::margin_column(annotate))
+}
+
+/// Applies reading-aid and document-appearance props to a [`NativeView`], split out to keep
+/// debug-mode stack frames bounded.
+#[inline(never)]
+fn apply_reading_canvas_props(
+    canvas: NativeView,
+    pane: Pane,
+    reading: crate::reading::Reading,
+    label: impl Fn() -> String + Copy + 'static,
+) -> NativeView {
+    let Pane {
+        tabs,
+        bookmarks,
+        editing,
+        ..
+    } = pane;
+    canvas
         // Before `path`, so a book opens laid out at the reader's size, not laid out twice.
         .prop("reflowFontSize", move || reading.reflow_font_size_prop())
         .prop("path", move || tabs.path_prop())
@@ -628,14 +671,35 @@ pub(crate) fn pages_view(
         .prop("focusScope", move || reading.focus_scope_prop())
         .prop("autoScrollSpeed", move || reading.speed_prop())
         .prop("hoverDelay", move || reading.hover_delay_prop())
+        .prop("hoverMaxWidthPct", move || {
+            reading.hover_max_width_pct_prop()
+        })
         .prop("paperTexture", move || reading.paper_texture_prop())
         .prop("bookmarks", move || bookmarks.marks_prop())
         .prop("edits", move || JsonValue::from(editing.revision()))
+}
+
+/// Applies annotation, ink, and visibility props to a [`NativeView`], split out to keep
+/// debug-mode stack frames bounded.
+#[inline(never)]
+fn apply_annotate_canvas_props(
+    canvas: NativeView,
+    pane: Pane,
+    hidden: impl Fn() -> bool + Copy + 'static,
+) -> NativeView {
+    let Pane {
+        annotate,
+        snapshot,
+        tabs,
+        ..
+    } = pane;
+    canvas
         .prop("annotationColors", move || annotate.colors_prop())
         .prop("drawing", move || annotate.drawing_prop())
         .prop("pen", move || annotate.pen_prop())
         .prop("eraser", move || annotate.eraser_prop())
         .prop("lasso", move || annotate.lasso_prop())
+        .prop("blockSelect", move || annotate.block_select_prop())
         .prop("guide", move || annotate.guide_prop())
         .prop("zoomPad", move || annotate.zoom_pad_prop())
         .prop("snapshot", move || snapshot.prop())
@@ -646,7 +710,37 @@ pub(crate) fn pages_view(
         .prop("visible", move || {
             JsonValue::from(!hidden() && tabs.has_shown())
         })
-        .label(move || SharedString::from(label()))
+}
+
+/// Builds the native [`crate::PAGE_CANVAS`] element with all props and event wiring.
+#[inline(never)]
+fn build_page_canvas(
+    pane: Pane,
+    reading: crate::reading::Reading,
+    hidden: impl Fn() -> bool + Copy + 'static,
+    on_event: impl Fn(&NativeEvent) + 'static,
+    label: impl Fn() -> String + Copy + 'static,
+) -> AnyElement {
+    let Pane {
+        canvas,
+        focus,
+        pages,
+        link_state,
+        thumbs,
+        tabs,
+        outline,
+        bookmarks,
+        find,
+        annotate,
+        present,
+        snapshot,
+        ..
+    } = pane;
+    let canvas_ref = canvas;
+    let el = native(crate::PAGE_CANVAS).element_ref(&canvas);
+    let el = apply_reading_canvas_props(el, pane, reading, label);
+    let el = apply_annotate_canvas_props(el, pane, hidden);
+    el.label(move || SharedString::from(label()))
         .on_native_event(move |event: &NativeEvent| {
             match &*event.name {
                 "press" => {
@@ -687,28 +781,8 @@ pub(crate) fn pages_view(
             copy_selection(event);
         })
         .flex_1()
-        .style_when(move || hidden() || !tabs.has_shown(), |s| s.invisible());
-    let canvas_host = view().flex_1().relative().child(canvas).child(
-        crate::annotate::selection_popup::selection_popup_overlay(
-            annotate, canvas_ref, study, bookmarks,
-        ),
-    );
-    let pages = view()
-        .flex_1()
-        .focusable(true)
-        .element_ref(&focus)
-        .label(move || SharedString::from(label()))
-        .child(crate::annotate::ink_tools::eyedropper_bar(annotate))
-        .child(crate::study_ui::study_bars(study))
-        .child(crate::present_ui::present_overlays(present))
-        .child(canvas_host);
-    // The notes beside the pages (A.11), outside the focus stop so a click on a card leaves the pages' keys alone.
-    view()
-        .flex_1()
-        .flex_row()
-        .style_when(move || hidden() || !tabs.has_shown(), |s| s.hidden())
-        .child(pages)
-        .child(crate::annotate::margin::margin_column(annotate))
+        .style_when(move || hidden() || !tabs.has_shown(), |s| s.invisible())
+        .into_element()
 }
 
 /// Moves keyboard focus to a pane's pages container on the next event-loop turn, after NSH's

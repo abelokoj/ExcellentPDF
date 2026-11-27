@@ -46,6 +46,14 @@ pub(crate) const REF_PREVIEW_DELAY: &str = "ref_preview_delay";
 pub(crate) const DEFAULT_PREVIEW_DELAY: f64 = 300.0;
 /// The longest delay the settings offer, in milliseconds.
 pub(crate) const MAX_PREVIEW_DELAY: f64 = 2000.0;
+/// Settings key for the maximum reference preview width as a percentage of the page width.
+pub(crate) const REF_PREVIEW_MAX_WIDTH: &str = "ref_preview_max_width";
+/// Default maximum reference preview width percentage (SumatraPDF Enhanced default).
+pub(crate) const DEFAULT_PREVIEW_MAX_WIDTH: f64 = 90.0;
+/// Minimum configurable reference preview width percentage.
+pub(crate) const MIN_PREVIEW_MAX_WIDTH: f64 = 40.0;
+/// Maximum configurable reference preview width percentage.
+pub(crate) const MAX_PREVIEW_MAX_WIDTH: f64 = 100.0;
 
 /// The reading aids' settings, followed while the app runs, and the reading theme shown for a moment while the reader
 /// moves through the reading-theme bar.
@@ -102,7 +110,6 @@ impl Reading {
             .map_or(JsonValue::Null, JsonValue::from)
     }
 
-    /// The canvas's `hoverDelay` prop (R.25): the delay in milliseconds, or `false` when previews are off.
     /// The canvas's `paperTexture` prop: the grain's strength, or 0 while the setting is off (R.23).
     pub(crate) fn paper_texture_prop(self) -> JsonValue {
         let on = self.live.read(|s| s.flag(PAPER_TEXTURE).unwrap_or(false));
@@ -113,6 +120,7 @@ impl Reading {
         })
     }
 
+    /// The canvas's `hoverDelay` prop (R.25): the delay in milliseconds, or `false` when previews are off.
     pub(crate) fn hover_delay_prop(self) -> JsonValue {
         self.live.read(|settings| {
             if settings.flag(REF_PREVIEW) == Some(false) {
@@ -122,6 +130,19 @@ impl Reading {
                 .number(REF_PREVIEW_DELAY)
                 .unwrap_or(DEFAULT_PREVIEW_DELAY);
             delay.clamp(0.0, MAX_PREVIEW_DELAY).into()
+        })
+    }
+
+    /// The canvas's `hoverMaxWidthPct` prop: maximum reference preview width as a percentage of
+    /// the page width (`40..=100`, default `90`).
+    pub(crate) fn hover_max_width_pct_prop(self) -> JsonValue {
+        self.live.read(|settings| {
+            let pct = settings
+                .number(REF_PREVIEW_MAX_WIDTH)
+                .filter(|v| v.is_finite())
+                .unwrap_or(DEFAULT_PREVIEW_MAX_WIDTH);
+            pct.clamp(MIN_PREVIEW_MAX_WIDTH, MAX_PREVIEW_MAX_WIDTH)
+                .into()
         })
     }
 

@@ -127,6 +127,8 @@ pub(crate) struct AnnotateState {
     eraser: Signal<Option<Eraser>>,
     /// The lasso is on (H.6): a drag on the pages draws a loop.
     lasso: Signal<bool>,
+    /// Rectangular block selection mode is on: plain left-drag selects rectangular regions.
+    block_select: Signal<bool>,
     /// The drawing guide on the page (H.11).
     guide: Signal<Option<guides::GuideKind>>,
     /// What the last stroke along the guide measured, in the reader's words.
@@ -189,6 +191,7 @@ impl AnnotateState {
             editing_pen: signal(None),
             eraser: signal(None),
             lasso: signal(false),
+            block_select: signal(false),
             guide: signal(None),
             reading: signal(None),
             zoom_pad: signal(false),
@@ -236,6 +239,30 @@ impl AnnotateState {
     /// Live settings handle owned by this pane's annotation controller.
     pub(crate) fn live_settings(self) -> Live {
         self.live
+    }
+
+    /// Toggles rectangular block selection mode on or off, disabling incompatible tools when enabled.
+    pub(crate) fn toggle_block_select(self) {
+        let on = !untracked(|| self.block_select.get());
+        self.block_select.set(on);
+        if on {
+            self.placing.set(None);
+            self.lasso.set(false);
+            self.eraser.set(None);
+            self.eyedropper_active.set(false);
+        }
+    }
+
+    /// Turns rectangular block selection mode off if currently active.
+    pub(crate) fn clear_block_select(self) {
+        if untracked(|| self.block_select.get()) {
+            self.block_select.set(false);
+        }
+    }
+
+    /// The canvas's `blockSelect` prop: whether plain left-drag performs rectangular block selection.
+    pub(crate) fn block_select_prop(self) -> JsonValue {
+        JsonValue::from(self.block_select.get())
     }
 
     /// Whether any ink or Phase 5 annotation/OCR dialog is currently open.
@@ -310,6 +337,7 @@ impl AnnotateState {
         }
         let placing = (untracked(|| self.placing.get()) != Some(what)).then_some(what);
         if placing.is_some() {
+            self.block_select.set(false);
             self.close_note();
             self.reveals.update(|count| *count += 1);
         }
@@ -428,6 +456,7 @@ impl AnnotateState {
     pub(crate) fn choose_eraser(self, eraser: Eraser) {
         self.eraser.set(Some(eraser));
         self.lasso.set(false);
+        self.block_select.set(false);
     }
 
     /// The canvas's `eraser` prop: the chosen eraser's name, or `null` while the pen draws (H.5).
@@ -442,10 +471,14 @@ impl AnnotateState {
     pub(crate) fn is_on(self, id: CommandId) -> bool {
         match id {
             CommandId::Pen(kind) => {
-                self.eraser.get().is_none() && !self.lasso.get() && kind == self.kind_in_hand()
+                self.eraser.get().is_none()
+                    && !self.lasso.get()
+                    && !self.block_select.get()
+                    && kind == self.kind_in_hand()
             }
             CommandId::Eraser(eraser) => self.eraser.get() == Some(eraser),
             CommandId::Lasso => self.lasso.get(),
+            CommandId::BlockSelect => self.block_select.get(),
             CommandId::Tape => self.placing.get() == Some(Placing::Tape),
             CommandId::ZoomPad => self.zoom_pad.get(),
             CommandId::Ruler => self.guide_on(guides::GuideKind::Ruler),
@@ -715,6 +748,7 @@ impl AnnotateState {
             "selectionPopup" => self
                 .selection_popup
                 .set(selection_popup::SelectionPopupAnchor::parse(&event.data)),
+            "blockSelectCleared" => self.clear_block_select(),
             "toolColor" => colors::on_tool_color(self.live, &event.data),
             "pickColor" => {
                 let tool = event
@@ -749,33 +783,18 @@ impl AnnotateState {
             }
         };
         let author = author();
+        let kind = request.kind;
         let marking = Marking {
-            kind: request.kind,
+            kind,
             style: style(request.color, request.opacity),
             author: &author,
         };
-        let mut changes = Vec::new();
         let noted = data.get("note").and_then(JsonValue::as_bool) == Some(true);
-        {
-            // Let go of the document before the edit, which takes it again.
-            let mupdf = shared.lock().expect("document lock poisoned");
-            for page in request.pages {
-                let existing = page_annotations(&mupdf, page.page).unwrap_or_else(|err| {
-                    log::warn!(
-                        "markup: cannot read page {}'s annotations: {err}",
-                        page.page
-                    );
-                    Vec::new()
-                });
-                changes.extend(self.place_changes(markup::mark(
-                    marking, page.page, page.quads, page.quote, &existing,
-                )));
-            }
-        }
+        // Drop the MuPDF mutex before calling `place_changes`, which locks it again to read layers.
+        let raw_changes = collect_markup_changes(&shared, marking, request);
+        let changes = self.place_changes(raw_changes);
         let target = notes::marked(&changes);
-        let made = self
-            .editing
-            .apply(&Operation::new(name(request.kind), changes));
+        let made = self.editing.apply(&Operation::new(name(kind), changes));
         if let (true, true, Some(target)) = (made, noted, target) {
             self.open_note(&target);
         }
@@ -962,5 +981,143 @@ impl AnnotateState {
         };
         let mupdf = shared.lock().expect("document lock poisoned");
         ecclesia_core::annot::page_annotations(&mupdf, page).unwrap_or_default()
+    }
+}
+
+/// Computes raw markup [`Change`]s for `request`, releasing the MuPDF document lock before returning
+/// so callers can subsequently lock the document to inspect layers without self-deadlocking.
+fn collect_markup_changes(
+    shared: &std::sync::Mutex<ecclesia_mupdf::Document>,
+    marking: Marking<'_>,
+    request: markup::Request,
+) -> Vec<Change> {
+    let mut raw_changes = Vec::new();
+    if request.block {
+        for page in request.pages {
+            raw_changes.extend(markup::mark_block(
+                marking, page.page, page.quads, page.quote,
+            ));
+        }
+        return raw_changes;
+    }
+    let mupdf = shared.lock().expect("document lock poisoned");
+    for page in request.pages {
+        let existing = page_annotations(&mupdf, page.page).unwrap_or_else(|err| {
+            log::warn!(
+                "markup: cannot read page {}'s annotations: {err}",
+                page.page
+            );
+            Vec::new()
+        });
+        raw_changes.extend(markup::mark(
+            marking, page.page, page.quads, page.quote, &existing,
+        ));
+    }
+    raw_changes
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use ecclesia_core::annot::{Markup, Shape, page_annotations};
+    use ecclesia_core::document::Document;
+    use ecclesia_core::edit::Operation;
+    use ecclesia_features::annotate::colors::ToolStyle;
+    use ecclesia_features::annotate::markup::{self, Marking};
+    use ecclesia_features::ink::layers::LayerStack;
+
+    use super::{collect_markup_changes, style};
+
+    #[test]
+    fn swatch_markup_collect_then_layer_place_does_not_deadlock_and_applies_color() {
+        let corpus =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/zlib-manual.pdf");
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock after epoch")
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!("ecclesia-swatch-test-{nonce}"));
+        std::fs::create_dir_all(&temp_dir).expect("create temp dir");
+        let pdf_path = temp_dir.join("sample.pdf");
+        std::fs::copy(&corpus, &pdf_path).expect("copy corpus pdf");
+
+        let document = Document::open(&pdf_path).expect("open copied pdf");
+        let shared = document.mupdf().expect("mupdf handle");
+        let swatch_rgb = ToolStyle::new(0xFF_CA28, 0.5).rgb();
+
+        let text_request = markup::Request::parse(&serde_json::json!({
+            "kind": "highlight",
+            "color": swatch_rgb,
+            "opacity": 0.5,
+            "pages": [
+                { "page": 0, "quads": [[72.0, 100.0, 220.0, 100.0, 72.0, 114.0, 220.0, 114.0]] }
+            ]
+        }))
+        .expect("parse text highlight request");
+        let marking = Marking {
+            kind: text_request.kind,
+            style: style(text_request.color, text_request.opacity),
+            author: "tester",
+        };
+
+        // Regression check: collecting changes releases `shared` before reading layers (no mutex self-deadlock).
+        let raw_changes = collect_markup_changes(&shared, marking, text_request);
+        assert_eq!(raw_changes.len(), 1);
+        let layers = shared
+            .lock()
+            .expect("lock released cleanly after collect_markup_changes")
+            .layers()
+            .unwrap_or_default();
+        let stack = LayerStack::from_ocgs(&layers);
+        let placed = stack
+            .place_new(&raw_changes)
+            .expect("place on active layer");
+        document
+            .apply(&Operation::new("Highlight", placed))
+            .expect("apply swatch highlight");
+
+        let block_request = markup::Request::parse(&serde_json::json!({
+            "kind": "highlight",
+            "block": true,
+            "color": swatch_rgb,
+            "opacity": 0.5,
+            "pages": [
+                { "page": 0, "quads": [[72.0, 100.0, 260.0, 100.0, 72.0, 240.0, 260.0, 240.0]] }
+            ]
+        }))
+        .expect("parse block highlight request");
+        let raw_block = collect_markup_changes(&shared, marking, block_request);
+        let placed_block = stack.place_new(&raw_block).expect("place block highlight");
+        document
+            .apply(&Operation::new("Block highlight", placed_block))
+            .expect("apply block highlight");
+
+        let annotations = {
+            let mupdf = shared.lock().expect("lock for verification");
+            page_annotations(&mupdf, 0).expect("read page 0 annotations")
+        };
+        let highlights: Vec<_> = annotations
+            .iter()
+            .filter(|a| matches!(a.shape, Shape::Markup(Markup::Highlight, _)))
+            .collect();
+        assert!(
+            highlights.len() >= 2,
+            "expected both text and standalone block highlights, got {}",
+            highlights.len()
+        );
+        let has_swatch_color = highlights.iter().any(|a| {
+            a.style.color.is_some_and(|c| {
+                (c[0] - swatch_rgb[0]).abs() < 0.02
+                    && (c[1] - swatch_rgb[1]).abs() < 0.02
+                    && (c[2] - swatch_rgb[2]).abs() < 0.02
+            })
+        });
+        assert!(has_swatch_color, "highlight must carry exact swatch RGB");
+
+        drop(shared);
+        drop(document);
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

@@ -537,6 +537,9 @@ fn show_cursor(cursor: Cursor) {
         Cursor::Pan => NSCursor::closedHandCursor(),
         Cursor::Cross => NSCursor::crosshairCursor(),
         Cursor::Text => NSCursor::IBeamCursor(),
+        Cursor::ResizeEw => NSCursor::resizeLeftRightCursor(),
+        Cursor::ResizeNs => NSCursor::resizeUpDownCursor(),
+        Cursor::ResizeNwse | Cursor::ResizeNesw => NSCursor::crosshairCursor(),
     };
     cursor.set();
 }

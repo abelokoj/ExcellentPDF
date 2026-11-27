@@ -36,6 +36,21 @@ pub enum TriangleDirection {
     Down,
 }
 
+/// How a mouse wheel event over the reference hover popover should act.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PopoverWheel {
+    /// Scroll the previewed region vertically by `delta_y` device pixels (positive scrolls down).
+    Scroll {
+        /// Vertical scroll delta in device pixels.
+        delta_y: f32,
+    },
+    /// Zoom the previewed region by `notches` wheel notches (positive zooms in, negative zooms out).
+    Zoom {
+        /// Signed wheel notch count (positive = zoom in, negative = zoom out).
+        notches: f32,
+    },
+}
+
 /// Wakes the canvas's thread from a worker: the host posts a message, schedules an idle callback or the like, and
 /// then calls [`super::PageCanvas::jobs_done`] on its own thread. It is called at most once per batch of jobs.
 pub type Wake = Box<dyn Fn() + Send + Sync>;
@@ -129,6 +144,115 @@ pub trait Host {
     ///
     /// Drawing failed.
     fn band(&mut self, rect: &Rect, radius: f32, rgb: u32, wash: Wash) -> Result<(), Self::Error>;
+
+    /// Fills `rect` opaquely with `rgb`, with corners rounded by `radius` pixels.
+    ///
+    /// # Errors
+    ///
+    /// Drawing failed.
+    fn fill_rounded_rect(&mut self, rect: &Rect, radius: f32, rgb: u32) -> Result<(), Self::Error> {
+        let w = rect.width();
+        let h = rect.height();
+        if !(w > 0.0 && h > 0.0 && w.is_finite() && h.is_finite()) {
+            return Ok(());
+        }
+        let r = if radius.is_finite() {
+            radius.clamp(0.0, (w * 0.5).min(h * 0.5))
+        } else {
+            0.0
+        };
+        if r <= 0.0 {
+            return self.fill(rect, rgb);
+        }
+        let inner_w = (w - 2.0 * r).max(0.0);
+        if inner_w > 0.0 {
+            self.fill(&Rect::new(rect.x0 + r, rect.y0, inner_w, h), rgb)?;
+        }
+        let inner_h = (h - 2.0 * r).max(0.0);
+        if inner_h > 0.0 {
+            self.fill(&Rect::new(rect.x0, rect.y0 + r, w, inner_h), rgb)?;
+        }
+        let diameter = 2.0 * r;
+        let corners = [
+            (rect.x0 + r, rect.y0 + r),
+            (rect.x1 - r, rect.y0 + r),
+            (rect.x1 - r, rect.y1 - r),
+            (rect.x0 + r, rect.y1 - r),
+        ];
+        for (cx, cy) in corners {
+            self.polyline(&[(cx, cy, diameter)], rgb)?;
+        }
+        Ok(())
+    }
+
+    /// Strokes the perimeter of `rect` with corners rounded by `radius` pixels, using an
+    /// anti-aliased `width`-pixel stroke kept strictly inside `rect` in `rgb`.
+    ///
+    /// # Errors
+    ///
+    /// Drawing failed.
+    fn stroke_rounded_rect(
+        &mut self,
+        rect: &Rect,
+        radius: f32,
+        width: f32,
+        rgb: u32,
+    ) -> Result<(), Self::Error> {
+        let w = rect.width();
+        let h = rect.height();
+        if !(w > 0.0
+            && h > 0.0
+            && width > 0.0
+            && w.is_finite()
+            && h.is_finite()
+            && width.is_finite())
+        {
+            return Ok(());
+        }
+        let half = width * 0.5;
+        let x0 = rect.x0 + half;
+        let y0 = rect.y0 + half;
+        let x1 = rect.x1 - half;
+        let y1 = rect.y1 - half;
+        if x1 <= x0 || y1 <= y0 {
+            return self.fill_rounded_rect(rect, radius, rgb);
+        }
+        let r = if radius.is_finite() {
+            (radius - half).clamp(0.0, ((x1 - x0) * 0.5).min((y1 - y0) * 0.5))
+        } else {
+            0.0
+        };
+        if r <= 0.0 {
+            let ring = [
+                (x0, y0, width),
+                (x1, y0, width),
+                (x1, y1, width),
+                (x0, y1, width),
+                (x0, y0, width),
+            ];
+            return self.polyline(&ring, rgb);
+        }
+        const ARC_STEPS: usize = 8;
+        let mut points: Vec<InkPixel> = Vec::with_capacity(4 * (ARC_STEPS + 1) + 1);
+        let arcs = [
+            (x0 + r, y0 + r, std::f32::consts::PI),
+            (x1 - r, y0 + r, 1.5 * std::f32::consts::PI),
+            (x1 - r, y1 - r, 0.0_f32),
+            (x0 + r, y1 - r, std::f32::consts::FRAC_PI_2),
+        ];
+        for (cx, cy, start_angle) in arcs {
+            for step in 0..=ARC_STEPS {
+                let t = step as f32 / ARC_STEPS as f32;
+                let angle = start_angle + t * std::f32::consts::FRAC_PI_2;
+                let (sin, cos) = angle.sin_cos();
+                points.push((cx + r * cos, cy + r * sin, width));
+            }
+        }
+        if let Some(&first) = points.first() {
+            points.push(first);
+        }
+        self.polyline(&points, rgb)
+    }
 
     /// Fills an antialiased triangle with softly rounded corners inside `rect`, pointing in `direction`.
     ///

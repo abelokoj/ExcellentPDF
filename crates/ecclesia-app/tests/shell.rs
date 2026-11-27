@@ -366,3 +366,163 @@ fn clicking_outside_a_dialog_or_dropdown_closes_it() {
     app.wait_for_gone("role:dialog", wait)
         .expect("clicking outside closes the workspace dropdown");
 }
+
+#[test]
+fn narrow_unmaximized_window_keeps_chrome_controls_within_viewport() {
+    let wait = std::time::Duration::from_secs(5);
+    let mut config = EngineConfig::new(ecclesia_app::root());
+    config.viewport = size(px(800.0), px(600.0));
+    let mut app = Headless::start(config).expect("the app starts at 800x600");
+    app.wait_for("Home").expect("the home page shows");
+
+    let screen = app.screen();
+    for selector in [
+        "label:Home",
+        "text:Customize",
+        "label:Toggle sidebar",
+        "label:Toggle inspector",
+    ] {
+        let info = screen
+            .layout(selector)
+            .expect("valid selector")
+            .unwrap_or_else(|| panic!("{selector} must be laid out at 800x600"));
+        let right = info.bounds.origin.x + info.bounds.size.width;
+        assert!(
+            info.bounds.origin.x >= px(0.0) && right <= px(800.5),
+            "{selector} overflowed the 800px viewport: {:?}",
+            info.bounds
+        );
+    }
+
+    // Right sidebar toggle and Customize button remain interactive at narrow unmaximized widths.
+    app.press("label:Toggle inspector")
+        .expect("press right sidebar toggle");
+    app.wait_for("Inspector")
+        .expect("right sidebar opens at 800x600");
+    app.press("label:Toggle inspector")
+        .expect("press right sidebar toggle again");
+    app.wait_for_gone("Inspector", wait)
+        .expect("right sidebar closes at 800x600");
+
+    app.press("text:Customize").expect("press Customize button");
+    app.wait_for("role:dialog[Customize toolbar]")
+        .expect("customize toolbar dialog opens at 800x600");
+    app.press_key("escape").expect("Escape");
+    app.wait_for_gone("role:dialog", wait)
+        .expect("customize toolbar dialog closes");
+}
+
+#[test]
+fn page_shortcuts_work_immediately_after_clicking_toolbar_and_chrome_buttons() {
+    let wait = std::time::Duration::from_secs(5);
+    let mut app = start();
+    let file =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/zlib-manual.pdf");
+    app.on_pick_paths(vec![file])
+        .expect("the open dialog answers");
+    app.press_key("mod+o").expect("Ctrl+O");
+    app.wait_for("zlib-manual.pdf")
+        .expect("the document opens in a tab");
+
+    // Clicking toolbar / mode / rail buttons must never trap Space or block page shortcuts.
+    app.press("text:Annotate")
+        .expect("switch to Annotate mode via mode pill");
+    app.settle();
+    app.press("label:Toggle inspector")
+        .expect("open right sidebar via toolbar button");
+    app.wait_for("Inspector").expect("right sidebar opens");
+
+    // Pressing Space while reading must be consumed by the PDF rather than re-pressing the
+    // previously clicked Toggle inspector button.
+    app.press_key("space").expect("Space on pages");
+    app.settle();
+    assert!(
+        app.screen().shows("Inspector"),
+        "Space must not re-activate the previously clicked toolbar button"
+    );
+
+    // Single-letter page shortcuts (`g`, `/`) work right after clicking chrome controls.
+    app.press_key("g").expect("g opens Go to page");
+    app.wait_for("role:dialog[Go to page]")
+        .expect("Go to page opens via single-letter shortcut");
+    app.press_key("escape").expect("Escape closes Go to page");
+    app.wait_for_gone("role:dialog", wait)
+        .expect("Go to page closes");
+
+    // Opening and closing the left drawer clears sidebar focus and keeps page shortcuts working.
+    app.press("label:Pages").expect("open Pages drawer");
+    app.wait_for("label:Close panel >> nth=0")
+        .expect("Pages drawer opens");
+    app.press("label:Close panel >> nth=0")
+        .expect("close Pages drawer");
+    app.settle();
+
+    app.press_key("/").expect("/ opens Find bar");
+    app.wait_for("text:Find in document")
+        .expect("Find bar opens via / page shortcut");
+    app.press_key("escape").expect("Escape closes Find bar");
+    app.wait_for_gone("text:Find in document", wait)
+        .expect("Find bar closes on Escape");
+}
+
+#[test]
+fn find_bar_text_input_keeps_plain_keys_and_closes_on_escape() {
+    let wait = std::time::Duration::from_secs(5);
+    let mut app = start();
+    let file =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/zlib-manual.pdf");
+    app.on_pick_paths(vec![file])
+        .expect("the open dialog answers");
+    app.press_key("mod+o").expect("Ctrl+O");
+    app.wait_for("zlib-manual.pdf")
+        .expect("the document opens in a tab");
+
+    app.press_key("mod+f").expect("Ctrl+F");
+    app.wait_for("text:Find in document")
+        .expect("Find bar opens");
+    app.type_text("text:Find in document", "g/f")
+        .expect("typing page-shortcut letters into Find bar");
+    app.settle();
+    assert!(
+        !app.screen()
+            .matches("role:dialog[Go to page]")
+            .expect("valid Go to page selector"),
+        "typing 'g' inside the Find bar must not trigger Go to page"
+    );
+    app.press_key("escape")
+        .expect("Escape closes Find bar even while input is focused");
+    app.wait_for_gone("text:Find in document", wait)
+        .expect("Find bar closes cleanly on Escape");
+}
+
+#[test]
+fn palette_alias_and_tab_switching_shortcuts_work() {
+    let wait = std::time::Duration::from_secs(5);
+    let mut app = start();
+    let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus");
+    app.on_pick_paths(vec![
+        corpus.join("zlib-manual.pdf"),
+        corpus.join("ten-page-paper.pdf"),
+    ])
+    .expect("the open dialog answers with two files");
+    app.press_key("mod+o").expect("Ctrl+O");
+    app.wait_for("zlib-manual.pdf").expect("first tab opens");
+    app.wait_for("ten-page-paper.pdf")
+        .expect("second tab opens");
+
+    app.press_key("mod+shift+p").expect("Ctrl+Shift+P");
+    app.wait_for("role:dialog[Command palette]")
+        .expect("Ctrl+Shift+P opens the command palette");
+    app.press_key("escape").expect("Escape");
+    app.wait_for_gone("role:dialog", wait)
+        .expect("the palette closes");
+
+    // Cycle across both tabs with Ctrl+Tab, Ctrl+PageDown, and Ctrl+PageUp, then close both.
+    app.press_key("ctrl+tab").expect("Ctrl+Tab");
+    app.press_key("ctrl+pagedown").expect("Ctrl+PageDown");
+    app.press_key("ctrl+pageup").expect("Ctrl+PageUp");
+    app.press_key("mod+w").expect("close active tab");
+    app.press_key("mod+w").expect("close remaining tab");
+    app.wait_for("Home")
+        .expect("closing both tabs returns to Home");
+}

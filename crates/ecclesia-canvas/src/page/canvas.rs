@@ -40,6 +40,7 @@ use crate::page::placement::Placement;
 use crate::page::saved::SavedView;
 
 mod access;
+mod block_select;
 mod draw;
 mod erase;
 mod find;
@@ -53,7 +54,10 @@ mod select;
 mod zoompad;
 
 pub(super) use markbar::NoteMode;
-pub(super) use refhover::DEFAULT_DELAY as DEFAULT_HOVER_DELAY;
+use refhover::PopoverPress;
+pub(super) use refhover::{
+    DEFAULT_DELAY as DEFAULT_HOVER_DELAY, DEFAULT_MAX_WIDTH_PCT as DEFAULT_HOVER_MAX_WIDTH_PCT,
+};
 
 /// Behind the pages until the app sets its theme's `page-area` colour.
 const BACKGROUND: u32 = 0x2b2d31;
@@ -98,6 +102,14 @@ pub enum Cursor {
     Pan,
     /// A drawing tool is on (A.8): the crosshair.
     Cross,
+    /// Horizontal edge resize (`ew-resize`).
+    ResizeEw,
+    /// Vertical edge resize (`ns-resize`).
+    ResizeNs,
+    /// Top-left / bottom-right corner resize (`nwse-resize`).
+    ResizeNwse,
+    /// Top-right / bottom-left corner resize (`nesw-resize`).
+    ResizeNesw,
 }
 
 /// Wakes the canvas's thread from a worker thread, once per batch of finished jobs.
@@ -268,6 +280,8 @@ pub struct PageCanvas<H: Host> {
     refhover: refhover::RefHover<H::Image>,
     /// The markup bar under selected text (A.1).
     markbar: markbar::MarkBar,
+    /// Rectangular block selection mode, active drag, and finalized regions.
+    block_select: block_select::BlockSelectState,
     /// The drawing tool and the shape being drawn (A.8).
     drawing: draw::Drawing,
     /// The annotations the app has selected (A.13), and a drag on them.
@@ -380,6 +394,7 @@ impl<H: Host> PageCanvas<H> {
             minimap: minimap::MiniMap::default(),
             refhover: refhover::RefHover::default(),
             markbar: markbar::MarkBar::default(),
+            block_select: block_select::BlockSelectState::default(),
             drawing: draw::Drawing::default(),
             selected: select::Selected::default(),
             edits: 0,
@@ -701,7 +716,9 @@ impl<H: Host> PageCanvas<H> {
     pub fn cursor(&self) -> Cursor {
         if self.reading.is_panning() {
             Cursor::Pan
-        } else if self.is_drawing_tool() {
+        } else if let Some(cursor) = self.popover_cursor() {
+            cursor
+        } else if self.is_drawing_tool() || self.is_block_selecting() {
             Cursor::Cross
         } else if self.over_selected() {
             Cursor::Pan
@@ -714,12 +731,28 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
+    /// The pointer's shape at client pixel (`x`, `y`), checking live popover resize edges first.
+    pub fn cursor_at(&self, x: i32, y: i32) -> Cursor {
+        if self.reading.is_panning() {
+            Cursor::Pan
+        } else if let Some(cursor) = self.popover_cursor_at(x, y) {
+            cursor
+        } else {
+            self.cursor()
+        }
+    }
+
     /// The mouse moved to client pixel (`x`, `y`), or left the canvas (`None`). While selecting, the selection
     /// follows it. Otherwise tells the app when the link under it changes (`linkHover`: `{uri, page}`, page `null`
     /// for a link out of the document; `null` for no link).
     pub fn mouse_moved(&mut self, at: Option<(i32, i32)>) {
         self.reading_mouse(at);
-        if self.guide_moved(at) || self.draw_moved(at) || self.select_moved(at) {
+        if self.popover_moved(at)
+            || self.guide_moved(at)
+            || self.draw_moved(at)
+            || self.select_moved(at)
+            || self.block_select_moved(at)
+        {
             return;
         }
         self.markbar_hover(at);
@@ -770,8 +803,13 @@ impl<H: Host> PageCanvas<H> {
     /// when the window should capture the mouse until the button comes up.
     pub fn mouse_down(&mut self, x: i32, y: i32, time: u32, limits: ClickLimits) -> bool {
         self.on_page = false;
-        if self.markbar_down(x, y) || self.popover_down(x, y) {
+        if self.markbar_down(x, y) {
             return false;
+        }
+        match self.popover_down(x, y) {
+            PopoverPress::Ignored => {}
+            PopoverPress::Navigated => return false,
+            PopoverPress::StartedResize => return true,
         }
         if self.minimap_down(x, y)
             || self.guide_down(x, y)
@@ -785,6 +823,10 @@ impl<H: Host> PageCanvas<H> {
         if self.pressed.is_some() {
             return false;
         }
+        if self.block_select_down(x, y, clicks) {
+            return true;
+        }
+        let _ = self.clear_block_selection();
         self.on_page = true;
         let granularity = Granularity::from_clicks(clicks);
         let start = (clicks > 1 || self.is_over_text(x, y))
@@ -815,7 +857,13 @@ impl<H: Host> PageCanvas<H> {
     /// which decides whether to open it. A plain click that did neither goes to the app as `pagePress` (A.4).
     /// Returns whether a selection ended, when the window lets the mouse go.
     pub fn mouse_up(&mut self, x: i32, y: i32) -> bool {
-        if self.minimap_up() || self.guide_up() || self.draw_up(x, y) || self.select_up(x, y) {
+        if self.popover_up()
+            || self.minimap_up()
+            || self.guide_up()
+            || self.draw_up(x, y)
+            || self.select_up(x, y)
+            || self.block_select_up(x, y)
+        {
             return true;
         }
         if self.selecting {
@@ -848,9 +896,11 @@ impl<H: Host> PageCanvas<H> {
 
     /// Something else took the mouse while a selection was being dragged: the selection stays as it is.
     pub fn capture_lost(&mut self) {
+        self.popover_cancel();
         self.minimap_up();
         self.draw_cancel();
         self.select_cancel();
+        self.block_select_cancel();
         self.selecting = false;
         self.stop_pan();
     }
@@ -858,6 +908,13 @@ impl<H: Host> PageCanvas<H> {
     /// Copies the selected text: the canvas sends it to the app (`copy`: `{text}`), which puts it on the clipboard.
     /// Pages of the selection whose text isn't read yet are waited for.
     pub fn copy(&mut self) {
+        if self.selection.is_none() && self.has_block_selection() {
+            let text = self.block_selection_text();
+            if !text.is_empty() {
+                self.emit("copy", serde_json::json!({ "text": text }));
+            }
+            return;
+        }
         let Some(selection) = self.selection else {
             return;
         };
@@ -879,15 +936,16 @@ impl<H: Host> PageCanvas<H> {
         let Some(page) = self.viewport.current_page(&self.layout) else {
             return;
         };
-        let Some(text) = self.texts.get(page).filter(|text| !text.is_empty()) else {
-            return;
+        let len = {
+            let Some(text) = self.texts.get(page).filter(|text| !text.is_empty()) else {
+                return;
+            };
+            text.len()
         };
+        self.clear_block_selection();
         self.selection = Some(Selection {
             anchor: TextPos { page, index: 0 },
-            focus: TextPos {
-                page,
-                index: text.len(),
-            },
+            focus: TextPos { page, index: len },
             granularity: Granularity::Char,
         });
         self.invalidate();
@@ -910,10 +968,28 @@ impl<H: Host> PageCanvas<H> {
                 })?;
                 Some((page, top, Some(selection.text(|page| self.texts.get(page)))))
             });
-        let Some((page, point, title)) = selected.or_else(|| {
-            let (page, point) = self.view_top_left()?;
-            Some((page, point, None))
-        }) else {
+        let Some((page, point, title)) = selected
+            .or_else(|| {
+                let first = self
+                    .has_block_selection()
+                    .then(|| self.block_regions().first().copied())
+                    .flatten()?;
+                let text = self.block_selection_text();
+                let title = (!text.trim().is_empty()).then_some(text);
+                Some((
+                    first.page,
+                    PagePoint {
+                        x: first.rect.x0,
+                        y: first.rect.y0,
+                    },
+                    title,
+                ))
+            })
+            .or_else(|| {
+                let (page, point) = self.view_top_left()?;
+                Some((page, point, None))
+            })
+        else {
             return;
         };
         let zoom =
@@ -990,6 +1066,7 @@ impl<H: Host> PageCanvas<H> {
         self.copy_pending = false;
         self.markbar.pending = None;
         self.markbar.caret = None;
+        self.clear_block_selection();
         self.clear_external_popup();
         self.hovered = None;
         self.pressed = None;
@@ -1602,6 +1679,7 @@ impl<H: Host> PageCanvas<H> {
         // The mini-map (R.17) over everything, before the frame ends.
         let drawn = self
             .draw(&needed)
+            .and_then(|()| self.draw_block_selection())
             .and_then(|()| self.draw_shape_preview())
             .and_then(|()| self.draw_selected())
             .and_then(|()| self.draw_minimap())

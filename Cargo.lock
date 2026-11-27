@@ -749,7 +749,9 @@ dependencies = [
  "log",
  "nsh-core",
  "nsh-platform-windows",
+ "serde_json",
  "windows",
+ "windows-core",
  "windows-numerics",
 ]
 

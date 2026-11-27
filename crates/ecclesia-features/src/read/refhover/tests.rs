@@ -858,16 +858,18 @@ fn popover_zoom_fits_room() {
         page: RectF::new(0.0, 0.0, 900.0, 1200.0),
         pointer_y: 600.0,
         scale: 1.0,
+        max_width_pct: super::resolve::DEFAULT_MAX_WIDTH_PCT,
     };
     assert_eq!(zoom(&shown, 1.0, room), 1.0);
-    // 400 pt at 3x is 1200 px, wider than 95 % of the page less the frame: shrink to fit.
+    // 400 pt at 3x is 1200 px, wider than 90 % of the page less the frame: shrink to fit.
     let fit = zoom(&shown, 3.0, room);
-    assert!((fit - (900.0 * 0.95 - 8.0) / 400.0).abs() < 1e-4);
+    assert!((fit - (900.0 * 0.90 - 8.0) / 400.0).abs() < 1e-4);
     let tiny = Room {
         screen_width: 100.0,
         page: RectF::new(0.0, 0.0, 50.0, 50.0),
         pointer_y: 25.0,
         scale: 1.0,
+        max_width_pct: super::resolve::DEFAULT_MAX_WIDTH_PCT,
     };
     assert_eq!(zoom(&shown, 1.0, tiny), size::MIN_ZOOM);
 }

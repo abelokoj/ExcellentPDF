@@ -225,6 +225,10 @@ impl CanvasWidget {
             Cursor::Pan => "all-scroll",
             Cursor::Cross => "crosshair",
             Cursor::Text => "text",
+            Cursor::ResizeEw => "ew-resize",
+            Cursor::ResizeNs => "ns-resize",
+            Cursor::ResizeNwse => "nwse-resize",
+            Cursor::ResizeNesw => "nesw-resize",
         }));
     }
 

@@ -104,6 +104,7 @@ struct SelectionPopupGeometry {
     view_w: i32,
     view_h: i32,
     editable: bool,
+    block: bool,
 }
 
 /// The bar's state.
@@ -190,6 +191,11 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
+    /// Whether the external floating selection popup is enabled on this canvas.
+    pub(super) fn external_markbar_enabled(&self) -> bool {
+        self.markbar.external_markbar
+    }
+
     /// Hides the external text-selection popup if one was previously reported visible.
     pub(super) fn clear_external_popup(&mut self) {
         if self.markbar.last_popup.take().is_some() {
@@ -197,21 +203,29 @@ impl<H: Host> PageCanvas<H> {
         }
     }
 
-    /// Computes and emits deduplicated logical-DIP anchor geometry for the external text-selection popup.
-    fn update_external_popup(&mut self) {
-        if self.selecting || self.selection.is_none_or(|s| s.is_collapsed()) {
-            self.clear_external_popup();
-            return;
-        }
-        let quads = self.selection_quads();
-        let (Some(first), Some(last)) = (quads.first(), quads.last()) else {
+    /// Computes and emits deduplicated logical-DIP anchor geometry for the external text or
+    /// rectangular block selection popup.
+    pub(super) fn update_external_popup(&mut self) {
+        let s = self.dpi_scale().max(f32::EPSILON);
+        let anchor = if !self.selecting && self.selection.is_some_and(|sel| !sel.is_collapsed()) {
+            let quads = self.selection_quads();
+            match (quads.first(), quads.last()) {
+                (Some(first), Some(last)) => {
+                    let center_x = (first.iter().map(|p| p.0).sum::<f32>() / 4.0) / s;
+                    let top_y = first.iter().map(|p| p.1).fold(f32::MAX, f32::min) / s;
+                    let bottom_y = last.iter().map(|p| p.1).fold(f32::MIN, f32::max) / s;
+                    Some((center_x, top_y, bottom_y, false))
+                }
+                _ => None,
+            }
+        } else {
+            self.block_selection_screen_bounds()
+                .map(|(cx, top, bottom)| (cx / s, top / s, bottom / s, true))
+        };
+        let Some((center_x, top_y, bottom_y, block)) = anchor else {
             self.clear_external_popup();
             return;
         };
-        let s = self.dpi_scale().max(f32::EPSILON);
-        let center_x = (first.iter().map(|p| p.0).sum::<f32>() / 4.0) / s;
-        let top_y = first.iter().map(|p| p.1).fold(f32::MAX, f32::min) / s;
-        let bottom_y = last.iter().map(|p| p.1).fold(f32::MIN, f32::max) / s;
         let view_w = self.viewport.width() / s;
         let view_h = self.viewport.height() / s;
         if bottom_y < 0.0 || top_y > view_h {
@@ -226,6 +240,7 @@ impl<H: Host> PageCanvas<H> {
             view_w: view_w.round() as i32,
             view_h: view_h.round() as i32,
             editable,
+            block,
         };
         if self.markbar.last_popup == Some(next) {
             return;
@@ -241,16 +256,24 @@ impl<H: Host> PageCanvas<H> {
                 "viewW": view_w,
                 "viewH": view_h,
                 "editable": editable,
+                "block": block,
             }),
         );
     }
 
-    /// Uses `tool` on the selection, or an insert at the click's caret; waits for unread pages' text first.
+    /// Uses `tool` on the selection, block selection, or an insert at the click's caret; waits for
+    /// unread pages' text first on text selections.
     pub(super) fn use_tool(&mut self, tool: Tool) {
         if !self.can_mark() {
             return;
         }
         let selection = self.selection.filter(|s| !s.is_collapsed());
+        if selection.is_none() && self.has_block_selection() {
+            if matches!(tool, Tool::Mark(Markup::Highlight) | Tool::Note) {
+                self.mark_block_selection(tool);
+            }
+            return;
+        }
         let needed = match (selection, tool, self.markbar.caret) {
             (Some(selection), _, _) => selection.pages(),
             (None, Tool::Insert, Some(caret)) => caret.page..caret.page + 1,
@@ -283,6 +306,41 @@ impl<H: Host> PageCanvas<H> {
         self.markbar.frame = None;
         self.clear_external_popup();
         self.host.selection_changed();
+        self.invalidate();
+    }
+
+    /// Highlights the active rectangular block selection with exact rectangular quads per page
+    /// (works over text, whitespace, figures, formulas, and scanned pages).
+    fn mark_block_selection(&mut self, tool: Tool) {
+        let regions: Vec<_> = self.block_regions().to_vec();
+        if regions.is_empty() {
+            return;
+        }
+        let pages: Vec<serde_json::Value> = regions
+            .into_iter()
+            .map(|region| {
+                serde_json::json!({
+                    "page": region.page,
+                    "quads": [region.to_quad_array()],
+                    "quote": self.block_region_quote(region),
+                })
+            })
+            .collect();
+        let style = self.tool_style(Tool::Mark(Markup::Highlight));
+        self.emit(
+            "markup",
+            serde_json::json!({
+                "note": matches!(tool, Tool::Note),
+                "kind": "highlight",
+                "block": true,
+                "color": style.rgb(),
+                "opacity": style.opacity,
+                "pages": pages,
+            }),
+        );
+        self.clear_block_selection();
+        self.markbar.frame = None;
+        self.clear_external_popup();
         self.invalidate();
     }
 

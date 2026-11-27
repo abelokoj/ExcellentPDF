@@ -680,4 +680,42 @@ mod tests {
         assert_eq!(runs(&keymap, "shift+plus"), None);
         assert_eq!(keymap.problems(), []);
     }
+
+    #[test]
+    fn auto_scroll_speed_and_page_shortcuts_yield_to_text_inputs() {
+        for (os, apple) in [(Os::Windows, false), (Os::MacOs, true), (Os::Linux, false)] {
+            let keymap = Keymap::new(COMMANDS, None, os, apple);
+            for (keys, id) in [
+                ("alt+plus", CommandId::Canvas("autoScrollFaster")),
+                ("alt+shift+plus", CommandId::Canvas("autoScrollFaster")),
+                ("alt+minus", CommandId::Canvas("autoScrollSlower")),
+            ] {
+                let wanted = Keystroke::parse_with(keys, apple).expect("valid auto-scroll key");
+                let found = keymap
+                    .bindings()
+                    .iter()
+                    .find(|b| Keystroke::parse_with(&b.keys, apple).ok() == Some(wanted));
+                let binding = found.unwrap_or_else(|| panic!("{keys:?} bound on {os:?}"));
+                assert_eq!(binding.id, id, "{keys:?} on {os:?}");
+                assert_eq!(binding.scope, Scope::Page, "{keys:?} on {os:?}");
+            }
+
+            // Every page-scoped keystroke except `mod+shift+b` (`BlockSelect`) is classified by
+            // NSH as `edits_text() == true`, so `When::Auto` yields automatically while a text
+            // input such as the Find bar has focus.
+            for binding in keymap.bindings().iter().filter(|b| b.scope == Scope::Page) {
+                if binding.id == CommandId::BlockSelect {
+                    continue;
+                }
+                let stroke =
+                    Keystroke::parse_with(&binding.keys, apple).expect("default page key parses");
+                assert!(
+                    stroke.edits_text(),
+                    "page shortcut {:?} ({:?}) would fire inside text inputs on {os:?}",
+                    binding.keys,
+                    binding.id
+                );
+            }
+        }
+    }
 }

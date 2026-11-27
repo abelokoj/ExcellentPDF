@@ -7,6 +7,7 @@
 //! (or visiting Settings → Annotations & ink) lets the reader add or remove any optional action.
 
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use base64::Engine as _;
 use ecclesia_features::annotate::colors::{self as colors_model, Tool as ColorTool};
@@ -217,16 +218,33 @@ impl PopupItem {
                 | Self::CustomColor
         )
     }
+
+    /// Whether this item applies to rectangular block selections (SumatraPDF Enhanced supports
+    /// highlights, comments, copy, bookmark, and custom color on block selections; other markup
+    /// and text-study tools require a text selection).
+    pub(crate) const fn supports_block(self) -> bool {
+        matches!(
+            self,
+            Self::Highlight | Self::Comment | Self::Copy | Self::Bookmark | Self::CustomColor
+        )
+    }
+}
+
+/// Whether the active selection anchored by the floating pill is text or a rectangular block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SelectionKind {
+    Text,
+    Block,
 }
 
 /// Logical-DIP anchor geometry reported by the page canvas's `selectionPopup` event.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct SelectionPopupAnchor {
-    /// Horizontal center of the first selected line in logical DIPs.
+    /// Horizontal center of the first selected line or topmost block region in logical DIPs.
     pub(crate) x: f32,
-    /// Top edge of the first selected line in logical DIPs.
+    /// Top edge of the first selected line or topmost block region in logical DIPs.
     pub(crate) top_y: f32,
-    /// Bottom edge of the last selected line in logical DIPs.
+    /// Bottom edge of the last selected line or bottommost block region in logical DIPs.
     pub(crate) bottom_y: f32,
     /// Canvas viewport width in logical DIPs.
     pub(crate) view_w: f32,
@@ -234,6 +252,8 @@ pub(crate) struct SelectionPopupAnchor {
     pub(crate) view_h: f32,
     /// Whether the active document can be annotated.
     pub(crate) editable: bool,
+    /// Whether the anchor comes from a rectangular block selection rather than text selection.
+    pub(crate) block: bool,
 }
 
 impl SelectionPopupAnchor {
@@ -258,7 +278,19 @@ impl SelectionPopupAnchor {
                 .get("editable")
                 .and_then(JsonValue::as_bool)
                 .unwrap_or(false),
+            block: data
+                .get("block")
+                .and_then(JsonValue::as_bool)
+                .unwrap_or(false),
         })
+    }
+
+    const fn selection_kind(self) -> SelectionKind {
+        if self.block {
+            SelectionKind::Block
+        } else {
+            SelectionKind::Text
+        }
     }
 }
 
@@ -401,7 +433,10 @@ pub(crate) fn selection_popup_overlay(
             let visible_items: Vec<PopupItem> = live
                 .read(enabled_items)
                 .into_iter()
-                .filter(|item| anchor.editable || !item.requires_editable())
+                .filter(|item| {
+                    (anchor.editable || !item.requires_editable())
+                        && (!anchor.block || item.supports_block())
+                })
                 .collect();
             if !anchor.editable && visible_items.is_empty() {
                 return view().into_element();
@@ -414,6 +449,7 @@ pub(crate) fn selection_popup_overlay(
                 study,
                 bookmarks,
                 anchor.editable,
+                anchor.selection_kind(),
                 &visible_items,
             );
             let with_menu = attach_customization_menu(live, pill);
@@ -434,6 +470,7 @@ fn build_pill(
     study: StudyState,
     bookmarks: BookmarkState,
     editable: bool,
+    selection_kind: SelectionKind,
     items: &[PopupItem],
 ) -> View {
     let mut pill = view()
@@ -452,7 +489,15 @@ fn build_pill(
     if editable {
         let swatches = SWATCHES.into_iter().fold(
             view().flex_row().items_center().gap(px(10.0)),
-            |row, (color, label_key)| row.child(swatch_button(annotate, canvas, color, label_key)),
+            |row, (color, label_key)| {
+                row.child(swatch_button(
+                    annotate,
+                    canvas,
+                    selection_kind,
+                    color,
+                    label_key,
+                ))
+            },
         );
         pill = pill.child(swatches);
     }
@@ -464,7 +509,16 @@ fn build_pill(
     if !items.is_empty() {
         let actions = items.iter().copied().fold(
             view().flex_row().items_center().gap(px(6.0)),
-            |row, item| row.child(action_button(annotate, canvas, study, bookmarks, item)),
+            |row, item| {
+                row.child(action_button(
+                    annotate,
+                    canvas,
+                    study,
+                    bookmarks,
+                    selection_kind,
+                    item,
+                ))
+            },
         );
         pill = pill.child(actions);
     }
@@ -476,13 +530,17 @@ fn build_pill(
 fn swatch_button(
     annotate: AnnotateState,
     canvas: ElementRef,
+    selection_kind: SelectionKind,
     color: u32,
     label_key: &'static str,
 ) -> impl IntoElement {
     button()
         .accessibility_label(t!(label_key))
         .on_press(move || {
-            let kind = untracked(|| annotate.active_markup_tool()).command_kind();
+            let kind = match selection_kind {
+                SelectionKind::Block => "highlight",
+                SelectionKind::Text => untracked(|| annotate.active_markup_tool()).command_kind(),
+            };
             canvas.command(
                 "markWithColor",
                 serde_json::json!({
@@ -491,7 +549,9 @@ fn swatch_button(
                     "note": false,
                 }),
             );
-            annotate.dismiss_selection_popup();
+            drop(set_timeout(Duration::ZERO, move || {
+                annotate.dismiss_selection_popup();
+            }));
         })
         .w(px(SWATCH_SIZE))
         .h(px(SWATCH_SIZE))
@@ -509,6 +569,7 @@ fn action_button(
     canvas: ElementRef,
     study: StudyState,
     bookmarks: BookmarkState,
+    selection_kind: SelectionKind,
     item: PopupItem,
 ) -> impl IntoElement {
     let active_mode = match item {
@@ -518,10 +579,15 @@ fn action_button(
         PopupItem::StrikeOut => Some(ActiveMarkupTool::StrikeOut),
         _ => None,
     };
-    let is_active = move || active_mode.is_some_and(|mode| annotate.active_markup_tool() == mode);
+    let is_active = move || match selection_kind {
+        SelectionKind::Block => active_mode == Some(ActiveMarkupTool::Highlight),
+        SelectionKind::Text => {
+            active_mode.is_some_and(|mode| annotate.active_markup_tool() == mode)
+        }
+    };
     button()
         .accessibility_label(t!(item.label_key()))
-        .on_press(move || run_item(annotate, canvas, study, bookmarks, item))
+        .on_press(move || run_item(annotate, canvas, study, bookmarks, selection_kind, item))
         .w(px(ACTION_SIZE))
         .h(px(ACTION_SIZE))
         .rounded(px(6.0))
@@ -540,6 +606,7 @@ fn run_item(
     canvas: ElementRef,
     study: StudyState,
     bookmarks: BookmarkState,
+    selection_kind: SelectionKind,
     item: PopupItem,
 ) {
     match item {
@@ -599,11 +666,16 @@ fn run_item(
             bookmarks.run(BookmarkAction::Add, canvas);
         }
         PopupItem::CustomColor => {
-            let tool = untracked(|| annotate.active_markup_tool()).color_tool();
+            let tool = match selection_kind {
+                SelectionKind::Block => ColorTool::Highlight,
+                SelectionKind::Text => untracked(|| annotate.active_markup_tool()).color_tool(),
+            };
             annotate.pick(tool);
         }
     }
-    annotate.dismiss_selection_popup();
+    drop(set_timeout(Duration::ZERO, move || {
+        annotate.dismiss_selection_popup();
+    }));
 }
 
 /// Renders the visual icon or typographic glyph for `item`.
@@ -897,6 +969,7 @@ mod tests {
             view_w: 800.0,
             view_h: 600.0,
             editable: true,
+            block: false,
         };
         let (left, top) = popup_position(centered, width);
         assert!((top - (220.0 - PILL_HEIGHT - GAP)).abs() < 0.01);
@@ -909,9 +982,56 @@ mod tests {
             view_w: 800.0,
             view_h: 600.0,
             editable: true,
+            block: false,
         };
         let (clamped_left, flipped_top) = popup_position(near_top, width);
         assert!((flipped_top - (44.0 + GAP)).abs() < 0.01);
         assert!((clamped_left - MARGIN).abs() < 0.01);
+    }
+
+    #[test]
+    fn parses_block_anchor_and_filters_block_compatible_items() {
+        let anchor = SelectionPopupAnchor::parse(&serde_json::json!({
+            "visible": true,
+            "x": 250.0,
+            "topY": 120.0,
+            "bottomY": 240.0,
+            "viewW": 1000.0,
+            "viewH": 800.0,
+            "editable": true,
+            "block": true,
+        }))
+        .expect("block anchor parses");
+        assert!(anchor.block);
+        assert!(anchor.editable);
+        assert_eq!(anchor.selection_kind(), SelectionKind::Block);
+
+        let plain = SelectionPopupAnchor::parse(&serde_json::json!({
+            "visible": true,
+            "x": 250.0,
+            "topY": 120.0,
+            "bottomY": 140.0,
+            "viewW": 1000.0,
+            "viewH": 800.0,
+            "editable": true,
+        }))
+        .expect("plain anchor parses");
+        assert!(!plain.block);
+        assert_eq!(plain.selection_kind(), SelectionKind::Text);
+
+        let block_items: Vec<PopupItem> = PopupItem::ALL
+            .into_iter()
+            .filter(|item| item.supports_block())
+            .collect();
+        assert_eq!(
+            block_items,
+            vec![
+                PopupItem::Highlight,
+                PopupItem::Comment,
+                PopupItem::Copy,
+                PopupItem::Bookmark,
+                PopupItem::CustomColor,
+            ]
+        );
     }
 }

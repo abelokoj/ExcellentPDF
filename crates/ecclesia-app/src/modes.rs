@@ -74,6 +74,7 @@ fn default_words(mode: Mode) -> &'static [&'static str] {
         ],
         Mode::Annotate => &[
             "markup.highlight",
+            "annotate.block_select",
             "markup.underline",
             "markup.squiggly",
             "markup.strikeout",
@@ -507,12 +508,15 @@ pub(crate) fn mode_bar(
         })
     });
     view()
+        .w_full()
+        .min_w(px(0.0))
         .h(px(40.0))
         .flex_shrink_0()
         .flex_row()
         .items_center()
         .gap_2()
         .px_2()
+        .overflow_hidden()
         .bg(move || theme().background)
         .border_b(px(2.0))
         .border_b_color(move || accent(modes.current()))
@@ -541,6 +545,7 @@ pub(crate) fn mode_bar(
                         .scrollbar(false)
                         .flex_1()
                         .min_w(px(0.0))
+                        .overflow_hidden()
                         .child(shown_tools),
                 ),
         )
@@ -688,7 +693,8 @@ fn tools(
                     | CommandId::ReadAloud
                     | CommandId::ReflowMode
                     | CommandId::BionicReading
-                    | CommandId::Snapshot),
+                    | CommandId::Snapshot
+                    | CommandId::BlockSelect),
                 ) => row.child(choice_button(id, short_label(name), move || on(id), run)),
                 Some(id) => row.child(tool_button(id, short_label(name), has_document, run)),
                 None => row,
@@ -708,6 +714,7 @@ fn short_label(name: &str) -> Option<&'static str> {
         "bookmark.add" => Some("toolbar.short.bookmark"),
         "outline.add" => Some("toolbar.short.outline"),
         "markup.highlight" => Some("markup.highlight"),
+        "annotate.block_select" => Some("toolbar.short.block_select"),
         "markup.underline" => Some("markup.underline"),
         "markup.squiggly" => Some("markup.squiggly"),
         "markup.strikeout" => Some("markup.strikeout"),

@@ -36,6 +36,9 @@ pub struct Request {
     pub color: [f32; 3],
     /// From 0 to 1 (A.3).
     pub opacity: f32,
+    /// Whether this request marks a rectangular block selection (preserving exact quad geometry
+    /// without merging into adjacent single-line text markups).
+    pub block: bool,
     /// The selection on each page it covers.
     pub pages: Vec<PageRequest>,
 }
@@ -66,6 +69,7 @@ impl Request {
         };
         let color = color(value.get("color")?)?;
         let opacity = opacity(value);
+        let block = value.get("block").and_then(Value::as_bool).unwrap_or(false);
         let pages = value
             .get("pages")
             .and_then(Value::as_array)
@@ -77,6 +81,7 @@ impl Request {
             kind,
             color,
             opacity,
+            block,
             pages,
         })
     }
@@ -198,6 +203,29 @@ pub fn mark(
         id: other.id.clone(),
     }));
     changes
+}
+
+/// The changes that mark a rectangular block selection (`quads`) on page `page` as a standalone
+/// markup annotation without merging into or distorting adjacent single-line text markups.
+/// Empty when `quads` is empty.
+#[must_use]
+pub fn mark_block(
+    marking: Marking<'_>,
+    page: usize,
+    quads: Vec<Quad>,
+    quote: Option<Quote>,
+) -> Vec<Change> {
+    if quads.is_empty() {
+        return Vec::new();
+    }
+    let mut annotation = Annotation::new(
+        page,
+        Shape::Markup(marking.kind, quads),
+        marking.style,
+        marking.author,
+    );
+    annotation.anchor = quote;
+    vec![Change::CreateAnnotation(annotation)]
 }
 
 fn quads_of(annotation: &Annotation) -> Vec<Quad> {
@@ -446,5 +474,45 @@ mod tests {
     #[test]
     fn nothing_selected_marks_nothing() {
         assert!(mark(marking(YELLOW), 0, Vec::new(), None, &[]).is_empty());
+        assert!(mark_block(marking(YELLOW), 0, Vec::new(), None).is_empty());
+    }
+
+    #[test]
+    fn block_request_parses_flag_and_preserves_exact_rectangular_quad() {
+        let value = serde_json::json!({
+            "kind": "highlight",
+            "block": true,
+            "color": [1.0, 0.8, 0.15],
+            "opacity": 0.45,
+            "pages": [
+                {"page": 1, "quads": [[20, 40, 220, 40, 20, 180, 220, 180]], "quote": null}
+            ]
+        });
+        let request = Request::parse(&value).expect("block request parses");
+        assert!(request.block);
+        assert_eq!(request.kind, Markup::Highlight);
+        assert_eq!(request.pages.len(), 1);
+        assert_eq!(request.pages[0].quads.len(), 1);
+
+        let block_quad = request.pages[0].quads[0];
+        let changes = mark_block(marking(YELLOW), 1, vec![block_quad], None);
+        let annotation = made(&changes);
+        assert_eq!(annotation.page, 1);
+        assert_eq!(annotation.anchor, None);
+        let Shape::Markup(Markup::Highlight, quads) = &annotation.shape else {
+            panic!("expected highlight markup");
+        };
+        assert_eq!(
+            quads,
+            &[block_quad],
+            "exact rectangular quad must be preserved verbatim"
+        );
+
+        let plain = serde_json::json!({
+            "kind": "highlight",
+            "color": [1.0, 0.8, 0.15],
+            "pages": []
+        });
+        assert!(!Request::parse(&plain).expect("plain request parses").block);
     }
 }

@@ -131,6 +131,7 @@ pub(crate) fn tab_strip(
         .flex_shrink(1.0)
         .min_w(px(0.0))
         .h_full()
+        .overflow_hidden()
         .child(list);
     view()
         .flex_1()
@@ -139,6 +140,7 @@ pub(crate) fn tab_strip(
         .flex_row()
         .items_center()
         .gap_1()
+        .overflow_hidden()
         .style_when(
             move || drag.with(Option::is_some),
             |s| s.cursor(Cursor::Grabbing),
@@ -984,7 +986,7 @@ fn overflow_pill(
     count: impl Fn() -> usize + Copy + 'static,
     run: impl Fn(CommandId) + Copy + 'static,
 ) -> impl IntoElement {
-    view().window_drag(false).child(
+    view().window_drag(false).flex_shrink(0.0).child(
         button()
             .accessibility_label(move || {
                 Some(SharedString::from(t!("tabs.overflow", count = count())))
@@ -1014,7 +1016,7 @@ fn strip_button(
     run: impl Fn(CommandId) + Copy + 'static,
     glyph: impl IntoElement,
 ) -> impl IntoElement {
-    view().window_drag(false).child(
+    view().window_drag(false).flex_shrink(0.0).child(
         button()
             .accessibility_label(move || {
                 Some(SharedString::from(commands::label_with_shortcut(id)))

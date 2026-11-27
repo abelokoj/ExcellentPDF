@@ -41,9 +41,11 @@ use crate::packs::{self, PACKS_INDEX_URL, PacksState, format_size};
 use crate::panes::{CLOSE_PANE_TABS, ClosingTabs, SYNC_SCROLL, SYNC_ZOOM};
 use crate::print::{PRINT_ANNOTATIONS, PRINT_SCALING};
 use crate::reading::{
-    AUTO_SCROLL_SPEED, DEFAULT_PREVIEW_DELAY, DocumentColors, FOCUS_SCOPE, MAX_PREVIEW_DELAY,
-    PAPER_TEXTURE, READING_INK, READING_PAPER, REF_PREVIEW, REF_PREVIEW_DELAY, REFLOW_FONT_SIZE,
-    RULER_COLOR, RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex, parse_hex,
+    AUTO_SCROLL_SPEED, DEFAULT_PREVIEW_DELAY, DEFAULT_PREVIEW_MAX_WIDTH, DocumentColors,
+    FOCUS_SCOPE, MAX_PREVIEW_DELAY, MAX_PREVIEW_MAX_WIDTH, MIN_PREVIEW_MAX_WIDTH, PAPER_TEXTURE,
+    READING_INK, READING_PAPER, REF_PREVIEW, REF_PREVIEW_DELAY, REF_PREVIEW_MAX_WIDTH,
+    REFLOW_FONT_SIZE, RULER_COLOR, RULER_HEIGHT, RULER_INVERT, RULER_OPACITY, Reading, hex,
+    parse_hex,
 };
 use crate::reading_theme_bar;
 use crate::settings::{self, Live};
@@ -309,6 +311,10 @@ impl SettingsSection {
                     "settings.print_annotations_hint",
                 ),
                 ("settings.ref_preview", "settings.ref_preview_hint"),
+                (
+                    "settings.ref_preview_max_width",
+                    "settings.ref_preview_max_width_hint",
+                ),
             ],
             Self::Shortcuts => &[("settings.shortcuts", "settings.shortcuts_hint")],
             Self::Help => &[
@@ -334,6 +340,10 @@ impl SettingsSection {
                 (
                     "settings.ref_preview_delay",
                     "settings.ref_preview_delay_hint",
+                ),
+                (
+                    "settings.ref_preview_max_width",
+                    "settings.ref_preview_max_width_hint",
                 ),
                 ("settings.packs.index_url", "settings.packs.index_url_hint"),
                 ("settings.packs.actions", "settings.packs.actions_hint"),
@@ -1974,13 +1984,28 @@ fn print_and_links_cards(live: Live, query: Option<&str>) -> Vec<View> {
     let links_card = card_from_rows(
         "settings.section.links",
         links_query,
-        vec![RowItem::new(
-            "settings.ref_preview",
-            "settings.ref_preview_hint",
-            on_off("settings.ref_preview", previews, move |on| {
-                live.change(|s| s.set_flag(REF_PREVIEW, (!on).then_some(false)));
-            }),
-        )],
+        vec![
+            RowItem::new(
+                "settings.ref_preview",
+                "settings.ref_preview_hint",
+                on_off("settings.ref_preview", previews, move |on| {
+                    live.change(|s| s.set_flag(REF_PREVIEW, (!on).then_some(false)));
+                }),
+            ),
+            RowItem::new(
+                "settings.ref_preview_max_width",
+                "settings.ref_preview_max_width_hint",
+                number_field(
+                    live,
+                    "settings.ref_preview_max_width",
+                    REF_PREVIEW_MAX_WIDTH,
+                    DEFAULT_PREVIEW_MAX_WIDTH,
+                    (MIN_PREVIEW_MAX_WIDTH, MAX_PREVIEW_MAX_WIDTH),
+                    5.0,
+                    "settings.unit.percent",
+                ),
+            ),
+        ],
     );
 
     [print_card, links_card].into_iter().flatten().collect()
@@ -2727,6 +2752,19 @@ fn security_card(live: Live, query: Option<&str>) -> Option<View> {
                     (0.0, MAX_PREVIEW_DELAY),
                     50.0,
                     "settings.unit.milliseconds",
+                ),
+            ),
+            RowItem::new(
+                "settings.ref_preview_max_width",
+                "settings.ref_preview_max_width_hint",
+                number_field(
+                    live,
+                    "settings.ref_preview_max_width",
+                    REF_PREVIEW_MAX_WIDTH,
+                    DEFAULT_PREVIEW_MAX_WIDTH,
+                    (MIN_PREVIEW_MAX_WIDTH, MAX_PREVIEW_MAX_WIDTH),
+                    5.0,
+                    "settings.unit.percent",
                 ),
             ),
         ],

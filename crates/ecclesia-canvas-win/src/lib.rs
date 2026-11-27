@@ -13,11 +13,14 @@ mod component;
 mod gfx;
 #[cfg(target_os = "windows")]
 mod host;
+#[cfg(target_os = "windows")]
+mod window_bridge;
 
 #[cfg(target_os = "windows")]
 pub use ecclesia_canvas::page::NAME;
 
-/// Registers the page canvas with NSH under [`NAME`].
+/// Registers the Windows native components with NSH: the page canvas ([`NAME`]) and the top-level
+/// window bridge (`ecclesia.window-bridge`).
 #[cfg(target_os = "windows")]
 pub fn register(components: &nsh_platform_windows::Components) {
     use std::rc::Rc;
@@ -28,6 +31,12 @@ pub fn register(components: &nsh_platform_windows::Components) {
         NAME,
         Rc::new(|context: ComponentContext| -> Box<dyn NativeComponent> {
             Box::new(component::PageCanvas::new(context))
+        }),
+    );
+    components.register(
+        window_bridge::NAME,
+        Rc::new(|context: ComponentContext| -> Box<dyn NativeComponent> {
+            Box::new(window_bridge::WindowBridge::new(context))
         }),
     );
 }

@@ -17,7 +17,9 @@ use ecclesia_ink::pens::{DEFAULT_SIZE, Pen, PenKind};
 use ecclesia_mupdf::PagePoint;
 use nsh_core::JsonValue;
 
-use super::canvas::{DEFAULT_HOVER_DELAY, NoteMode, PageCanvas, ZoomChange};
+use super::canvas::{
+    DEFAULT_HOVER_DELAY, DEFAULT_HOVER_MAX_WIDTH_PCT, NoteMode, PageCanvas, ZoomChange,
+};
 use super::host::Host;
 use super::saved::SavedView;
 use crate::view::ViewCommand;
@@ -34,7 +36,8 @@ impl<H: Host> PageCanvas<H> {
     /// a reflowable book's text size in points (R.28); `null`: the default. `bookmarks`: the bookmarks the mini-map
     /// marks (R.17), `[{page, x, y, color}]` in page points with a `#rrggbb` colour (entries that don't parse are
     /// left out). `hoverDelay`: how long the pointer rests on a link or citation before its preview shows (R.25), in
-    /// milliseconds; `false` turns previews off; `null` or anything else: the default. `edits`: a number the app
+    /// milliseconds; `false` turns previews off; `null` or anything else: the default. `hoverMaxWidthPct`: maximum
+    /// reference preview width as a percentage of the page width (`40..=100`, default `90`). `edits`: a number the app
     /// moves with every edit, undo or redo (A.1), so the pages they changed are drawn again. `annotationColors`: the
     /// tools' colours (A.3), as `ecclesia-features`' `Colors::to_json` writes them; `null`: the defaults. `drawing`: the
     /// drawing tool on (A.8, A.9, A.10), a `shapes::Kind`'s name; anything else: none. `margin`: `true` while the app
@@ -42,8 +45,10 @@ impl<H: Host> PageCanvas<H> {
     /// annotations selected (A.13), `{page, items: [{id, bounds, grips, locked}]}`; anything else: none. `pen`: the
     /// pen strokes draw with (H.2), see `pen`. `eraser`: the eraser the pen uses instead (H.5), an `Eraser`'s
     /// name; anything else: the pen draws. Erasing sends `erase` (`{page, eraser, radius, points}`, page points).
-    /// `lasso`: `true` while the lasso is on (H.6): a drag on a page draws a loop (`annotLasso`). `fingerDraws`:
-    /// `true` when a finger that isn't a resting hand draws ink rather than panning (H.8). `snapshot`: `true` while
+    /// `lasso`: `true` while the lasso is on (H.6): a drag on a page draws a loop (`annotLasso`).
+    /// `blockSelect`: `true` while rectangular block selection mode is on: plain left-drag selects
+    /// rectangular block regions across pages (`Ctrl+left-drag` also triggers block selection anytime).
+    /// `fingerDraws`: `true` when a finger that isn't a resting hand draws ink rather than panning (H.8). `snapshot`: `true` while
     /// a drag on a page marks a region to render (O.23), sent as `snapshot` (`{page, rect}`, page points).
     /// `paperTexture`: how strongly the paper's grain shows over the pages (R.23), 0 to 1; anything else: none.
     /// `guide`: the drawing guide on the page (H.11), `ruler`, `protractor` or `compass`; anything else: none. A stroke
@@ -72,6 +77,9 @@ impl<H: Host> PageCanvas<H> {
             "pen" => self.set_pen(value.map_or_else(Pen::default, pen)),
             "eraser" => self.set_eraser(text.and_then(Eraser::from_name)),
             "lasso" => self.set_lasso(value.and_then(JsonValue::as_bool).unwrap_or(false)),
+            "blockSelect" => {
+                self.set_block_select(value.and_then(JsonValue::as_bool).unwrap_or(false))
+            }
             "fingerDraws" => {
                 self.set_finger_draws(value.and_then(JsonValue::as_bool).unwrap_or(false))
             }
@@ -97,6 +105,11 @@ impl<H: Host> PageCanvas<H> {
                         }),
                 ),
             }),
+            "hoverMaxWidthPct" => self.set_hover_max_width_pct(
+                value
+                    .and_then(JsonValue::as_f64)
+                    .map_or(DEFAULT_HOVER_MAX_WIDTH_PCT, |pct| pct as f32),
+            ),
             "path" => self.open(text.map(Path::new)),
             "background" => match text.and_then(parse_rgb) {
                 Some(rgb) => self.set_background(rgb),
@@ -141,6 +154,7 @@ impl<H: Host> PageCanvas<H> {
             "lastPage" => canvas.last_page(),
             "copy" => canvas.copy(),
             "highlight" => canvas.mark(Markup::Highlight),
+            "blockHighlight" => canvas.mark(Markup::Highlight),
             "underline" => canvas.mark(Markup::Underline),
             "squiggly" => canvas.mark(Markup::Squiggly),
             "strikeOut" => canvas.mark(Markup::StrikeOut),
@@ -161,7 +175,10 @@ impl<H: Host> PageCanvas<H> {
             "autoScrollPause" => canvas.pause_or_screen_down(),
             "autoScrollFaster" => canvas.change_auto_scroll_speed(Change::Faster),
             "autoScrollSlower" => canvas.change_auto_scroll_speed(Change::Slower),
-            "leaveModes" => canvas.leave_modes(),
+            "leaveModes" => {
+                canvas.leave_block_select_mode();
+                canvas.leave_modes();
+            }
             "find" => {
                 let id = args.get("id").and_then(JsonValue::as_u64).unwrap_or(0);
                 let text = args.get("text").and_then(JsonValue::as_str).unwrap_or("");

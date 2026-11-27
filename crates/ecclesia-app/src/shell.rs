@@ -23,12 +23,16 @@ pub(crate) mod library_ui;
 pub(crate) mod pro_pdf_ui;
 pub(crate) mod reading_extra;
 
+use std::cell::Cell;
+
 use ecclesia_store::workspace::WorkspaceId;
 use ecclesia_store::workspaces::Workspace;
 use nsh_base::dock::{DockAreaLayout, DockLayout};
 use nsh_base::{CommandEntry, button, command, theme};
-use nsh_core::desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes};
-use nsh_core::element::desktop::{OpenChange, current_window, open_window};
+use nsh_core::desktop::{QuitMode, TitleBarOptions, TitleBarStyle, WindowAttributes};
+use nsh_core::element::desktop::{
+    OpenChange, current_window, on_last_window_closed, open_window, quit, set_quit_mode,
+};
 use nsh_core::element::{create_root, next_frame};
 
 use nsh_core::JsonValue;
@@ -86,6 +90,9 @@ const WINDOW_SIZE: (f32, f32) = (1100.0, 800.0);
 
 /// The main window's size the first time it opens, in points; after that it opens where it was left.
 const MAIN_WINDOW_SIZE: (f32, f32) = (1280.0, 800.0);
+
+/// Minimum right-side title-bar padding reserved on Windows for the native caption buttons (`−`, `□`, `×`).
+const WINDOWS_CAPTION_MIN_RIGHT_PX: f32 = 142.0;
 
 /// How often the system's high contrast is looked at (U.4).
 const SYSTEM_CONTRAST_POLL: std::time::Duration = std::time::Duration::from_secs(2);
@@ -191,6 +198,10 @@ pub(crate) struct App {
     pub(crate) workspace_list: Signal<Vec<Workspace>>,
     /// The pickers keep their choice in the settings file; the root starts with it (`crate::root`).
     theme_choice: Signal<themes::ThemeChoice>,
+    /// Number of open shell windows (main + workspace windows); quitting runs when the last closes.
+    open_windows: Stored<usize>,
+    /// Standalone Settings window handle owned by `"main"`, closed when `"main"` closes.
+    main_settings: Stored<Option<SettingsWindow>>,
 }
 
 /// Which window a shell is in.
@@ -205,12 +216,16 @@ enum Role {
 /// The main window's shell, and what the app does once: following the theme, the language and the system's
 /// contrast, and opening the workspace windows of the last run (W.8).
 pub(crate) fn shell() -> impl IntoElement {
+    set_quit_mode(QuitMode::LastWindowClosed);
+    on_last_window_closed(quit);
     let live = settings::Live::new();
     let app = App {
         live,
         recent: RecentState::new(),
         workspace_list: workspaces::shared_list(),
         theme_choice: signal(themes::saved()),
+        open_windows: stored(1),
+        main_settings: stored(None),
     };
     let theme_choice = app.theme_choice;
     // An edit of the settings file changes the theme too.
@@ -243,6 +258,7 @@ pub(crate) fn shell() -> impl IntoElement {
             open_workspace_window(app, id);
         }
     });
+    let main_closed = Cell::new(false);
     // NSH 0.7's window model: the app host never shows, so the main window is declared like the others, and opens
     // where the reader left it.
     nsh_core::element::desktop::window()
@@ -250,6 +266,27 @@ pub(crate) fn shell() -> impl IntoElement {
         .title("Ecclesia PDF".to_owned())
         .default_size(size(px(MAIN_WINDOW_SIZE.0), px(MAIN_WINDOW_SIZE.1)))
         .restore_bounds(true)
+        .on_open_change(move |event: &OpenChange| {
+            if !event.open && !main_closed.replace(true) {
+                panes.windows().close_all();
+                if let Some(settings_win) = app.main_settings.try_with(Option::take).flatten() {
+                    settings_win.close();
+                }
+                for pane in panes.slots() {
+                    pane.editing.save_now();
+                }
+                let remaining = app
+                    .open_windows
+                    .try_with(|count| {
+                        *count = count.saturating_sub(1);
+                        *count
+                    })
+                    .unwrap_or(0);
+                if remaining == 0 {
+                    quit();
+                }
+            }
+        })
         .content(move || {
             workspaces.set_window(current_window());
             window_shell(app, panes, workspaces, Role::Main)
@@ -267,6 +304,7 @@ pub(crate) fn open_workspace_window(app: App, id: WorkspaceId) {
         let panes = Panes::new(app.live, app.recent, restored);
         (panes, Workspaces::new(app, panes, id, no))
     });
+    let closed = Cell::new(false);
     let opened = open_window(
         nsh_core::element::desktop::window()
             .id(format!("workspace-{no}"))
@@ -279,14 +317,31 @@ pub(crate) fn open_workspace_window(app: App, id: WorkspaceId) {
             })
             .default_size(size(px(WINDOW_SIZE.0), px(WINDOW_SIZE.1)))
             // However it closes, its tabs are saved and its workspace is free.
-            .on_open_change(move |_: &OpenChange| workspaces.close())
+            .on_open_change(move |event: &OpenChange| {
+                if !event.open && !closed.replace(true) {
+                    workspaces.close();
+                    let remaining = app
+                        .open_windows
+                        .try_with(|count| {
+                            *count = count.saturating_sub(1);
+                            *count
+                        })
+                        .unwrap_or(0);
+                    if remaining == 0 {
+                        quit();
+                    }
+                }
+            })
             .content(move || {
                 cleanup(move || owner.dispose());
                 window_shell(app, panes, workspaces, Role::Workspace)
             }),
     );
     match opened {
-        Some(window) => workspaces.set_window(window),
+        Some(window) => {
+            let _ = app.open_windows.try_with(|count| *count += 1);
+            workspaces.set_window(window);
+        }
         // No windows of the app's own here.
         None => {
             workspaces.close();
@@ -319,6 +374,11 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
     let appearance_open = signal(false);
     let goto_open = signal(false);
     let settings_win = SettingsWindow::new();
+    if role == Role::Main {
+        let _ = app
+            .main_settings
+            .try_with(|slot| *slot = Some(settings_win));
+    }
     cleanup(move || settings_win.close());
     // Not a dialog: it lies in the title bar, so the pages stay in sight to preview each theme.
     let reading_theme_open = signal(false);
@@ -361,52 +421,92 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
         }
     });
     // The page canvases are windows over the app's, so they hide while a dialog is open.
+    // Box behind a `Stored<Rc<...>>` handle so every downstream `Copy` closure captures 8 bytes
+    // instead of duplicating all 16 modal-state handles across the call stack.
+    let dialog_open_fn: Stored<std::rc::Rc<dyn Fn() -> bool>> =
+        stored(std::rc::Rc::new(move || {
+            palette_open.get()
+                || theme_open.get()
+                || appearance_open.get()
+                || goto_open.get()
+                || settings_win.is_modal_open()
+                || tab_list_open.get()
+                || app_menu_open.get()
+                || onboarding.is_open()
+                || modes.is_customizing()
+                || workspaces.dialog().is_some()
+                || lib_ui.any_dialog_open()
+                || ai_ui.any_dialog_open()
+                || forms_sign_ui.any_dialog_open()
+                || pro_pdf_ui.any_dialog_open()
+                || ecosystem_ui.any_dialog_open()
+                || panes.slots().into_iter().any(Pane::covers_pages)
+                || panes.sync_menu_open()
+        }));
     let dialog_open = move || {
-        palette_open.get()
-            || theme_open.get()
-            || appearance_open.get()
-            || goto_open.get()
-            || settings_win.is_modal_open()
-            || tab_list_open.get()
-            || app_menu_open.get()
-            || onboarding.is_open()
-            || modes.is_customizing()
-            || workspaces.dialog().is_some()
-            || lib_ui.any_dialog_open()
-            || ai_ui.any_dialog_open()
-            || forms_sign_ui.any_dialog_open()
-            || pro_pdf_ui.any_dialog_open()
-            || ecosystem_ui.any_dialog_open()
-            || panes.slots().into_iter().any(Pane::covers_pages)
-            || panes.sync_menu_open()
+        dialog_open_fn
+            .try_with(|f| std::rc::Rc::clone(f))
+            .is_some_and(|f| f())
     };
-    // Move keyboard focus onto the active pane's pages whenever a document tab is shown (switching
-    // tabs or leaving Home), deferred one tick so it lands after the clicked tab/Home button settles.
+    // Clear stale sidebar focus flags whenever a drawer/sidebar hides or collapses, or when any
+    // document pane takes keyboard focus back.
     effect(move || {
-        let pane = panes.active();
+        if !sidebars.left_rail_visible.get()
+            || sidebars.left_expanded.with(Option::is_none)
+            || full_screen.is_on()
+        {
+            sidebars.left_drawer_focused.set(false);
+        }
+    });
+    effect(move || {
+        if !sidebars.right_open.get() || full_screen.is_on() {
+            sidebars.right_sidebar_focused.set(false);
+        }
+    });
+    for pane in panes.slots() {
+        pane.focus.on_focus_in(move || {
+            sidebars.left_drawer_focused.set(false);
+            sidebars.right_sidebar_focused.set(false);
+        });
+    }
+    let sidebar_focused =
+        move || sidebars.left_drawer_focused.get() || sidebars.right_sidebar_focused.get();
+    // Move keyboard focus onto the active pane's pages whenever a document tab is shown (switching
+    // tabs, leaving Home, or closing a dialog/popover), deferred one tick so it lands after the
+    // clicked chrome button or closing modal settles.
+    effect(move || {
+        let pane = panes.slots()[panes.active_cell()];
         let shown = pane.tabs.shown_path().is_some() && !pane.home_open.get();
-        if shown && !untracked(dialog_open) {
+        let blocked = dialog_open() || reading_theme_open.get() || pane.find.is_open();
+        if shown && !blocked && !untracked(sidebar_focused) {
             let focus = pane.focus;
             drop(set_timeout(std::time::Duration::ZERO, move || {
-                focus.focus()
+                if !untracked(dialog_open)
+                    && !untracked(|| reading_theme_open.get())
+                    && !untracked(sidebar_focused)
+                    && !untracked(|| pane.find.is_open())
+                {
+                    focus.focus();
+                }
             }));
         }
     });
-    // Page-scoped shortcuts fire whenever a document is visible and neither a dialog, popover, nor
-    // sidebar list owns the keyboard (NSH's `When::Auto` already yields to any focused text input).
-    let sidebar_focused =
-        move || sidebars.left_drawer_focused.get() || sidebars.right_sidebar_focused.get();
-    let allow_page_key = move |id: CommandId| {
+    // Reactive page-shortcut mode: mounts page bindings only while a document is shown outside
+    // dialogs, popovers, and focused sidebar lists (or Escape-only while full screen on Home).
+    let page_key_state = computed(move || {
         if dialog_open() || reading_theme_open.get() {
-            return false;
+            return commands::PageKeyState::Inactive;
         }
-        if id == CommandId::LeaveModes && full_screen.is_on() {
-            return true;
-        }
-        let pane = panes.active();
+        let pane = panes.slots()[panes.active_cell()];
         let showing_doc = pane.tabs.has_shown() && !pane.home_open.get();
-        showing_doc && !sidebar_focused()
-    };
+        if showing_doc && !sidebar_focused() {
+            commands::PageKeyState::Active
+        } else if full_screen.is_on() {
+            commands::PageKeyState::FullScreenEscapeOnly
+        } else {
+            commands::PageKeyState::Inactive
+        }
+    });
     let dispatch = move |id: CommandId| {
         let pane = panes.active();
         let to_canvas = move |name: &str| pane.canvas.command(name, JsonValue::Null);
@@ -460,12 +560,36 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Pane(action) => panes.run(action),
             CommandId::Workspace(action) => workspaces.run(action),
             CommandId::LeaveModes => {
+                if untracked(|| pane.find.is_open()) {
+                    pane.find.run(crate::find::FindAction::Close);
+                    return;
+                }
                 pane.annotate.clear_selection();
+                pane.annotate.clear_block_select();
                 to_canvas("leaveModes");
+                if untracked(|| modes.current()) == Mode::Present {
+                    modes.set(Mode::Read);
+                    pane.present.end();
+                }
                 full_screen.leave();
             }
-            // A.13: with annotations selected, copy and the arrow keys are theirs.
+            // A.13: with annotations selected, copy and the arrow keys are theirs. In Present mode,
+            // navigation keys first step the curtain reveal or slide deck before scrolling the canvas.
             CommandId::Canvas(name) => {
+                if untracked(|| modes.current()) == Mode::Present
+                    && !untracked(dialog_open)
+                    && let Some(key_name) = present_nav_key(name)
+                    && pane.present.handle_key(
+                        key_name,
+                        move |page| pane.go_to(page),
+                        move || {
+                            modes.set(Mode::Read);
+                            pane.present.end();
+                        },
+                    )
+                {
+                    return;
+                }
                 if !pane.annotate.selection_command(name) {
                     to_canvas(name);
                 }
@@ -518,6 +642,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             CommandId::Pen(kind) => pane.annotate.choose_pen(kind),
             CommandId::Eraser(eraser) => pane.annotate.choose_eraser(eraser),
             CommandId::Lasso => pane.annotate.toggle_lasso(),
+            CommandId::BlockSelect => pane.annotate.toggle_block_select(),
             CommandId::Tape => pane.annotate.place(Placing::Tape),
             CommandId::ZoomPad => pane.annotate.toggle_zoom_pad(),
             CommandId::Ruler => pane.annotate.toggle_guide(GuideKind::Ruler),
@@ -730,9 +855,47 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             }
         }
     };
-    let run = move |id: CommandId| match id {
-        CommandId::OpenSettings => settings_win.open(live, theme_choice, dispatch),
-        other => dispatch(other),
+    let run_fn: Stored<std::rc::Rc<dyn Fn(CommandId)>> =
+        stored(std::rc::Rc::new(move |id: CommandId| {
+            match id {
+                CommandId::OpenSettings => settings_win.open(live, theme_choice, dispatch),
+                other => dispatch(other),
+            }
+            // Return focus from clicked chrome/toolbar controls back to the active PDF pages after
+            // direct commands when no dialog, popover, Find bar, or sidebar panel owns the keyboard.
+            if !matches!(
+                id,
+                CommandId::OpenSettings
+                    | CommandId::AnnotationList
+                    | CommandId::Layers
+                    | CommandId::Outline(_)
+                    | CommandId::Bookmark(_)
+                    | CommandId::Find(_)
+            ) {
+                let pane = panes.active();
+                if untracked(|| pane.tabs.has_shown() && !pane.home_open.get())
+                    && !untracked(dialog_open)
+                    && !untracked(|| reading_theme_open.get())
+                    && !untracked(sidebar_focused)
+                    && !untracked(|| pane.find.is_open())
+                {
+                    let focus = pane.focus;
+                    drop(set_timeout(std::time::Duration::ZERO, move || {
+                        if !untracked(dialog_open)
+                            && !untracked(|| reading_theme_open.get())
+                            && !untracked(sidebar_focused)
+                            && !untracked(|| pane.find.is_open())
+                        {
+                            focus.focus();
+                        }
+                    }));
+                }
+            }
+        }));
+    let run = move |id: CommandId| {
+        if let Some(f) = run_fn.try_with(|f| std::rc::Rc::clone(f)) {
+            f(id);
+        }
     };
     effect(move || {
         let pane = panes.active();
@@ -774,10 +937,15 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             }
         });
     }
-    // Bound again when the settings change: the user's keys may have.
+    // Window-scoped shortcuts rebind when settings change; page-scoped shortcuts mount reactively
+    // only while the active document owns plain keys (so dialogs, Home, and sidebars stay clean).
     effect(move || {
         live.read(|_| ());
-        commands::bind_keys(run, allow_page_key);
+        commands::bind_window_keys(run);
+    });
+    effect(move || {
+        live.read(|_| ());
+        commands::bind_page_keys(page_key_state.get(), run);
     });
     // A note opened on the pages shows in the inspector (A.4).
     for pane in panes.slots() {
@@ -792,52 +960,43 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
     }
     // Each pane's own dialogs: the group being edited, the bookmark being written, the link being asked about, the
     // text of a proposed edit (A.2), the markup tools' colours (A.3).
-    let pane_dialogs = panes.slots().into_iter().fold(view(), |dialogs, pane| {
-        dialogs
-            .child(when(
-                move || pane.tabs.editing().is_some(),
-                move || tabs::group_dialog(pane.tabs),
-            ))
-            .child(when(
-                move || pane.tabs.properties_tab().is_some(),
-                move || tabs::properties_dialog(pane.tabs),
-            ))
-            .child(when(
-                move || pane.bookmarks.is_editing(),
-                move || bookmarks::bookmark_dialog(pane.bookmarks),
-            ))
-            .child(when(
-                move || pane.link_state.is_asking(),
-                move || links::link_dialog(pane.link_state),
-            ))
-            .child(when(
-                move || pane.annotate.is_asking(),
-                move || crate::annotate::text_edit_dialog(pane.annotate),
-            ))
-            .child(when(
-                move || pane.annotate.is_picking(),
-                move || crate::annotate::color_dialog(pane.annotate),
-            ))
-            .child(when(
-                move || pane.annotate.is_restyling(),
-                move || crate::annotate::ink_tools::restyle_dialog(pane.annotate),
-            ))
-            .child(when(
-                move || pane.annotate.is_filling(),
-                move || crate::annotate::ink_tools::fill_dialog(pane.annotate),
-            ))
-            .child(when(
-                move || pane.annotate.is_palettes(),
-                move || crate::annotate::ink_tools::palettes_dialog(pane.annotate),
-            ))
-            .child(when(
-                move || pane.annotate.is_replaying(),
-                move || crate::annotate::ink_tools::replay_dialog(pane.annotate),
-            ))
-    });
+    let pane_dialogs = per_pane_dialogs(panes);
+    let chrome_dialogs = window_chrome_dialogs(
+        ChromeDialogs {
+            palette_open,
+            tab_list_open,
+            settings_win,
+            theme_open,
+            appearance_open,
+            goto_open,
+            live,
+            theme_choice,
+            recent,
+            modes,
+            panes,
+            workspaces,
+        },
+        run,
+    );
+    let feature_overlays = feature_dialogs(
+        FeatureDialogs {
+            ai_ui,
+            forms_sign_ui,
+            pro_pdf_ui,
+            ecosystem_ui,
+            onboarding,
+            panes,
+            workspaces,
+            live,
+        },
+        run,
+    );
 
-    view()
+    let root = view()
         .flex_1()
+        .w_full()
+        .min_w(px(0.0))
+        .overflow_hidden()
         // A right-to-left language the reader chose mirrors the window; with none chosen, the system's decides (U.7).
         .direction(move || live.read(crate::l10n::direction))
         // Documents dropped on the window outside the panes open in the active pane (R.11), or where another
@@ -846,7 +1005,21 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
         .on_file_drag_leave(move || file_drag.leave())
         .on_file_drop(move |event: &FileDropEvent| {
             file_drag.drop_done();
-            workspaces.open_paths(crate::open::dropped_documents(&event.uris));
+            let documents = crate::open::dropped_documents(&event.uris);
+            if !documents.is_empty() {
+                workspaces.open_paths(documents);
+                panes.active().home_open.set(false);
+            }
+        })
+        .on_key_down(move |ev: &KeyEvent| {
+            if untracked(|| modes.current()) == Mode::Present && !untracked(dialog_open) {
+                let pane = panes.active();
+                let _ = pane.present.handle_key(
+                    &ev.key,
+                    move |page| pane.go_to(page),
+                    move || run(CommandId::Mode(Mode::Read)),
+                );
+            }
         })
         .child(window_bar(
             run,
@@ -887,366 +1060,564 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
         .child(print_strip(printing))
         // U.9: a tip, once, below the pages.
         .child(onboarding::tip_strip(onboarding))
-        .child(when(palette_open, move || {
-            palette(palette_open, panes.active().pages, run)
-        }))
-        .child(when(tab_list_open, move || {
-            tabs::tab_list(tab_list_open, panes.active().tabs, recent, workspaces)
-        }))
+        .child(chrome_dialogs)
         .child(pane_dialogs)
-        .child(workspaces::workspace_dialogs(workspaces, run))
-        .child(when(
-            move || settings_win.is_modal_open(),
-            move || settings_win.fallback_dialog(live, theme_choice, run),
-        ))
-        .child(when(theme_open, move || {
-            themes::theme_picker(theme_open, theme_choice)
-        }))
-        .child(when(appearance_open, move || {
-            themes::appearance_picker(appearance_open, theme_choice)
-        }))
-        .child(when(goto_open, move || {
-            let pane = panes.active();
-            goto::goto_dialog(goto_open, pane.pages, move |index| pane.go_to(index))
-        }))
-        .child(modes::customize_dialog(modes))
-        .child(of_active(panes, |pane| {
-            crate::annotate::favorites::pen_dialog(pane.annotate)
-        }))
-        .child(of_active(panes, |pane| {
-            crate::snapshot::snapshot_dialog(pane.snapshot)
-        }))
-        .child(of_active(panes, |pane| {
-            crate::attachments::attachments_dialog(pane.attachments)
-        }))
-        .child(of_active(panes, move |pane| {
-            view()
-                .child(when(
-                    move || pane.notebooks.is_new_open(),
-                    move || {
-                        notebooks::new_notebook_dialog(pane.notebooks, move |path| {
-                            workspaces.open_paths(vec![path]);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.notebooks.is_insert_page_open(),
-                    move || {
-                        notebooks::insert_page_dialog(pane.notebooks, move |path| {
-                            let page = pane.pages.current();
-                            let _ = pane.tabs.take_shown();
-                            pane.tabs.open_at(path, page);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.notebooks.is_margins_open(),
-                    move || {
-                        notebooks::margins_dialog(pane.notebooks, move |path| {
-                            let page = pane.pages.current();
-                            let _ = pane.tabs.take_shown();
-                            pane.tabs.open_at(path, page);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.notebooks.is_infinite_open(),
-                    move || notebooks::infinite_canvas_dialog(pane.notebooks),
-                ))
-                .child(when(
-                    move || pane.notebooks.is_text_block_open(),
-                    move || notebooks::text_block_dialog(pane.notebooks),
-                ))
-                .child(when(
-                    move || pane.notebooks.is_sections_open(),
-                    move || {
-                        notebooks::sections_dialog(pane.notebooks, move |path| {
-                            let page = pane.pages.current();
-                            let _ = pane.tabs.take_shown();
-                            pane.tabs.open_at(path, page);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.notebooks.is_links_open(),
-                    move || {
-                        notebooks::links_manager_dialog(pane.notebooks, move |path| {
-                            let page = pane.pages.current();
-                            let _ = pane.tabs.take_shown();
-                            pane.tabs.open_at(path, page);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.notebooks.is_markdown_open(),
-                    move || notebooks::markdown_dialog(pane.notebooks),
-                ))
-                .child(when(
-                    move || pane.notebooks.is_audio_open(),
-                    move || notebooks::audio_dialog(pane.notebooks),
-                ))
-                .child(when(
-                    move || pane.notebooks.is_condense_open(),
-                    move || {
-                        notebooks::condense_slides_dialog(pane.notebooks, move |path| {
-                            workspaces.open_paths(vec![path]);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.present.is_keep_prompt_open(),
-                    move || present_ui::keep_ink_dialog(pane.present),
-                ))
-                .child(when(
-                    move || pane.study.is_flashcard_open(),
-                    move || study_ui::flashcard_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_occlusion_open(),
-                    move || study_ui::occlusion_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_cloze_open(),
-                    move || study_ui::cloze_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_review_open(),
-                    move || {
-                        study_ui::daily_review_dialog(pane.study, move |path, page| {
-                            pane.tabs.open_at(path, page);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.study.is_dict_open(),
-                    move || study_ui::dictionary_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_vocab_open(),
-                    move || study_ui::vocabulary_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_export_open(),
-                    move || study_ui::study_export_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_stats_open(),
-                    move || study_ui::statistics_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_summaries_open(),
-                    move || study_ui::phase5::highlight_summaries_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_assignments_open(),
-                    move || study_ui::phase5::assignments_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_language_open(),
-                    move || study_ui::phase5::language_learning_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.study.is_translate_open(),
-                    move || study_ui::phase5::translate_dialog(pane.study),
-                ))
-                .child(when(
-                    move || pane.notebooks.is_planner_open(),
-                    move || {
-                        notebooks::phase5::planner_dialog(pane.notebooks, move |path| {
-                            workspaces.open_paths(vec![path]);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.notebooks.is_packs_open(),
-                    move || notebooks::phase5::template_packs_dialog(pane.notebooks),
-                ))
-                .child(when(
-                    move || pane.notebooks.is_versions_open(),
-                    move || {
-                        notebooks::phase5::version_history_dialog(pane.notebooks, move |path| {
-                            workspaces.open_paths(vec![path]);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.notebooks.is_transcript_open(),
-                    move || notebooks::phase5::audio_transcript_dialog(pane.notebooks),
-                ))
-                .child(when(
-                    move || pane.outline_extra.is_generate_open(),
-                    move || {
-                        outline::extra::generate_outline_dialog(
-                            pane.outline_extra,
-                            pane.tabs.shown_path(),
-                        )
-                    },
-                ))
-                .child(when(
-                    move || pane.outline_extra.is_io_open(),
-                    move || {
-                        outline::extra::outline_io_dialog(
-                            pane.outline_extra,
-                            pane.tabs.shown_path(),
-                        )
-                    },
-                ))
-                .child(when(
-                    move || pane.reading_extra.is_reflow_open(),
-                    move || {
-                        reading_extra::reflow_dialog(
-                            pane.reading_extra,
-                            pane.tabs.shown_path(),
-                            pane.pages.current(),
-                        )
-                    },
-                ))
-                .child(when(
-                    move || pane.reading_extra.is_synctex_open(),
-                    move || {
-                        reading_extra::synctex_dialog(
-                            pane.reading_extra,
-                            pane.tabs.shown_path(),
-                            pane.pages.current(),
-                            move |pg| pane.go_to(pg),
-                        )
-                    },
-                ))
-                .child(when(
-                    move || pane.reading_extra.is_remote_open(),
-                    move || {
-                        reading_extra::open_url_dialog(pane.reading_extra, move |path| {
-                            workspaces.open_paths(vec![path]);
-                        })
-                    },
-                ))
-                .child(when(
-                    move || pane.reading_extra.is_extra_open(),
-                    move || reading_extra::extra_format_dialog(pane.reading_extra),
-                ))
-                .child(when(
-                    move || pane.annotate.is_reporting(),
-                    move || crate::annotate::phase5::report_export_dialog(pane.annotate),
-                ))
-                .child(when(
-                    move || pane.annotate.is_history(),
-                    move || crate::annotate::phase5::history_timeline_dialog(pane.annotate),
-                ))
-                .child(when(
-                    move || pane.annotate.is_pattern(),
-                    move || crate::annotate::phase5::pattern_brush_dialog(pane.annotate),
-                ))
-                .child(when(
-                    move || pane.annotate.is_symmetry(),
-                    move || crate::annotate::phase5::symmetry_dialog(pane.annotate),
-                ))
-                .child(when(
-                    move || pane.annotate.is_hw_searching(),
-                    move || {
-                        crate::annotate::phase5::handwriting_search_dialog(
-                            pane.annotate,
-                            move |pg| pane.go_to(pg),
-                        )
-                    },
-                ))
-                .child(when(
-                    move || pane.annotate.is_hw_converting(),
-                    move || crate::annotate::phase5::handwriting_convert_dialog(pane.annotate),
-                ))
-                .child(when(
-                    move || pane.annotate.is_ocr(),
-                    move || {
-                        crate::annotate::phase5::ocr_dialog(pane.annotate, move |path| {
-                            workspaces.open_paths(vec![path]);
-                        })
-                    },
-                ))
-        }))
-        .child(when(
-            move || lib_ui.is_library_open(),
+        .child(active_pane_dialogs(panes, workspaces))
+        .child(library_dialogs(lib_ui, panes, workspaces))
+        .child(feature_overlays);
+    #[cfg(target_os = "windows")]
+    let root = root.child(windows_bridge_element(
+        move || page_key_state.get(),
+        panes,
+        workspaces,
+        run,
+    ));
+    root
+}
+
+/// Per-pane modal dialogs (groups, properties, bookmarks, links, annotation editors), split out
+/// of [`window_shell`] so debug-mode stack frames stay bounded.
+#[inline(never)]
+fn per_pane_dialogs(panes: Panes) -> View {
+    panes.slots().into_iter().fold(view(), |mut dialogs, pane| {
+        dialogs = dialogs.child(when(
+            move || pane.tabs.editing().is_some(),
+            move || tabs::group_dialog(pane.tabs),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.tabs.properties_tab().is_some(),
+            move || tabs::properties_dialog(pane.tabs),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.bookmarks.is_editing(),
+            move || bookmarks::bookmark_dialog(pane.bookmarks),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.link_state.is_asking(),
+            move || links::link_dialog(pane.link_state),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_asking(),
+            move || crate::annotate::text_edit_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_picking(),
+            move || crate::annotate::color_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_restyling(),
+            move || crate::annotate::ink_tools::restyle_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_filling(),
+            move || crate::annotate::ink_tools::fill_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_palettes(),
+            move || crate::annotate::ink_tools::palettes_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_replaying(),
+            move || crate::annotate::ink_tools::replay_dialog(pane.annotate),
+        ));
+        dialogs
+    })
+}
+
+/// State bundle for [`window_chrome_dialogs`].
+struct ChromeDialogs {
+    palette_open: Signal<bool>,
+    tab_list_open: Signal<bool>,
+    settings_win: SettingsWindow,
+    theme_open: Signal<bool>,
+    appearance_open: Signal<bool>,
+    goto_open: Signal<bool>,
+    live: settings::Live,
+    theme_choice: Signal<themes::ThemeChoice>,
+    recent: RecentState,
+    modes: Modes,
+    panes: Panes,
+    workspaces: Workspaces,
+}
+
+/// Window-chrome modal dialogs (palette, tab list, workspaces, settings fallback, pickers, go-to,
+/// customize toolbar), split out of [`window_shell`] to keep debug-mode stack frames bounded.
+#[inline(never)]
+fn window_chrome_dialogs(args: ChromeDialogs, run: impl Fn(CommandId) + Copy + 'static) -> View {
+    let ChromeDialogs {
+        palette_open,
+        tab_list_open,
+        settings_win,
+        theme_open,
+        appearance_open,
+        goto_open,
+        live,
+        theme_choice,
+        recent,
+        modes,
+        panes,
+        workspaces,
+    } = args;
+    let mut dialogs = view();
+    dialogs = dialogs.child(when(palette_open, move || {
+        palette(palette_open, panes.active().pages, run)
+    }));
+    dialogs = dialogs.child(when(tab_list_open, move || {
+        tabs::tab_list(tab_list_open, panes.active().tabs, recent, workspaces)
+    }));
+    dialogs = dialogs.child(workspaces::workspace_dialogs(workspaces, run));
+    dialogs = dialogs.child(when(
+        move || settings_win.is_modal_open(),
+        move || settings_win.fallback_dialog(live, theme_choice, run),
+    ));
+    dialogs = dialogs.child(when(theme_open, move || {
+        themes::theme_picker(theme_open, theme_choice)
+    }));
+    dialogs = dialogs.child(when(appearance_open, move || {
+        themes::appearance_picker(appearance_open, theme_choice)
+    }));
+    dialogs = dialogs.child(when(goto_open, move || {
+        let pane = panes.active();
+        goto::goto_dialog(goto_open, pane.pages, move |index| pane.go_to(index))
+    }));
+    dialogs = dialogs.child(modes::customize_dialog(modes));
+    dialogs
+}
+
+/// State bundle for [`feature_dialogs`].
+struct FeatureDialogs {
+    ai_ui: ai_ui::AiUiState,
+    forms_sign_ui: forms_sign_ui::FormsSignUiState,
+    pro_pdf_ui: pro_pdf_ui::ProPdfUiState,
+    ecosystem_ui: ecosystem_ui::EcosystemUiState,
+    onboarding: Onboarding,
+    panes: Panes,
+    workspaces: Workspaces,
+    live: settings::Live,
+}
+
+/// Feature dialogs (AI, forms/signatures, pro PDF, ecosystem, onboarding guide), split out of
+/// [`window_shell`] to keep debug-mode stack frames bounded.
+#[inline(never)]
+fn feature_dialogs(args: FeatureDialogs, run: impl Fn(CommandId) + Copy + 'static) -> View {
+    let FeatureDialogs {
+        ai_ui,
+        forms_sign_ui,
+        pro_pdf_ui,
+        ecosystem_ui,
+        onboarding,
+        panes,
+        workspaces,
+        live,
+    } = args;
+    let mut dialogs = view();
+    dialogs = dialogs.child(ai_ui::ai_dialogs(ai_ui, panes, live));
+    dialogs = dialogs.child(forms_sign_ui::forms_sign_dialogs(
+        forms_sign_ui,
+        panes,
+        workspaces,
+        live,
+    ));
+    dialogs = dialogs.child(pro_pdf_ui::pro_pdf_dialogs(
+        pro_pdf_ui, panes, workspaces, live,
+    ));
+    dialogs = dialogs.child(ecosystem_ui::ecosystem_dialogs(
+        ecosystem_ui,
+        panes,
+        workspaces,
+        live,
+    ));
+    dialogs = dialogs.child(onboarding::guide_dialog(onboarding, run));
+    dialogs
+}
+
+/// Hidden Windows-only native bridge hosting Explorer file drops and OS-level shortcut forwarding.
+#[cfg(target_os = "windows")]
+#[inline(never)]
+fn windows_bridge_element(
+    page_key_state: impl Fn() -> commands::PageKeyState + Copy + 'static,
+    panes: Panes,
+    workspaces: Workspaces,
+    run: impl Fn(CommandId) + Copy + 'static,
+) -> AnyElement {
+    native(crate::WINDOW_BRIDGE)
+        .w(px(0.0))
+        .h(px(0.0))
+        .pointer_events(PointerEvents::None)
+        .prop("pageKeysActive", move || {
+            let active = page_key_state() == commands::PageKeyState::Active
+                && !panes.slots()[panes.active_cell()].find.is_open();
+            JsonValue::from(active)
+        })
+        .on_native_event(move |event: &NativeEvent| match &*event.name {
+            "osFileDrop" => {
+                let paths = crate::open::paths_from_event(&event.data);
+                let documents = crate::open::dropped_paths(&paths);
+                if !documents.is_empty() {
+                    workspaces.open_paths(documents);
+                    panes.active().home_open.set(false);
+                }
+            }
+            "osShortcut" => {
+                if let Some(shortcut) = commands::OsShortcut::from_event(&event.data) {
+                    match shortcut {
+                        commands::OsShortcut::Quit => {
+                            for pane in panes.slots() {
+                                pane.editing.save_now();
+                            }
+                            quit();
+                        }
+                        other if other.is_page_scoped() => {
+                            if untracked(page_key_state) == commands::PageKeyState::Active
+                                && !untracked(|| panes.active().find.is_open())
+                                && let Some(id) = other.command()
+                            {
+                                run(id);
+                            }
+                        }
+                        other => {
+                            if let Some(id) = other.command() {
+                                run(id);
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        })
+        .into_element()
+}
+
+/// Active-pane modal dialogs (notebooks, study, outline, reading extras, and phase-5 annotation tools),
+/// split out of [`window_shell`] so debug-mode stack frames stay small.
+#[inline(never)]
+fn active_pane_dialogs(panes: Panes, workspaces: Workspaces) -> View {
+    let mut group = view();
+    group = group.child(of_active(panes, |pane| {
+        crate::annotate::favorites::pen_dialog(pane.annotate)
+    }));
+    group = group.child(of_active(panes, |pane| {
+        crate::snapshot::snapshot_dialog(pane.snapshot)
+    }));
+    group = group.child(of_active(panes, |pane| {
+        crate::attachments::attachments_dialog(pane.attachments)
+    }));
+    group = group.child(of_active(panes, move |pane| {
+        let mut dialogs = view();
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_new_open(),
             move || {
-                let pane = panes.active();
-                library_ui::library_dialog(
-                    lib_ui,
+                notebooks::new_notebook_dialog(pane.notebooks, move |path| {
+                    workspaces.open_paths(vec![path]);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_insert_page_open(),
+            move || {
+                notebooks::insert_page_dialog(pane.notebooks, move |path| {
+                    let page = pane.pages.current();
+                    let _ = pane.tabs.take_shown();
+                    pane.tabs.open_at(path, page);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_margins_open(),
+            move || {
+                notebooks::margins_dialog(pane.notebooks, move |path| {
+                    let page = pane.pages.current();
+                    let _ = pane.tabs.take_shown();
+                    pane.tabs.open_at(path, page);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_infinite_open(),
+            move || notebooks::infinite_canvas_dialog(pane.notebooks),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_text_block_open(),
+            move || notebooks::text_block_dialog(pane.notebooks),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_sections_open(),
+            move || {
+                notebooks::sections_dialog(pane.notebooks, move |path| {
+                    let page = pane.pages.current();
+                    let _ = pane.tabs.take_shown();
+                    pane.tabs.open_at(path, page);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_links_open(),
+            move || {
+                notebooks::links_manager_dialog(pane.notebooks, move |path| {
+                    let page = pane.pages.current();
+                    let _ = pane.tabs.take_shown();
+                    pane.tabs.open_at(path, page);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_markdown_open(),
+            move || notebooks::markdown_dialog(pane.notebooks),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_audio_open(),
+            move || notebooks::audio_dialog(pane.notebooks),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_condense_open(),
+            move || {
+                notebooks::condense_slides_dialog(pane.notebooks, move |path| {
+                    workspaces.open_paths(vec![path]);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.present.is_keep_prompt_open(),
+            move || present_ui::keep_ink_dialog(pane.present),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_flashcard_open(),
+            move || study_ui::flashcard_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_occlusion_open(),
+            move || study_ui::occlusion_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_cloze_open(),
+            move || study_ui::cloze_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_review_open(),
+            move || {
+                study_ui::daily_review_dialog(pane.study, move |path, page| {
+                    pane.tabs.open_at(path, page);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_dict_open(),
+            move || study_ui::dictionary_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_vocab_open(),
+            move || study_ui::vocabulary_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_export_open(),
+            move || study_ui::study_export_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_stats_open(),
+            move || study_ui::statistics_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_summaries_open(),
+            move || study_ui::phase5::highlight_summaries_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_assignments_open(),
+            move || study_ui::phase5::assignments_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_language_open(),
+            move || study_ui::phase5::language_learning_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.study.is_translate_open(),
+            move || study_ui::phase5::translate_dialog(pane.study),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_planner_open(),
+            move || {
+                notebooks::phase5::planner_dialog(pane.notebooks, move |path| {
+                    workspaces.open_paths(vec![path]);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_packs_open(),
+            move || notebooks::phase5::template_packs_dialog(pane.notebooks),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_versions_open(),
+            move || {
+                notebooks::phase5::version_history_dialog(pane.notebooks, move |path| {
+                    workspaces.open_paths(vec![path]);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.notebooks.is_transcript_open(),
+            move || notebooks::phase5::audio_transcript_dialog(pane.notebooks),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.outline_extra.is_generate_open(),
+            move || {
+                outline::extra::generate_outline_dialog(pane.outline_extra, pane.tabs.shown_path())
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.outline_extra.is_io_open(),
+            move || outline::extra::outline_io_dialog(pane.outline_extra, pane.tabs.shown_path()),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.reading_extra.is_reflow_open(),
+            move || {
+                reading_extra::reflow_dialog(
+                    pane.reading_extra,
                     pane.tabs.shown_path(),
-                    workspaces.shown_id(),
-                    move |path, page| {
-                        workspaces.open(&crate::open::Launch {
-                            files: vec![path],
-                            page: Some(page),
-                            split: None,
-                        });
-                    },
-                    move |ws_id| workspaces.switch(ws_id),
+                    pane.pages.current(),
                 )
             },
-        ))
-        .child(when(
-            move || lib_ui.is_duplicates_open(),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.reading_extra.is_synctex_open(),
             move || {
-                library_ui::duplicates_dialog(lib_ui, move |path, page| {
+                reading_extra::synctex_dialog(
+                    pane.reading_extra,
+                    pane.tabs.shown_path(),
+                    pane.pages.current(),
+                    move |pg| pane.go_to(pg),
+                )
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.reading_extra.is_remote_open(),
+            move || {
+                reading_extra::open_url_dialog(pane.reading_extra, move |path| {
+                    workspaces.open_paths(vec![path]);
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.reading_extra.is_extra_open(),
+            move || reading_extra::extra_format_dialog(pane.reading_extra),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_reporting(),
+            move || crate::annotate::phase5::report_export_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_history(),
+            move || crate::annotate::phase5::history_timeline_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_pattern(),
+            move || crate::annotate::phase5::pattern_brush_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_symmetry(),
+            move || crate::annotate::phase5::symmetry_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_hw_searching(),
+            move || {
+                crate::annotate::phase5::handwriting_search_dialog(pane.annotate, move |pg| {
+                    pane.go_to(pg)
+                })
+            },
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_hw_converting(),
+            move || crate::annotate::phase5::handwriting_convert_dialog(pane.annotate),
+        ));
+        dialogs = dialogs.child(when(
+            move || pane.annotate.is_ocr(),
+            move || {
+                crate::annotate::phase5::ocr_dialog(pane.annotate, move |path| {
+                    workspaces.open_paths(vec![path]);
+                })
+            },
+        ));
+        dialogs
+    }));
+    group
+}
+
+/// Library, citation, notes, workspace-rules, and CLI/MCP dialogs, split out of [`window_shell`]
+/// to keep debug-mode stack frames bounded.
+#[inline(never)]
+fn library_dialogs(
+    lib_ui: library_ui::LibraryUiState,
+    panes: Panes,
+    workspaces: Workspaces,
+) -> View {
+    let mut dialogs = view();
+    dialogs = dialogs.child(when(
+        move || lib_ui.is_library_open(),
+        move || {
+            let pane = panes.active();
+            library_ui::library_dialog(
+                lib_ui,
+                pane.tabs.shown_path(),
+                workspaces.shown_id(),
+                move |path, page| {
                     workspaces.open(&crate::open::Launch {
                         files: vec![path],
                         page: Some(page),
                         split: None,
                     });
-                })
-            },
-        ))
-        .child(when(
-            move || lib_ui.is_citations_open(),
-            move || library_ui::citations_dialog(lib_ui),
-        ))
-        .child(when(
-            move || lib_ui.is_notes_open(),
-            move || {
-                let pane = panes.active();
-                library_ui::notes_backlinks_dialog(
-                    lib_ui,
-                    pane.tabs.shown_path(),
-                    pane.pages.current(),
-                )
-            },
-        ))
-        .child(when(
-            move || lib_ui.is_rules_open(),
-            move || {
-                library_ui::workspace_rules_dialog(lib_ui, workspaces.shown_id(), move |ws_id| {
-                    workspaces.switch(ws_id);
-                })
-            },
-        ))
-        .child(when(
-            move || lib_ui.is_cli_docs_open(),
-            move || library_ui::cli_mcp_docs_dialog(lib_ui),
-        ))
-        .child(ai_ui::ai_dialogs(ai_ui, panes, live))
-        .child(forms_sign_ui::forms_sign_dialogs(
-            forms_sign_ui,
-            panes,
-            workspaces,
-            live,
-        ))
-        .child(pro_pdf_ui::pro_pdf_dialogs(
-            pro_pdf_ui, panes, workspaces, live,
-        ))
-        .child(ecosystem_ui::ecosystem_dialogs(
-            ecosystem_ui,
-            panes,
-            workspaces,
-            live,
-        ))
-        .on_key_down(move |ev: &KeyEvent| {
-            if untracked(|| modes.current()) == Mode::Present && !untracked(dialog_open) {
-                let pane = panes.active();
-                let _ = pane.present.handle_key(
-                    &ev.key,
-                    move |page| pane.go_to(page),
-                    move || run(CommandId::Mode(Mode::Read)),
-                );
-            }
-        })
-        .child(onboarding::guide_dialog(onboarding, run))
+                },
+                move |ws_id| workspaces.switch(ws_id),
+            )
+        },
+    ));
+    dialogs = dialogs.child(when(
+        move || lib_ui.is_duplicates_open(),
+        move || {
+            library_ui::duplicates_dialog(lib_ui, move |path, page| {
+                workspaces.open(&crate::open::Launch {
+                    files: vec![path],
+                    page: Some(page),
+                    split: None,
+                });
+            })
+        },
+    ));
+    dialogs = dialogs.child(when(
+        move || lib_ui.is_citations_open(),
+        move || library_ui::citations_dialog(lib_ui),
+    ));
+    dialogs = dialogs.child(when(
+        move || lib_ui.is_notes_open(),
+        move || {
+            let pane = panes.active();
+            library_ui::notes_backlinks_dialog(lib_ui, pane.tabs.shown_path(), pane.pages.current())
+        },
+    ));
+    dialogs = dialogs.child(when(
+        move || lib_ui.is_rules_open(),
+        move || {
+            library_ui::workspace_rules_dialog(lib_ui, workspaces.shown_id(), move |ws_id| {
+                workspaces.switch(ws_id);
+            })
+        },
+    ));
+    dialogs = dialogs.child(when(
+        move || lib_ui.is_cli_docs_open(),
+        move || library_ui::cli_mcp_docs_dialog(lib_ui),
+    ));
+    dialogs
+}
+
+/// Maps page-canvas navigation commands to the DOM key names [`crate::present_ui::PresentState::handle_key`]
+/// expects while Presentation mode is active.
+fn present_nav_key(command: &str) -> Option<&'static str> {
+    match command {
+        "lineDown" => Some("ArrowDown"),
+        "lineUp" => Some("ArrowUp"),
+        "stepLeft" => Some("ArrowLeft"),
+        "stepRight" => Some("ArrowRight"),
+        "screenDown" => Some("PageDown"),
+        "screenUp" => Some("PageUp"),
+        _ => None,
+    }
 }
 
 /// Elements of the active pane, made again when another pane becomes active (V.5).
@@ -1299,37 +1670,60 @@ fn window_bar(
     let left = window.clone();
 
     view()
+        .w_full()
+        .min_w(px(0.0))
         .h(move || px(live.read(tabs::title_bar_height_px)))
         .flex_shrink_0()
         .flex_row()
         .items_center()
         .gap_2()
+        .overflow_hidden()
         .window_drag(true)
         .pl(move || left.title_bar().left + px(8.0))
-        .pr(move || window.title_bar().right + px(8.0))
+        .pr(move || {
+            let min_right = if cfg!(target_os = "windows") {
+                WINDOWS_CAPTION_MIN_RIGHT_PX
+            } else {
+                0.0
+            };
+            px(window.title_bar().right.0.max(min_right) + 8.0)
+        })
         .bg(move || theme().sidebar)
         .border_b_1()
         .border_b_color(move || theme().border)
         .style_when(move || full_screen.hides_bar(), |s| s.hidden())
         .on_mouse_leave(move |_: &MouseEvent| full_screen.bar_left())
-        .child(view().window_drag(false).child(app_menu::app_menu_button(
-            app_menu_open,
-            run,
-            move || panes.active().tabs.has_shown(),
-        )))
-        .child(workspaces::switcher_button(workspaces, run))
-        // The reading-theme bar needs the room while it is open.
-        .child(when(
-            move || !reading_theme_open.get(),
-            move || {
-                of_active(panes, move |pane| {
-                    tabs::tab_strip(pane.tabs, pane.home_open, pane.editing, run)
-                })
-            },
-        ))
         .child(
             view()
+                .window_drag(false)
                 .flex_shrink(0.0)
+                .child(app_menu::app_menu_button(app_menu_open, run, move || {
+                    panes.active().tabs.has_shown()
+                })),
+        )
+        .child(workspaces::switcher_button(workspaces, run))
+        // The reading-theme bar needs the room while it is open.
+        .child(
+            view()
+                .flex_1()
+                .min_w(px(0.0))
+                .h_full()
+                .flex_row()
+                .items_center()
+                .overflow_hidden()
+                .child(when(
+                    move || !reading_theme_open.get(),
+                    move || {
+                        of_active(panes, move |pane| {
+                            tabs::tab_strip(pane.tabs, pane.home_open, pane.editing, run)
+                        })
+                    },
+                )),
+        )
+        .child(
+            view()
+                .flex_shrink(1.0)
+                .min_w(px(120.0))
                 .flex_row()
                 .justify_center()
                 .child(when(
@@ -1348,17 +1742,17 @@ fn window_bar(
         .child(of_active(panes, |pane| {
             crate::annotate::guides::reading_line(pane.annotate)
         }))
-        .child(of_active(panes, move |pane| {
+        .child(view().flex_shrink(0.0).child(of_active(panes, move |pane| {
             goto::page_button(pane.pages, move || run(CommandId::GoToPage))
-        }))
-        // Dedicated draggable grip area to the left of the top-right tab-list dropdown.
-        .child(view().min_w(px(72.0)).h_full())
+        })))
+        // Compact draggable grip area to the left of the top-right tab-list dropdown.
+        .child(view().w(px(12.0)).flex_shrink(1.0).h_full())
         .child(tab_list_button(run))
 }
 
 /// Vivaldi-style top-right framed dropdown trigger opening the searchable workspace-grouped tab list.
 fn tab_list_button(run: impl Fn(CommandId) + Copy + 'static) -> impl IntoElement {
-    view().window_drag(false).child(
+    view().window_drag(false).flex_shrink(0.0).child(
         button()
             .accessibility_label(move || {
                 Some(SharedString::from(commands::label_with_shortcut(
@@ -1386,32 +1780,43 @@ fn tab_list_button(run: impl Fn(CommandId) + Copy + 'static) -> impl IntoElement
 
 /// The command palette's place in the title bar, where a browser has its address bar.
 fn palette_button(run: impl Fn(CommandId) + Copy + 'static) -> impl IntoElement {
-    view().window_drag(false).w(px(280.0)).child(
-        button()
-            .accessibility_label(t!("palette.title"))
-            .on_press(move || run(CommandId::OpenPalette))
-            .h(px(28.0))
-            .px_3()
-            .flex_row()
-            .items_center()
-            .gap_2()
-            .rounded(px(8.0))
-            .bg(move || theme().background)
-            .border_1()
-            .border_color(move || theme().border)
-            .hover(|s| s.border_color(move || theme().ring))
-            .child(
-                text(move || t!("palette.placeholder"))
-                    .flex_1()
-                    .text_size(px(13.0))
-                    .text_color(move || theme().muted_foreground),
-            )
-            .child(
-                text(move || commands::shortcut_label(CommandId::OpenPalette))
-                    .text_size(px(12.0))
-                    .text_color(move || theme().muted_foreground),
-            ),
-    )
+    view()
+        .window_drag(false)
+        .flex_shrink(1.0)
+        .w(px(220.0))
+        .min_w(px(120.0))
+        .max_w(px(260.0))
+        .child(
+            button()
+                .accessibility_label(t!("palette.title"))
+                .on_press(move || run(CommandId::OpenPalette))
+                .w_full()
+                .min_w(px(0.0))
+                .h(px(28.0))
+                .px_3()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .overflow_hidden()
+                .rounded(px(8.0))
+                .bg(move || theme().background)
+                .border_1()
+                .border_color(move || theme().border)
+                .hover(|s| s.border_color(move || theme().ring))
+                .child(
+                    text(move || t!("palette.placeholder"))
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .truncate()
+                        .text_size(px(13.0))
+                        .text_color(move || theme().muted_foreground),
+                )
+                .child(
+                    text(move || commands::shortcut_label(CommandId::OpenPalette))
+                        .text_size(px(12.0))
+                        .text_color(move || theme().muted_foreground),
+                ),
+        )
 }
 
 /// Main workspace layout: Vivaldi thin left icon rail, optional expandable left drawer, center pane grid, and
@@ -1426,7 +1831,10 @@ fn workspace_body(
     let full_screen = shared.full_screen;
     view()
         .flex_1()
+        .w_full()
+        .min_w(px(0.0))
         .min_h(px(0.0))
+        .overflow_hidden()
         .flex_row()
         .on_mouse_move(move |event: &MouseEvent| {
             let Some((start_x, start_w)) = state.left_drag_start.get_untracked() else {
@@ -1467,6 +1875,7 @@ fn workspace_body(
                 .flex_1()
                 .min_w(px(0.0))
                 .min_h(px(0.0))
+                .overflow_hidden()
                 .child(panes::pane_grid(panes, shared, dialog_open, run)),
         )
         .child(when(

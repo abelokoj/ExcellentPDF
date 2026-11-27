@@ -3,32 +3,24 @@
 //! shared [`ecclesia_canvas::page::PageCanvas`].
 
 use std::cell::{Cell, RefCell};
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use ecclesia_canvas::page::host::PopoverWheel;
 use ecclesia_canvas::page::{ClickLimits, Cursor as CanvasCursor};
 use nsh_core::{Cursor as NshCursor, JsonValue};
 use nsh_platform_windows::{ComponentContext, NativeComponent, Pointer, PointerKind, Wheel};
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::Graphics::Direct2D::{
     D2D1_ANTIALIAS_MODE_ALIASED, D2D1_PRIMITIVE_BLEND_SOURCE_OVER, ID2D1DeviceContext,
 };
-use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::SystemInformation::GetTickCount;
-use windows::Win32::System::Threading::GetCurrentThreadId;
-use windows::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
 use windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
-use windows::Win32::UI::WindowsAndMessaging::{
-    EnumThreadWindows, GetSystemMetrics, ICON_BIG, ICON_SMALL, IMAGE_ICON, IsWindowVisible,
-    LR_SHARED, LoadImageW, SM_CXDOUBLECLK, SM_CXICON, SM_CXSMICON, SM_CYDOUBLECLK, SendMessageW,
-    WM_SETICON,
-};
-use windows::core::{BOOL, PCWSTR};
+use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXDOUBLECLK, SM_CYDOUBLECLK};
 use windows_numerics::Matrix3x2;
 
 use crate::gfx;
 use crate::host::{Canvas, WinHost};
+use crate::window_bridge;
 
 /// Zoom factor applied per Ctrl+wheel notch.
 const NOTCH_ZOOM: f32 = 1.1;
@@ -63,7 +55,7 @@ impl PageCanvas {
 
 impl NativeComponent for PageCanvas {
     fn draw(&self, dc: &ID2D1DeviceContext, size: (f32, f32)) {
-        ensure_window_icons();
+        window_bridge::ensure_window_hooks();
         if !(size.0.is_finite() && size.1.is_finite() && size.0 > 0.0 && size.1 > 0.0) {
             return;
         }
@@ -186,6 +178,18 @@ impl NativeComponent for PageCanvas {
         let px_x = event.x * sx;
         let px_y = event.y * sy;
         let mut canvas = self.canvas.borrow_mut();
+        let popover_action = if event.ctrl {
+            PopoverWheel::Zoom {
+                notches: -event.notches_y,
+            }
+        } else {
+            PopoverWheel::Scroll {
+                delta_y: event.dy * sy,
+            }
+        };
+        if canvas.popover_wheel(px_x, px_y, popover_action) {
+            return true;
+        }
         if event.ctrl {
             canvas.zoom_about(NOTCH_ZOOM.powf(-event.notches_y), px_x, px_y);
         } else if event.shift && event.dx == 0.0 {
@@ -196,70 +200,26 @@ impl NativeComponent for PageCanvas {
         true
     }
 
-    fn cursor(&self, _x: f32, _y: f32) -> Option<NshCursor> {
+    fn cursor(&self, x: f32, y: f32) -> Option<NshCursor> {
         let canvas = self.canvas.try_borrow().ok()?;
-        Some(match canvas.cursor() {
+        let cursor = if x.is_finite() && y.is_finite() {
+            let (sx, sy) = self.scale.get();
+            canvas.cursor_at((x * sx).round() as i32, (y * sy).round() as i32)
+        } else {
+            canvas.cursor()
+        };
+        Some(match cursor {
             CanvasCursor::Arrow => NshCursor::Default,
             CanvasCursor::Hand => NshCursor::Pointer,
             CanvasCursor::Text => NshCursor::Text,
             CanvasCursor::Pan => NshCursor::Move,
             CanvasCursor::Cross => NshCursor::Crosshair,
+            CanvasCursor::ResizeEw => NshCursor::ColResize,
+            CanvasCursor::ResizeNs => NshCursor::RowResize,
+            CanvasCursor::ResizeNwse => NshCursor::NwseResize,
+            CanvasCursor::ResizeNesw => NshCursor::NeswResize,
         })
     }
-}
-
-/// Ensures every visible top-level window on this UI thread carries the embedded app icon
-/// (`RT_GROUP_ICON` resource id `1`) for both `ICON_BIG` and `ICON_SMALL`, once per HWND.
-fn ensure_window_icons() {
-    // SAFETY: enumerating top-level windows belonging to the current UI thread.
-    unsafe {
-        let _ = EnumThreadWindows(GetCurrentThreadId(), Some(apply_icon_proc), LPARAM(0));
-    }
-}
-
-/// `EnumThreadWindows` callback that applies the embedded executable icon once per visible window.
-unsafe extern "system" fn apply_icon_proc(hwnd: HWND, _lparam: LPARAM) -> BOOL {
-    thread_local! {
-        static APPLIED: RefCell<HashSet<isize>> = RefCell::new(HashSet::new());
-    }
-    // SAFETY: plain Win32 query on a live top-level window enumerated on this thread.
-    if !unsafe { IsWindowVisible(hwnd).as_bool() } {
-        return BOOL(1);
-    }
-    let already_set = APPLIED.with(|set| !set.borrow_mut().insert(hwnd.0 as isize));
-    if already_set {
-        return BOOL(1);
-    }
-    // SAFETY: loading shared icon resources from this module (`id = 1`) and sending `WM_SETICON`
-    // synchronously to a top-level window on this UI thread.
-    unsafe {
-        let Ok(instance) = GetModuleHandleW(None) else {
-            return BOOL(1);
-        };
-        let dpi = match GetDpiForWindow(hwnd) {
-            0 => 96,
-            dpi => dpi,
-        };
-        for (metric, slot) in [(SM_CXICON, ICON_BIG), (SM_CXSMICON, ICON_SMALL)] {
-            let side = GetSystemMetricsForDpi(metric, dpi).max(16);
-            if let Ok(handle) = LoadImageW(
-                Some(instance.into()),
-                PCWSTR(std::ptr::without_provenance::<u16>(1)),
-                IMAGE_ICON,
-                side,
-                side,
-                LR_SHARED,
-            ) {
-                let _ = SendMessageW(
-                    hwnd,
-                    WM_SETICON,
-                    Some(WPARAM(slot as usize)),
-                    Some(LPARAM(handle.0 as isize)),
-                );
-            }
-        }
-    }
-    BOOL(1)
 }
 
 /// System tick count in milliseconds, used for multi-click detection.

@@ -4,9 +4,35 @@
 
 use std::collections::HashMap;
 
+use ecclesia_mupdf::PageRect;
+
 use super::cite::{self, Anchor};
 use super::layout::{self, EntryRegion};
 use super::{PageText, Rect, RectF};
+
+/// Default maximum popover width as a percentage of the page width (SumatraPDF Enhanced default).
+pub const DEFAULT_MAX_WIDTH_PCT: f32 = 90.0;
+/// Minimum configurable maximum popover width percentage.
+pub const MIN_MAX_WIDTH_PCT: f32 = 40.0;
+/// Maximum configurable maximum popover width percentage.
+pub const MAX_MAX_WIDTH_PCT: f32 = 100.0;
+
+/// A two-dimensional pixel extent (`width` × `height`).
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Size {
+    /// Horizontal extent in device pixels.
+    pub width: f32,
+    /// Vertical extent in device pixels.
+    pub height: f32,
+}
+
+impl Size {
+    /// Creates a pixel size from `width` and `height`.
+    #[must_use]
+    pub const fn new(width: f32, height: f32) -> Self {
+        Self { width, height }
+    }
+}
 
 /// A document's pages as the resolver reads them. The app reads them from MuPDF on a worker; tests make them up.
 pub trait Pages {
@@ -391,19 +417,53 @@ pub struct Room {
     pub pointer_y: f32,
     /// Device pixels per layout pixel.
     pub scale: f32,
+    /// Maximum popover width as a percentage of the page width (`40.0..=100.0`, default `90.0`).
+    pub max_width_pct: f32,
+}
+
+impl Default for Room {
+    fn default() -> Self {
+        Self {
+            screen_width: 0.0,
+            page: RectF::default(),
+            pointer_y: 0.0,
+            scale: 1.0,
+            max_width_pct: DEFAULT_MAX_WIDTH_PCT,
+        }
+    }
+}
+
+impl Room {
+    /// Returns the clamped maximum width fraction in `0.40..=1.00`, falling back to
+    /// [`DEFAULT_MAX_WIDTH_PCT`] when `max_width_pct` is non-finite or non-positive.
+    #[must_use]
+    pub fn max_width_fraction(&self) -> f32 {
+        let pct = if self.max_width_pct.is_finite() && self.max_width_pct > 0.0 {
+            self.max_width_pct
+        } else {
+            DEFAULT_MAX_WIDTH_PCT
+        };
+        pct.clamp(MIN_MAX_WIDTH_PCT, MAX_MAX_WIDTH_PCT) / 100.0
+    }
 }
 
 /// The zoom (device pixels per point) to draw `shown` at: the page's own zoom, shrunk until both slices fit the
-/// popover's room, and never below [`size::MIN_ZOOM`].
+/// popover's room (never wider than `room.max_width_fraction()` of either the page or the screen), and never below
+/// [`size::MIN_ZOOM`].
 pub fn zoom(shown: &Shown, page_zoom: f32, room: Room) -> f32 {
     let (dx, dy) = shown.extent();
     let s = room.scale;
+    let frac = room.max_width_fraction();
     let width_cap = {
-        let wide = (room.screen_width * 0.95).max(size::MAX_WIDTH * s);
-        if room.page.dx > 0.0 {
-            wide.min(room.page.dx * 0.95)
+        let screen_cap = if room.screen_width > 0.0 {
+            room.screen_width * frac
         } else {
-            wide
+            size::MAX_WIDTH * s
+        };
+        if room.page.dx > 0.0 {
+            screen_cap.min(room.page.dx * frac)
+        } else {
+            screen_cap
         }
     };
     let height_cap = if dy > 250.0 && room.page.dy > 0.0 {
@@ -417,7 +477,10 @@ pub fn zoom(shown: &Shown, page_zoom: f32, room: Room) -> f32 {
         size::MAX_HEIGHT * s
     };
     let border = 2.0 * size::BORDER * s;
-    let (avail_w, avail_h) = (width_cap - border, height_cap - border);
+    let (avail_w, avail_h) = (
+        (width_cap - border).max(1.0),
+        (height_cap - border).max(1.0),
+    );
     let mut zoom = if page_zoom > 0.0 {
         page_zoom
     } else {
@@ -430,4 +493,185 @@ pub fn zoom(shown: &Shown, page_zoom: f32, room: Room) -> f32 {
         zoom = avail_w / dx;
     }
     zoom.max(size::MIN_ZOOM)
+}
+
+/// Computes the PDF-point region for a user-resized popover of `content_size_px` rendered at
+/// `target_zoom` (device pixels per point), anchored at `origin`'s top-left and clamped to
+/// `page_bounds`.
+///
+/// Modeled on SumatraPDF Enhanced's `RefHoverSizedRegion`: invalid or non-positive inputs return
+/// an empty [`PageRect`].
+#[must_use]
+pub fn resized_region(
+    origin: PageRect,
+    target_zoom: f32,
+    content_size_px: Size,
+    page_bounds: PageRect,
+) -> PageRect {
+    let page_w = page_bounds.x1 - page_bounds.x0;
+    let page_h = page_bounds.y1 - page_bounds.y0;
+    if !target_zoom.is_finite()
+        || target_zoom <= 0.0
+        || !content_size_px.width.is_finite()
+        || !content_size_px.height.is_finite()
+        || content_size_px.width <= 0.0
+        || content_size_px.height <= 0.0
+        || !page_w.is_finite()
+        || !page_h.is_finite()
+        || page_w <= 0.0
+        || page_h <= 0.0
+    {
+        return PageRect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 0.0,
+            y1: 0.0,
+        };
+    }
+    let min_span_x = 1.0_f32.min(page_w);
+    let min_span_y = 1.0_f32.min(page_h);
+    let x0 = origin.x0.clamp(page_bounds.x0, page_bounds.x1 - min_span_x);
+    let y0 = origin.y0.clamp(page_bounds.y0, page_bounds.y1 - min_span_y);
+    let dx = (content_size_px.width / target_zoom).min(page_bounds.x1 - x0);
+    let dy = (content_size_px.height / target_zoom).min(page_bounds.y1 - y0);
+    PageRect {
+        x0,
+        y0,
+        x1: x0 + dx,
+        y1: y0 + dy,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_shown(dx: f32, dy: f32) -> Shown {
+        Shown {
+            page: 0,
+            region: RectF::new(0.0, 0.0, dx, dy),
+            continuation: None,
+        }
+    }
+
+    #[test]
+    fn max_width_fraction_clamps_and_defaults() {
+        let with_pct = |pct| Room {
+            max_width_pct: pct,
+            ..Room::default()
+        };
+        assert!((Room::default().max_width_fraction() - 0.90).abs() < 1e-6);
+        assert!((with_pct(90.0).max_width_fraction() - 0.90).abs() < 1e-6);
+        assert!((with_pct(60.0).max_width_fraction() - 0.60).abs() < 1e-6);
+        assert!((with_pct(100.0).max_width_fraction() - 1.00).abs() < 1e-6);
+        assert!((with_pct(15.0).max_width_fraction() - 0.40).abs() < 1e-6);
+        assert!((with_pct(180.0).max_width_fraction() - 1.00).abs() < 1e-6);
+        assert!((with_pct(0.0).max_width_fraction() - 0.90).abs() < 1e-6);
+        assert!((with_pct(-10.0).max_width_fraction() - 0.90).abs() < 1e-6);
+        assert!((with_pct(f32::NAN).max_width_fraction() - 0.90).abs() < 1e-6);
+    }
+
+    #[test]
+    fn zoom_caps_at_default_90_percent_of_page_width() {
+        let shown = sample_shown(400.0, 100.0);
+        let room = Room {
+            screen_width: 1920.0,
+            page: RectF::new(0.0, 0.0, 900.0, 1200.0),
+            pointer_y: 600.0,
+            scale: 1.0,
+            max_width_pct: DEFAULT_MAX_WIDTH_PCT,
+        };
+        let z = zoom(&shown, 3.0, room);
+        let expected = (900.0 * 0.90 - 8.0) / 400.0;
+        assert!((z - expected).abs() < 1e-4, "got {z}, expected {expected}");
+    }
+
+    #[test]
+    fn zoom_respects_custom_max_width_pct_and_screen_width() {
+        let shown = sample_shown(400.0, 100.0);
+        let room_60 = Room {
+            screen_width: 1920.0,
+            page: RectF::new(0.0, 0.0, 900.0, 1200.0),
+            pointer_y: 600.0,
+            scale: 1.0,
+            max_width_pct: 60.0,
+        };
+        let z60 = zoom(&shown, 3.0, room_60);
+        assert!((z60 - (900.0 * 0.60 - 8.0) / 400.0).abs() < 1e-4);
+
+        let room_100 = Room {
+            max_width_pct: 100.0,
+            ..room_60
+        };
+        let z100 = zoom(&shown, 3.0, room_100);
+        assert!((z100 - (900.0 - 8.0) / 400.0).abs() < 1e-4);
+
+        // When screen is narrower than page, screen_width * frac caps width too.
+        let narrow_screen = Room {
+            screen_width: 600.0,
+            page: RectF::new(0.0, 0.0, 1200.0, 1400.0),
+            pointer_y: 600.0,
+            scale: 1.0,
+            max_width_pct: 90.0,
+        };
+        let z_narrow = zoom(&shown, 3.0, narrow_screen);
+        assert!((z_narrow - (600.0 * 0.90 - 8.0) / 400.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn resized_region_scales_content_and_clamps_to_page_bounds() {
+        let page = PageRect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 600.0,
+            y1: 800.0,
+        };
+        let origin = PageRect {
+            x0: 50.0,
+            y0: 100.0,
+            x1: 250.0,
+            y1: 200.0,
+        };
+        // Normal resize at 2x zoom: 400x300 px -> 200x150 pt from (50, 100).
+        let grown = resized_region(origin, 2.0, Size::new(400.0, 300.0), page);
+        assert_eq!(
+            grown,
+            PageRect {
+                x0: 50.0,
+                y0: 100.0,
+                x1: 250.0,
+                y1: 250.0,
+            }
+        );
+
+        // Resize past the right/bottom page edge clamps to page_bounds.
+        let clamped = resized_region(origin, 1.0, Size::new(900.0, 1000.0), page);
+        assert_eq!(
+            clamped,
+            PageRect {
+                x0: 50.0,
+                y0: 100.0,
+                x1: 600.0,
+                y1: 800.0,
+            }
+        );
+
+        // Origin outside page_bounds clamps inside with at least 1 pt remaining.
+        let outside_origin = PageRect {
+            x0: -40.0,
+            y0: 950.0,
+            x1: 10.0,
+            y1: 990.0,
+        };
+        let shifted = resized_region(outside_origin, 1.0, Size::new(100.0, 100.0), page);
+        assert_eq!(shifted.x0, 0.0);
+        assert_eq!(shifted.y0, 799.0);
+        assert_eq!(shifted.x1, 100.0);
+        assert_eq!(shifted.y1, 800.0);
+
+        // Invalid inputs return an empty rect.
+        let invalid = resized_region(origin, 0.0, Size::new(200.0, 100.0), page);
+        assert_eq!(invalid.x1 - invalid.x0, 0.0);
+        assert_eq!(invalid.y1 - invalid.y0, 0.0);
+    }
 }

@@ -117,6 +117,8 @@ pub(crate) enum CommandId {
     Eraser(Eraser),
     /// Turns the lasso on or off: a drag on the pages draws a loop that selects what it encloses (H.6).
     Lasso,
+    /// Toggles rectangular block selection mode: drag to select and highlight arbitrary regions.
+    BlockSelect,
     /// Lays tape: the next drag on a page covers that strip; a click on tape reveals it or hides it again (H.4).
     Tape,
     /// Turns the zoom writing pad on or off: write large at the bottom, it lands small on the page (H.12).
@@ -410,6 +412,7 @@ impl CommandId {
                     | Self::Polygon
                     | Self::PolyLine
                     | Self::Cloud
+                    | Self::BlockSelect
                     | Self::CutAnnotations
                     | Self::TransferAnnotations
                     | Self::ExportAnnotations
@@ -770,6 +773,22 @@ pub(crate) const COMMANDS: &[Command] = &[
         keys: &[],
         // Enhanced's CmdCreateAnnotHighlight is "a".
         page_keys: &["a"],
+    },
+    Command {
+        id: CommandId::BlockSelect,
+        name: "annotate.block_select",
+        label: "command.block_select",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &["mod+shift+b"],
+    },
+    Command {
+        id: CommandId::Canvas("blockHighlight"),
+        name: "markup.block_highlight",
+        label: "command.block_highlight",
+        group: "command.group.annotate",
+        keys: &[],
+        page_keys: &[],
     },
     Command {
         id: CommandId::Canvas("underline"),
@@ -1870,9 +1889,9 @@ pub(crate) const COMMANDS: &[Command] = &[
         name: "view.auto_scroll_faster",
         label: "command.auto_scroll_faster",
         group: "command.group.read",
-        // Plain + / = and - zoom on the pages (Enhanced's FrameOnChar); Alt++ / Alt+- step auto-scroll speed.
+        // Plain + / = and - zoom on the pages (Enhanced's FrameOnChar); Alt+= / Alt++ and Alt+- step auto-scroll speed.
         keys: &[],
-        page_keys: &["alt+plus"],
+        page_keys: &["alt+plus", "alt+shift+plus"],
     },
     Command {
         id: CommandId::Canvas("autoScrollSlower"),
@@ -3249,50 +3268,212 @@ pub(crate) fn shortcut_label(id: CommandId) -> String {
         .unwrap_or_default()
 }
 
+/// Which page-scoped shortcuts should currently be mounted in NSH's keymap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PageKeyState {
+    /// No page-scoped shortcuts are bound (Home, modal dialog, popover, or sidebar list owns focus).
+    Inactive,
+    /// Only [`CommandId::LeaveModes`] (`Escape`) is bound so full screen can be exited without a document.
+    FullScreenEscapeOnly,
+    /// All page-scoped shortcuts are bound for the active document canvas.
+    Active,
+}
+
+/// An OS-level shortcut emitted by the Windows top-level window bridge (`"osShortcut"`).
+///
+/// Covers keys that NSH's Windows backend either reserves for the hidden host HWND (`F11`,
+/// `Ctrl+Q`) or drops in `Key::from_virtual_key` (numpad `VK_ADD`, `VK_SUBTRACT`).
+#[cfg(any(target_os = "windows", test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OsShortcut {
+    /// `F11`: toggle full screen on the visible window.
+    ToggleFullScreen,
+    /// `Ctrl+Q`: save open edits and quit the application.
+    Quit,
+    /// `Ctrl+Numpad+`: zoom in.
+    ZoomIn,
+    /// `Ctrl+Numpad-`: zoom out.
+    ZoomOut,
+    /// `Ctrl+Shift+Numpad+`: rotate clockwise.
+    RotateClockwise,
+    /// `Ctrl+Shift+Numpad-`: rotate anticlockwise.
+    RotateAnticlockwise,
+    /// `Alt+Numpad+`: speed up auto-scroll.
+    AutoScrollFaster,
+    /// `Alt+Numpad-`: slow down auto-scroll.
+    AutoScrollSlower,
+    /// Unmodified `Numpad+` while page keys are active: zoom in.
+    PageZoomIn,
+    /// Unmodified `Numpad-` while page keys are active: zoom out.
+    PageZoomOut,
+}
+
+#[cfg(any(target_os = "windows", test))]
+impl OsShortcut {
+    /// Parses an `"osShortcut"` native event payload (`{"action": "..."}`).
+    pub(crate) fn from_event(data: &nsh_core::JsonValue) -> Option<Self> {
+        match data.get("action").and_then(nsh_core::JsonValue::as_str)? {
+            "toggleFullScreen" => Some(Self::ToggleFullScreen),
+            "quit" => Some(Self::Quit),
+            "zoomIn" => Some(Self::ZoomIn),
+            "zoomOut" => Some(Self::ZoomOut),
+            "rotateClockwise" => Some(Self::RotateClockwise),
+            "rotateAnticlockwise" => Some(Self::RotateAnticlockwise),
+            "autoScrollFaster" => Some(Self::AutoScrollFaster),
+            "autoScrollSlower" => Some(Self::AutoScrollSlower),
+            "pageZoomIn" => Some(Self::PageZoomIn),
+            "pageZoomOut" => Some(Self::PageZoomOut),
+            _ => None,
+        }
+    }
+
+    /// Returns the [`CommandId`] this OS shortcut dispatches, or `None` for application quit.
+    pub(crate) fn command(self) -> Option<CommandId> {
+        match self {
+            Self::ToggleFullScreen => Some(CommandId::ToggleFullScreen),
+            Self::Quit => None,
+            Self::ZoomIn | Self::PageZoomIn => Some(CommandId::Canvas("zoomIn")),
+            Self::ZoomOut | Self::PageZoomOut => Some(CommandId::Canvas("zoomOut")),
+            Self::RotateClockwise => Some(CommandId::Canvas("rotateClockwise")),
+            Self::RotateAnticlockwise => Some(CommandId::Canvas("rotateAnticlockwise")),
+            Self::AutoScrollFaster => Some(CommandId::Canvas("autoScrollFaster")),
+            Self::AutoScrollSlower => Some(CommandId::Canvas("autoScrollSlower")),
+        }
+    }
+
+    /// Returns whether this shortcut only runs while page-scoped shortcuts are active.
+    pub(crate) fn is_page_scoped(self) -> bool {
+        matches!(self, Self::PageZoomIn | Self::PageZoomOut)
+    }
+}
+
 /// Returns the NSH [`KeyOptions`] for a window-scoped shortcut.
 ///
-/// Repeatable navigation, zoom, and find commands keep `repeat: true` when held, and tab-switching
-/// shortcuts (`Ctrl+Tab`, `Ctrl+PageUp`/`PageDown`) use `When::Always` so they stay responsive even
-/// while a text input such as the Find bar is focused.
+/// Repeatable navigation, zoom, rotation, find, and tab/workspace-cycling commands keep
+/// `repeat: true` when held. Window-level navigation and chrome commands whose keystrokes NSH
+/// classifies as text-editing (`Tab`, `PageUp`/`PageDown`, `Alt+Left`/`Right`, `Enter`) or that
+/// must stay responsive over focused chrome controls use `When::Always` and `over_focused: true`.
 fn window_key_options(id: CommandId) -> KeyOptions {
     let repeat = matches!(
         id,
         CommandId::Canvas(
-            "screenDown" | "screenUp" | "zoomIn" | "zoomOut" | "historyBack" | "historyForward"
+            "screenDown"
+                | "screenUp"
+                | "zoomIn"
+                | "zoomOut"
+                | "historyBack"
+                | "historyForward"
+                | "rotateClockwise"
+                | "rotateAnticlockwise"
         ) | CommandId::Find(FindAction::Next | FindAction::Previous)
+            | CommandId::Tab(TabAction::Cycle(_))
+            | CommandId::Workspace(WorkspaceAction::Cycle(_))
     );
-    let when = match id {
-        CommandId::Tab(TabAction::Cycle(_) | TabAction::Move(_)) => nsh_core::keymap::When::Always,
-        _ => nsh_core::keymap::When::Auto,
+    let always = matches!(
+        id,
+        CommandId::Tab(TabAction::Cycle(_) | TabAction::Move(_))
+            | CommandId::Workspace(WorkspaceAction::Cycle(_))
+            | CommandId::Pane(PaneAction::MoveTab(_) | PaneAction::Maximize)
+            | CommandId::Canvas("historyBack" | "historyForward")
+            | CommandId::Find(FindAction::Next | FindAction::Previous)
+            | CommandId::OpenPalette
+            | CommandId::ToggleFullScreen
+    );
+    let when = if always {
+        nsh_core::keymap::When::Always
+    } else {
+        nsh_core::keymap::When::Auto
     };
+    let over_focused = matches!(
+        id,
+        CommandId::Tab(TabAction::Cycle(_) | TabAction::Move(_))
+            | CommandId::Workspace(WorkspaceAction::Cycle(_))
+            | CommandId::Canvas("historyBack" | "historyForward")
+            | CommandId::Find(FindAction::Next | FindAction::Previous)
+            | CommandId::OpenPalette
+            | CommandId::ToggleFullScreen
+    );
     KeyOptions {
         when,
         repeat,
+        over_focused,
         ..KeyOptions::default()
     }
 }
 
-/// Binds every command's shortcuts to `run` while the current component lives. Keys for the pages run only while
-/// `allow_page` says the pages can take that command; they go on to what has focus either way, and repeat while held.
-pub(crate) fn bind_keys(
-    run: impl Fn(CommandId) + Copy + 'static,
-    allow_page: impl Fn(CommandId) -> bool + Copy + 'static,
-) {
-    let page = KeyOptions {
-        repeat: true,
-        pass_through: true,
-        ..KeyOptions::default()
+/// Returns the NSH [`KeyOptions`] for a page-scoped shortcut mounted while the document canvas
+/// owns plain-key shortcuts.
+///
+/// Page bindings are mounted reactively only when no modal dialog, popover, or sidebar list owns
+/// focus. Setting `pass_through: false`, `for_focus: true`, and `over_focused: true` ensures
+/// `Space`, `Enter`, arrows, `Home`, `End`, and single letters are cleanly consumed by the PDF
+/// even if a toolbar or tab button retained residual focus, while `When::Auto` still yields
+/// automatically whenever a text input (such as the Find bar) has focus. `LeaveModes` (`Escape`)
+/// uses `When::Always` so pressing Escape while typing in the Find bar closes it reliably.
+fn page_key_options(id: CommandId) -> KeyOptions {
+    let repeat = matches!(
+        id,
+        CommandId::Canvas(
+            "lineDown"
+                | "lineUp"
+                | "stepLeft"
+                | "stepRight"
+                | "screenDown"
+                | "screenUp"
+                | "autoScrollPause"
+                | "zoomIn"
+                | "zoomOut"
+                | "rotateClockwise"
+                | "rotateAnticlockwise"
+                | "autoScrollFaster"
+                | "autoScrollSlower"
+                | "historyBack"
+                | "historyForward"
+        )
+    );
+    let when = if id == CommandId::LeaveModes {
+        nsh_core::keymap::When::Always
+    } else {
+        nsh_core::keymap::When::Auto
     };
+    KeyOptions {
+        when,
+        repeat,
+        pass_through: false,
+        for_focus: true,
+        over_focused: true,
+        ..KeyOptions::default()
+    }
+}
+
+/// Binds every window-scoped shortcut in the current keymap to `run` while the current owner lives.
+pub(crate) fn bind_window_keys(run: impl Fn(CommandId) + Copy + 'static) {
     for binding in keymap::current().bindings() {
-        let id = binding.id;
-        match binding.scope {
-            Scope::Window => on_key_with(&binding.keys, window_key_options(id), move |_| run(id)),
-            Scope::Page => on_key_with(&binding.keys, page, move |_| {
-                if allow_page(id) {
-                    run(id);
-                }
-            }),
+        if binding.scope == Scope::Window {
+            let id = binding.id;
+            on_key_with(&binding.keys, window_key_options(id), move |_| run(id));
         }
+    }
+}
+
+/// Binds page-scoped shortcuts matching `state` to `run` while the current owner lives.
+///
+/// Calling this inside a reactive effect keyed on [`PageKeyState`] unmounts all page shortcuts
+/// whenever Home, a dialog, a popover, or a sidebar list owns focus, so arrows, `Space`, `Enter`,
+/// `Delete`, and single letters never interfere with chrome or dialogs.
+pub(crate) fn bind_page_keys(state: PageKeyState, run: impl Fn(CommandId) + Copy + 'static) {
+    if state == PageKeyState::Inactive {
+        return;
+    }
+    for binding in keymap::current().bindings() {
+        if binding.scope != Scope::Page {
+            continue;
+        }
+        let id = binding.id;
+        if state == PageKeyState::FullScreenEscapeOnly && id != CommandId::LeaveModes {
+            continue;
+        }
+        on_key_with(&binding.keys, page_key_options(id), move |_| run(id));
     }
 }
 
@@ -3341,22 +3522,229 @@ mod tests {
     }
 
     #[test]
-    fn window_key_options_enable_repeat_for_nav_and_always_for_tab_switching() {
+    fn every_canvas_command_name_is_implemented_by_page_canvas() {
+        // Mirrors `ecclesia_canvas::page::component::PageCanvas::command` + `ViewCommand::parse`.
+        const KNOWN_CANVAS_COMMANDS: &[&str] = &[
+            "zoomIn",
+            "zoomOut",
+            "actualSize",
+            "screenDown",
+            "screenUp",
+            "stepLeft",
+            "stepRight",
+            "historyBack",
+            "historyForward",
+            "firstPage",
+            "lastPage",
+            "copy",
+            "highlight",
+            "blockHighlight",
+            "underline",
+            "squiggly",
+            "strikeOut",
+            "replaceText",
+            "insertText",
+            "noteSelection",
+            "selectAll",
+            "toggleRuler",
+            "toggleFocus",
+            "lineDown",
+            "lineUp",
+            "toggleAutoScroll",
+            "autoScrollPause",
+            "autoScrollFaster",
+            "autoScrollSlower",
+            "layoutSingle",
+            "layoutFacing",
+            "layoutBook",
+            "layoutHorizontal",
+            "layoutGrid",
+            "toggleContinuous",
+            "toggleDirection",
+            "rotateClockwise",
+            "rotateAnticlockwise",
+            "boxMedia",
+            "boxCrop",
+            "boxBleed",
+            "boxTrim",
+            "boxArt",
+            "fitWidth",
+            "fitPage",
+            "fitHeight",
+        ];
+
+        for command in COMMANDS {
+            if let CommandId::Canvas(name) = command.id {
+                assert!(
+                    KNOWN_CANVAS_COMMANDS.contains(&name),
+                    "command {:?} targets unknown PageCanvas command {name:?}",
+                    command.name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn window_key_options_cover_repeat_always_and_over_focused() {
         use nsh_core::keymap::When;
 
         let zoom = window_key_options(CommandId::Canvas("zoomIn"));
         assert!(zoom.repeat);
         assert_eq!(zoom.when, When::Auto);
+        assert!(!zoom.over_focused);
 
         let page_down = window_key_options(CommandId::Canvas("screenDown"));
         assert!(page_down.repeat);
 
+        let rotate = window_key_options(CommandId::Canvas("rotateClockwise"));
+        assert!(rotate.repeat);
+
+        let history_back = window_key_options(CommandId::Canvas("historyBack"));
+        assert!(history_back.repeat);
+        assert_eq!(history_back.when, When::Always);
+        assert!(history_back.over_focused);
+
         let tab_cycle = window_key_options(CommandId::Tab(TabAction::Cycle(Step::Next)));
-        assert!(!tab_cycle.repeat);
+        assert!(tab_cycle.repeat);
         assert_eq!(tab_cycle.when, When::Always);
+        assert!(tab_cycle.over_focused);
+
+        let tab_move = window_key_options(CommandId::Tab(TabAction::Move(Step::Next)));
+        assert!(!tab_move.repeat);
+        assert_eq!(tab_move.when, When::Always);
+        assert!(tab_move.over_focused);
+
+        let palette = window_key_options(CommandId::OpenPalette);
+        assert_eq!(palette.when, When::Always);
+        assert!(palette.over_focused);
 
         let copy = window_key_options(CommandId::Canvas("copy"));
         assert!(!copy.repeat);
         assert_eq!(copy.when, When::Auto);
+        assert!(!copy.over_focused);
+    }
+
+    #[test]
+    fn page_key_options_consume_keys_for_focus_and_repeat_only_navigation() {
+        use nsh_core::keymap::When;
+
+        for id in [
+            CommandId::Canvas("lineDown"),
+            CommandId::Canvas("stepLeft"),
+            CommandId::Canvas("screenDown"),
+            CommandId::Canvas("autoScrollPause"),
+            CommandId::Canvas("zoomIn"),
+            CommandId::Canvas("rotateClockwise"),
+            CommandId::Canvas("autoScrollFaster"),
+        ] {
+            let opts = page_key_options(id);
+            assert!(!opts.pass_through, "{id:?} must consume its key");
+            assert!(
+                opts.for_focus,
+                "{id:?} must win over residual control focus"
+            );
+            assert!(
+                opts.over_focused,
+                "{id:?} must win over roving toolbar/tab keys"
+            );
+            assert!(opts.repeat, "{id:?} should repeat while held");
+            assert_eq!(opts.when, When::Auto, "{id:?} must yield to text inputs");
+        }
+
+        for id in [
+            CommandId::ToggleFullScreen,
+            CommandId::ToggleDocumentColors,
+            CommandId::GoToPage,
+            CommandId::Canvas("highlight"),
+            CommandId::Canvas("toggleContinuous"),
+            CommandId::BlockSelect,
+        ] {
+            let opts = page_key_options(id);
+            assert!(!opts.pass_through, "{id:?}");
+            assert!(opts.for_focus, "{id:?}");
+            assert!(opts.over_focused, "{id:?}");
+            assert!(!opts.repeat, "{id:?} must not flicker when held");
+            assert_eq!(opts.when, When::Auto, "{id:?}");
+        }
+
+        let leave = page_key_options(CommandId::LeaveModes);
+        assert!(!leave.pass_through);
+        assert!(leave.for_focus);
+        assert!(leave.over_focused);
+        assert!(!leave.repeat);
+        assert_eq!(leave.when, When::Always);
+    }
+
+    #[test]
+    fn os_shortcut_parses_all_actions_and_maps_commands() {
+        let cases = [
+            (
+                "toggleFullScreen",
+                OsShortcut::ToggleFullScreen,
+                Some(CommandId::ToggleFullScreen),
+                false,
+            ),
+            ("quit", OsShortcut::Quit, None, false),
+            (
+                "zoomIn",
+                OsShortcut::ZoomIn,
+                Some(CommandId::Canvas("zoomIn")),
+                false,
+            ),
+            (
+                "zoomOut",
+                OsShortcut::ZoomOut,
+                Some(CommandId::Canvas("zoomOut")),
+                false,
+            ),
+            (
+                "rotateClockwise",
+                OsShortcut::RotateClockwise,
+                Some(CommandId::Canvas("rotateClockwise")),
+                false,
+            ),
+            (
+                "rotateAnticlockwise",
+                OsShortcut::RotateAnticlockwise,
+                Some(CommandId::Canvas("rotateAnticlockwise")),
+                false,
+            ),
+            (
+                "autoScrollFaster",
+                OsShortcut::AutoScrollFaster,
+                Some(CommandId::Canvas("autoScrollFaster")),
+                false,
+            ),
+            (
+                "autoScrollSlower",
+                OsShortcut::AutoScrollSlower,
+                Some(CommandId::Canvas("autoScrollSlower")),
+                false,
+            ),
+            (
+                "pageZoomIn",
+                OsShortcut::PageZoomIn,
+                Some(CommandId::Canvas("zoomIn")),
+                true,
+            ),
+            (
+                "pageZoomOut",
+                OsShortcut::PageZoomOut,
+                Some(CommandId::Canvas("zoomOut")),
+                true,
+            ),
+        ];
+        for (action, expected, cmd, page_scoped) in cases {
+            let parsed = OsShortcut::from_event(&serde_json::json!({ "action": action }))
+                .unwrap_or_else(|| panic!("action {action:?} should parse"));
+            assert_eq!(parsed, expected);
+            assert_eq!(parsed.command(), cmd);
+            assert_eq!(parsed.is_page_scoped(), page_scoped);
+        }
+        assert_eq!(
+            OsShortcut::from_event(&serde_json::json!({ "action": "unknown" })),
+            None
+        );
+        assert_eq!(OsShortcut::from_event(&serde_json::json!({})), None);
     }
 }

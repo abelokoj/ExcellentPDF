@@ -5,7 +5,7 @@
 //! it to the first over the single-instance channel (`ecclesia_platform::instance`) and ends. Its paths are made
 //! absolute in the sending launch, whose folder the first doesn't know.
 
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::ffi::OsString;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -123,12 +123,53 @@ fn from_message(message: &[u8]) -> Option<Launch> {
     Some(Launch { files, page, split })
 }
 
-/// The documents among files dropped on the window (`file:` URLs): directories and other files are left out. A file
-/// is taken by its contents ([`formats::is_document`]), so a renamed one still opens.
+/// The documents among files dropped on the window (`file:` URLs): directories, non-document files,
+/// and duplicate paths are left out. A file is taken by its contents ([`formats::is_document`]), so
+/// a renamed one still opens.
 pub(crate) fn dropped_documents(uris: &[String]) -> Vec<PathBuf> {
-    uris.iter()
+    let paths: Vec<PathBuf> = uris
+        .iter()
         .filter_map(|uri| crate::links::file_path(uri, None))
-        .filter(|path| path.is_file() && is_document(path))
+        .collect();
+    dropped_paths(&paths)
+}
+
+/// The documents among filesystem `paths` dropped on the window: directories, non-document files,
+/// and duplicate paths are left out while preserving first-seen order.
+pub(crate) fn dropped_paths(paths: &[PathBuf]) -> Vec<PathBuf> {
+    let mut seen = HashSet::new();
+    let mut accepted = Vec::new();
+    for path in paths {
+        if path.is_file() && is_document(path) && seen.insert(path.as_path()) {
+            accepted.push(path.clone());
+        }
+    }
+    accepted
+}
+
+/// Extracts filesystem paths from a native `"osFileDrop"` event payload (`{ "paths": [...] }`).
+///
+/// Plain filesystem paths are preserved verbatim; entries beginning with `file:` (case-insensitive)
+/// are decoded via [`crate::links::file_path`]. Empty or non-string entries are ignored.
+pub(crate) fn paths_from_event(data: &Value) -> Vec<PathBuf> {
+    let Some(items) = data.get("paths").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    items
+        .iter()
+        .filter_map(Value::as_str)
+        .filter_map(|raw| {
+            if raw.is_empty() {
+                None
+            } else if raw
+                .get(..5)
+                .is_some_and(|scheme| scheme.eq_ignore_ascii_case("file:"))
+            {
+                crate::links::file_path(raw, None)
+            } else {
+                Some(PathBuf::from(raw))
+            }
+        })
         .collect()
 }
 
@@ -357,5 +398,103 @@ mod tests {
         );
         // A folder isn't.
         assert!(dropped_documents(&[format!("file:///{}", corpus.to_string_lossy())]).is_empty());
+    }
+
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new(name: &str) -> Self {
+            let path = std::env::temp_dir()
+                .join(format!("ecclesia-open-test-{}-{name}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).expect("create temp test dir");
+            Self(path)
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn to_file_uri(path: &Path) -> String {
+        let normalized = path
+            .to_string_lossy()
+            .trim_start_matches(r"\\?\")
+            .replace('\\', "/")
+            .replace(' ', "%20");
+        format!("file:///{}", normalized.trim_start_matches('/'))
+    }
+
+    #[test]
+    fn paths_from_event_handles_plain_paths_and_file_uris() {
+        let payload = json!({
+            "paths": [
+                r"C:\My Docs\report #1.pdf",
+                "file:///C:/My%20Docs/spaced%20file.pdf",
+                "FILE:///C:/Other%20Dir/book.epub",
+                "",
+                42,
+                null
+            ]
+        });
+        assert_eq!(
+            paths_from_event(&payload),
+            vec![
+                PathBuf::from(r"C:\My Docs\report #1.pdf"),
+                PathBuf::from("C:/My Docs/spaced file.pdf"),
+                PathBuf::from("C:/Other Dir/book.epub"),
+            ]
+        );
+        assert!(paths_from_event(&json!({})).is_empty());
+        assert!(paths_from_event(&json!({ "paths": "not-an-array" })).is_empty());
+    }
+
+    #[test]
+    fn dropped_paths_and_documents_filter_and_deduplicate_temp_files() {
+        let dir = TempDir::new("drop-filter");
+        let pdf = dir.0.join("my sample.pdf");
+        let renamed = dir.0.join("renamed.dat");
+        let text = dir.0.join("notes.txt");
+        let fake_pdf = dir.0.join("fake.pdf");
+        let subdir = dir.0.join("nested");
+
+        std::fs::write(&pdf, b"%PDF-1.4\n").expect("write pdf");
+        std::fs::write(&renamed, b"%PDF-1.4\n").expect("write renamed pdf");
+        std::fs::write(&text, b"plain text, not a supported document\n").expect("write text");
+        std::fs::write(&fake_pdf, b"not actually a pdf header\n").expect("write fake pdf");
+        std::fs::create_dir(&subdir).expect("create subdir");
+
+        let filtered = dropped_paths(&[
+            pdf.clone(),
+            text.clone(),
+            fake_pdf.clone(),
+            subdir.clone(),
+            pdf.clone(),
+            renamed.clone(),
+            dir.0.join("missing.pdf"),
+        ]);
+        assert_eq!(filtered, vec![pdf.clone(), renamed.clone()]);
+
+        let uris = vec![
+            to_file_uri(&pdf),
+            to_file_uri(&text),
+            to_file_uri(&fake_pdf),
+            to_file_uri(&subdir),
+            to_file_uri(&pdf),
+            to_file_uri(&renamed),
+        ];
+        let from_uris = dropped_documents(&uris);
+        let names: Vec<_> = from_uris
+            .iter()
+            .map(|p| {
+                p.file_name()
+                    .expect("file name")
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        assert_eq!(names, ["my sample.pdf", "renamed.dat"]);
     }
 }
