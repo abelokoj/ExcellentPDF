@@ -168,7 +168,9 @@ pub(crate) fn switcher_button(
                 text(name)
                     .truncate()
                     .min_w(px(0.0))
-                    .text_size(px(13.0))
+                    .text_size(
+                        move || px(workspaces.live.read(crate::tabs::tab_font_size_px) + 0.5),
+                    )
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(move || theme().sidebar_foreground),
             )
@@ -564,6 +566,13 @@ fn workspace_dropdown_row(
             s.border_1()
                 .border_color(move || theme().primary)
                 .opacity(0.88)
+        })
+        .on_file_drop(move |event: &FileDropEvent| {
+            let docs = crate::open::dropped_documents(&event.uris);
+            if !docs.is_empty() {
+                close();
+                workspaces.open_paths_in_workspace(ws_id, docs);
+            }
         })
         .child(main_hit)
         .child(drag_handle);

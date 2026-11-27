@@ -572,8 +572,8 @@ mod tests {
             count += 1;
         }
         assert!(
-            count >= 39,
-            "all embedded SVG UI and workspace icons must rasterize cleanly (found {count})"
+            count >= 43,
+            "all embedded SVG UI, workspace, and tab-list icons must rasterize cleanly (found {count})"
         );
     }
 }

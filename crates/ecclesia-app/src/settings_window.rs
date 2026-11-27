@@ -51,8 +51,9 @@ use crate::reading_theme_bar;
 use crate::settings::{self, Live};
 use crate::shell::app_menu::{ChromeIcon, chrome_icon, dropdown_arrow};
 use crate::tabs::{
-    Cycle, DEFAULT_TAB_HEIGHT_PX, DEFAULT_TAB_MIN_WIDTH_PX, MAX_TAB_HEIGHT_PX,
-    MAX_TAB_MIN_WIDTH_PX, MIN_TAB_HEIGHT_PX, MIN_TAB_MIN_WIDTH_PX, TAB_CYCLE_ORDER, TAB_HEIGHT_PX,
+    Cycle, DEFAULT_TAB_FONT_SIZE_PX, DEFAULT_TAB_HEIGHT_PX, DEFAULT_TAB_MIN_WIDTH_PX,
+    MAX_TAB_FONT_SIZE_PX, MAX_TAB_HEIGHT_PX, MAX_TAB_MIN_WIDTH_PX, MIN_TAB_FONT_SIZE_PX,
+    MIN_TAB_HEIGHT_PX, MIN_TAB_MIN_WIDTH_PX, TAB_CYCLE_ORDER, TAB_FONT_SIZE_PX, TAB_HEIGHT_PX,
     TAB_MIN_WIDTH_PX, TAB_STYLE, TabStyle,
 };
 use crate::theme::{self as themes, ThemeChoice};
@@ -261,6 +262,7 @@ impl SettingsSection {
                 ("settings.tab_style", "settings.tab_style_hint"),
                 ("settings.tab_min_width", "settings.tab_min_width_hint"),
                 ("settings.tab_height", "settings.tab_height_hint"),
+                ("settings.tab_font_size", "settings.tab_font_size_hint"),
                 ("settings.tab_cycle", "settings.tab_cycle_hint"),
                 ("settings.close_pane_tabs", "settings.close_pane_tabs_hint"),
                 ("settings.sync_scroll", "settings.sync_scroll_hint"),
@@ -1813,6 +1815,19 @@ fn tabs_and_panes_cards(live: Live, query: Option<&str>) -> Vec<View> {
                     DEFAULT_TAB_HEIGHT_PX,
                     (MIN_TAB_HEIGHT_PX, MAX_TAB_HEIGHT_PX),
                     2.0,
+                    "settings.unit.px",
+                ),
+            ),
+            RowItem::new(
+                "settings.tab_font_size",
+                "settings.tab_font_size_hint",
+                number_field(
+                    live,
+                    "settings.tab_font_size",
+                    TAB_FONT_SIZE_PX,
+                    DEFAULT_TAB_FONT_SIZE_PX,
+                    (MIN_TAB_FONT_SIZE_PX, MAX_TAB_FONT_SIZE_PX),
+                    1.0,
                     "settings.unit.px",
                 ),
             ),

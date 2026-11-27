@@ -357,7 +357,9 @@ impl Workspaces {
             page: launch.page,
             split: launch.split,
         };
-        if self.elsewhere() == Elsewhere::Switch
+        let single_file = filtered_launch.files.len() == 1;
+        if single_file
+            && self.elsewhere() == Elsewhere::Switch
             && filtered_launch.split.is_none()
             && let Some(id) = filtered_launch
                 .files
@@ -373,7 +375,8 @@ impl Workspaces {
                 return;
             }
             self.switch(id);
-        } else if filtered_launch.split.is_none()
+        } else if single_file
+            && filtered_launch.split.is_none()
             && let Some(first) = filtered_launch.files.first()
             && let Some(routed) = store().and_then(|s| {
                 s.read(|conn| ecclesia_features::workspaces_rules::route_file(conn, first))
@@ -392,6 +395,46 @@ impl Workspaces {
             self.switch(routed);
         }
         self.panes.launch(&filtered_launch);
+    }
+
+    /// Opens `files` directly in the currently shown workspace without switching to another
+    /// workspace (used for drag-and-drop onto the current workspace window).
+    pub(crate) fn open_paths_here(self, files: Vec<PathBuf>) {
+        let mut standard = Vec::new();
+        for path in files {
+            if crate::shell::reading_extra::is_extra_non_mupdf_container(&path) {
+                self.panes.active().reading_extra.open_extra_file(path);
+            } else {
+                standard.push(path);
+            }
+        }
+        if !standard.is_empty() {
+            self.panes.launch(&Launch {
+                files: standard,
+                page: None,
+                split: None,
+            });
+        }
+    }
+
+    /// Opens `files` directly in workspace `target` (switching to or focusing `target` if needed).
+    pub(crate) fn open_paths_in_workspace(self, target: WorkspaceId, files: Vec<PathBuf>) {
+        if files.is_empty() {
+            return;
+        }
+        if target == self.shown.get_untracked() {
+            self.open_paths_here(files);
+            return;
+        }
+        if let Some(no) = windows::holder(target, self.window)
+            && let Some(there) = windows::workspaces(no)
+        {
+            windows::focus(no);
+            there.open_paths_here(files);
+            return;
+        }
+        self.switch(target);
+        self.open_paths_here(files);
     }
 
     /// The open tabs of every workspace but the shown one (W.9), by workspace in the list's order, as last saved.

@@ -334,12 +334,12 @@ fn clicking_outside_a_dialog_or_dropdown_closes_it() {
     app.wait_for_gone("role:dialog", wait)
         .expect("clicking outside closes the settings window");
 
-    // 2. Tab list dropdown (top-right): clicking a control inside keeps it open; clicking outside closes it.
+    // 2. Tab list dropdown (top-right): clicking a section header inside keeps it open; clicking outside closes it.
     app.press_key("mod+shift+a").expect("Ctrl+Shift+A");
     app.wait_for("role:dialog[Tabs]")
         .expect("the tab list dropdown opens");
-    app.press("label:Wider tab list")
-        .expect("click widen control inside tab list");
+    app.press("label:Open Tabs")
+        .expect("click Open Tabs section header inside tab list");
     assert!(
         app.screen()
             .matches("role:dialog[Tabs]")

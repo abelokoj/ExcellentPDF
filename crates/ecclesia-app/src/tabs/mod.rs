@@ -47,6 +47,9 @@ pub(crate) const TAB_MIN_WIDTH_PX: &str = "tab_min_width_px";
 /// `settings.toml`'s key for the tab height in logical pixels (default `34`).
 pub(crate) const TAB_HEIGHT_PX: &str = "tab_height_px";
 
+/// `settings.toml`'s key for the tab name and workspace label font size in logical pixels (default `12`).
+pub(crate) const TAB_FONT_SIZE_PX: &str = "tab_font_size_px";
+
 /// `settings.toml`'s key for the tab group snapshot saved from the tab context menu.
 pub(crate) const SAVED_TAB_GROUP: &str = "saved_tab_group";
 
@@ -70,6 +73,15 @@ pub(crate) const MIN_TAB_HEIGHT_PX: f64 = 24.0;
 
 /// Upper bound for tab height setting in logical pixels.
 pub(crate) const MAX_TAB_HEIGHT_PX: f64 = 56.0;
+
+/// Default font size of tab and workspace labels in logical pixels.
+pub(crate) const DEFAULT_TAB_FONT_SIZE_PX: f64 = 12.0;
+
+/// Lower bound for tab font size setting in logical pixels.
+pub(crate) const MIN_TAB_FONT_SIZE_PX: f64 = 10.0;
+
+/// Upper bound for tab font size setting in logical pixels.
+pub(crate) const MAX_TAB_FONT_SIZE_PX: f64 = 20.0;
 
 /// Logical 96-DPI points per centimeter (`96 / 2.54`).
 const POINTS_PER_CM: f64 = 96.0 / 2.54;
@@ -118,6 +130,18 @@ pub(crate) fn tab_height_px(settings: &crate::settings::Settings) -> f32 {
         .number(TAB_HEIGHT_PX)
         .map_or(DEFAULT_TAB_HEIGHT_PX, |px_val| {
             px_val.clamp(MIN_TAB_HEIGHT_PX, MAX_TAB_HEIGHT_PX)
+        }) as f32
+}
+
+/// Returns the clamped tab and workspace label font size in logical pixels from `settings`.
+///
+/// Defaults to [`DEFAULT_TAB_FONT_SIZE_PX`] (`12 px`) and clamps to
+/// `[MIN_TAB_FONT_SIZE_PX, MAX_TAB_FONT_SIZE_PX]` (`10..=20 px`).
+pub(crate) fn tab_font_size_px(settings: &crate::settings::Settings) -> f32 {
+    settings
+        .number(TAB_FONT_SIZE_PX)
+        .map_or(DEFAULT_TAB_FONT_SIZE_PX, |px_val| {
+            px_val.clamp(MIN_TAB_FONT_SIZE_PX, MAX_TAB_FONT_SIZE_PX)
         }) as f32
 }
 

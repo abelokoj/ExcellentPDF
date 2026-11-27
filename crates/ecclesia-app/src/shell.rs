@@ -1082,7 +1082,7 @@ fn window_shell(app: App, panes: Panes, workspaces: Workspaces, role: Role) -> i
             file_drag.drop_done();
             let documents = crate::open::dropped_documents(&event.uris);
             if !documents.is_empty() {
-                workspaces.open_paths(documents);
+                workspaces.open_paths_here(documents);
                 panes.active().home_open.set(false);
             }
         })
@@ -1351,7 +1351,7 @@ fn windows_bridge_element(
                 let paths = crate::open::paths_from_event(&event.data);
                 let documents = crate::open::dropped_paths(&paths);
                 if !documents.is_empty() {
-                    workspaces.open_paths(documents);
+                    workspaces.open_paths_here(documents);
                     panes.active().home_open.set(false);
                 }
             }

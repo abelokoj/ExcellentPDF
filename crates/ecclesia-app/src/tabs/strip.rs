@@ -20,7 +20,8 @@ use nsh_core::prelude::*;
 use super::group_dialog::color_name;
 use super::model::Tab;
 use super::{
-    GroupColor, GroupId, TAB_STYLE, TabId, TabState, TabStyle, Tabs, min_width_px, tab_height_px,
+    GroupColor, GroupId, TAB_STYLE, TabId, TabState, TabStyle, Tabs, min_width_px,
+    tab_font_size_px, tab_height_px,
 };
 use crate::commands::{self, CommandId};
 use crate::editing::Editing;
@@ -460,6 +461,7 @@ fn tab_view(
     let tab_style = move || state.live.read(|s| TabStyle::parse(s.text(TAB_STYLE)));
     let min_tab_px = move || state.live.read(min_width_px);
     let tab_h = move || state.live.read(tab_height_px);
+    let tab_font_px = move || state.live.read(tab_font_size_px);
     let close_pressed = signal(false);
     let is_dragging = move || drag.with(|active| active.is_some_and(|d| d.tab == id));
     cleanup(move || {
@@ -624,7 +626,7 @@ fn tab_view(
                 .flex_1()
                 .min_w(px(0.0))
                 .truncate()
-                .text_size(px(12.0))
+                .text_size(move || px(tab_font_px()))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(move || {
                     if missing() {
