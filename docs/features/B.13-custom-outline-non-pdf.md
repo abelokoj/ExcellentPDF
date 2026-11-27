@@ -1,6 +1,6 @@
 # Ph5: 9/45 | B.13: Custom outline for non-PDF formats
 
-**Tag:** B.13; **Priority:** P2; **Phase:** 5; **Needs:** B.6; **Code:** `excellent-features::outline_extra::sidecar`
+**Tag:** B.13; **Priority:** P2; **Phase:** 5; **Needs:** B.6; **Code:** `ecclesia-features::outline_extra::sidecar`
 **Plan:** §27 entry `#### Ph5: 9/45 | B.13: Custom outline for non-PDF formats`.
 
 ## Problem
@@ -27,7 +27,7 @@ All modes when viewing a non-PDF format.
 
 ## Design
 
-- **Model (`excellent-features::outline_extra::sidecar`):**
+- **Model (`ecclesia-features::outline_extra::sidecar`):**
   - `SidecarOutlineStore` persisting `Entry` trees via lossless JSON (`outline_extra::io`).
   - `effective_outline` selecting sidecar entries over built-in ones when present.
 

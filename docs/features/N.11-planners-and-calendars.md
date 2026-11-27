@@ -1,6 +1,6 @@
 # Ph5: 20/45 | N.11: Planners and calendars
 
-**Tag:** N.11; **Priority:** P2; **Phase:** 5; **Needs:** N.12, N.9; **Code:** `excellent-features::notebook::planners`
+**Tag:** N.11; **Priority:** P2; **Phase:** 5; **Needs:** N.12, N.9; **Code:** `ecclesia-features::notebook::planners`
 **Plan:** §27 entry `#### Ph5: 20/45 | N.11: Planners and calendars`.
 
 ## Problem
@@ -27,7 +27,7 @@ All modes; opens in Write mode.
 
 ## Design
 
-- **Model (`excellent-features::notebook::planners`):**
+- **Model (`ecclesia-features::notebook::planners`):**
   - Gregorian leap-year calendar math (`CalendarDate`, `is_leap_year`, `days_in_month`).
   - `generate_planner` builds Year -> Month -> Week -> Day `.expdf` notebooks with bidirectional `/Link` annotations, `/Outlines` bookmarks, and `S.14` `PlannerDueItem` listings on day pages.
 

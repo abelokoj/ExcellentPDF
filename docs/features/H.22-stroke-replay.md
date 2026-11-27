@@ -1,6 +1,6 @@
 # Ph4: 12/44 | H.22: Stroke replay
 
-**Tag:** H.22; **Priority:** P2; **Phase:** 4; **Needs:** H.9, K.14; **Code:** `excellent-ink::replay`, `excellent-features::ink::replay`
+**Tag:** H.22; **Priority:** P2; **Phase:** 4; **Needs:** H.9, K.14; **Code:** `ecclesia-ink::replay`, `ecclesia-features::ink::replay`
 **Plan:** §8.3 and §27 entry `#### Ph4: 12/44 | H.22`.
 
 ## Problem
@@ -27,10 +27,10 @@ Read, Write, and Study.
 
 ## Design
 
-- **Raw sample storage (`excellent-ink::replay`):**
+- **Raw sample storage (`ecclesia-ink::replay`):**
   - `encode_samples` / `decode_samples` pack raw `Sample` streams (origin `f64` ms + zigzag varint microsecond deltas + flags + `x, y`, optional pressure and tilt) into a compact binary format (`EXS1`) with 1 µs timing resolution.
-  - `encode_samples_hex` / `raw_samples_to_json` in `excellent-features::ink::replay` serialize raw sample payloads for annotation private JSON storage (H.9 step 3).
-- **Replay engine (`excellent-ink::replay::Timeline` + `excellent-features::ink::replay::ReplayPlayer`):**
+  - `encode_samples_hex` / `raw_samples_to_json` in `ecclesia-features::ink::replay` serialize raw sample payloads for annotation private JSON storage (H.9 step 3).
+- **Replay engine (`ecclesia-ink::replay::Timeline` + `ecclesia-features::ink::replay::ReplayPlayer`):**
   - Chronologically sorts strokes by first sample timestamp, normalizes the timeline to `0.0 ms`, and optionally compresses very long idle pauses (`max_pause_ms`, `None` for verbatim 1:1 timing).
   - `frame_at` computes complete strokes and smooth linearly interpolated in-progress stroke tips at any elapsed millisecond.
   - `ReplayPlayer` provides `play`, `pause`, `toggle_play_pause`, `stop`, `seek`, `seek_progress`, `set_speed` (`0.25×`–`8.0×`), `step_stroke_forward`, `step_stroke_backward`, and `advance(dt_ms)`.

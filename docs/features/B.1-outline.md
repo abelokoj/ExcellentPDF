@@ -1,7 +1,7 @@
 # Ph1: 31/60 | B.1: Add an outline entry
 
-**Tag:** B.1; **Priority:** P0; **Phase:** 1; **Needs:** K.3, K.13, K.14, K.15; **Code:** `excellent-features::outline`,
-`excellent-core::outline`, `excellent-mupdf::edit`, `excellent-app::outline`, `excellent-canvas-win` (`outlineTarget`)
+**Tag:** B.1; **Priority:** P0; **Phase:** 1; **Needs:** K.3, K.13, K.14, K.15; **Code:** `ecclesia-features::outline`,
+`ecclesia-core::outline`, `ecclesia-mupdf::edit`, `ecclesia-app::outline`, `ecclesia-canvas-win` (`outlineTarget`)
 **Plan:** §11.14, §27 entry `Ph1: 31/60 | B.1`.
 
 B.1 holds the outline panel (its reading half) and adding entries; B.2 to B.5 edit them.
@@ -41,7 +41,7 @@ there (not measured; marked in the code as a shortcut).
 
 ## Design
 
-- Model (`excellent-features::outline`): ids are iterator paths ("2.1.4"); `title_from_selection`, `insert_at`.
+- Model (`ecclesia-features::outline`): ids are iterator paths ("2.1.4"); `title_from_selection`, `insert_at`.
 - Place: the canvas answers the `outlineTarget` command with `{page, x, y, zoom, title}`; zoom only when it is a
   custom zoom, so a fit mode stays a fit mode. `Document::link_uri` makes the URI with `fz_format_link_uri`.
 - Insert: one operation (K.14) through `fz_outline_iterator_insert`.
@@ -50,7 +50,7 @@ there (not measured; marked in the code as a shortcut).
 
 - [x] `ids_are_paths_and_find_their_entries`, `the_reader_is_in_the_nearest_entry_before_the_page`,
   `a_chosen_entry_stays_while_it_opens_the_page`, `an_outline_is_read_on_the_workers`.
-- [x] `paths_titles_and_where_a_new_entry_goes`; `the_first_entry_makes_an_outline` (`excellent-mupdf`).
+- [x] `paths_titles_and_where_a_new_entry_goes`; `the_first_entry_makes_an_outline` (`ecclesia-mupdf`).
 - [ ] An added entry opens at the same place in Acrobat and pdf.js (checked by hand).
 - [ ] A 10,000-entry outline stays smooth (needs a corpus file and K.24).
 - [ ] Hovering an entry previews its destination page.

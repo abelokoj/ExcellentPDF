@@ -1,6 +1,6 @@
 # Ph4: 39/44 | G.2: Laser with trails
 
-**Tag:** G.2; **Priority:** P0; **Phase:** 4; **Needs:** G.1, K.8; **Code:** `excellent-features::present::pointers`
+**Tag:** G.2; **Priority:** P0; **Phase:** 4; **Needs:** G.1, K.8; **Code:** `ecclesia-features::present::pointers`
 **Plan:** §27 entry `#### Ph4: 39/44 | G.2`.
 
 ## Problem

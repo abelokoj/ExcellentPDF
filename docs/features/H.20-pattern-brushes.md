@@ -1,6 +1,6 @@
 # Ph5: 16/45 | H.20: Pattern brushes
 
-**Tag:** H.20; **Priority:** P2; **Phase:** 5; **Needs:** H.2; **Code:** `excellent-ink::brushes`
+**Tag:** H.20; **Priority:** P2; **Phase:** 5; **Needs:** H.2; **Code:** `ecclesia-ink::brushes`
 **Plan:** §27 entry `#### Ph5: 16/45 | H.20: Pattern brushes`.
 
 ## Problem
@@ -26,7 +26,7 @@ Write.
 
 ## Design
 
-- **Model (`excellent-ink::brushes`):**
+- **Model (`ecclesia-ink::brushes`):**
   - `PatternBrush` with `PatternKind`, `PatternTile`, `StampOrientation` (`FollowTangent` / `FixedAngle`).
   - `place_stamps` performs uniform arc-length sampling along `InkPoint` polylines.
   - `to_pdf_appearance_stream` converts top-left page points to bottom-left PDF coordinates and emits clean PDF vector operators.

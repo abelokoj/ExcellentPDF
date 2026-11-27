@@ -1,7 +1,7 @@
 # Ph1: 54/60 | F.17: Home page
 
-**Tag:** F.17; **Priority:** P0; **Phase:** 1; **Needs:** R.10; **Code:** `excellent-features::home`,
-`excellent-app::home`, `excellent-app::recent`
+**Tag:** F.17; **Priority:** P0; **Phase:** 1; **Needs:** R.10; **Code:** `ecclesia-features::home`,
+`ecclesia-app::home`, `ecclesia-app::recent`
 **Plan:** §27 entry `Ph1: 54/60 | F.17`.
 
 ## Problem
@@ -47,10 +47,10 @@ All modes; it is what an empty pane shows.
 
 ## Design
 
-- Model (`excellent-features::home`): `continue_reading` (newest existing file, stat-ing only until it finds one),
+- Model (`ecclesia-features::home`): `continue_reading` (newest existing file, stat-ing only until it finds one),
   `matches` (every word, case ignored, in name or folder), `cover_name` (FNV-1a of path, size and date: the same
   name on every run).
-- View (`excellent-app::home`): `Covers` (per window: rendered covers, files asked for, renders under way),
+- View (`ecclesia-app::home`): `Covers` (per window: rendered covers, files asked for, renders under way),
   `cover`, `home_page`; `recent::recent_panel` takes the search query and covers.
 - Not built: **daily review** (S.5, a later phase; the page gets it with S.5); covers of pages other than the first;
   trimming the cover folder (K.20's housekeeping, as the thumbnails').

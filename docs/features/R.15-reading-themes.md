@@ -1,7 +1,7 @@
 # Ph1: 26/60 | R.15: Reading themes
 
-**Tag:** R.15; **Priority:** P0; **Phase:** 1; **Needs:** R.14, K.17; **Code:** `excellent-core::darkmode::themes`,
-`excellent-app::reading` (`reading_theme`), `excellent-app::reading_theme_bar`, `excellent-app::settings_window`
+**Tag:** R.15; **Priority:** P0; **Phase:** 1; **Needs:** R.14, K.17; **Code:** `ecclesia-core::darkmode::themes`,
+`ecclesia-app::reading` (`reading_theme`), `ecclesia-app::reading_theme_bar`, `ecclesia-app::settings_window`
 **Plan:** §27 entry `Ph1: 26/60 | R.15`.
 
 ## Problem
@@ -44,7 +44,7 @@ All modes.
 
 ## Design
 
-- Model (`excellent-core::darkmode::themes`, pure Rust): `ReadingTheme` (ids `app`, `light`, `sepia`, `dark`,
+- Model (`ecclesia-core::darkmode::themes`, pure Rust): `ReadingTheme` (ids `app`, `light`, `sepia`, `dark`,
   `oled`, `contrast`, `custom`), each built-in one's `Palette` (ink, paper, link), `Palette::custom` (light links on
   dark paper), and WCAG 2's `contrast` and `AA_TEXT`. Black text maps exactly to the ink (`recolor`), so a palette
   that passes AA gives pages that do.

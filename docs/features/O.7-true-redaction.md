@@ -1,6 +1,6 @@
 # Ph7: 18/32 | O.7: True redaction
 
-**Tag:** O.7; **Priority:** P1; **Phase:** 7; **Needs:** A.9, F.4; **Code:** `excellent-core::redact`
+**Tag:** O.7; **Priority:** P1; **Phase:** 7; **Needs:** A.9, F.4; **Code:** `ecclesia-core::redact`
 **Plan:** §27 entry `#### Ph7: 18/32 | O.7`.
 
 ## Problem

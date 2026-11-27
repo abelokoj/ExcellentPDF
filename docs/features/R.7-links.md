@@ -1,7 +1,7 @@
 # Ph1: 18/60 | R.7: Links
 
-**Tag:** R.7; **Priority:** P0; **Phase:** 1; **Needs:** K.8; **Code:** `excellent-features::read::links`,
-`excellent-mupdf::link`, `excellent-canvas-win::links`, `excellent-app::links`
+**Tag:** R.7; **Priority:** P0; **Phase:** 1; **Needs:** K.8; **Code:** `ecclesia-features::read::links`,
+`ecclesia-mupdf::link`, `ecclesia-canvas-win::links`, `ecclesia-app::links`
 **Plan:** §27 entry `Ph1: 18/60 | R.7`, §14.2.
 
 ## Problem
@@ -31,14 +31,14 @@ stays near, and dropped with it. Nothing is read at startup. Not measured.
 
 ## Design
 
-- `excellent-mupdf`: the shim walks `fz_load_links` and resolves internal links with `fz_resolve_link`; `Link` holds
+- `ecclesia-mupdf`: the shim walks `fz_load_links` and resolves internal links with `fz_resolve_link`; `Link` holds
   the rect in page points, the address, and the target page and point.
-- `excellent-canvas-win`: `Links` caches each near page's links; the canvas maps the mouse to a page point through
+- `ecclesia-canvas-win`: `Links` caches each near page's links; the canvas maps the mouse to a page point through
   `Placement`, shows the hand, emits `linkHover` and, for a link out of the document, `openLink`. An internal link
   jumps through the same path as go to page, so it pushes history.
-- `excellent-features::read::links::follow`: the policy. `javascript`, `vbscript`, `data`, `blob` and `about` are
+- `ecclesia-features::read::links::follow`: the policy. `javascript`, `vbscript`, `data`, `blob` and `about` are
   refused; `file:`, paths and drive letters ask; protocols on the reader's list open; any other asks.
-- `excellent-app::links`: the hint, the dialog, and opening with NSH's `open_url` (the app declares the `openUrl`
+- `ecclesia-app::links`: the hint, the dialog, and opening with NSH's `open_url` (the app declares the `openUrl`
   capability) or `open_path` for files, relative paths taken from the document's folder.
 - Setting `link_protocols` (default `http,https,mailto`).
 

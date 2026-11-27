@@ -1,8 +1,8 @@
 # Ph3: 47/49 | O.23: Screenshots and region snapshots
 
-**Tag:** O.23; **Priority:** P1 (parity); **Phase:** 3; **Needs:** K.8; **Code:** `excellent-features::snapshot` (the
-region, its resolution and rendering), `excellent-canvas::page` (snapshot mode, the `snapshot` event),
-`excellent-app::snapshot` (the command and dialog)
+**Tag:** O.23; **Priority:** P1 (parity); **Phase:** 3; **Needs:** K.8; **Code:** `ecclesia-features::snapshot` (the
+region, its resolution and rendering), `ecclesia-canvas::page` (snapshot mode, the `snapshot` event),
+`ecclesia-app::snapshot` (the command and dialog)
 **Plan:** §27 entry `#### Ph3: 47/49 | O.23`.
 
 ## Problem

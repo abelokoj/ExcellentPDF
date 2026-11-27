@@ -1,8 +1,8 @@
 # Ph3: 4/49 | B.7: Bold, italic and color
 
-**Tag:** B.7; **Priority:** P1; **Phase:** 3; **Needs:** B.1; **Code:** `excellent-mupdf-sys` (`ex_outline_style`,
-`ex_load_outline`), `excellent-mupdf::OutlineStyle`, `excellent-core::edit::Change::StyleOutlineEntry`,
-`excellent-features::outline` (`Swatch`, `Restyle`, `plan_style`), `excellent-app::outline`
+**Tag:** B.7; **Priority:** P1; **Phase:** 3; **Needs:** B.1; **Code:** `ecclesia-mupdf-sys` (`ex_outline_style`,
+`ex_load_outline`), `ecclesia-mupdf::OutlineStyle`, `ecclesia-core::edit::Change::StyleOutlineEntry`,
+`ecclesia-features::outline` (`Swatch`, `Restyle`, `plan_style`), `ecclesia-app::outline`
 **Plan:** §27 entry `#### Ph3: 4/49 | B.7`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

@@ -1,6 +1,6 @@
 # Ph5: 29/45 | F.3: Full-text index
 
-**Tag:** F.3; **Priority:** P0; **Phase:** 5; **Needs:** K.20, K.13; **Code:** `excellent-store::fts`, `excellent-features::search::global`
+**Tag:** F.3; **Priority:** P0; **Phase:** 5; **Needs:** K.20, K.13; **Code:** `ecclesia-store::fts`, `ecclesia-features::search::global`
 **Plan:** §27 entry `#### Ph5: 29/45 | F.3` and §7.4.
 
 ## Problem
@@ -28,7 +28,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-store::fts::{SourceKind, FtsEntryInput, FtsHit, replace_file_entries, needs_reindex, search_fts, search_trigram}`.
+- Model: `ecclesia-store::fts::{SourceKind, FtsEntryInput, FtsHit, replace_file_entries, needs_reindex, search_fts, search_trigram}`.
 - Migration: `0008_library_fts_notes.sql` creates `fts_entry`, `fts_index` (`unicode61 remove_diacritics 2`), `fts_trigram` (`trigram`), sync triggers, and `fts_file_state`.
 
 ## Acceptance tests

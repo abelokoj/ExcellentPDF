@@ -1,4 +1,4 @@
-"""Draws the three proposed ExcellentPDF marks (Spread, Dog-ear, Spectrum; see philosophy.md) at every icon size, each
+"""Draws the three proposed EcclesiaPDF marks (Spread, Dog-ear, Spectrum; see philosophy.md) at every icon size, each
 size drawn for its own pixel grid, and writes their PNGs, a Windows .ico each, and the comparison sheet.
 
     python design/icon/proposals/render_proposals.py
@@ -269,7 +269,7 @@ def sheet(sets, out):
     title, name, label, small = (font("Jura-Light.ttf", 40), font("Jura-Medium.ttf", 34),
                                  font("DMMono-Regular.ttf", 19), font("DMMono-Regular.ttf", 17))
     d.text((120, 92), "T H R E E   P R O P O S A L S", font=title, fill=(36, 42, 52, 255))
-    d.text((122, 150), "EXCELLENTPDF MARK; EACH SIZE DRAWN FOR ITS OWN PIXEL GRID", font=small, fill=grey)
+    d.text((122, 150), "ECCLESIAPDF MARK; EACH SIZE DRAWN FOR ITS OWN PIXEL GRID", font=small, fill=grey)
     col_w = (W - 240) // 3
     for i, (key, nice, line, _) in enumerate(DESIGNS):
         x = 120 + i * col_w

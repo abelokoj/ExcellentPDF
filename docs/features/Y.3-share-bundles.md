@@ -1,6 +1,6 @@
 # Ph9: 11/13 | Y.3: Share bundles
 
-**Tag:** Y.3; **Priority:** P2; **Phase:** 9; **Needs:** N.4; **Code:** `excellent-features::sync::bundle`
+**Tag:** Y.3; **Priority:** P2; **Phase:** 9; **Needs:** N.4; **Code:** `ecclesia-features::sync::bundle`
 **Plan:** §27 entry `#### Ph9: 11/13 | Y.3`.
 
 ## Problem
@@ -27,7 +27,7 @@ Read, Annotate, Study, Research.
 
 ## Design
 
-- Model: `excellent-features::sync::bundle::{ShareBundle, BundleVerification, pack_exbundle, unpack_exbundle, merge_bundle_into_state}`.
+- Model: `ecclesia-features::sync::bundle::{ShareBundle, BundleVerification, pack_exbundle, unpack_exbundle, merge_bundle_into_state}`.
 
 ## Acceptance tests
 

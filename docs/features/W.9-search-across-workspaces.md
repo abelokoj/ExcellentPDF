@@ -1,7 +1,7 @@
 # Ph3: 12/49 | W.9: Search tabs across workspaces
 
-**Tag:** W.9; **Priority:** P1; **Phase:** 3; **Needs:** R.12; **Code:** `excellent-app::tabs::list`,
-`excellent-app::workspaces`, `excellent-store::workspaces`
+**Tag:** W.9; **Priority:** P1; **Phase:** 3; **Needs:** R.12; **Code:** `ecclesia-app::tabs::list`,
+`ecclesia-app::workspaces`, `ecclesia-store::workspaces`
 **Plan:** §27 entry `#### Ph3: 12/49 | W.9`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -34,7 +34,7 @@ NSH command list's, the same as for the shown workspace's tabs. No document open
 
 ## Design
 
-- `excellent-store::workspaces::tabs_elsewhere`: every workspace's open tabs but the shown one's, in the list's order,
+- `ecclesia-store::workspaces::tabs_elsewhere`: every workspace's open tabs but the shown one's, in the list's order,
   then by pane and strip.
 - `Workspaces::tabs_elsewhere` groups them under the shared workspace list; `Workspaces::show_tab` goes to a tab: the
   window that shows its workspace (W.8), or a switch here, then the pane that has the tab.

@@ -1,7 +1,7 @@
 # Ph3: 3/49 | R.25: Citation and equation hover
 
-**Tag:** R.25; **Priority:** P0; **Phase:** 3; **Needs:** K.13, R.7; **Code:** `excellent-features::read::refhover`
-(`cite`, `layout`, `resolve`), `excellent-canvas::page::canvas::refhover`
+**Tag:** R.25; **Priority:** P0; **Phase:** 3; **Needs:** K.13, R.7; **Code:** `ecclesia-features::read::refhover`
+(`cite`, `layout`, `resolve`), `ecclesia-canvas::page::canvas::refhover`
 **Plan:** §27 entry `#### Ph3: 3/49 | R.25` and the Enhanced parity list. The label is the entry's place in its phase
 (plan §27.0, Tag rules).
 
@@ -43,7 +43,7 @@ All modes, on by default.
 
 ## Design
 
-Model, `excellent-features::read::refhover`, pure Rust, ported from SumatraPDF Enhanced (`RefHover*.cpp`):
+Model, `ecclesia-features::read::refhover`, pure Rust, ported from SumatraPDF Enhanced (`RefHover*.cpp`):
 
 - `cite`: numeric citations (`[12]`, `[3-5]`, ranges and lists across line breaks) and author-year citations
   (parenthetical and narrative), and finding their entries by plain text.
@@ -53,7 +53,7 @@ Model, `excellent-features::read::refhover`, pure Rust, ported from SumatraPDF E
   pages from the last back, cached), `dest_y_from_source` (where a link without a y lands), `shown` (the region,
   trying the next page when the target is at a page's foot) and `zoom` (fits the region in the preview, 0.4 to 3.0).
 
-View, `excellent-canvas::page::canvas::refhover`: one worker thread per canvas debounces hovers, resolves and renders
+View, `ecclesia-canvas::page::canvas::refhover`: one worker thread per canvas debounces hovers, resolves and renders
 the region through the render pool, and wakes the canvas; the canvas uploads the slices and draws the preview after
 the minimap.
 

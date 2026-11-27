@@ -1,6 +1,6 @@
 # Ph4: 30/44 | S.4: Spaced repetition (FSRS)
 
-**Tag:** S.4; **Priority:** P0; **Phase:** 4; **Needs:** K.20; **Code:** `excellent-store::study`, `excellent-features::study::srs`
+**Tag:** S.4; **Priority:** P0; **Phase:** 4; **Needs:** K.20; **Code:** `ecclesia-store::study`, `ecclesia-features::study::srs`
 **Plan:** §27 entry `#### Ph4: 30/44 | S.4` and §11.7. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -28,10 +28,10 @@ Study mode and Home page daily review.
 
 ## Design
 
-- **Model** (`excellent-features::study::srs`): `FsrsScheduler`, `FsrsParameters` (official 19 FSRS-5 default weights, `FSRS_DECAY = -0.5`, `FSRS_FACTOR = 19/81`), `Rating` (`Again`/`Hard`/`Good`/`Easy`), `CardPhase`, `CardState`, `ReviewOutcome`, `IntervalPreview`.
+- **Model** (`ecclesia-features::study::srs`): `FsrsScheduler`, `FsrsParameters` (official 19 FSRS-5 default weights, `FSRS_DECAY = -0.5`, `FSRS_FACTOR = 19/81`), `Rating` (`Again`/`Hard`/`Good`/`Easy`), `CardPhase`, `CardState`, `ReviewOutcome`, `IntervalPreview`.
 - **Optimizer**: `evaluate_log_loss` and `optimize_parameters` tune the 19 weights against `OptimizationItem` review histories via bounded gradient descent minimizing binary cross-entropy loss.
 - **Migration**: `EnhancedScheduling` and `migrate_enhanced_state` convert SumatraPDF Enhanced's Leitner/SM-2 state (`box`, `ease`, `repetitions`, `intervalDays`, `dueTime`, `lastReviewed`, `learned`) into FSRS-5 `CardState` while preserving exact due timestamps and review history counts.
-- **Storage** (`excellent-store::study`): `study_srs` and append-only `study_review_log` tables.
+- **Storage** (`ecclesia-store::study`): `study_srs` and append-only `study_review_log` tables.
 
 ## Acceptance tests
 

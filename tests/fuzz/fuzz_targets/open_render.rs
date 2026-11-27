@@ -3,7 +3,7 @@
 
 #![no_main]
 
-use excellent_mupdf::{Background, Document, Matrix};
+use ecclesia_mupdf::{Background, Document, Matrix};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

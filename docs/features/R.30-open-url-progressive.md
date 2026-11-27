@@ -1,6 +1,6 @@
 # Ph5: 6/45 | R.30: Open from a URL with progressive loading
 
-**Tag:** R.30; **Priority:** P1; **Phase:** 5; **Needs:** K.3, K.22; **Code:** `excellent-core::remote`
+**Tag:** R.30; **Priority:** P1; **Phase:** 5; **Needs:** K.3, K.22; **Code:** `ecclesia-core::remote`
 **Plan:** §27 entry `#### Ph5: 6/45 | R.30: Open from a URL with progressive loading`.
 
 ## Problem
@@ -27,7 +27,7 @@ All modes.
 
 ## Design
 
-- **Model (`excellent-core::remote`):**
+- **Model (`ecclesia-core::remote`):**
   - `RangeTransport` trait (`UreqTransport` using `ureq`, mockable for offline tests).
   - `RemoteStreamCache`: sparse 64 KiB block cache returning `RemoteError::TryLater { start, end }` on uncached reads (mirroring `FZ_ERROR_TRYLATER`), `has_linearized_pdf_marker` for page-1 prioritization, `download_all`, and atomic `save_copy`.
 

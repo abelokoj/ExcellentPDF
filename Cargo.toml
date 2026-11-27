@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
 publish = false
-repository = "https://github.com/abelokoj/ExcellentPDF"
+repository = "https://github.com/abelokoj/EcclesiaPDF"
 
 [workspace.lints.rust]
 missing_docs = "warn"
@@ -116,29 +116,23 @@ windows = { version = "0.62", features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
-# `#[implement]` for the canvas's UI Automation providers (U.2) names this crate.
-windows-core = "0.62"
 windows-numerics = { version = "0.3", default-features = false }
 
 # Our crates
-excellent-mupdf-sys = { path = "crates/excellent-mupdf-sys" }
-excellent-mupdf = { path = "crates/excellent-mupdf" }
-excellent-core = { path = "crates/excellent-core" }
-excellent-canvas = { path = "crates/excellent-canvas" }
-excellent-canvas-win = { path = "crates/excellent-canvas-win" }
-excellent-canvas-mac = { path = "crates/excellent-canvas-mac" }
-excellent-canvas-gtk = { path = "crates/excellent-canvas-gtk" }
-excellent-canvas-ios = { path = "crates/excellent-canvas-ios" }
-excellent-canvas-android = { path = "crates/excellent-canvas-android" }
-excellent-ink = { path = "crates/excellent-ink" }
-excellent-text = { path = "crates/excellent-text" }
-excellent-store = { path = "crates/excellent-store" }
-excellent-platform = { path = "crates/excellent-platform" }
-excellent-packs = { path = "crates/excellent-packs" }
-excellent-ai = { path = "crates/excellent-ai" }
-excellent-features = { path = "crates/excellent-features" }
-excellent-app = { path = "crates/excellent-app" }
-excellent-cli = { path = "crates/excellent-cli" }
+ecclesia-mupdf-sys = { path = "crates/ecclesia-mupdf-sys" }
+ecclesia-mupdf = { path = "crates/ecclesia-mupdf" }
+ecclesia-core = { path = "crates/ecclesia-core" }
+ecclesia-canvas = { path = "crates/ecclesia-canvas" }
+ecclesia-canvas-win = { path = "crates/ecclesia-canvas-win" }
+ecclesia-canvas-mac = { path = "crates/ecclesia-canvas-mac" }
+ecclesia-canvas-gtk = { path = "crates/ecclesia-canvas-gtk" }
+ecclesia-ink = { path = "crates/ecclesia-ink" }
+ecclesia-text = { path = "crates/ecclesia-text" }
+ecclesia-store = { path = "crates/ecclesia-store" }
+ecclesia-platform = { path = "crates/ecclesia-platform" }
+ecclesia-packs = { path = "crates/ecclesia-packs" }
+ecclesia-ai = { path = "crates/ecclesia-ai" }
+ecclesia-features = { path = "crates/ecclesia-features" }
 
 # Shipping builds (T10): smaller and faster code. Panics stay `unwind`: NSH catches a component's panic
 # (`catch_unwind` in nsh-core) so one broken view doesn't take the window down.
@@ -149,20 +143,20 @@ codegen-units = 1
 strip = true
 
 # Keep hot PDF rendering and ink geometry loops at opt-level = 3 while keeping UI/feature code compact (<= 15 MB MSI budget).
-[profile.release.package.excellent-mupdf-sys]
+[profile.release.package.ecclesia-mupdf-sys]
 opt-level = 3
 
-[profile.release.package.excellent-mupdf]
+[profile.release.package.ecclesia-mupdf]
 opt-level = 3
 
-[profile.release.package.excellent-core]
+[profile.release.package.ecclesia-core]
 opt-level = 3
 
-[profile.release.package.excellent-canvas]
+[profile.release.package.ecclesia-canvas]
 opt-level = 3
 
-[profile.release.package.excellent-canvas-win]
+[profile.release.package.ecclesia-canvas-win]
 opt-level = 3
 
-[profile.release.package.excellent-ink]
+[profile.release.package.ecclesia-ink]
 opt-level = 3

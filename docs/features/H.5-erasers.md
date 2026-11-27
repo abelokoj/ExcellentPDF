@@ -1,8 +1,8 @@
 # Ph3: 41/49 | H.5: Erasers
 
-**Tag:** H.5; **Priority:** P0; **Phase:** 3; **Needs:** H.1; **Code:** `excellent-ink::erase` (the geometry),
-`excellent-features::annotate::erase` (a pass to annotation changes), `excellent-canvas::page` (`eraser` prop, the
-eraser end, the `erase` event), `excellent-app` (`ink.eraser_*` commands, the Write toolbar)
+**Tag:** H.5; **Priority:** P0; **Phase:** 3; **Needs:** H.1; **Code:** `ecclesia-ink::erase` (the geometry),
+`ecclesia-features::annotate::erase` (a pass to annotation changes), `ecclesia-canvas::page` (`eraser` prop, the
+eraser end, the `erase` event), `ecclesia-app` (`ink.eraser_*` commands, the Write toolbar)
 **Plan:** §8.4 and §27 entry `#### Ph3: 41/49 | H.5`.
 
 ## Problem
@@ -33,14 +33,14 @@ tested against each eraser capsule after a bounding-box check, so only nearby pa
 
 ## Design
 
-- **Geometry (`excellent-ink::erase`):** the eraser's path with its radius is a chain of capsules. Its reach is the
+- **Geometry (`ecclesia-ink::erase`):** the eraser's path with its radius is a chain of capsules. Its reach is the
   radius plus half the stroke's width, so it takes what it covers of the line, not only its centre. A capsule is
   convex, so a stroke segment meets it in one interval, found by a ternary search for the nearest point and
   bisection for each edge. The intervals are merged and cut out; pieces shorter than 0.5 pt are dropped.
   - Stroke eraser: a stroke it touches is removed whole.
   - Area eraser: a stroke comes out as the pieces left, split in two where the eraser crossed its middle.
   - Highlighter eraser: as the stroke eraser, on highlighter ink (H.3) only.
-- **Changes (`excellent-features::annotate::erase`):** for each ink annotation on the page, its strokes after the pass.
+- **Changes (`ecclesia-features::annotate::erase`):** for each ink annotation on the page, its strokes after the pass.
   One with strokes left is written again (`UpdateAnnotation`, same id), one with none is deleted. All go in one
   operation, so one undo restores everything. Locked annotations (A.12) are left alone, and so is ink on hidden layers
   (A.22).

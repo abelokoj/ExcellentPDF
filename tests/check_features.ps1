@@ -1,6 +1,8 @@
 # Feature checklist CI verifier and milestone progress report (plan K.27, Appendix C.3.2 & C.3.3).
-# Checks that every row in docs/features.toml has a valid status, and that every `shipped` row names
-# at least one test that resolves in `crates/` (or `.github/workflows/` for CI-level checks).
+# Checks that:
+# 1. Every row in docs/features.toml has a valid status and a matching doc in docs/features/<TAG>-*.md.
+# 2. Every `shipped` and `in-progress` row resolves every test/workflow/script it names (`shipped` also requires non-empty tests).
+# 3. No `Mock[A-Z]` identifier appears in non-test production code under `crates/ecclesia-app/src/`.
 param(
     [string] $TomlPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'docs/features.toml'),
     [switch] $StrictShipped
@@ -45,6 +47,11 @@ if ($null -ne $current) { $entries += $current }
 
 $validStatuses = @('planned', 'in-progress', 'shipped', 'dropped')
 $allRustFiles = Get-ChildItem -Recurse -File (Join-Path $root 'crates') -Filter '*.rs'
+$featureDocsDir = Join-Path $root 'docs/features'
+$featureDocNames = @()
+if (Test-Path $featureDocsDir) {
+    $featureDocNames = Get-ChildItem -File $featureDocsDir -Filter '*.md' | Select-Object -ExpandProperty Name
+}
 
 $fnNames = New-Object 'System.Collections.Generic.HashSet[string]'
 $modNames = New-Object 'System.Collections.Generic.HashSet[string]'
@@ -68,6 +75,47 @@ foreach ($rf in $allRustFiles) {
     }
 }
 
+function Test-FeatureRefResolved {
+    param([string] $TestRef)
+
+    # File-path reference inside parentheses, e.g. "budgets (.github/workflows/windows.yml)"
+    if ($TestRef -match '\(([^)]+\.(?:yml|yaml|ps1|sh))\)') {
+        $rel = $Matches[1]
+        return (Test-Path (Join-Path $root $rel))
+    }
+
+    # Direct relative path reference, e.g. ".github/workflows/macos.yml" or "packaging/windows/test-msi.ps1"
+    if ($TestRef -match '^[A-Za-z0-9._/\-]+\.(?:yml|yaml|ps1|sh)$') {
+        return (Test-Path (Join-Path $root $TestRef))
+    }
+
+    $clean = ($TestRef -split '\s+')[0]
+    if ($clean -match '::') {
+        $parts = $clean -split '::'
+        $tail = $parts[-1]
+        if ($tail -eq 'tests') {
+            $modPart = if ($parts.Count -ge 2) { $parts[-2] } else { '' }
+            $parentPart = if ($parts.Count -ge 3) { $parts[-3] } else { '' }
+            $cratePart = $modPart -replace '_', '-'
+            foreach ($p in $filesWithModTests) {
+                if ($parentPart -ne '' -and $parentPart -ne 'crate' -and $parentPart -notmatch '^ecclesia_') {
+                    if ($p -match "/$([regex]::Escape($parentPart))/$([regex]::Escape($modPart))(\.rs|/mod\.rs)$") {
+                        return $true
+                    }
+                } else {
+                    if ($p -match "/$([regex]::Escape($modPart))(\.rs|/mod\.rs)$" -or
+                        $p -match "/crates/$([regex]::Escape($cratePart))/") {
+                        return $true
+                    }
+                }
+            }
+            return $false
+        }
+        return $fnNames.Contains($tail)
+    }
+    return ($fnNames.Contains($clean) -or $integrationTestStems.Contains($clean))
+}
+
 $errors = @()
 $areaStats = @{}
 
@@ -82,39 +130,80 @@ foreach ($e in $entries) {
     }
     $areaStats[$area][$e.Status]++
 
-    if ($e.Status -eq 'shipped') {
-        if ($e.Tests.Count -eq 0) {
+    # Verify matching feature doc exists in docs/features/<TAG>-*.md.
+    $docPrefix = "$($e.Tag)-"
+    $hasDoc = $false
+    foreach ($docName in $featureDocNames) {
+        if ($docName.StartsWith($docPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $hasDoc = $true
+            break
+        }
+    }
+    if (-not $hasDoc) {
+        $errors += "$($e.Tag): missing feature doc in docs/features/$($e.Tag)-*.md"
+    }
+
+    if ($e.Status -eq 'shipped' -or $e.Status -eq 'in-progress') {
+        if ($e.Status -eq 'shipped' -and $e.Tests.Count -eq 0) {
             $errors += "$($e.Tag) (shipped): has empty tests = []"
             continue
         }
         foreach ($testRef in $e.Tests) {
-            if ($testRef -match '\.yml\)') { continue }
-            $clean = ($testRef -split '\s+')[0]
-            $found = $false
-            if ($clean -match '::') {
-                $parts = $clean -split '::'
-                $tail = $parts[-1]
-                if ($tail -eq 'tests') {
-                    $modPart = if ($parts.Count -ge 2) { $parts[-2] } else { '' }
-                    $cratePart = $modPart -replace '_', '-'
-                    foreach ($p in $filesWithModTests) {
-                        if ($p -match "/$([regex]::Escape($modPart))(\.rs|/mod\.rs)$" -or
-                            $p -match "/crates/$([regex]::Escape($cratePart))/") {
-                            $found = $true
-                            break
+            if (-not (Test-FeatureRefResolved -TestRef $testRef)) {
+                $errors += "$($e.Tag) ($($e.Status)): test '$testRef' not found"
+            }
+        }
+    }
+}
+
+# Guardrail (F5): no Mock[A-Z] identifier may appear in non-test production code of crates/ecclesia-app/src/.
+$appSrcDir = Join-Path $root 'crates/ecclesia-app/src'
+if (Test-Path $appSrcDir) {
+    $appRustFiles = Get-ChildItem -Recurse -File $appSrcDir -Filter '*.rs'
+    foreach ($af in $appRustFiles) {
+        $fileLines = Get-Content $af.FullName
+        $pendingCfgTest = $false
+        $inTestBlock = $false
+        $braceDepth = 0
+        for ($idx = 0; $idx -lt $fileLines.Count; $idx++) {
+            $rawLine = $fileLines[$idx]
+            # Strip single-line comments before scanning identifiers and braces.
+            $code = $rawLine -replace '//.*$', ''
+            if (-not $inTestBlock) {
+                if ($code -match '#\[\s*cfg\s*\(\s*test\s*\)\s*\]') {
+                    $pendingCfgTest = $true
+                    continue
+                }
+                if ($pendingCfgTest) {
+                    if ($code.Trim() -eq '' -or $code.Trim().StartsWith('#[')) {
+                        continue
+                    }
+                    $opens = ([regex]::Matches($code, '\{')).Count
+                    $closes = ([regex]::Matches($code, '\}')).Count
+                    if ($opens -gt 0) {
+                        $inTestBlock = $true
+                        $braceDepth = $opens - $closes
+                        if ($braceDepth -le 0) {
+                            $inTestBlock = $false
+                            $braceDepth = 0
                         }
                     }
-                    if (-not $found -and $modNames.Contains($modPart)) {
-                        $found = $true
-                    }
-                } else {
-                    $found = $fnNames.Contains($tail)
+                    $pendingCfgTest = $false
+                    continue
+                }
+                $m = [regex]::Match($code, '\bMock[A-Z][A-Za-z0-9_]*\b')
+                if ($m.Success) {
+                    $relPath = $af.FullName.Substring($root.Length + 1) -replace '\\', '/'
+                    $errors += "production mock forbidden: $relPath`:$($idx + 1) references '$($m.Value)' outside #[cfg(test)]"
                 }
             } else {
-                $found = $fnNames.Contains($clean) -or $integrationTestStems.Contains($clean)
-            }
-            if (-not $found) {
-                $errors += "$($e.Tag) (shipped): test '$testRef' not found in crates/"
+                $opens = ([regex]::Matches($code, '\{')).Count
+                $closes = ([regex]::Matches($code, '\}')).Count
+                $braceDepth += ($opens - $closes)
+                if ($braceDepth -le 0) {
+                    $inTestBlock = $false
+                    $braceDepth = 0
+                }
             }
         }
     }

@@ -1,7 +1,7 @@
 # Ph3: 29/49 | A.16: Transfer annotations to another version
 
 **Tag:** A.16; **Priority:** P1 (parity); **Phase:** 3; **Needs:** K.28; **Code:**
-`excellent-features::annotate::transfer`, `excellent-core::annot::load_text`, `excellent-app::annotate::transfer`
+`ecclesia-features::annotate::transfer`, `ecclesia-core::annot::load_text`, `ecclesia-app::annotate::transfer`
 **Plan:** §27 entry `#### Ph3: 29/49 | A.16`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

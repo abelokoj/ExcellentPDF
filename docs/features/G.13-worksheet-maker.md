@@ -1,6 +1,6 @@
 # Ph7: 10/32 | G.13: Worksheet maker
 
-**Tag:** G.13; **Priority:** P1; **Phase:** 7; **Needs:** O.11, A.22; **Code:** `excellent-features::grading` (`WorksheetSpec`, `build_worksheet_pdf`, `export_student_copy`)
+**Tag:** G.13; **Priority:** P1; **Phase:** 7; **Needs:** O.11, A.22; **Code:** `ecclesia-features::grading` (`WorksheetSpec`, `build_worksheet_pdf`, `export_student_copy`)
 **Plan:** §27 entry `#### Ph7: 10/32 | G.13`.
 
 ## Problem

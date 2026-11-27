@@ -1,7 +1,7 @@
 # Ph1: 14/60 | R.3: Reading direction: right-to-left and manga
 
-**Tag:** R.3; **Priority:** P0; **Phase:** 1; **Needs:** R.1; **Code:** `excellent-canvas::layout`,
-`excellent-mupdf::Document::reads_right_to_left`
+**Tag:** R.3; **Priority:** P0; **Phase:** 1; **Needs:** R.1; **Code:** `ecclesia-canvas::layout`,
+`ecclesia-mupdf::Document::reads_right_to_left`
 **Plan:** §27 entry `Ph1: 14/60 | R.3`.
 
 ## Problem

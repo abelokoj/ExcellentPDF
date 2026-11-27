@@ -1,6 +1,6 @@
 # Ph0: 9/13 | K.23: Security limits and fuzzing
 
-**Tag:** K.23; **Priority:** P0; **Phase:** 0 onward; **Needs:** K.3; **Code:** `crates/excellent-core/src/sandbox/limits.rs`, `tests/fuzz/`
+**Tag:** K.23; **Priority:** P0; **Phase:** 0 onward; **Needs:** K.3; **Code:** `crates/ecclesia-core/src/sandbox/limits.rs`, `tests/fuzz/`
 **Plan:** §27 entry `Ph0: 9/13 | K.23`, §14, §16.
 
 ## Problem

@@ -1,12 +1,12 @@
 # Ph2: 2/3 | K.10: Page canvas on Linux
 
-**Tag:** K.10; **Priority:** P0; **Phase:** 2; **Needs:** K.8; **Code:** `crates/excellent-canvas-gtk`,
-`excellent-canvas::page`
+**Tag:** K.10; **Priority:** P0; **Phase:** 2; **Needs:** K.8; **Code:** `crates/ecclesia-canvas-gtk`,
+`ecclesia-canvas::page`
 **Plan:** §27 entry `Ph2: 2/3 | K.10`; §5.4, §7.3; DD9.
 
 ## Problem
 
-On Linux the reader has no page view: the `excellent.page-canvas` component exists only on Windows, so the window
+On Linux the reader has no page view: the `ecclesia.page-canvas` component exists only on Windows, so the window
 opens with an empty area where the document belongs.
 
 ## User story

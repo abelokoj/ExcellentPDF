@@ -1,6 +1,6 @@
 # Ph5: 28/45 | F.2: Search a folder or the library
 
-**Tag:** F.2; **Priority:** P0; **Phase:** 5; **Needs:** F.3; **Code:** `excellent-features::search::global`, `excellent-store::fts`
+**Tag:** F.2; **Priority:** P0; **Phase:** 5; **Needs:** F.3; **Code:** `ecclesia-features::search::global`, `ecclesia-store::fts`
 **Plan:** §27 entry `#### Ph5: 28/45 | F.2` and §13.1.
 
 ## Problem
@@ -29,9 +29,9 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::search::global::search_indexed`, `search_folder_streaming`, and `IndexControl`.
+- Model: `ecclesia-features::search::global::search_indexed`, `search_folder_streaming`, and `IndexControl`.
 - View: NSH search results list (pending UI wiring).
-- Storage: `excellent-store::fts` (`fts_entry`, `fts_index`, `fts_file_state`).
+- Storage: `ecclesia-store::fts` (`fts_entry`, `fts_index`, `fts_file_state`).
 
 ## Acceptance tests
 

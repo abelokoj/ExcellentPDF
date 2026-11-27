@@ -1,6 +1,6 @@
 # Ph6: 4/13 | I.1: Providers
 
-**Tag:** I.1; **Priority:** P1; **Phase:** 6; **Needs:** K.21, K.19; **Code:** `crates/excellent-ai/src/provider.rs`
+**Tag:** I.1; **Priority:** P1; **Phase:** 6; **Needs:** K.21, K.19; **Code:** `crates/ecclesia-ai/src/provider.rs`
 **Plan:** §27 entry `#### Ph6: 4/13 | I.1` and §12.1–§12.3.
 
 ## Problem
@@ -22,7 +22,7 @@ Available in Read, Annotate, Study, and Notebook modes when enabled; off by defa
 
 ## Speed and size impact
 
-- Startup: zero AI code or HTTP connections run at startup; `excellent-ai` initializes lazily on first AI action.
+- Startup: zero AI code or HTTP connections run at startup; `ecclesia-ai` initializes lazily on first AI action.
 - Installer size: HTTP client (`ureq`) is already shared across the workspace; local model runtimes live in downloadable packs.
 
 ## Design

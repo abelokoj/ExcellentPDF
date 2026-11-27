@@ -1,6 +1,6 @@
 """Writes the `formats.*` files of tests/corpus (plan R.28): one small document per format MuPDF opens besides PDF.
 
-Run from the repository root: `python tests/corpus-src/make_formats.py`. The text is ExcellentPDF's own; every file
+Run from the repository root: `python tests/corpus-src/make_formats.py`. The text is EcclesiaPDF's own; every file
 is the same short book, so the tests can find the same words in each.
 """
 
@@ -71,7 +71,7 @@ def epub(book) -> None:
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id">'
         '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'
-        f'<dc:identifier id="id">excellentpdf-formats</dc:identifier><dc:title>{TITLE}</dc:title>'
+        f'<dc:identifier id="id">ecclesiapdf-formats</dc:identifier><dc:title>{TITLE}</dc:title>'
         "<dc:language>en</dc:language></metadata>"
         f"<manifest>{items}</manifest><spine>{spine}</spine></package>\n"
     )

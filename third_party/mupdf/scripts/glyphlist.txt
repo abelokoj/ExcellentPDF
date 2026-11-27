@@ -2193,7 +2193,7 @@ ideographiccongratulationparen;3237
 ideographiccorrectcircle;32A3
 ideographicearthparen;322F
 ideographicenterpriseparen;323D
-ideographicexcellentcircle;329D
+ideographicecclesiacircle;329D
 ideographicfestivalparen;3240
 ideographicfinancialcircle;3296
 ideographicfinancialparen;3236

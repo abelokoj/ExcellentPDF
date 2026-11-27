@@ -1,6 +1,6 @@
 # AI Evaluation and Safety Suite (`I.12`)
 
-This directory stores the deterministic evaluation and adversarial safety dataset for `excellent-ai` (`tests/ai-eval/corpus.json`).
+This directory stores the deterministic evaluation and adversarial safety dataset for `ecclesia-ai` (`tests/ai-eval/corpus.json`).
 
 ## Metrics Verified
 
@@ -13,5 +13,5 @@ This directory stores the deterministic evaluation and adversarial safety datase
 ## Running
 
 ```powershell
-cargo test -p excellent-ai --test ai_eval
+cargo test -p ecclesia-ai --test ai_eval
 ```

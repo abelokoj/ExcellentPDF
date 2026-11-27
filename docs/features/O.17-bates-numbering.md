@@ -1,6 +1,6 @@
 # Ph7: 28/32 | O.17: Bates numbering
 
-**Tag:** O.17; **Priority:** P2; **Phase:** 7; **Needs:** O.18; **Code:** `excellent-core::bates`
+**Tag:** O.17; **Priority:** P2; **Phase:** 7; **Needs:** O.18; **Code:** `ecclesia-core::bates`
 **Plan:** §27 entry `#### Ph7: 28/32 | O.17`.
 
 ## Problem

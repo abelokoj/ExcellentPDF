@@ -1,6 +1,6 @@
 # Ph4: 42/44 | G.7: Curtain reveal
 
-**Tag:** G.7; **Priority:** P0; **Phase:** 4; **Needs:** G.1; **Code:** `excellent-features::present::curtain`
+**Tag:** G.7; **Priority:** P0; **Phase:** 4; **Needs:** G.1; **Code:** `ecclesia-features::present::curtain`
 **Plan:** §27 entry `#### Ph4: 42/44 | G.7`.
 
 ## Problem

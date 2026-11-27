@@ -2,15 +2,15 @@
 //! output (nsh-core `ui::description`).
 
 fn main() {
-    let sets = vec![set_app_excellent_app()];
+    let sets = vec![set_app_ecclesia_app()];
     println!("{}", nsh_core::element::description::Description::of(&sets).to_json());
 }
 
-/// The UI set of the crate excellent-app: the entry `#[native_module("…")]` makes in it.
-fn set_app_excellent_app() -> nsh_core::element::Registry {
+/// The UI set of the crate ecclesia-app: the entry `#[native_module("…")]` makes in it.
+fn set_app_ecclesia_app() -> nsh_core::element::Registry {
     #[allow(unused_imports)]
-    use app_excellent_app::*;
-    __nsh_native_module() // the crate excellent-app (nsh.json "rust")
+    use app_ecclesia_app::*;
+    __nsh_native_module() // the crate ecclesia-app (nsh.json "rust")
 }
 
 // Without the entry: nsh's stand-in, which fails the build saying what to add.

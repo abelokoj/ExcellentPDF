@@ -1,6 +1,6 @@
 # Ph4: 43/44 | G.8: Presenter view
 
-**Tag:** G.8; **Priority:** P0; **Phase:** 4; **Needs:** G.1, K.19; **Code:** `excellent-features::present::presenter`
+**Tag:** G.8; **Priority:** P0; **Phase:** 4; **Needs:** G.1, K.19; **Code:** `ecclesia-features::present::presenter`
 **Plan:** §27 entry `#### Ph4: 43/44 | G.8`.
 
 ## Problem

@@ -1,6 +1,6 @@
 # Ph6: 7/13 | I.4: Summaries
 
-**Tag:** I.4; **Priority:** P1; **Phase:** 6; **Needs:** I.3; **Code:** `crates/excellent-features/src/ai/actions.rs`
+**Tag:** I.4; **Priority:** P1; **Phase:** 6; **Needs:** I.3; **Code:** `crates/ecclesia-features/src/ai/actions.rs`
 **Plan:** §27 entry `#### Ph6: 7/13 | I.4` and §12.1.
 
 ## Problem

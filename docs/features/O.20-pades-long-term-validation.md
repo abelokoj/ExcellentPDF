@@ -1,6 +1,6 @@
 # Ph7: 31/32 | O.20: PAdES long-term validation
 
-**Tag:** O.20; **Priority:** P2; **Phase:** 7; **Needs:** O.15; **Code:** `excellent-core::signing::ltv`, `excellent-features::signing::panel`
+**Tag:** O.20; **Priority:** P2; **Phase:** 7; **Needs:** O.15; **Code:** `ecclesia-core::signing::ltv`, `ecclesia-features::signing::panel`
 **Plan:** §27 entry `#### Ph7: 31/32 | O.20`.
 
 ## Problem
@@ -26,7 +26,7 @@ Signature panel and signing workflow on PDFs.
 
 ## Design
 
-- **RFC 3161 TSA (`excellent_core::signing::ltv`)**: `TimeStampRequest::encode_sha256`, `LocalTimestampAuthority` (offline Ed25519 TSA), consent-gated `fetch_tsa_response` (`ureq`), and `parse_and_verify_timestamp_response` / `parse_and_verify_timestamp_token`.
+- **RFC 3161 TSA (`ecclesia_core::signing::ltv`)**: `TimeStampRequest::encode_sha256`, `LocalTimestampAuthority` (offline Ed25519 TSA), consent-gated `fetch_tsa_response` (`ureq`), and `parse_and_verify_timestamp_response` / `parse_and_verify_timestamp_token`.
 - **Document Security Store**: `DocumentSecurityStore` (`/Certs`, `/OCSPs`, `/CRLs`, `/VRI` keyed by uppercase hex SHA-1 of `/Contents`), `embed_dss` (incremental catalog `/DSS` writer), and `extract_dss`.
 - **Document Timestamp & Conformance**: `append_document_timestamp` (`/Type /DocTimeStamp`, `/SubFilter /ETSI.RFC3161`) and `check_pades_conformance` reporting `PadesLevel::{None, B, T, LT, LTA}`.
 

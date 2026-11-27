@@ -1,6 +1,6 @@
 # Ph5: 1/45 | R.16: Reflow (Liquid Mode)
 
-**Tag:** R.16; **Priority:** P1; **Phase:** 5; **Needs:** K.13; **Code:** `excellent-features::reflow`
+**Tag:** R.16; **Priority:** P1; **Phase:** 5; **Needs:** K.13; **Code:** `ecclesia-features::reflow`
 **Plan:** §27 entry `#### Ph5: 1/45 | R.16: Reflow (Liquid Mode)`.
 
 ## Problem
@@ -29,7 +29,7 @@ Read, Annotate, Study (available via View menu and Command Palette).
 
 ## Design
 
-- **Model (`excellent-features::reflow`):**
+- **Model (`ecclesia-features::reflow`):**
   - `ReflowPage::extract` consumes K.13 `TextLayout`, orders blocks with `read::columns::detect_columns`, detects headings, paragraphs, list items, multi-column tables, and captioned figures, and builds `ReflowSpan` mappings back to source `Quad`s.
   - `ReflowPage::reflow_to_page_quads` and `page_point_to_reflow` provide bidirectional coordinate synchronization.
   - `ReflowPage::to_html` emits themed HTML/CSS ready for MuPDF's story engine or NSH `TextView`.

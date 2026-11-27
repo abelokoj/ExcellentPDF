@@ -1,6 +1,6 @@
 # Ph4: 29/44 | S.3: Cloze deletions
 
-**Tag:** S.3; **Priority:** P0; **Phase:** 4; **Needs:** S.1; **Code:** `excellent-features::study::cards`, `excellent-features::study::anki`
+**Tag:** S.3; **Priority:** P0; **Phase:** 4; **Needs:** S.1; **Code:** `ecclesia-features::study::cards`, `ecclesia-features::study::anki`
 **Plan:** §27 entry `#### Ph4: 29/44 | S.3` and §11.7. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -29,9 +29,9 @@ Study mode (visible by default in Study toolbar).
 
 ## Design
 
-- **Model** (`excellent-features::study::cards`): `ClozeDeletion`, `parse_clozes`, `cloze_ordinals`, `render_cloze_question`, `render_cloze_answer`, `wrap_cloze`, `CardKind::Cloze { ordinal }`, `Flashcard::from_cloze_text`.
-- **Storage** (`excellent-store::study`): stored in `study_card` with `kind = 'cloze'` and `cloze_ordinal`.
-- **Anki interoperability** (`excellent-features::study::anki`): sibling cards sharing a cloze template are grouped into one Anki Cloze note (`type: 1`) with one `cards` row per `ord`, preserving `{{cN::...}}` verbatim across export and import.
+- **Model** (`ecclesia-features::study::cards`): `ClozeDeletion`, `parse_clozes`, `cloze_ordinals`, `render_cloze_question`, `render_cloze_answer`, `wrap_cloze`, `CardKind::Cloze { ordinal }`, `Flashcard::from_cloze_text`.
+- **Storage** (`ecclesia-store::study`): stored in `study_card` with `kind = 'cloze'` and `cloze_ordinal`.
+- **Anki interoperability** (`ecclesia-features::study::anki`): sibling cards sharing a cloze template are grouped into one Anki Cloze note (`type: 1`) with one `cards` row per `ord`, preserving `{{cN::...}}` verbatim across export and import.
 
 ## Acceptance tests
 

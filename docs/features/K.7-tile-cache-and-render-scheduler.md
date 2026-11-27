@@ -1,6 +1,6 @@
 # Ph0: 5/13 | K.7: Tile cache and render scheduler
 
-**Tag:** K.7; **Priority:** P0; **Phase:** 0–1; **Needs:** K.4, K.6; **Code:** `crates/excellent-canvas/src/tiles.rs`, `crates/excellent-canvas/src/viewport.rs`
+**Tag:** K.7; **Priority:** P0; **Phase:** 0–1; **Needs:** K.4, K.6; **Code:** `crates/ecclesia-canvas/src/tiles.rs`, `crates/ecclesia-canvas/src/viewport.rs`
 **Plan:** §27 entry `Ph0: 5/13 | K.7`, §7.4.
 
 ## Problem
@@ -25,10 +25,10 @@ All modes.
 
 ## Design
 
-- Shared platform-agnostic `excellent-canvas` tile cache, viewport math, zoom-bucket quantization, and cancellation of off-screen jobs.
-- Integrates with `excellent-core::render::RenderPool` via `try_take` and `when_done` wakeup callbacks.
+- Shared platform-agnostic `ecclesia-canvas` tile cache, viewport math, zoom-bucket quantization, and cancellation of off-screen jobs.
+- Integrates with `ecclesia-core::render::RenderPool` via `try_take` and `when_done` wakeup callbacks.
 
 ## Acceptance tests
 
-- [x] `excellent-canvas` tile cache and viewport unit tests.
+- [x] `ecclesia-canvas` tile cache and viewport unit tests.
 - [ ] Full 60 fps 1,000-page vector scroll trace and memory-pressure eviction check (K.24).

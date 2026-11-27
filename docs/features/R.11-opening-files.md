@@ -1,7 +1,7 @@
 # Ph1: 22/60 | R.11: Opening files: drag and drop, file associations, single instance, command line
 
-**Tag:** R.11; **Priority:** P0; **Phase:** 1; **Needs:** K.19; **Code:** `excellent-app::open`,
-`excellent-platform` (`instance`, `associations`), `excellent-app::tabs` (`Tabs::launch`)
+**Tag:** R.11; **Priority:** P0; **Phase:** 1; **Needs:** K.19; **Code:** `ecclesia-app::open`,
+`ecclesia-platform` (`instance`, `associations`), `ecclesia-app::tabs` (`Tabs::launch`)
 **Plan:** §27 entry `Ph1: 22/60 | R.11`.
 
 ## Problem
@@ -19,10 +19,10 @@ app I already have open, so that my documents stay together in one window.
 
 - Dropping files on the window opens each document in a new tab, the last shown. Files that aren't documents (by
   their first bytes, not their names) and folders are left out.
-- Double-clicking a document, or running `excellentpdf a.pdf --page 5`, while the app runs: the running window comes
+- Double-clicking a document, or running `ecclesiapdf a.pdf --page 5`, while the app runs: the running window comes
   to the front and shows the file (its tab if it has one), at page 5.
 - Command palette: "Set as default PDF viewer" offers the app for its document types and opens Windows' Default apps
-  settings at ExcellentPDF, where the user makes it the default (Windows lets no app do that itself).
+  settings at EcclesiaPDF, where the user makes it the default (Windows lets no app do that itself).
 
 ## Mode
 
@@ -39,14 +39,14 @@ All modes.
 ## Design
 
 - Command line (`open::parse`, pure): files (made absolute in the launching process) and `--page N` (from 1).
-- Single instance (`excellent_platform::instance`): a named pipe, `\\.\pipe\<app id>-<user>`, inbound only, local
+- Single instance (`ecclesia_platform::instance`): a named pipe, `\\.\pipe\<app id>-<user>`, inbound only, local
   clients only, its default security letting only the user write to it; a Unix socket elsewhere. The first launch
   makes it with `FILE_FLAG_FIRST_PIPE_INSTANCE`, so two first launches at once can't both listen; the loser sends to
   the winner. Messages are JSON, at most 64 KB; one that isn't a launch with absolute paths is refused. A thread
   queues each launch, and the window's task shows it, after the sender allowed the window to come to the front.
 - Drops (`open::dropped_documents`): `file:` URLs decoded as links are; a file is a document when R.28's
-  `excellent_core::formats::is_document` says so, by its signature (Markdown by its name).
-- File associations (`excellent_platform::associations`): for this user, a ProgID `ExcellentPDF.Document`,
+  `ecclesia_core::formats::is_document` says so, by its signature (Markdown by its name).
+- File associations (`ecclesia_platform::associations`): for this user, a ProgID `EcclesiaPDF.Document`,
   "Open with" entries for each extension, and Capabilities with RegisteredApplications so Default apps lists the app.
   The user's own choice of default (the extension's default and UserChoice) is never written. The entries are a pure
   list, tested; writing them is one loop.

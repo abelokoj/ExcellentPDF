@@ -1,6 +1,6 @@
 # Ph6: 12/13 | I.11: Suggested highlights and tags
 
-**Tag:** I.11; **Priority:** P2; **Phase:** 6; **Needs:** I.9; **Code:** `crates/excellent-features/src/ai/extract.rs`
+**Tag:** I.11; **Priority:** P2; **Phase:** 6; **Needs:** I.9; **Code:** `crates/ecclesia-features/src/ai/extract.rs`
 **Plan:** §27 entry `#### Ph6: 12/13 | I.11` and §12.3.
 
 ## Problem

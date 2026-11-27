@@ -1,6 +1,6 @@
 # Ph5: 19/45 | H.24: Convert handwriting to text
 
-**Tag:** H.24; **Priority:** P1; **Phase:** 5; **Needs:** H.23, H.6; **Code:** `excellent-features::handwriting::convert`
+**Tag:** H.24; **Priority:** P1; **Phase:** 5; **Needs:** H.23, H.6; **Code:** `ecclesia-features::handwriting::convert`
 **Plan:** §27 entry `#### Ph5: 19/45 | H.24: Convert handwriting to text`.
 
 ## Problem
@@ -27,7 +27,7 @@ Write (with active ink lasso selection).
 
 ## Design
 
-- **Model (`excellent-features::handwriting::convert`):**
+- **Model (`ecclesia-features::handwriting::convert`):**
   - `convert_lasso_to_text` runs `Recognizer::recognize`, preserves line breaks via `RecognizedWord::line_index`, computes the tight padded `PageRect`, and emits either `ConversionTarget::CopyTextOnly` or `ConversionTarget::ReplaceWithFreeText` with an atomic `Operation`.
 
 ## Acceptance tests

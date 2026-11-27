@@ -1,0 +1,51 @@
+[package]
+name = "ecclesia-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "The NSH app: root component, shell and wiring"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "ecclesiapdf"
+path = "src/main.rs"
+
+[dependencies]
+base64.workspace = true
+env_logger.workspace = true
+ecclesia-ai.workspace = true
+ecclesia-core.workspace = true
+ecclesia-features.workspace = true
+ecclesia-ink.workspace = true
+ecclesia-mupdf.workspace = true
+ecclesia-packs.workspace = true
+ecclesia-platform.workspace = true
+ecclesia-store.workspace = true
+ecclesia-text.workspace = true
+ed25519-dalek.workspace = true
+log.workspace = true
+nsh-core.workspace = true
+nsh-base.workspace = true
+# Only for the system's data folder, as NSH's own files use it (`nsh_engine::support_dir`); the platforms build it anyway.
+nsh-engine.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+ecclesia-canvas-win.workspace = true
+nsh-platform-windows.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+ecclesia-canvas-mac.workspace = true
+nsh-platform-macos.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ecclesia-canvas-gtk.workspace = true
+nsh-platform-linux.workspace = true
+
+[dev-dependencies]
+nsh-testing.workspace = true

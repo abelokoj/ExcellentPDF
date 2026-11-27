@@ -1,7 +1,7 @@
 # Ph3: 31/49 | A.18: Tags on annotations
 
-**Tag:** A.18; **Priority:** P1; **Phase:** 3; **Needs:** A.12, K.20; **Code:** `excellent-features::annotate::tags`,
-`excellent-store::annotation_tags`, `excellent-app::annotate::tag_index`, `excellent-app::annotate::inspector`
+**Tag:** A.18; **Priority:** P1; **Phase:** 3; **Needs:** A.12, K.20; **Code:** `ecclesia-features::annotate::tags`,
+`ecclesia-store::annotation_tags`, `ecclesia-app::annotate::tag_index`, `ecclesia-app::annotate::inspector`
 **Plan:** §27 entry `#### Ph3: 31/49 | A.18`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

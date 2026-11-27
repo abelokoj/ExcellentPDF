@@ -1,7 +1,7 @@
 # Ph3: 6/49 | B.10: Sort, promote and demote between outline and bookmarks
 
-**Tag:** B.10; **Priority:** P1; **Phase:** 3; **Needs:** B.1, B.6; **Code:** `excellent-features::outline`
-(`plan_sort`, `sort_level`, `spot`, `Spot`), `excellent-app::outline`, `excellent-app::bookmarks`, `excellent-app::shell`
+**Tag:** B.10; **Priority:** P1; **Phase:** 3; **Needs:** B.1, B.6; **Code:** `ecclesia-features::outline`
+(`plan_sort`, `sort_level`, `spot`, `Spot`), `ecclesia-app::outline`, `ecclesia-app::bookmarks`, `ecclesia-app::shell`
 **Plan:** §27 entry `#### Ph3: 6/49 | B.10`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

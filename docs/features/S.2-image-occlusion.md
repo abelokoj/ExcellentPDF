@@ -1,6 +1,6 @@
 # Ph4: 28/44 | S.2: Image occlusion
 
-**Tag:** S.2; **Priority:** P0; **Phase:** 4; **Needs:** S.1; **Code:** `excellent-features::study::cards`, `excellent-features::study::anki`
+**Tag:** S.2; **Priority:** P0; **Phase:** 4; **Needs:** S.1; **Code:** `ecclesia-features::study::cards`, `ecclesia-features::study::anki`
 **Plan:** §27 entry `#### Ph4: 28/44 | S.2` and §11.7. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -29,9 +29,9 @@ Study mode (visible by default in Study toolbar).
 
 ## Design
 
-- **Model** (`excellent-features::study::cards`): `NormalizedRect`, `OcclusionMode` (`HideOneGuessOne`, `HideAllGuessOne`), `OcclusionBox`, `ImageOcclusionSpec`, `CardKind::ImageOcclusion`, `Flashcard::from_image_occlusion`. `masked_indices(active_index)` returns either `[active_index]` or `0..boxes.len()`.
-- **Storage** (`excellent-store::study`): serialized in `study_card.occlusion_json` with `kind = 'image_occlusion'`.
-- **Anki interoperability** (`excellent-features::study::anki`): exports to Anki 23.10+ native image-occlusion note type (`{{cN::image-occlusion:rect:left=...:top=...:width=...:height=...}}` + `<img src="...">` + `SourceLink`) and imports back losslessly.
+- **Model** (`ecclesia-features::study::cards`): `NormalizedRect`, `OcclusionMode` (`HideOneGuessOne`, `HideAllGuessOne`), `OcclusionBox`, `ImageOcclusionSpec`, `CardKind::ImageOcclusion`, `Flashcard::from_image_occlusion`. `masked_indices(active_index)` returns either `[active_index]` or `0..boxes.len()`.
+- **Storage** (`ecclesia-store::study`): serialized in `study_card.occlusion_json` with `kind = 'image_occlusion'`.
+- **Anki interoperability** (`ecclesia-features::study::anki`): exports to Anki 23.10+ native image-occlusion note type (`{{cN::image-occlusion:rect:left=...:top=...:width=...:height=...}}` + `<img src="...">` + `SourceLink`) and imports back losslessly.
 
 ## Acceptance tests
 

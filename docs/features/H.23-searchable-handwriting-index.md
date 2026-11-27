@@ -1,6 +1,6 @@
 # Ph5: 18/45 | H.23: Searchable handwriting index
 
-**Tag:** H.23; **Priority:** P0; **Phase:** 5; **Needs:** H.9, F.3; **Code:** `excellent-features::handwriting::index`, `excellent-features::handwriting::recognize`
+**Tag:** H.23; **Priority:** P0; **Phase:** 5; **Needs:** H.9, F.3; **Code:** `ecclesia-features::handwriting::index`, `ecclesia-features::handwriting::recognize`
 **Plan:** §27 entry `#### Ph5: 18/45 | H.23: Searchable handwriting index`.
 
 ## Problem
@@ -27,7 +27,7 @@ All modes; dirty pages queue automatically on pen-up in Write mode.
 
 ## Design
 
-- **Model (`excellent-features::handwriting::index`, `recognize`):**
+- **Model (`ecclesia-features::handwriting::index`, `recognize`):**
   - Cross-platform `Recognizer` trait supporting `WindowsInkAnalysis`, `AppleVision`, `MlKitDigitalInk`, `OnnxPack`, and `OfflineStrokeRecognizer` (deterministic offline geometric stroke-feature + lexicon matcher).
   - `HandwritingIndex` stores recognized words with `stroke_ids_json` and `PageRect` bounding boxes in SQLite FTS5.
 

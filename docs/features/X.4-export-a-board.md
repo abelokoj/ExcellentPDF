@@ -1,6 +1,6 @@
 # Ph9: 8/13 | X.4: Export a board
 
-**Tag:** X.4; **Priority:** P2; **Phase:** 9; **Needs:** X.1; **Code:** `excellent-features::canvas_board::export`
+**Tag:** X.4; **Priority:** P2; **Phase:** 9; **Needs:** X.1; **Code:** `ecclesia-features::canvas_board::export`
 **Plan:** §27 entry `#### Ph9: 8/13 | X.4` and §11.10.
 
 ## Problem
@@ -9,7 +9,7 @@ Boards need to leave the app as portable documents, vector diagrams, raster summ
 
 ## User story
 
-As a researcher, I want to export a board as Markdown with `excellentpdf://` deep links, SVG, PNG summary, hierarchical outline, or a self-contained `.exboard` ZIP archive with embedded assets.
+As a researcher, I want to export a board as Markdown with `ecclesiapdf://` deep links, SVG, PNG summary, hierarchical outline, or a self-contained `.exboard` ZIP archive with embedded assets.
 
 ## UI sketch
 
@@ -27,7 +27,7 @@ Research, Study.
 
 ## Design
 
-- Model: `excellent-features::canvas_board::export::{export_board_markdown, export_board_outline, export_board_svg, export_board_png_summary, export_exboard_zip, import_exboard_zip}`.
+- Model: `ecclesia-features::canvas_board::export::{export_board_markdown, export_board_outline, export_board_svg, export_board_png_summary, export_exboard_zip, import_exboard_zip}`.
 
 ## Acceptance tests
 

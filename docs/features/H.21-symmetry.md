@@ -1,6 +1,6 @@
 # Ph5: 17/45 | H.21: Symmetry
 
-**Tag:** H.21; **Priority:** P2; **Phase:** 5; **Needs:** H.1; **Code:** `excellent-ink::symmetry`
+**Tag:** H.21; **Priority:** P2; **Phase:** 5; **Needs:** H.1; **Code:** `ecclesia-ink::symmetry`
 **Plan:** §27 entry `#### Ph5: 17/45 | H.21: Symmetry`.
 
 ## Problem
@@ -22,12 +22,12 @@ Write.
 
 ## Speed and size impact
 
-- Startup: zero cost; pure 2D Euclidean reflections and rotations in `excellent-ink`.
+- Startup: zero cost; pure 2D Euclidean reflections and rotations in `ecclesia-ink`.
 - Storage: `MirroredInk` emits separate independent strokes so each copy can be saved, erased, or edited individually.
 
 ## Design
 
-- **Model (`excellent-ink::symmetry`):**
+- **Model (`ecclesia-ink::symmetry`):**
   - `SymmetryAxis`, `RadialMode` (`RotateOnly` / `Kaleidoscope`), `guide_segments`, `mirror_stroke`, and `mirror_samples`.
 
 ## Acceptance tests

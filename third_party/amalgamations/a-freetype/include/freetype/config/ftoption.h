@@ -121,7 +121,7 @@ FT_BEGIN_HEADER
    * explicitly set up LCD filtering.
    *
    * When this macro is not defined, FreeType offers alternative LCD
-   * rendering technology that produces excellent output.
+   * rendering technology that produces ecclesia output.
    */
 /* #define FT_CONFIG_OPTION_SUBPIXEL_RENDERING */
 

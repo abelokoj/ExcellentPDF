@@ -1,6 +1,6 @@
 # Ph6: 3/13 | S.9: Quizzes from a chapter
 
-**Tag:** S.9; **Priority:** P1; **Phase:** 6; **Needs:** I.3, S.1; **Code:** `crates/excellent-features/src/ai/quiz.rs`
+**Tag:** S.9; **Priority:** P1; **Phase:** 6; **Needs:** I.3, S.1; **Code:** `crates/ecclesia-features/src/ai/quiz.rs`
 **Plan:** §27 entry `#### Ph6: 3/13 | S.9`.
 
 ## Problem

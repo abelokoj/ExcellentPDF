@@ -634,6 +634,236 @@ dependencies = [
 ]
 
 [[package]]
+name = "ecclesia-ai"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-text",
+ "rusqlite",
+ "serde_json",
+ "sha2",
+ "ureq",
+]
+
+[[package]]
+name = "ecclesia-app"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "ecclesia-ai",
+ "ecclesia-canvas-gtk",
+ "ecclesia-canvas-mac",
+ "ecclesia-canvas-win",
+ "ecclesia-core",
+ "ecclesia-features",
+ "ecclesia-ink",
+ "ecclesia-mupdf",
+ "ecclesia-packs",
+ "ecclesia-platform",
+ "ecclesia-store",
+ "ecclesia-text",
+ "ed25519-dalek",
+ "env_logger",
+ "log",
+ "nsh-base",
+ "nsh-core",
+ "nsh-engine",
+ "nsh-platform-linux",
+ "nsh-platform-macos",
+ "nsh-platform-windows",
+ "nsh-testing",
+ "serde_json",
+ "toml 1.2.1+spec-1.1.0",
+]
+
+[[package]]
+name = "ecclesia-canvas"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-core",
+ "ecclesia-features",
+ "ecclesia-ink",
+ "ecclesia-mupdf",
+ "ecclesia-text",
+ "log",
+ "nsh-core",
+ "proptest",
+ "serde_json",
+]
+
+[[package]]
+name = "ecclesia-canvas-android"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-canvas",
+ "ecclesia-core",
+ "ecclesia-ink",
+ "ecclesia-mupdf",
+]
+
+[[package]]
+name = "ecclesia-canvas-gtk"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-canvas",
+ "ecclesia-mupdf",
+ "ecclesia-text",
+ "log",
+ "nsh-core",
+ "nsh-platform-linux",
+]
+
+[[package]]
+name = "ecclesia-canvas-ios"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-canvas",
+ "ecclesia-core",
+ "ecclesia-ink",
+ "ecclesia-mupdf",
+]
+
+[[package]]
+name = "ecclesia-canvas-mac"
+version = "0.1.0"
+dependencies = [
+ "dispatch2",
+ "ecclesia-canvas",
+ "ecclesia-mupdf",
+ "ecclesia-text",
+ "log",
+ "nsh-core",
+ "nsh-platform-macos",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation",
+]
+
+[[package]]
+name = "ecclesia-canvas-win"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-canvas",
+ "ecclesia-mupdf",
+ "log",
+ "nsh-core",
+ "nsh-platform-windows",
+ "windows",
+ "windows-numerics",
+]
+
+[[package]]
+name = "ecclesia-cli"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-core",
+ "ecclesia-features",
+ "ecclesia-mupdf",
+ "ecclesia-store",
+ "serde_json",
+]
+
+[[package]]
+name = "ecclesia-core"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-ink",
+ "ecclesia-mupdf",
+ "ed25519-dalek",
+ "flate2",
+ "log",
+ "proptest",
+ "serde_json",
+ "sha2",
+ "ureq",
+ "zip",
+]
+
+[[package]]
+name = "ecclesia-features"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "ecclesia-ai",
+ "ecclesia-core",
+ "ecclesia-ink",
+ "ecclesia-mupdf",
+ "ecclesia-platform",
+ "ecclesia-store",
+ "ecclesia-text",
+ "ed25519-dalek",
+ "flate2",
+ "quick-xml",
+ "rusqlite",
+ "serde_json",
+ "sha2",
+ "toml 1.2.1+spec-1.1.0",
+ "ureq",
+ "zip",
+]
+
+[[package]]
+name = "ecclesia-ink"
+version = "0.1.0"
+
+[[package]]
+name = "ecclesia-mupdf"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-mupdf-sys",
+]
+
+[[package]]
+name = "ecclesia-mupdf-sys"
+version = "0.1.0"
+dependencies = [
+ "bindgen",
+ "cc",
+]
+
+[[package]]
+name = "ecclesia-packs"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "log",
+ "serde_json",
+ "sha2",
+ "ureq",
+ "zip",
+]
+
+[[package]]
+name = "ecclesia-platform"
+version = "0.1.0"
+dependencies = [
+ "dispatch2",
+ "flate2",
+ "log",
+ "nsh-platform-linux",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "windows",
+]
+
+[[package]]
+name = "ecclesia-store"
+version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde_json",
+]
+
+[[package]]
+name = "ecclesia-text"
+version = "0.1.0"
+dependencies = [
+ "ecclesia-mupdf",
+]
+
+[[package]]
 name = "ed25519"
 version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -732,238 +962,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1a05365e3b1c6d1650318537c7460c6923f1abdd272ad6842baa2b509957a06"
 dependencies = [
  "num-traits",
-]
-
-[[package]]
-name = "excellent-ai"
-version = "0.1.0"
-dependencies = [
- "excellent-text",
- "rusqlite",
- "serde_json",
- "sha2",
- "ureq",
-]
-
-[[package]]
-name = "excellent-app"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "ed25519-dalek",
- "env_logger",
- "excellent-ai",
- "excellent-canvas-gtk",
- "excellent-canvas-mac",
- "excellent-canvas-win",
- "excellent-core",
- "excellent-features",
- "excellent-ink",
- "excellent-mupdf",
- "excellent-packs",
- "excellent-platform",
- "excellent-store",
- "excellent-text",
- "log",
- "nsh-base",
- "nsh-core",
- "nsh-engine",
- "nsh-platform-linux",
- "nsh-platform-macos",
- "nsh-platform-windows",
- "nsh-testing",
- "serde_json",
- "toml 1.2.1+spec-1.1.0",
-]
-
-[[package]]
-name = "excellent-canvas"
-version = "0.1.0"
-dependencies = [
- "excellent-core",
- "excellent-features",
- "excellent-ink",
- "excellent-mupdf",
- "excellent-text",
- "log",
- "nsh-core",
- "proptest",
- "serde_json",
-]
-
-[[package]]
-name = "excellent-canvas-android"
-version = "0.1.0"
-dependencies = [
- "excellent-canvas",
- "excellent-core",
- "excellent-ink",
- "excellent-mupdf",
-]
-
-[[package]]
-name = "excellent-canvas-gtk"
-version = "0.1.0"
-dependencies = [
- "excellent-canvas",
- "excellent-mupdf",
- "excellent-text",
- "log",
- "nsh-core",
- "nsh-platform-linux",
-]
-
-[[package]]
-name = "excellent-canvas-ios"
-version = "0.1.0"
-dependencies = [
- "excellent-canvas",
- "excellent-core",
- "excellent-ink",
- "excellent-mupdf",
-]
-
-[[package]]
-name = "excellent-canvas-mac"
-version = "0.1.0"
-dependencies = [
- "dispatch2",
- "excellent-canvas",
- "excellent-mupdf",
- "excellent-text",
- "log",
- "nsh-core",
- "nsh-platform-macos",
- "objc2",
- "objc2-app-kit",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "objc2-foundation",
-]
-
-[[package]]
-name = "excellent-canvas-win"
-version = "0.1.0"
-dependencies = [
- "excellent-canvas",
- "excellent-mupdf",
- "excellent-text",
- "log",
- "nsh-core",
- "nsh-platform-windows",
- "windows",
- "windows-core",
- "windows-numerics",
-]
-
-[[package]]
-name = "excellent-cli"
-version = "0.1.0"
-dependencies = [
- "excellent-core",
- "excellent-features",
- "excellent-mupdf",
- "excellent-store",
- "serde_json",
-]
-
-[[package]]
-name = "excellent-core"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "excellent-ink",
- "excellent-mupdf",
- "flate2",
- "log",
- "proptest",
- "serde_json",
- "sha2",
- "ureq",
- "zip",
-]
-
-[[package]]
-name = "excellent-features"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "ed25519-dalek",
- "excellent-ai",
- "excellent-core",
- "excellent-ink",
- "excellent-mupdf",
- "excellent-platform",
- "excellent-store",
- "excellent-text",
- "flate2",
- "quick-xml",
- "rusqlite",
- "serde_json",
- "sha2",
- "toml 1.2.1+spec-1.1.0",
- "ureq",
- "zip",
-]
-
-[[package]]
-name = "excellent-ink"
-version = "0.1.0"
-
-[[package]]
-name = "excellent-mupdf"
-version = "0.1.0"
-dependencies = [
- "excellent-mupdf-sys",
-]
-
-[[package]]
-name = "excellent-mupdf-sys"
-version = "0.1.0"
-dependencies = [
- "bindgen",
- "cc",
-]
-
-[[package]]
-name = "excellent-packs"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "log",
- "serde_json",
- "sha2",
- "ureq",
- "zip",
-]
-
-[[package]]
-name = "excellent-platform"
-version = "0.1.0"
-dependencies = [
- "dispatch2",
- "flate2",
- "log",
- "nsh-platform-linux",
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
- "windows",
-]
-
-[[package]]
-name = "excellent-store"
-version = "0.1.0"
-dependencies = [
- "rusqlite",
- "serde_json",
-]
-
-[[package]]
-name = "excellent-text"
-version = "0.1.0"
-dependencies = [
- "excellent-mupdf",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 # Ph4: 13/44 | H.26: Convert shapes to vectors
 
-**Tag:** H.26; **Priority:** P1; **Phase:** 4; **Needs:** H.10; **Code:** `excellent-features::ink::vectorize`
+**Tag:** H.26; **Priority:** P1; **Phase:** 4; **Needs:** H.10; **Code:** `ecclesia-features::ink::vectorize`
 **Plan:** §8.4 and §27 entry `#### Ph4: 13/44 | H.26`.
 
 ## Problem
@@ -23,12 +23,12 @@ Write.
 
 - Startup: nothing runs at startup; invokes H.10's recognizer only on the user's selected ink strokes.
 - Budgets touched: < 1 ms per shape; zero UI-thread stall.
-- Installer size: negligible (~3 KB compiled Rust, reuses `excellent-ink::shapes` and A.8–A.10 annotation models).
+- Installer size: negligible (~3 KB compiled Rust, reuses `ecclesia-ink::shapes` and A.8–A.10 annotation models).
 
 ## Design
 
-- **Model (`excellent-features::ink::vectorize`):**
-  - Runs `excellent_ink::shapes::recognize` on each stroke of each selected ink annotation (skipping locked annotations and locked H.14 layers).
+- **Model (`ecclesia-features::ink::vectorize`):**
+  - Runs `ecclesia_ink::shapes::recognize` on each stroke of each selected ink annotation (skipping locked annotations and locked H.14 layers).
   - Maps recognized shapes to standard PDF annotations:
     - `Line` → `Shape::Line` (2 `Grip::Vertex` handles in A.13)
     - `Arrow` → `Shape::Line` with `[LineEnd::None, LineEnd::OpenArrow]` (2 `Grip::Vertex` handles in A.13)

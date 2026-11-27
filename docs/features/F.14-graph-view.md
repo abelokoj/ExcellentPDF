@@ -1,6 +1,6 @@
 # Ph9: 4/13 | F.14: Graph view
 
-**Tag:** F.14; **Priority:** P2; **Phase:** 9; **Needs:** F.12; **Code:** `excellent-features::graph`
+**Tag:** F.14; **Priority:** P2; **Phase:** 9; **Needs:** F.12; **Code:** `ecclesia-features::graph`
 **Plan:** §27 entry `#### Ph9: 4/13 | F.14`.
 
 ## Problem
@@ -28,7 +28,7 @@ Research, Study, Notes.
 
 ## Design
 
-- Model: `excellent-features::graph::{KnowledgeGraph, GraphNode, GraphEdge, GraphNodeKind, GraphEdgeKind}` + `graph::layout::LayoutConfig` (Barnes-Hut quadtree) + `graph::query::{GraphFilter, filter_graph, neighborhood, connected_components}`.
+- Model: `ecclesia-features::graph::{KnowledgeGraph, GraphNode, GraphEdge, GraphNodeKind, GraphEdgeKind}` + `graph::layout::LayoutConfig` (Barnes-Hut quadtree) + `graph::query::{GraphFilter, filter_graph, neighborhood, connected_components}`.
 
 ## Acceptance tests
 

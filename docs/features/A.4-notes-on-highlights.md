@@ -1,8 +1,8 @@
 # Ph3: 17/49 | A.4: Notes on highlights
 
-**Tag:** A.4; **Priority:** P0; **Phase:** 3; **Needs:** A.1; **Code:** `excellent-features::annotate::notes`,
-`excellent-mupdf-sys/csrc/shim.c` (`ex_popup_rect`), `excellent-canvas::page::canvas::markbar`,
-`excellent-app::annotate::note`
+**Tag:** A.4; **Priority:** P0; **Phase:** 3; **Needs:** A.1; **Code:** `ecclesia-features::annotate::notes`,
+`ecclesia-mupdf-sys/csrc/shim.c` (`ex_popup_rect`), `ecclesia-canvas::page::canvas::markbar`,
+`ecclesia-app::annotate::note`
 **Plan:** §27 entry `#### Ph3: 17/49 | A.4`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

@@ -1,7 +1,7 @@
 # Ph1: 36/60 | B.6: Personal bookmarks
 
-**Tag:** B.6; **Priority:** P0; **Phase:** 1; **Needs:** K.20, K.28; **Code:** `excellent-features::bookmarks`,
-`excellent-store::bookmarks`, `excellent-app::bookmarks`
+**Tag:** B.6; **Priority:** P0; **Phase:** 1; **Needs:** K.20, K.28; **Code:** `ecclesia-features::bookmarks`,
+`ecclesia-store::bookmarks`, `ecclesia-app::bookmarks`
 **Plan:** §27 entry `Ph1: 36/60 | B.6`.
 
 ## Problem

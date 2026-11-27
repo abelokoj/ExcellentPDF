@@ -1,6 +1,6 @@
 # Nib & Leaf
 
-**A design philosophy for the ExcellentPDF mark (Classic Indigo, Inscribed Edition).**
+**A design philosophy for the EcclesiaPDF mark (Classic Indigo, Inscribed Edition).**
 
 Nib & Leaf holds that a great reading and writing tool unites two crafts: the quiet clarity of a printed page and the
 precision of a well-balanced fountain pen. Nothing extra is admitted.

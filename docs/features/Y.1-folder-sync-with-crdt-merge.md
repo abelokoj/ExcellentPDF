@@ -1,6 +1,6 @@
 # Ph9: 9/13 | Y.1: Folder sync with CRDT merge
 
-**Tag:** Y.1; **Priority:** P1; **Phase:** 9; **Needs:** K.14, K.28; **Code:** `excellent-features::sync`
+**Tag:** Y.1; **Priority:** P1; **Phase:** 9; **Needs:** K.14, K.28; **Code:** `ecclesia-features::sync`
 **Plan:** §27 entry `#### Ph9: 9/13 | Y.1`.
 
 ## Problem
@@ -21,13 +21,13 @@ All modes.
 
 ## Speed and size impact
 
-- Startup: sync reads/appends `.excellent/<scope>/<device-id>.oplog` asynchronously.
+- Startup: sync reads/appends `.ecclesia/<scope>/<device-id>.oplog` asynchronously.
 - Budgets touched: zero cold-start blocking.
 - Installer size: 0 bytes added.
 
 ## Design
 
-- Model: `excellent-features::sync::crdt::{HlcTimestamp, LwwRegister, NoteTextCrdt, SyncOp, SyncedDocumentState}` and `excellent-features::sync::folder::{FolderSync, PayloadSecurity}`.
+- Model: `ecclesia-features::sync::crdt::{HlcTimestamp, LwwRegister, NoteTextCrdt, SyncOp, SyncedDocumentState}` and `ecclesia-features::sync::folder::{FolderSync, PayloadSecurity}`.
 - Each device writes strictly to its own `<device-id>.oplog`; conflicted copy artifacts are ignored and cleaned up.
 
 ## Acceptance tests

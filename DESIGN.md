@@ -1,5 +1,5 @@
 ---
-name: ExcellentPDF
+name: EcclesiaPDF
 description: A fast, beautiful PDF reader, annotator and notebook; colour in the chrome, the document neutral.
 colors:
   background: "oklch(0.985 0 0)"
@@ -60,7 +60,7 @@ components:
 
 An Operate surface: people read, mark up and write for hours. The chrome is calm and tinted by the chosen theme
 family; the document page stays white paper. One look on every OS. The tokens above are the default family, Neutral,
-in light; every family and variant comes from one OKLCH palette (`crates/excellent-app/src/theme/palette.rs`), which
+in light; every family and variant comes from one OKLCH palette (`crates/ecclesia-app/src/theme/palette.rs`), which
 is the normative source. The values here are a snapshot of it.
 
 ## Colors

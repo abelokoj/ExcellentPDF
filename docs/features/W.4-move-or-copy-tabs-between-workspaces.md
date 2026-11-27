@@ -1,6 +1,6 @@
 # Ph1: 48/60 | W.4: Move or copy tabs between workspaces
 
-**Tag:** W.4; **Priority:** P0; **Phase:** 1; **Needs:** W.1; **Code:** `excellent-app::workspaces` (`view`), `excellent-store::workspaces`, `excellent-app::session`
+**Tag:** W.4; **Priority:** P0; **Phase:** 1; **Needs:** W.1; **Code:** `ecclesia-app::workspaces` (`view`), `ecclesia-store::workspaces`, `ecclesia-app::session`
 **Plan:** §27 entry `Ph1: 48/60 | W.4` and §11.16.
 
 ## Problem

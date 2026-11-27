@@ -1,6 +1,6 @@
 # Ph4: 37/44 | S.12: Goals, timer, statistics and streaks
 
-**Tag:** S.12; **Priority:** P1; **Phase:** 4; **Needs:** S.4; **Code:** `excellent-features::study::stats`, `excellent-store::study`
+**Tag:** S.12; **Priority:** P1; **Phase:** 4; **Needs:** S.4; **Code:** `ecclesia-features::study::stats`, `ecclesia-store::study`
 **Plan:** §27 entry `#### Ph4: 37/44 | S.12` and §11.7. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -28,9 +28,9 @@ Study mode (and optional status-bar focus timer pill while running).
 
 ## Design
 
-- **Model** (`excellent-features::study::stats`): `DailyActivity`, `GoalProgress`, `StreakInfo`, `StudyStatistics`, `MotionPreference`, `compute_statistics`, `FocusPhase`, `FocusTimer`.
-- **Single source of truth**: `compute_statistics` derives totals, retention rate, daily plot buckets, today's goal progress and current/longest streaks exclusively from `excellent_store::study::ReviewLogRecord` and `ReadingLogRecord` slices — never double-stored.
-- **Storage** (`excellent-store::study`): `study_goals`, `study_review_log`, `study_reading_log`.
+- **Model** (`ecclesia-features::study::stats`): `DailyActivity`, `GoalProgress`, `StreakInfo`, `StudyStatistics`, `MotionPreference`, `compute_statistics`, `FocusPhase`, `FocusTimer`.
+- **Single source of truth**: `compute_statistics` derives totals, retention rate, daily plot buckets, today's goal progress and current/longest streaks exclusively from `ecclesia_store::study::ReviewLogRecord` and `ReadingLogRecord` slices — never double-stored.
+- **Storage** (`ecclesia-store::study`): `study_goals`, `study_review_log`, `study_reading_log`.
 
 ## Acceptance tests
 

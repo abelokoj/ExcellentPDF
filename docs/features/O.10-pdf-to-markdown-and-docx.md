@@ -1,6 +1,6 @@
 # Ph7: 21/32 | O.10: PDF to Markdown and DOCX
 
-**Tag:** O.10; **Priority:** P1; **Phase:** 7; **Needs:** R.16; **Code:** `excellent-core::export_doc` (`extract_structured_blocks`, `pdf_to_markdown`, `pdf_to_docx`)
+**Tag:** O.10; **Priority:** P1; **Phase:** 7; **Needs:** R.16; **Code:** `ecclesia-core::export_doc` (`extract_structured_blocks`, `pdf_to_markdown`, `pdf_to_docx`)
 **Plan:** §27 entry `#### Ph7: 21/32 | O.10`.
 
 ## Problem

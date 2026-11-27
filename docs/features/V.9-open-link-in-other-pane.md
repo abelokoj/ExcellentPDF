@@ -1,7 +1,7 @@
 # Ph3: 8/49 | V.9: Open a link in the other pane
 
-**Tag:** V.9; **Priority:** P1; **Phase:** 3; **Needs:** V.1, R.7; **Code:** `excellent-app::panes::elsewhere`, the
-page canvas's `openElsewhere` event (`excellent-canvas::page`), `TabState::show_then`
+**Tag:** V.9; **Priority:** P1; **Phase:** 3; **Needs:** V.1, R.7; **Code:** `ecclesia-app::panes::elsewhere`, the
+page canvas's `openElsewhere` event (`ecclesia-canvas::page`), `TabState::show_then`
 **Plan:** §27 entry `#### Ph3: 8/49 | V.9`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

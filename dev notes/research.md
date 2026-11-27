@@ -1,6 +1,6 @@
 # Research notes
 
-Findings that inform the plan (`ExcellentPDF_detailed_plan_nov_9th.md`). Newest first. Each entry says when it was
+Findings that inform the plan (`EcclesiaPDF_detailed_plan_nov_9th.md`). Newest first. Each entry says when it was
 checked and how to check it again.
 
 ---
@@ -140,13 +140,13 @@ The 40 upstream-only patches, by theme:
 Re-check: `git fetch upstream master` in `C:\dev\sumatrapdf`, then compare `git ls-tree --name-only upstream/master
 ext/patches/` with `ls ext/patches`.
 
-### R1.5 What this means for ExcellentPDF
+### R1.5 What this means for EcclesiaPDF
 
 1. **Base the vendored tree on upstream SumatraPDF's current patch set, not Enhanced's.** Upstream's 70 patches
    include crash fixes (0050, 0051, 0052, 0060), certifying signatures (0053, relevant to O.14), RTL text (0080,
    0083, 0084, relevant to U.7) and speed fixes (0069, 0079, 0086, 0087) that Enhanced lacks.
 2. **Then add Enhanced's six annotation-appearance patches** (its 0048–0053), renumbered after upstream's last
-   (0088–0093), since several match ExcellentPDF's annotation work (A.1 highlights, A.8 arrows, A.5 sticky notes,
+   (0088–0093), since several match EcclesiaPDF's annotation work (A.1 highlights, A.8 arrows, A.5 sticky notes,
    K.15 recovery). Tested on upstream's tree: 0048, 0049, 0050 and 0052 apply cleanly; 0051 conflicts in
    `pdf-appearance.c` (upstream 0068 and 0083 touch it) and 0053 builds on 0051, so both need a hand rebase.
 3. **Done 2026-11-12:** the plan (§6.1, §6.2, T2, K.2) and `AGENTS.md` D3 now say 70 + 6. Record the source commit
@@ -157,6 +157,6 @@ ext/patches/` with `ls ext/patches`.
    `4328e14` (2026-10-27). 1.28.6 pins `05d2263`, a sibling on the same branch (the two differ by a few commits
    each way). Taking upstream's amalgamations is enough.
 5. **Upstream moved its own MuPDF sources** from `src/mupdf/` to `src/shared/mupdf/` and added a macOS font
-   loader, `src/ng/mupdf/mupdf_load_system_font_mac.c`, useful for ExcellentPDF's macOS phase.
+   loader, `src/ng/mupdf/mupdf_load_system_font_mac.c`, useful for EcclesiaPDF's macOS phase.
 6. **Plan the move to 1.29** once it is released, with SumatraPDF's update procedure in `ext/patches/README.md`
    (apply each patch with `git apply --3way`, drop the ones upstream now contains, re-verify byte for byte).

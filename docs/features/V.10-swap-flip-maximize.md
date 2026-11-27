@@ -1,6 +1,6 @@
 # Ph3: 9/49 | V.10: Swap, flip and maximize
 
-**Tag:** V.10; **Priority:** P1; **Phase:** 3; **Needs:** V.4; **Code:** `excellent-app::panes` (`Layout::flip`,
+**Tag:** V.10; **Priority:** P1; **Phase:** 3; **Needs:** V.4; **Code:** `ecclesia-app::panes` (`Layout::flip`,
 `Layout::toggle_maximized`, `Panes::swap`), the pane header in `panes::grid`
 **Plan:** §27 entry `#### Ph3: 9/49 | V.10`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 

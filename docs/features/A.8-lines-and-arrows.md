@@ -1,7 +1,7 @@
 # Ph3: 21/49 | A.8: Lines and arrows
 
-**Tag:** A.8; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `excellent-features::annotate::shapes`,
-`excellent-canvas::page::canvas::draw`, `excellent-app::annotate`
+**Tag:** A.8; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `ecclesia-features::annotate::shapes`,
+`ecclesia-canvas::page::canvas::draw`, `ecclesia-app::annotate`
 **Plan:** §27 entry `#### Ph3: 21/49 | A.8`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

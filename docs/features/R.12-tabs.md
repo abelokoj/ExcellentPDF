@@ -1,7 +1,7 @@
 # Ph1: 23/60 | R.12: Tabs
 
-**Tag:** R.12; **Priority:** P0; **Phase:** 1; **Needs:** K.5; **Code:** `excellent-app::tabs` (`model`,
-`strip`, `list`), `excellent-app::shell`, `excellent-app::commands`, `excellent-app::settings_window`
+**Tag:** R.12; **Priority:** P0; **Phase:** 1; **Needs:** K.5; **Code:** `ecclesia-app::tabs` (`model`,
+`strip`, `list`), `ecclesia-app::shell`, `ecclesia-app::commands`, `ecclesia-app::settings_window`
 **Plan:** §27 entry `Ph1: 23/60 | R.12`.
 
 ## Problem

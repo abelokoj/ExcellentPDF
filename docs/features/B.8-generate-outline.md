@@ -1,6 +1,6 @@
 # Ph5: 7/45 | B.8: Generate an outline
 
-**Tag:** B.8; **Priority:** P1; **Phase:** 5; **Needs:** B.1, K.13; **Code:** `excellent-features::outline_extra::generate`
+**Tag:** B.8; **Priority:** P1; **Phase:** 5; **Needs:** B.1, K.13; **Code:** `ecclesia-features::outline_extra::generate`
 **Plan:** §27 entry `#### Ph5: 7/45 | B.8: Generate an outline`.
 
 ## Problem
@@ -9,7 +9,7 @@ Scanned books, lecture handouts, and combined PDFs often lack a bookmark outline
 
 ## User story
 
-As a reader of an untagged PDF book, I want ExcellentPDF to infer a structured outline from heading font sizes, numbering rules, or structure tags and show an editable preview tree before saving.
+As a reader of an untagged PDF book, I want EcclesiaPDF to infer a structured outline from heading font sizes, numbering rules, or structure tags and show an editable preview tree before saving.
 
 ## UI sketch
 
@@ -27,7 +27,7 @@ All modes (editing enabled for PDFs; preview available everywhere).
 
 ## Design
 
-- **Model (`excellent-features::outline_extra::generate`):**
+- **Model (`ecclesia-features::outline_extra::generate`):**
   - `detect_numbering_level`: recognizes decimal (`1.`, `1.2.`), Roman (`I.`, `II.A.`), alpha (`A.`), and named prefixes (`Chapter 1`, `Section 2.1`, `Appendix A`).
   - `generate_from_layouts`: estimates median body font size, clusters heading tiers, and builds a nested `OutlinePreviewTree`.
   - `from_structure_tags`: extracts tagged PDF `H1`–`H6`/`Part`/`Sect` trees.

@@ -1,8 +1,8 @@
 # Ph4: 5/44 | H.12: Zoom writing pad
 
-**Tag:** H.12; **Priority:** P1; **Phase:** 4; **Needs:** H.1; **Code:** `excellent-ink::zoompad` (the model; the plan
-names `excellent-features/ink/zoompad.rs`, but the pad is pen geometry with no app state, so it sits with the other
-ink models), `excellent-canvas::page` (the pad and its box), `excellent-app` (`ink.zoom_pad`)
+**Tag:** H.12; **Priority:** P1; **Phase:** 4; **Needs:** H.1; **Code:** `ecclesia-ink::zoompad` (the model; the plan
+names `ecclesia-features/ink/zoompad.rs`, but the pad is pen geometry with no app state, so it sits with the other
+ink models), `ecclesia-canvas::page` (the pad and its box), `ecclesia-app` (`ink.zoom_pad`)
 **Plan:** §8.4 and §27 entry `#### Ph4: 5/44 | H.12`.
 
 ## Problem

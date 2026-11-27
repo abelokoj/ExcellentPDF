@@ -1,7 +1,7 @@
 # Ph3: 38/49 | A.28: W3C Web Annotation export
 
-**Tag:** A.28; **Priority:** P1; **Phase:** 3; **Needs:** K.28; **Code:** `excellent-features::annotate::w3c`,
-`excellent-app::annotate::exchange` (the W3C format beside A.24's XFDF and FDF)
+**Tag:** A.28; **Priority:** P1; **Phase:** 3; **Needs:** K.28; **Code:** `ecclesia-features::annotate::w3c`,
+`ecclesia-app::annotate::exchange` (the W3C format beside A.24's XFDF and FDF)
 **Plan:** §27 entry `#### Ph3: 38/49 | A.28`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -37,7 +37,7 @@ text at background priority, as A.16's transfer does.
   or replying), creator, dates, text bodies (comment, tags as `tagging`, review state as `assessing`) and a target of
   the PDF with a `FragmentSelector` (`page=N&viewrect=…`, RFC 3778), a `TextQuoteSelector` and a
   `TextPositionSelector` when K.28 anchored it. A reply targets its parent's id. Each annotation also carries its
-  whole own record under the full IRI `urn:excellentpdf:annotation`, which JSON-LD processors keep as is and other
+  whole own record under the full IRI `urn:ecclesiapdf:annotation`, which JSON-LD processors keep as is and other
   tools ignore.
 - **Import:** `read` returns our own annotations (from that record) and other tools' quotes. Ours merge by id as
   XFDF does (A.24). A quote becomes a highlight that A.16's transfer places by finding its text; one whose text isn't

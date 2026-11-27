@@ -1,6 +1,6 @@
 # Ph7: 12/32 | F.16: Table and figure extraction
 
-**Tag:** F.16; **Priority:** P2; **Phase:** 7; **Needs:** K.13; **Code:** `excellent-features::extract`
+**Tag:** F.16; **Priority:** P2; **Phase:** 7; **Needs:** K.13; **Code:** `ecclesia-features::extract`
 **Plan:** §27 entry `#### Ph7: 12/32 | F.16`.
 
 ## Problem

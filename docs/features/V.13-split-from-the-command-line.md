@@ -1,6 +1,6 @@
 # Ph1: 44/60 | V.13: Split from the command line
 
-**Tag:** V.13; **Priority:** P1; **Phase:** 1; **Needs:** V.2, R.11; **Code:** `excellent-app::open`, `excellent-app::panes`
+**Tag:** V.13; **Priority:** P1; **Phase:** 1; **Needs:** V.2, R.11; **Code:** `ecclesia-app::open`, `ecclesia-app::panes`
 **Plan:** §27 entry `Ph1: 44/60 | V.13` and §11.15.
 
 ## Problem
@@ -9,12 +9,12 @@ Scripts and other apps (a LaTeX editor, a file manager) could not open two files
 
 ## User story
 
-As a power user, I want `excellentpdf --split a.pdf b.pdf` to open both side by side.
+As a power user, I want `ecclesiapdf --split a.pdf b.pdf` to open both side by side.
 
 ## UI sketch
 
-- `excellentpdf --split a.pdf b.pdf`: each file in a pane of its own (up to four; the rest are tabs of the last).
-- `excellentpdf --split-same a.pdf`: the file in two panes.
+- `ecclesiapdf --split a.pdf b.pdf`: each file in a pane of its own (up to four; the rest are tabs of the last).
+- `ecclesiapdf --split-same a.pdf`: the file in two panes.
 - Both work at startup and when the app is already running (the launch crosses the single-instance channel).
 
 ## Mode

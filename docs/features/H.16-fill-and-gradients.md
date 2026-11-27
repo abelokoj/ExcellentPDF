@@ -1,6 +1,6 @@
 # Ph4: 9/44 | H.16: Fill and gradients
 
-**Tag:** H.16; **Priority:** P1; **Phase:** 4; **Needs:** H.6; **Code:** `excellent-ink::fill`
+**Tag:** H.16; **Priority:** P1; **Phase:** 4; **Needs:** H.6; **Code:** `ecclesia-ink::fill`
 **Plan:** §8.4 and §27 entry `#### Ph4: 9/44 | H.16`.
 
 ## Problem
@@ -23,11 +23,11 @@ Write and Annotate.
 
 - Startup: nothing runs at startup; pure appearance-stream generator runs only when a fill is applied.
 - Budgets touched: appearance stream generation takes < 0.1 ms per shape.
-- Installer size: negligible (~6 KB compiled Rust, zero dependencies in `excellent-ink`).
+- Installer size: negligible (~6 KB compiled Rust, zero dependencies in `ecclesia-ink`).
 
 ## Design
 
-- **Model (`excellent-ink::fill`):**
+- **Model (`ecclesia-ink::fill`):**
   - `Fill::Solid(SolidFill)`, `Fill::Linear(LinearGradient)`, and `Fill::Radial(RadialGradient)` with `ColorStop`, `ExtendMode`, `FillRule` (`NonZero` / `EvenOdd`), and optional `BorderStroke`.
   - `build_appearance` emits an ISO 32000-1 Form XObject (`AppearanceStream`) in standard PDF user space (y-up):
     - Solid fills use `rg`, path construction (`m`/`l`/`h`), and `f`/`f*`, with `/ExtGState /ca` for opacity < 1.0.
@@ -43,5 +43,5 @@ Write and Annotate.
 - [x] `solid_fill_emits_standard_pdf_operators_and_extgstate`: verifies solid `rg`, path operators, `/BBox`, `/ExtGState /ca`, and Form XObject output.
 - [x] `linear_gradient_emits_type2_shading_and_stitching_for_multi_stop`: verifies `/ShadingType 2`, Type 3 stitching function for 3 stops, `W* n /Sh0 sh`, and CPU sampling.
 - [x] `radial_gradient_emits_type3_shading_and_samples_concentrically`: verifies `/ShadingType 3`, `/Coords`, Type 2 function, and radial sampling.
-- [x] `h16_linear_and_radial_gradient_appearance_streams_render_in_mupdf` (in `excellent-features::ink::eyedropper::tests`): embeds generated linear and radial Form XObjects into real PDFs, renders them with MuPDF, and asserts the rendered pixel colors match the red→blue linear ramp and white→green radial ramp.
+- [x] `h16_linear_and_radial_gradient_appearance_streams_render_in_mupdf` (in `ecclesia-features::ink::eyedropper::tests`): embeds generated linear and radial Form XObjects into real PDFs, renders them with MuPDF, and asserts the rendered pixel colors match the red→blue linear ramp and white→green radial ramp.
 - [x] `validation_rejects_broken_inputs_and_detects_closed_strokes`: validates error handling and closed-stroke detection.

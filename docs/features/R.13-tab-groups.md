@@ -1,7 +1,7 @@
 # Ph1: 24/60 | R.13: Named tab groups
 
-**Tag:** R.13; **Priority:** P1; **Phase:** 1; **Needs:** R.12; **Code:** `excellent-app::tabs` (`groups`,
-`group_dialog`, `strip`), `excellent-app::session`, `excellent-store` (migration `0002_tab_groups.sql`)
+**Tag:** R.13; **Priority:** P1; **Phase:** 1; **Needs:** R.12; **Code:** `ecclesia-app::tabs` (`groups`,
+`group_dialog`, `strip`), `ecclesia-app::session`, `ecclesia-store` (migration `0002_tab_groups.sql`)
 **Plan:** §27 entry `Ph1: 24/60 | R.13`; the idea of named sets of tabs is Enhanced's `src/TabGroupsManage.cpp`.
 
 ## Problem

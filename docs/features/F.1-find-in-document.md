@@ -1,7 +1,7 @@
 # Ph1: 53/60 | F.1: Find in document
 
-**Tag:** F.1; **Priority:** P0; **Phase:** 1; **Needs:** K.13; **Code:** `excellent-features::search::find`,
-`excellent-canvas-win::canvas::find`, `excellent-app::find`
+**Tag:** F.1; **Priority:** P0; **Phase:** 1; **Needs:** K.13; **Code:** `ecclesia-features::search::find`,
+`ecclesia-canvas-win::canvas::find`, `ecclesia-app::find`
 **Plan:** §27 entry `Ph1: 53/60 | F.1` and §11.
 
 ## Problem
@@ -50,7 +50,7 @@ All modes, hidden until Ctrl+F.
 - Canvas (`canvas::find`): runs the search, draws the hits, scrolls to the shown one and sends `found`
   (`{id, searched, pages, total, current, hits}`); commands `find`, `findNext`, `findPrevious`, `findShow`,
   `findClear`. A reflowed book is searched again once laid out.
-- App (`excellent-app::find`): `FindState` per pane (query, options, progress, hits, the search's id so a late
+- App (`ecclesia-app::find`): `FindState` per pane (query, options, progress, hits, the search's id so a late
   answer to an old query is dropped); commands `find.open` (Ctrl+F), `find.next` (F3), `find.previous` (Shift+F3),
   `find.close`; the `results` sidebar panel.
 - Not built: the result list shows the first 500 hits (the count and F3 reach all of them); the hits are not added

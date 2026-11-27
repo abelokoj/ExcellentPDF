@@ -1,6 +1,6 @@
 # Ph7: 8/32 | G.11: Comment bank
 
-**Tag:** G.11; **Priority:** P1; **Phase:** 7; **Needs:** A.4; **Code:** `excellent-features::grading` (`CommentBank`, `CommentBankItem`)
+**Tag:** G.11; **Priority:** P1; **Phase:** 7; **Needs:** A.4; **Code:** `ecclesia-features::grading` (`CommentBank`, `CommentBankItem`)
 **Plan:** §27 entry `#### Ph7: 8/32 | G.11`.
 
 ## Problem

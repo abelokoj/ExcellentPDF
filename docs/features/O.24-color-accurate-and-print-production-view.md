@@ -1,6 +1,6 @@
 # Ph7: 32/32 | O.24: Color-accurate and print-production view
 
-**Tag:** O.24; **Priority:** P2; **Phase:** 7; **Needs:** K.7; **Code:** `excellent-core::print_prod`
+**Tag:** O.24; **Priority:** P2; **Phase:** 7; **Needs:** K.7; **Code:** `ecclesia-core::print_prod`
 **Plan:** §27 entry `#### Ph7: 32/32 | O.24`.
 
 ## Problem

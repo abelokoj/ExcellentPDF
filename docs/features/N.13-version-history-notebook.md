@@ -1,6 +1,6 @@
 # Ph5: 22/45 | N.13: Version history per notebook
 
-**Tag:** N.13; **Priority:** P2; **Phase:** 5; **Needs:** K.14, N.4; **Code:** `excellent-features::notebook::versions`
+**Tag:** N.13; **Priority:** P2; **Phase:** 5; **Needs:** K.14, N.4; **Code:** `ecclesia-features::notebook::versions`
 **Plan:** §27 entry `#### Ph5: 22/45 | N.13: Version history per notebook`.
 
 ## Problem
@@ -26,7 +26,7 @@ All modes for `.expdf` notebooks.
 
 ## Design
 
-- **Model (`excellent-features::notebook::versions`):**
+- **Model (`ecclesia-features::notebook::versions`):**
   - `create_snapshot`, `list_snapshots`, `diff_snapshots`, `copy_page_from_snapshot`, `thin_snapshots`, and `restore_snapshot` returning `RestoreUndo`.
 
 ## Acceptance tests

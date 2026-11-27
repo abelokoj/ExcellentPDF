@@ -1,6 +1,6 @@
 # Ph4: 44/44 | U.5: Read aloud
 
-**Tag:** U.5; **Priority:** P0 (parity); **Phase:** 4; **Needs:** K.13, K.19; **Code:** `excellent-platform::speech`, `excellent-features::read_aloud`
+**Tag:** U.5; **Priority:** P0 (parity); **Phase:** 4; **Needs:** K.13, K.19; **Code:** `ecclesia-platform::speech`, `ecclesia-features::read_aloud`
 **Plan:** §27 entry `#### Ph4: 44/44 | U.5` and `sumatra_pdf_enhanced_plan.md` §5.13. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -29,11 +29,11 @@ All modes (Read, Annotate, Study; optional toolbar toggle).
 
 ## Design
 
-- **Platform trait & Windows backend** (`excellent-platform::speech`): `SpeechSynth`, `VoiceInfo`, `SpeechEvent` (`WordBoundary`, `Finished`, `Error`), `SpeechError`, `clamp_speed`, `speed_to_sapi_rate`, `MockSpeechSynth`, and `WindowsSpeechSynth` (SAPI 5 COM `ISpVoice` / `ISpEventSource` / `ISpObjectTokenCategory` with RAII `Drop` and UTF-16-to-char offset mapping).
-- **Mapping & playback state machine** (`excellent-features::read_aloud`): `SpokenPage` (maps cleaned reading-order text back to exact K.13 `PageText` character indices, joining hyphenated line wraps), `sentence_range` (handling abbreviations like `e.g.`, CJK punctuation and paragraph breaks), `cursor_start_char`, `ReadAloudHighlight`, `ResumePoint`, `PlaybackState`, and `ReadAloudSession<S: SpeechSynth>` advancing seamlessly across pages and skipping empty/image-only pages.
+- **Platform trait & Windows backend** (`ecclesia-platform::speech`): `SpeechSynth`, `VoiceInfo`, `SpeechEvent` (`WordBoundary`, `Finished`, `Error`), `SpeechError`, `clamp_speed`, `speed_to_sapi_rate`, `MockSpeechSynth`, and `WindowsSpeechSynth` (SAPI 5 COM `ISpVoice` / `ISpEventSource` / `ISpObjectTokenCategory` with RAII `Drop` and UTF-16-to-char offset mapping).
+- **Mapping & playback state machine** (`ecclesia-features::read_aloud`): `SpokenPage` (maps cleaned reading-order text back to exact K.13 `PageText` character indices, joining hyphenated line wraps), `sentence_range` (handling abbreviations like `e.g.`, CJK punctuation and paragraph breaks), `cursor_start_char`, `ReadAloudHighlight`, `ResumePoint`, `PlaybackState`, and `ReadAloudSession<S: SpeechSynth>` advancing seamlessly across pages and skipping empty/image-only pages.
 
 ## Acceptance tests
 
 - [x] `read_aloud::tests::highlighting_tracks_every_spoken_word_across_a_full_chapter`: word and sentence K.13 quads track every spoken word continuously across a multi-page chapter (including hyphenated wraps and blank figure pages).
 - [x] `read_aloud::tests::sentence_range_handles_abbreviations_and_cursor_stop_resume`: cursor start, abbreviation-aware sentence ranges, pause/resume and stop/continue resume at the exact word.
-- [x] `excellent-platform::speech::tests::windows_sapi_initializes_and_enumerates_voices`: Windows SAPI 5 backend initializes cleanly and enumerates system voices.
+- [x] `ecclesia-platform::speech::tests::windows_sapi_initializes_and_enumerates_voices`: Windows SAPI 5 backend initializes cleanly and enumerates system voices.

@@ -1,6 +1,6 @@
 # Ph7: 7/32 | G.10: Rubric panel and scores
 
-**Tag:** G.10; **Priority:** P1; **Phase:** 7; **Needs:** G.9; **Code:** `excellent-features::grading` (`Rubric`, `recalculate_scores`, `create_final_score_stamp`)
+**Tag:** G.10; **Priority:** P1; **Phase:** 7; **Needs:** G.9; **Code:** `ecclesia-features::grading` (`Rubric`, `recalculate_scores`, `create_final_score_stamp`)
 **Plan:** §27 entry `#### Ph7: 7/32 | G.10`.
 
 ## Problem

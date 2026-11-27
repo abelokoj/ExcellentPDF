@@ -1,6 +1,6 @@
 # Ph1: 49/60 | W.5: Workspace shortcuts
 
-**Tag:** W.5; **Priority:** P0; **Phase:** 1; **Needs:** W.1, K.16; **Code:** `excellent-app::workspaces` (`view`), `excellent-store::workspaces`, `excellent-app::session`
+**Tag:** W.5; **Priority:** P0; **Phase:** 1; **Needs:** W.1, K.16; **Code:** `ecclesia-app::workspaces` (`view`), `ecclesia-store::workspaces`, `ecclesia-app::session`
 **Plan:** §27 entry `Ph1: 49/60 | W.5` and §11.16.
 
 ## Problem

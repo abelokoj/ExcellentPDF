@@ -1,6 +1,6 @@
 # Ph4: 14/44 | N.1: Blank notebooks with procedural paper
 
-**Tag:** N.1; **Priority:** P0; **Phase:** 4; **Needs:** N.4, K.8; **Code:** `excellent-features::notebook::paper`
+**Tag:** N.1; **Priority:** P0; **Phase:** 4; **Needs:** N.4, K.8; **Code:** `ecclesia-features::notebook::paper`
 **Plan:** §27 entry `#### Ph4: 14/44 | N.1`.
 
 ## Problem
@@ -29,7 +29,7 @@ Write mode (and Create flow from Home).
 
 ## Design
 
-Model (`excellent-features::notebook::paper`):
+Model (`ecclesia-features::notebook::paper`):
 - `PaperSpec` holds spacing, margins, ruling/accent/paper colors, and stroke widths for all 10 `PaperTemplateId` variants.
 - `PaperSpec::with_reading_theme` integrates with R.15 `ReadingTheme`.
 - `PaperSpec::primitives(w, h)` emits `Vec<PaperPrimitive>` (`FillRect`, `Line`, `Dot`, `StrokeRect`) shared verbatim between live canvas underlay drawing and `to_pdf_content_stream` / `export_single_page_pdf`.

@@ -1,6 +1,6 @@
 # Ph5: 27/45 | S.16: Translate selection
 
-**Tag:** S.16; **Priority:** P1 (parity); **Phase:** 5; **Needs:** K.13; **Code:** `excellent-features::translate`
+**Tag:** S.16; **Priority:** P1 (parity); **Phase:** 5; **Needs:** K.13; **Code:** `ecclesia-features::translate`
 **Plan:** §27 entry `#### Ph5: 27/45 | S.16: Translate selection` and SumatraPDF `src/SelectionTranslate.cpp`, `src/TranslationLangs.cpp`.
 
 ## Problem
@@ -26,7 +26,7 @@ Read, Study.
 
 ## Design
 
-- **Model (`excellent-features::translate`):**
+- **Model (`ecclesia-features::translate`):**
   - 73-language catalog (`SUPPORTED_LANGUAGES`) ported from SumatraPDF Enhanced's `TranslationLangs.cpp`.
   - `BergamotPackCatalog` matches installed `<src>-<dst>` offline packs; `SelectionTranslator` enforces `ConsentPolicy` before any `ureq` network call.
 

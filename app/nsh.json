@@ -1,10 +1,10 @@
 {
-  "name": "ExcellentPDF",
-  "id": "com.excellentpdf.app",
+  "name": "EcclesiaPDF",
+  "id": "com.ecclesiapdf.app",
   "version": "0.1.0",
   "build": 1,
   "appearance": "system",
-  "rust": "../crates/excellent-app",
+  "rust": "../crates/ecclesia-app",
   "root": "App",
   "capabilities": {
     "openUrl": true,

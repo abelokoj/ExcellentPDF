@@ -1,7 +1,7 @@
 # Ph3: 14/49 | A.1: Text markup: highlight, underline, squiggly, strikeout
 
-**Tag:** A.1; **Priority:** P0; **Phase:** 3; **Needs:** K.13, K.14; **Code:** `excellent-features::annotate::markup`,
-`excellent-canvas::page::canvas::markbar`, `excellent-app::annotate`
+**Tag:** A.1; **Priority:** P0; **Phase:** 3; **Needs:** K.13, K.14; **Code:** `ecclesia-features::annotate::markup`,
+`ecclesia-canvas::page::canvas::markbar`, `ecclesia-app::annotate`
 **Plan:** §27 entry `#### Ph3: 14/49 | A.1`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

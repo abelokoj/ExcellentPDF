@@ -1,8 +1,8 @@
 # Ph3: 40/49 | H.3: Highlighter pen
 
-**Tag:** H.3; **Priority:** P0; **Phase:** 3; **Needs:** H.2; **Code:** `excellent-ink::pens` (the preset and
-`Blend::over`), `excellent-canvas::page` (the live preview), `excellent-mupdf-sys` (the shim's `multiply`),
-`excellent-core::annot` (`Annotation::multiply`), MuPDF patch `0094`, `excellent-app` (`ink.pen_highlighter`)
+**Tag:** H.3; **Priority:** P0; **Phase:** 3; **Needs:** H.2; **Code:** `ecclesia-ink::pens` (the preset and
+`Blend::over`), `ecclesia-canvas::page` (the live preview), `ecclesia-mupdf-sys` (the shim's `multiply`),
+`ecclesia-core::annot` (`Annotation::multiply`), MuPDF patch `0094`, `ecclesia-app` (`ink.pen_highlighter`)
 **Plan:** §8.4 and §27 entry `#### Ph3: 40/49 | H.3`.
 
 ## Problem

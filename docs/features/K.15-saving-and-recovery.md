@@ -1,7 +1,7 @@
 # Ph1: 5/60 | K.15: Saving, autosave, recovery and external changes
 
 **Tag:** K.15; **Priority:** P0; **Phase:** 1 (read-only), 3 (edits); **Needs:** K.14; **Code:**
-`excellent-core::{save, document}`, `excellent-mupdf::edit`, `excellent-app::editing`
+`ecclesia-core::{save, document}`, `ecclesia-mupdf::edit`, `ecclesia-app::editing`
 **Plan:** §27 entry `Ph1: 5/60 | K.15`.
 
 ## Problem
@@ -34,17 +34,17 @@ Saves run on a background thread, except at quit. An incremental save writes onl
 
 - Step 1: `ex_save_pdf` saves incrementally when MuPDF allows it, else writes the whole file (`Save::Rewritten`, for
   a file MuPDF repaired); then the document is reopened from the new file and its undo history starts there.
-- Step 2 (`excellent-core::save::replace`): written to a hidden temp file beside the original, read back, synced,
+- Step 2 (`ecclesia-core::save::replace`): written to a hidden temp file beside the original, read back, synced,
   then renamed over it. A failure at any point leaves the original as it was. The document is opened with shared
   delete, so the rename works while it is open.
-- Step 3: the log is synced on every edit (K.14); the PDF follows as above (`excellent-app::editing`).
+- Step 3: the log is synced on every edit (K.14); the PDF follows as above (`ecclesia-app::editing`).
 - Step 4: saves are incremental, so the file as the log began is still the start of the saved file. Recovery replays
   the whole log over those first bytes (the base prefix) and offers the result; Discard deletes the log.
 
 ## Acceptance tests
 
 - [x] `the_temp_file_is_hidden_beside_the_original`; `saves_replace_the_open_file_and_keep_undo`
-  (`excellent-mupdf`).
+  (`ecclesia-mupdf`).
 - [x] `unsaved_edits_come_back_after_a_crash`, `discarded_edits_are_gone`, `hibernates_only_without_unsaved_changes`.
 - [ ] Killing the process at every write point never loses a committed operation (fault injection).
 - [ ] Saved files pass `qpdf --check`.

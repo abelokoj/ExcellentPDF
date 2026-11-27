@@ -1,7 +1,7 @@
 # Ph1: 3/60 | K.13: Text layer and selection
 
-**Tag:** K.13; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `crates/excellent-text`,
-`excellent-mupdf::text`, `excellent-core::render::read_text`, `excellent-canvas-win`
+**Tag:** K.13; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `crates/ecclesia-text`,
+`ecclesia-mupdf::text`, `ecclesia-core::render::read_text`, `ecclesia-canvas-win`
 **Plan:** §27 entry `Ph1: 3/60 | K.13`, Appendix D.1.3.
 
 ## Problem
@@ -35,12 +35,12 @@ all of it. Hit testing and drawing a selection walk one page's lines and charact
 
 ## Design
 
-- `excellent-mupdf`: the shim copies the structured text into arrays (blocks, lines, characters with quads), so the
+- `ecclesia-mupdf`: the shim copies the structured text into arrays (blocks, lines, characters with quads), so the
   page's text crosses threads as plain data (`TextLayout`).
-- `excellent-text` (pure Rust, no OS types): `PageText` (caret and nearest character under a point, `unit` for word,
+- `ecclesia-text` (pure Rust, no OS types): `PageText` (caret and nearest character under a point, `unit` for word,
   line and paragraph, `highlight`, `text`), `Selection` (anchor, focus, granularity; per-page ranges; text across
   pages) and word classes.
-- `excellent-canvas-win`: a near-pages cache (`near.rs`, shared with links), click counting (`clicks.rs`), mouse
+- `ecclesia-canvas-win`: a near-pages cache (`near.rs`, shared with links), click counting (`clicks.rs`), mouse
   capture while selecting, the highlight geometry (`Gfx::highlight`), and the `copy` and `selectAll` commands; the
   `copy` event carries the text to the app, which puts it on the clipboard (NSH `set_clipboard`, the `clipboard`
   capability).

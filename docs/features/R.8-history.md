@@ -1,6 +1,6 @@
 # Ph1: 19/60 | R.8: Back and forward history
 
-**Tag:** R.8; **Priority:** P0; **Phase:** 1; **Needs:** K.5; **Code:** `excellent-core::view::history`
+**Tag:** R.8; **Priority:** P0; **Phase:** 1; **Needs:** K.5; **Code:** `ecclesia-core::view::history`
 **Plan:** §27 entry `Ph1: 19/60 | R.8`.
 
 ## Problem

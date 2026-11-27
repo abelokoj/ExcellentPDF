@@ -1,8 +1,8 @@
 # Ph3: 44/49 | H.8: Palm rejection and "finger draws"
 
-**Tag:** H.8; **Priority:** P0; **Phase:** 3; **Needs:** H.1; **Code:** `excellent-canvas::page::gestures` (the
-model), `excellent-canvas::page` (the canvas's touch entry points, `fingerDraws` prop), `excellent-canvas-win`
-(`WM_POINTER*` touch and pen hover), `excellent-app` (the setting)
+**Tag:** H.8; **Priority:** P0; **Phase:** 3; **Needs:** H.1; **Code:** `ecclesia-canvas::page::gestures` (the
+model), `ecclesia-canvas::page` (the canvas's touch entry points, `fingerDraws` prop), `ecclesia-canvas-win`
+(`WM_POINTER*` touch and pen hover), `ecclesia-app` (the setting)
 **Plan:** §7.3 and §27 entry `#### Ph3: 44/49 | H.8`.
 
 ## Problem

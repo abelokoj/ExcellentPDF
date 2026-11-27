@@ -1,6 +1,6 @@
 # Ph5: 5/45 | R.29: DjVu, CHM and CBR
 
-**Tag:** R.29; **Priority:** P2; **Phase:** 5; **Needs:** R.28; **Code:** `excellent-core::formats_extra`
+**Tag:** R.29; **Priority:** P2; **Phase:** 5; **Needs:** R.28; **Code:** `ecclesia-core::formats_extra`
 **Plan:** §27 entry `#### Ph5: 5/45 | R.29: DjVu, CHM and CBR`.
 
 ## Problem
@@ -27,7 +27,7 @@ All reading modes.
 
 ## Design
 
-- **Model (`excellent-core::formats_extra`):**
+- **Model (`ecclesia-core::formats_extra`):**
   - `ExtraDocument` trait unifying `DjVuDocument`, `ChmDocument`, and `ComicArchive` (CBZ + CBR).
   - `DjVuDocument`: parses `AT&TFORM` `DJVU`/`DJVM` containers, `DIRM`, `INFO`, `NAVM`, and `TXTa` text chunks.
   - `ChmDocument`: parses `ITSF` / `ITSP` / `PMGL` directory chunks, `.hhc` sitemap outline, and section-0 HTML topics.

@@ -1,6 +1,6 @@
 # Ph4: 6/44 | H.13: Handwriting straightening
 
-**Tag:** H.13; **Priority:** P1; **Phase:** 4; **Needs:** H.6; **Code:** `excellent-ink::straighten`
+**Tag:** H.13; **Priority:** P1; **Phase:** 4; **Needs:** H.6; **Code:** `ecclesia-ink::straighten`
 **Plan:** §8.4 and §27 entry `#### Ph4: 6/44 | H.13`.
 
 ## Problem
@@ -21,13 +21,13 @@ Write (active when ink strokes are selected with the lasso).
 
 ## Speed and size impact
 
-- Startup: nothing runs at startup; pure math in `excellent-ink` invoked only on command.
+- Startup: nothing runs at startup; pure math in `ecclesia-ink` invoked only on command.
 - Budgets touched: UI-thread stall < 50 ms (linear/quadratic over selected strokes, < 1 ms for a typical paragraph).
 - Installer size: negligible (~4 KB compiled Rust, zero dependencies).
 
 ## Design
 
-- **Model (`excellent-ink::straighten`):**
+- **Model (`ecclesia-ink::straighten`):**
   1. Estimates the paragraph's dominant slope from nearest right-hand neighbor strokes (ignoring small diacritics such as `i`-dots).
   2. Projects stroke centroids perpendicular to the dominant slope to group strokes into lines cleanly even when lines are steeply tilted; attaches diacritics to their nearest line.
   3. Fits each line's baseline on stroke bottoms via Huber iteratively reweighted least squares (IRLS) so descenders (`g`, `p`, `y`) do not pull the baseline downward.

@@ -3,7 +3,7 @@
 # worse than its recorded baseline by more than the tolerance. Being over a budget is reported, not failed: Phase 0
 # starts over some budgets, and only regressions block a pull request (AGENTS §7).
 #
-#   pwsh tests/budgets.ps1 -Exe target/release/excellentpdf.exe
+#   pwsh tests/budgets.ps1 -Exe target/release/ecclesiapdf.exe
 #
 # Measured: core installer size, cold start, opening a typical PDF, and idle memory with one small document.
 param(
@@ -43,11 +43,11 @@ foreach ($requiredPerf in @(
 
 # Installer size. shortcut: until K.25 builds the MSI, the exe in a cabinet with LZX:21 (how an MSI stores its files,
 # made with Windows' own makecab) stands in for it; the MSI adds its tables, tens of kilobytes.
-$cabDir = Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-budget-$PID"
+$cabDir = Join-Path ([IO.Path]::GetTempPath()) "ecclesiapdf-budget-$PID"
 New-Item -ItemType Directory -Force $cabDir | Out-Null
-makecab /D CompressionType=LZX /D CompressionMemory=21 /L $cabDir $Exe excellentpdf.cab | Out-Null
+makecab /D CompressionType=LZX /D CompressionMemory=21 /L $cabDir $Exe ecclesiapdf.cab | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "makecab failed ($LASTEXITCODE)" }
-$installerMb = [math]::Round((Get-Item (Join-Path $cabDir 'excellentpdf.cab')).Length / 1MB, 2)
+$installerMb = [math]::Round((Get-Item (Join-Path $cabDir 'ecclesiapdf.cab')).Length / 1MB, 2)
 Remove-Item -Recurse $cabDir
 
 # Cold start: from process creation until the app has a visible top-level window, which NSH shows after its first
@@ -74,7 +74,7 @@ for ($i = 0; $i -lt $Runs; $i++) {
     while (-not [BudgetWindows]::HasVisible([uint32]$p.Id)) {
         if ($p.HasExited -or (Get-Date) -gt $deadline) {
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
-            throw "excellentpdf showed no window within 15 s (run $($i + 1))"
+            throw "ecclesiapdf showed no window within 15 s (run $($i + 1))"
         }
     }
     $times += [int]((Get-Date) - $p.StartTime).TotalMilliseconds
@@ -85,14 +85,14 @@ for ($i = 0; $i -lt $Runs; $i++) {
 $coldStartMs = ($times | Sort-Object)[[int][math]::Floor($Runs / 2)]
 
 # Open a typical PDF & idle working-set memory: the page canvas logs the time from being given the document to drawing
-# its first page complete (excellent-canvas-win, `Canvas::draw`). The median of $Runs launches with the document.
+# its first page complete (ecclesia-canvas-win, `Canvas::draw`). The median of $Runs launches with the document.
 $opens = @()
 $memSamplesMb = @()
-$log = Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-budget-$PID.log"
-$env:RUST_LOG = 'info,excellent_canvas_win=debug'
+$log = Join-Path ([IO.Path]::GetTempPath()) "ecclesiapdf-budget-$PID.log"
+$env:RUST_LOG = 'info,ecclesia_canvas_win=debug'
 # Each launch gets a profile of its own, so every run is a first open and none restores the last run's session.
 $saved = @{ APPDATA = $env:APPDATA; LOCALAPPDATA = $env:LOCALAPPDATA }
-$profiles = Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-budget-profiles-$PID"
+$profiles = Join-Path ([IO.Path]::GetTempPath()) "ecclesiapdf-budget-profiles-$PID"
 try {
     for ($i = 0; $i -lt $Runs; $i++) {
         $env:APPDATA = Join-Path $profiles "$i/Roaming"
@@ -106,9 +106,9 @@ try {
             if ($line) { $ms = [double]$line.Matches[0].Groups[1].Value; break }
             if ($p.HasExited -or (Get-Date) -gt $deadline) {
                 if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
-                Write-Host "excellentpdf's log of run $($i + 1):"
+                Write-Host "ecclesiapdf's log of run $($i + 1):"
                 Get-Content $log -Tail 60 -ErrorAction SilentlyContinue | Write-Host
-                throw "excellentpdf drew no first page of $Document within 15 s (run $($i + 1))"
+                throw "ecclesiapdf drew no first page of $Document within 15 s (run $($i + 1))"
             }
             Start-Sleep -Milliseconds 20
         }

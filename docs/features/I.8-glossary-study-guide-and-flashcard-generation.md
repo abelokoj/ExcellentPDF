@@ -1,6 +1,6 @@
 # Ph6: 9/13 | I.8: Glossary, study guide and flashcard generation
 
-**Tag:** I.8; **Priority:** P1; **Phase:** 6; **Needs:** I.3, S.1; **Code:** `crates/excellent-features/src/ai/study.rs`
+**Tag:** I.8; **Priority:** P1; **Phase:** 6; **Needs:** I.3, S.1; **Code:** `crates/ecclesia-features/src/ai/study.rs`
 **Plan:** §27 entry `#### Ph6: 9/13 | I.8` and §12.3.
 
 ## Problem
@@ -22,7 +22,7 @@ Study and Read modes when AI is enabled.
 
 ## Speed and size impact
 
-- Startup: none. Drafts live in memory until explicitly accepted into `excellent_store::study`.
+- Startup: none. Drafts live in memory until explicitly accepted into `ecclesia_store::study`.
 
 ## Design
 

@@ -1,7 +1,7 @@
 # Ph1: 17/60 | R.6: Page labels and go to page
 
-**Tag:** R.6; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `excellent-features::read::goto`,
-`excellent-mupdf::Document::page_labels`, `excellent-app::goto`
+**Tag:** R.6; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `ecclesia-features::read::goto`,
+`ecclesia-mupdf::Document::page_labels`, `ecclesia-app::goto`
 **Plan:** §27 entry `Ph1: 17/60 | R.6`.
 
 ## Problem

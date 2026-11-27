@@ -1,6 +1,6 @@
 # Ph4: 7/44 | H.14: Layers
 
-**Tag:** H.14; **Priority:** P1; **Phase:** 4; **Needs:** A.22; **Code:** `excellent-features::ink::layers`
+**Tag:** H.14; **Priority:** P1; **Phase:** 4; **Needs:** A.22; **Code:** `ecclesia-features::ink::layers`
 **Plan:** §8.4 and §27 entry `#### Ph4: 7/44 | H.14`.
 
 ## Problem
@@ -27,9 +27,9 @@ Write and Annotate.
 
 ## Design
 
-- **Model (`excellent-features::ink::layers`):**
+- **Model (`ecclesia-features::ink::layers`):**
   - `FixedLayer` (`Ink`, `Highlights`, `Text`, `Images`) with automatic classification of untagged annotations (`FixedLayer::classify`).
-  - `LayerStack` synchronizes with A.22 PDF optional content groups (`excellent_mupdf::Layer`) and emits `Change::SetLayer` for persistence in standard PDF `/OCProperties`.
+  - `LayerStack` synchronizes with A.22 PDF optional content groups (`ecclesia_mupdf::Layer`) and emits `Change::SetLayer` for persistence in standard PDF `/OCProperties`.
   - Visibility (`Visibility::Visible | Hidden`) and lock (`LockState::Unlocked | Locked`) controls enforce that locked or hidden layers cannot be selected (`can_select`, `filter_selection`), erased by stroke/area/highlighter erasers (`can_erase`, `erase_changes`), moved out of, or drawn onto (`set_active`, `place_new`).
 - **Command ids (for app wiring):** `ink.layers` (`Ctrl+Alt+L`), `ink.layer_add`, `ink.layer_toggle_visible`, `ink.layer_toggle_lock`.
 - **Storage:** standard PDF optional content groups (`/OCProperties` + annotation `/OC`) via A.22.

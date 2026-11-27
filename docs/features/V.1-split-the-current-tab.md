@@ -1,6 +1,6 @@
 # Ph1: 37/60 | V.1: Split the current tab
 
-**Tag:** V.1; **Priority:** P0; **Phase:** 1; **Needs:** K.5, K.8; **Code:** `excellent-app::panes` (`layout`, `grid`), `excellent-app::shell`, `excellent-app::commands`
+**Tag:** V.1; **Priority:** P0; **Phase:** 1; **Needs:** K.5, K.8; **Code:** `ecclesia-app::panes` (`layout`, `grid`), `ecclesia-app::shell`, `ecclesia-app::commands`
 **Plan:** §27 entry `Ph1: 37/60 | V.1` and §11.15.
 
 ## Problem
@@ -32,7 +32,7 @@ All modes; the split view appears only when the reader splits.
   `plan_split(side)` finds the cell for a new pane (moving the pane at that edge over when the cell is taken),
   `apply` makes the change. No UI or OS types; unit-tested.
 - View: each cell has its own page canvas, tabs, page state, links, thumbnails, outline, bookmarks and edits
-  (`panes::Pane`). Two panes showing one file share its document through `excellent_core::shared::registry()`, so
+  (`panes::Pane`). Two panes showing one file share its document through `ecclesia_core::shared::registry()`, so
   the file is read once.
 - Commands: `CommandId::Pane(PaneAction::Split(Side))`.
 

@@ -1,7 +1,7 @@
 # Ph3: 25/49 | A.12: Annotation inspector
 
-**Tag:** A.12; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `excellent-features::annotate::inspector`,
-`excellent-app::annotate::inspector`, `excellent-app::annotate::note`
+**Tag:** A.12; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `ecclesia-features::annotate::inspector`,
+`ecclesia-app::annotate::inspector`, `ecclesia-app::annotate::note`
 **Plan:** §27 entry `#### Ph3: 25/49 | A.12`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

@@ -3,9 +3,9 @@
 
 #![no_main]
 
-use excellent_core::annot::page_annotations;
-use excellent_core::sandbox::{SecurityLimits, open_pdf_with_limits};
-use excellent_mupdf::PageBox;
+use ecclesia_core::annot::page_annotations;
+use ecclesia_core::sandbox::{SecurityLimits, open_pdf_with_limits};
+use ecclesia_mupdf::PageBox;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

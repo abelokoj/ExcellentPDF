@@ -1,7 +1,7 @@
 # Ph1: 58/60 | U.4: High contrast, color-blind-safe colors, scaling and reduced motion
 
-**Tag:** U.4; **Priority:** P0; **Phase:** 1; **Needs:** K.17; **Code:** `excellent-app::theme`,
-`excellent-platform::display`
+**Tag:** U.4; **Priority:** P0; **Phase:** 1; **Needs:** K.17; **Code:** `ecclesia-app::theme`,
+`ecclesia-platform::display`
 **Plan:** §27.18 entry `Ph1: 58/60 | U.4`.
 
 ## Problem
@@ -34,7 +34,7 @@ All modes.
 
 ## Design
 
-- `excellent-platform::display::high_contrast` reads `SPI_GETHIGHCONTRAST` (`HCF_HIGHCONTRASTON`); `false` off
+- `ecclesia-platform::display::high_contrast` reads `SPI_GETHIGHCONTRAST` (`HCF_HIGHCONTRASTON`); `false` off
   Windows until Phase 2.
 - `theme::follow_system` keeps whether the system's high contrast is in force (the setting `follow_system_contrast`,
   and the system's), and `theme::tokens` gives the theme's high-contrast side while it is. Every path that applies a

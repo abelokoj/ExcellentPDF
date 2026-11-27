@@ -1,8 +1,8 @@
 # Ph4: 3/44 | H.4: Tape
 
-**Tag:** H.4; **Priority:** P1; **Phase:** 4; **Needs:** H.2; **Code:** `excellent-features::annotate::tape` (the
-model; the plan's `excellent-ink::tape` holds no geometry of its own, so the tape lives with the other annotation
-models), `excellent-core::annot` (`Annotation::tape`, kept in the private key), `excellent-app` (`ink.tape`)
+**Tag:** H.4; **Priority:** P1; **Phase:** 4; **Needs:** H.2; **Code:** `ecclesia-features::annotate::tape` (the
+model; the plan's `ecclesia-ink::tape` holds no geometry of its own, so the tape lives with the other annotation
+models), `ecclesia-core::annot` (`Annotation::tape`, kept in the private key), `ecclesia-app` (`ink.tape`)
 **Plan:** §27 entry `#### Ph4: 3/44 | H.4`.
 
 ## Problem

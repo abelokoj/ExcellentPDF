@@ -1,6 +1,6 @@
 # Ph9: 2/13 | G.14: Live classroom
 
-**Tag:** G.14; **Priority:** P2; **Phase:** 9; **Needs:** Y.4; **Code:** `excellent-features::classroom`
+**Tag:** G.14; **Priority:** P2; **Phase:** 9; **Needs:** Y.4; **Code:** `ecclesia-features::classroom`
 **Plan:** §27 entry `#### Ph9: 2/13 | G.14`.
 
 ## Problem
@@ -28,7 +28,7 @@ Present, Teach, Read.
 
 ## Design
 
-- Model: `excellent-features::classroom::{ClassroomHost, ClassroomStudent}` over `ClassroomTransport` (`InMemoryClassroomBus`, `TcpClassroomServer`/`TcpClassroomClient`, `RelayHttpTransport`), `JoinCode`, `DiscoveryBeacon`, `ReadingFocus`, `FollowMode`.
+- Model: `ecclesia-features::classroom::{ClassroomHost, ClassroomStudent}` over `ClassroomTransport` (`InMemoryClassroomBus`, `TcpClassroomServer`/`TcpClassroomClient`, `RelayHttpTransport`), `JoinCode`, `DiscoveryBeacon`, `ReadingFocus`, `FollowMode`.
 
 ## Acceptance tests
 

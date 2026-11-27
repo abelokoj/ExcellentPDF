@@ -1,6 +1,6 @@
 # Ph1: 41/60 | V.5: Active pane and focus
 
-**Tag:** V.5; **Priority:** P0; **Phase:** 1; **Needs:** V.1; **Code:** `excellent-app::panes` (`layout`, `grid`), `excellent-app::shell`, `excellent-app::commands`
+**Tag:** V.5; **Priority:** P0; **Phase:** 1; **Needs:** V.1; **Code:** `ecclesia-app::panes` (`layout`, `grid`), `ecclesia-app::shell`, `ecclesia-app::commands`
 **Plan:** §27 entry `Ph1: 41/60 | V.5` and §11.15.
 
 ## Problem

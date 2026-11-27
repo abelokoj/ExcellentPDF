@@ -1,7 +1,7 @@
 # Ph3: 2/49 | R.17: Mini-map with note ticks
 
-**Tag:** R.17; **Priority:** P1; **Phase:** 3; **Needs:** R.5, K.14; **Code:** `excellent-features::read::minimap`,
-`excellent-canvas::page::canvas::minimap`, `excellent-core::annot::page_marks`
+**Tag:** R.17; **Priority:** P1; **Phase:** 3; **Needs:** R.5, K.14; **Code:** `ecclesia-features::read::minimap`,
+`ecclesia-canvas::page::canvas::minimap`, `ecclesia-core::annot::page_marks`
 **Plan:** §27 entry `#### Ph3: 2/49 | R.17` and §11.2. The label is the entry's place in its phase (plan §27.0, Tag
 rules).
 
@@ -48,7 +48,7 @@ All modes, visible by default.
 
 ## Design
 
-Model, `excellent-features::read::minimap`, pure Rust:
+Model, `ecclesia-features::read::minimap`, pure Rust:
 
 - `Scale` maps the layout's along-axis extent (first band to last) onto the strip, forward or reversed; it gives the
   thumb, the ticks, the placed marks and where a press or drag scrolls to.
@@ -62,7 +62,7 @@ Core:
 - An operation now knows its pages (`Operation::pages`); applying it, undoing and redoing bump those pages'
   revisions (and drop their display lists), and the history remembers each operation's pages.
 
-View, `excellent-canvas::page::canvas::minimap`:
+View, `ecclesia-canvas::page::canvas::minimap`:
 
 - Holds the marks per page with the revision they were read at; before each frame, pages whose revision moved are read
   again, so a mark follows an annotation change within one frame.

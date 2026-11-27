@@ -38,5 +38,5 @@ None at startup. One operation per rename or delete.
 
 - [x] `deletes_go_from_the_last_and_skip_entries_already_going`.
 - [x] Undo restores the exact previous outline: `outline_edits_are_undone_and_redone_one_operation_at_a_time`
-  (`excellent-mupdf`).
+  (`ecclesia-mupdf`).
 - [ ] Promoting the children one level before deleting (step 2's other choice).

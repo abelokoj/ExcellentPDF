@@ -1,6 +1,6 @@
 # Ph4: 23/44 | N.10: Quick note from a global shortcut
 
-**Tag:** N.10; **Priority:** P1; **Phase:** 4; **Needs:** N.4, K.19; **Code:** `excellent-features::notebook::quicknote`
+**Tag:** N.10; **Priority:** P1; **Phase:** 4; **Needs:** N.4, K.19; **Code:** `ecclesia-features::notebook::quicknote`
 **Plan:** §27 entry `#### Ph4: 23/44 | N.10`.
 
 ## Problem

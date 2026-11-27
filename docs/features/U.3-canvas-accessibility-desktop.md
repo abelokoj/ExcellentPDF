@@ -1,8 +1,8 @@
 # Ph2: 3/3 | U.3: Canvas accessibility on macOS and Linux
 
 **Tag:** U.3; **Priority:** P0; **Phase:** 2 (desktop), 8 (tablets); **Needs:** U.2; **Code:**
-`excellent-text::flat`, `excellent-canvas::page::canvas::access`, `excellent-canvas-gtk::access`,
-`excellent-canvas-mac::access`
+`ecclesia-text::flat`, `ecclesia-canvas::page::canvas::access`, `ecclesia-canvas-gtk::access`,
+`ecclesia-canvas-mac::access`
 **Plan:** §27 entry `Ph2: 3/3 | U.3`; §15.
 
 ## Problem
@@ -32,7 +32,7 @@ Every mode.
 
 ## Design
 
-- Model: `excellent_text::FlatText` lays the document's text out as one string and maps offsets to page positions
+- Model: `ecclesia_text::FlatText` lays the document's text out as one string and maps offsets to page positions
   and back (pure, unit-tested). The shared canvas answers in those offsets: units, the selection, the pages shown,
   areas on the screen (`flat_*`).
 - Linux: the widget implements `GtkAccessibleText` (GTK 4.14, which NSH uses): contents, units, caret, selection.

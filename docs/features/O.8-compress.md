@@ -1,6 +1,6 @@
 # Ph7: 19/32 | O.8: Compress
 
-**Tag:** O.8; **Priority:** P1; **Phase:** 7; **Needs:** K.15; **Code:** `excellent-core::compress`
+**Tag:** O.8; **Priority:** P1; **Phase:** 7; **Needs:** K.15; **Code:** `ecclesia-core::compress`
 **Plan:** §27 entry `#### Ph7: 19/32 | O.8`.
 
 ## Problem

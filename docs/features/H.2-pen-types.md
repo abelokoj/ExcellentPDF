@@ -1,7 +1,7 @@
 # Ph3: 39/49 | H.2: Pen types
 
-**Tag:** H.2; **Priority:** P0; **Phase:** 3; **Needs:** H.1; **Code:** `excellent-ink::pens` (the presets),
-`excellent-ink::raster` (the golden-image rasterizer), `excellent-canvas::page` (the `pen` prop), `excellent-app`
+**Tag:** H.2; **Priority:** P0; **Phase:** 3; **Needs:** H.1; **Code:** `ecclesia-ink::pens` (the presets),
+`ecclesia-ink::raster` (the golden-image rasterizer), `ecclesia-canvas::page` (the `pen` prop), `ecclesia-app`
 (`ink.pen_*` commands, the Write toolbar)
 **Plan:** §8.4 and §27 entry `#### Ph3: 39/49 | H.2`.
 
@@ -44,7 +44,7 @@ Nothing at startup. A pen is a small `Copy` value read once per stroke; a callig
   and the `ink` event carries the pen's opacity.
 - **Golden images:** `Raster::draw` draws a stroke's points as capsules with the pen's grain and opacity;
   `each_pen_matches_its_golden_image` replays the session fixture with every pen and compares with
-  `tests/golden/<pen>.pgm`, a few levels of slack for platform rounding. `EXCELLENTPDF_UPDATE_GOLDEN=1` writes them
+  `tests/golden/<pen>.pgm`, a few levels of slack for platform rounding. `ECCLESIAPDF_UPDATE_GOLDEN=1` writes them
   again after a deliberate change.
 
 ## Acceptance tests

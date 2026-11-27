@@ -1,6 +1,6 @@
 # Ph7: 6/32 | G.9: Grading stamps
 
-**Tag:** G.9; **Priority:** P1; **Phase:** 7; **Needs:** A.20; **Code:** `excellent-features::grading` (`GradingStampKind`, `create_grading_stamp`, `stamp_points`)
+**Tag:** G.9; **Priority:** P1; **Phase:** 7; **Needs:** A.20; **Code:** `ecclesia-features::grading` (`GradingStampKind`, `create_grading_stamp`, `stamp_points`)
 **Plan:** §27 entry `#### Ph7: 6/32 | G.9`.
 
 ## Problem
@@ -26,7 +26,7 @@ Annotate and Grading modes.
 ## Design
 
 - **`GradingStampKind`**: Supports `Checkmark`, `Cross`, `Half`, `Bonus`, and `Custom` stamps paired with customizable point banks.
-- **`create_grading_stamp` / `stamp_points`**: Produces standard `excellent_core::annot::Annotation` stamps encoding point deltas cleanly for live score aggregation (`recalculate_scores`) and PDF round-trip persistence.
+- **`create_grading_stamp` / `stamp_points`**: Produces standard `ecclesia_core::annot::Annotation` stamps encoding point deltas cleanly for live score aggregation (`recalculate_scores`) and PDF round-trip persistence.
 
 ## Acceptance tests
 

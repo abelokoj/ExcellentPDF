@@ -28,7 +28,7 @@ overflow-checks = false
 panic = "abort"
 [profile.web-dev.package."*"]
 opt-level = "s"
-[profile.web-dev.package."excellent-app"]
+[profile.web-dev.package."ecclesia-app"]
 opt-level = 1
 
 [profile.dev.package."*"]
@@ -47,6 +47,6 @@ opt-level = 3
 [profile.dev.package.objc2-encode]
 opt-level = 3
 
-[profile.dev.package."excellent-app"]
+[profile.dev.package."ecclesia-app"]
 opt-level = 0
 debug = true

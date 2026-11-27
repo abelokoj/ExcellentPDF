@@ -1,6 +1,6 @@
 # Ph3: 10/49 | V.11: Pop out to a window
 
-**Tag:** V.11; **Priority:** P1; **Phase:** 3; **Needs:** V.3; **Code:** `excellent-app::windows`, `panes::pages_view`
+**Tag:** V.11; **Priority:** P1; **Phase:** 3; **Needs:** V.3; **Code:** `ecclesia-app::windows`, `panes::pages_view`
 **Plan:** §27 entry `#### Ph3: 10/49 | V.11`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -35,7 +35,7 @@ Nothing until a tab pops out. A popped-out window is one more page canvas, as a 
 - `crate::windows::Windows` is the window registry: each open window's `WindowRef` with its pane, a `Pane` outside
   the grid (cell `POPPED`), so it has the grid's page canvas, link, outline, bookmark, find and edit state.
 - The tab moves with `TabState::take_shown` and `adopt`, as V.3 moves one between panes: page and view go with it.
-  The page canvas opens files through `excellent_core::shared`, so a file open in both windows has one `Document`.
+  The page canvas opens files through `ecclesia_core::shared`, so a file open in both windows has one `Document`.
 - The page canvas view is shared: `panes::pages_view` takes the events its host hears first (the grid: focus, sync,
   open elsewhere, full screen; the window: a Ctrl+click link goes there, as the window has one pane).
 - NSH hosts a native component in a window of its own and gives it back to the main window when that window closes.

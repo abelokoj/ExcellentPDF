@@ -1,4 +1,4 @@
-# Three movements for the ExcellentPDF mark
+# Three movements for the EcclesiaPDF mark
 
 Three design philosophies, each a separate answer to the same question: what is the smallest image that holds a page,
 a reader and a hand? Each was drawn again for every pixel grid from 16 to 1024 pixels, the product of painstaking

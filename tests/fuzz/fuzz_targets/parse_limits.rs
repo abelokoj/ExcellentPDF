@@ -3,7 +3,7 @@
 
 #![no_main]
 
-use excellent_core::sandbox::{
+use ecclesia_core::sandbox::{
     SecurityLimits, classify_external_uri, open_pdf_with_limits, sanitize_attachment_name,
 };
 use libfuzzer_sys::fuzz_target;

@@ -1,6 +1,6 @@
 # Third-party code
 
-Everything here is copied from other projects and built by `crates/excellent-mupdf-sys`. Don't edit it in place:
+Everything here is copied from other projects and built by `crates/ecclesia-mupdf-sys`. Don't edit it in place:
 MuPDF changes go through `mupdf-patches/`; the other folders are replaced wholesale when they are updated.
 
 | Folder | What | Source |
@@ -41,4 +41,4 @@ Each library folder keeps its upstream licence file (`LICENSE`, `COPYING` or its
 `noto_sumatra.c` are AGPL-3.0. SumatraPDF's own files are GPL-3.0 (its `COPYING`) unless their header says otherwise:
 `pkcs7-windows.c` is Simplified BSD. The libraries are under permissive licences (FreeType, HarfBuzz, zlib,
 libjpeg-turbo, and so on): Tesseract and zxing-cpp Apache-2.0, Leptonica BSD-2-Clause style, zint BSD-3-Clause,
-libarchive BSD-2-Clause, bzip2 its own BSD-style licence, liblzma 0BSD. ExcellentPDF's own licence is open question Q1 (plan §21, §4).
+libarchive BSD-2-Clause, bzip2 its own BSD-style licence, liblzma 0BSD. EcclesiaPDF's own licence is open question Q1 (plan §21, §4).

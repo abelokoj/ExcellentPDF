@@ -1,7 +1,7 @@
 # Ph1: 21/60 | R.10: Recent and pinned files
 
-**Tag:** R.10; **Priority:** P0; **Phase:** 1; **Needs:** K.20; **Code:** `excellent-store` (`recent`, `home`,
-migration `0003_recent.sql`), `excellent-app::recent`, `excellent-app::tabs::list`
+**Tag:** R.10; **Priority:** P0; **Phase:** 1; **Needs:** K.20; **Code:** `ecclesia-store` (`recent`, `home`,
+migration `0003_recent.sql`), `ecclesia-app::recent`, `ecclesia-app::tabs::list`
 **Plan:** §27 entry `Ph1: 21/60 | R.10`.
 
 ## Problem
@@ -42,12 +42,12 @@ All modes. Not shown until a file has been opened once.
 
 - Storage (`0003_recent.sql`): `recent(file, seen, page, pinned)`, one row per file, and `meta(key, value)` for facts
   about the library itself. Pinned files stay until unpinned; of the others the newest 500 are kept.
-- `excellent_store::recent`: `load` (pinned first, then newest), `visit`, `set_pinned`, `remove`, `clear`.
-- Portable moves (`excellent_store::home`): the library notes the portable app's folder. When the app runs from a
+- `ecclesia_store::recent`: `load` (pinned first, then newest), `visit`, `set_pinned`, `remove`, `clear`.
+- Portable moves (`ecclesia_store::home`): the library notes the portable app's folder. When the app runs from a
   new folder, files inside the old folder get the same place inside the new one; files elsewhere on the old folder's
   drive move to the new drive letter, only when the letter changed, the file is gone from its old path and is at the
   new one.
-- The window's copy (`excellent-app::recent`): lazily loaded, changed optimistically by the same rules as the library
+- The window's copy (`ecclesia-app::recent`): lazily loaded, changed optimistically by the same rules as the library
   (tests keep the two in step), each change sent to the writer thread.
 
 ## Acceptance tests

@@ -78,7 +78,7 @@
  *        an efficient way?  Unfortunately, no.  The sorted values will be
  *        in an array.  Even if the filter width is 1, we can expect to
  *        have to move O(n) pixels, because insertion and deletion can happen
- *        anywhere in the array.  By comparison, heapsort is excellent for
+ *        anywhere in the array.  By comparison, heapsort is ecclesia for
  *        incremental sorting, where the cost for insertion or deletion
  *        is O(logn), because the array itself doesn't need to
  *        be sorted into strictly increasing order.  However, heapsort

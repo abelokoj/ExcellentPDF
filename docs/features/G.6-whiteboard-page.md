@@ -1,6 +1,6 @@
 # Ph4: 41/44 | G.6: Whiteboard page
 
-**Tag:** G.6; **Priority:** P0; **Phase:** 4; **Needs:** G.1, N.5; **Code:** `excellent-features::present::whiteboard`
+**Tag:** G.6; **Priority:** P0; **Phase:** 4; **Needs:** G.1, N.5; **Code:** `ecclesia-features::present::whiteboard`
 **Plan:** §27 entry `#### Ph4: 41/44 | G.6`.
 
 ## Problem

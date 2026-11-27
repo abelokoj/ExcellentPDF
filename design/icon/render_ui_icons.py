@@ -1,4 +1,4 @@
-"""Render monochrome white-on-transparent PNG UI icons for ExcellentPDF.
+"""Render monochrome white-on-transparent PNG UI icons for EcclesiaPDF.
 
 NSH 0.7 is built without its optional SVG rasterizer, while PNG data URIs
 decode via WIC and tint cleanly through `tint_color(...)`. Each icon is drawn
@@ -8,7 +8,7 @@ at 4x resolution and LANCZOS-downsampled to crisp anti-aliased RGBA pixels.
 from pathlib import Path
 from PIL import Image, ImageDraw
 
-OUT_DIR = Path(__file__).resolve().parents[2] / "crates" / "excellent-app" / "assets" / "icons"
+OUT_DIR = Path(__file__).resolve().parents[2] / "crates" / "ecclesia-app" / "assets" / "icons"
 WHITE = (255, 255, 255, 255)
 CLEAR = (255, 255, 255, 0)
 S = 192  # 4x supersampling for 48x48 icons
@@ -30,9 +30,113 @@ def draw_thick_line(draw: ImageDraw.ImageDraw, pts: list[tuple[int, int]], width
 
 
 def render_triangle_down() -> Image.Image:
-    im = Image.new("RGBA", (128, 96), CLEAR)
+    im = Image.new("RGBA", (256, 192), CLEAR)
     d = ImageDraw.Draw(im)
-    d.polygon([(14, 24), (114, 24), (64, 76)], fill=WHITE)
+    d.polygon([(28, 48), (228, 48), (128, 152)], fill=WHITE)
+    return im
+
+
+def render_chevron_down() -> Image.Image:
+    """Bold, clean Vivaldi downward chevron with rounded stroke caps."""
+    im = Image.new("RGBA", (S, S), CLEAR)
+    d = ImageDraw.Draw(im)
+    draw_thick_line(d, [(32, 66), (96, 130), (160, 66)], 20)
+    return im
+
+
+def render_sidebar_left() -> Image.Image:
+    """Rounded rectangle outline with a left sidebar divider ([| ])."""
+    im = Image.new("RGBA", (S, S), CLEAR)
+    d = ImageDraw.Draw(im)
+    w = 14
+    d.rounded_rectangle((20, 32, 172, 160), radius=20, outline=WHITE, width=w)
+    d.line([(68, 36), (68, 156)], fill=WHITE, width=w)
+    return im
+
+
+def render_sidebar_right() -> Image.Image:
+    """Rounded rectangle outline with a right sidebar divider ([ |])."""
+    im = Image.new("RGBA", (S, S), CLEAR)
+    d = ImageDraw.Draw(im)
+    w = 14
+    d.rounded_rectangle((20, 32, 172, 160), radius=20, outline=WHITE, width=w)
+    d.line([(124, 36), (124, 156)], fill=WHITE, width=w)
+    return im
+
+
+def render_rail_pages() -> Image.Image:
+    """Stacked page thumbnails icon (two overlapping rounded page rectangles)."""
+    im = Image.new("RGBA", (S, S), CLEAR)
+    d = ImageDraw.Draw(im)
+    w = 14
+    # Front page rectangle
+    d.rounded_rectangle((26, 44, 132, 168), radius=14, outline=WHITE, width=w)
+    # Back page peeking top-right
+    draw_thick_line(d, [(64, 42), (64, 24), (162, 24), (162, 136), (138, 136)], w)
+    return im
+
+
+def render_rail_outline() -> Image.Image:
+    """Hierarchical outline / table-of-contents icon (indented horizontal lines)."""
+    im = Image.new("RGBA", (S, S), CLEAR)
+    d = ImageDraw.Draw(im)
+    w = 15
+    draw_thick_line(d, [(28, 42), (164, 42)], w)
+    draw_thick_line(d, [(54, 78), (164, 78)], w)
+    draw_thick_line(d, [(54, 114), (144, 114)], w)
+    draw_thick_line(d, [(28, 150), (164, 150)], w)
+    return im
+
+
+def render_rail_bookmarks() -> Image.Image:
+    """Classic Vivaldi bookmark ribbon icon with notched bottom."""
+    im = Image.new("RGBA", (S, S), CLEAR)
+    d = ImageDraw.Draw(im)
+    w = 14
+    draw_thick_line(
+        d,
+        [(46, 26), (146, 26), (146, 166), (96, 128), (46, 166), (46, 26)],
+        w,
+    )
+    return im
+
+
+def render_rail_annotations() -> Image.Image:
+    """Note / speech-comment card icon."""
+    im = Image.new("RGBA", (S, S), CLEAR)
+    d = ImageDraw.Draw(im)
+    w = 14
+    # Speech bubble outline with bottom-left tail
+    draw_thick_line(
+        d,
+        [
+            (38, 32),
+            (154, 32),
+            (166, 44),
+            (166, 124),
+            (154, 136),
+            (84, 136),
+            (46, 166),
+            (54, 136),
+            (38, 136),
+            (26, 124),
+            (26, 44),
+            (38, 32),
+        ],
+        w,
+    )
+    draw_thick_line(d, [(58, 70), (134, 70)], 12)
+    draw_thick_line(d, [(58, 102), (114, 102)], 12)
+    return im
+
+
+def render_close_x() -> Image.Image:
+    """Clean thin X close icon for sidebar drawer headers."""
+    im = Image.new("RGBA", (S, S), CLEAR)
+    d = ImageDraw.Draw(im)
+    w = 14
+    draw_thick_line(d, [(44, 44), (148, 148)], w)
+    draw_thick_line(d, [(148, 44), (44, 148)], w)
     return im
 
 
@@ -150,7 +254,15 @@ def render_book() -> Image.Image:
 
 def main() -> None:
     specs = [
-        ("triangle-down", render_triangle_down(), (32, 24)),
+        ("triangle-down", render_triangle_down(), (64, 48)),
+        ("chevron-down", render_chevron_down(), (48, 48)),
+        ("sidebar-left", render_sidebar_left(), (48, 48)),
+        ("sidebar-right", render_sidebar_right(), (48, 48)),
+        ("rail-pages", render_rail_pages(), (48, 48)),
+        ("rail-outline", render_rail_outline(), (48, 48)),
+        ("rail-bookmarks", render_rail_bookmarks(), (48, 48)),
+        ("rail-annotations", render_rail_annotations(), (48, 48)),
+        ("close-x", render_close_x(), (48, 48)),
         ("home", render_home(), (48, 48)),
         ("search", render_search(), (48, 48)),
         ("palette", render_palette(), (48, 48)),

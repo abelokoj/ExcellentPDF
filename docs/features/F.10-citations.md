@@ -1,6 +1,6 @@
 # Ph5: 36/45 | F.10: Citations
 
-**Tag:** F.10; **Priority:** P1; **Phase:** 5; **Needs:** F.7; **Code:** `excellent-features::citations`
+**Tag:** F.10; **Priority:** P1; **Phase:** 5; **Needs:** F.7; **Code:** `ecclesia-features::citations`
 **Plan:** §27 entry `#### Ph5: 36/45 | F.10`.
 
 ## Problem
@@ -27,7 +27,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::citations::{CitationEntry, EntryKind, AuthorName, KeyFormat, CitationStyle, parse_bibtex, export_bibtex, parse_ris, export_ris, parse_csl_json, export_csl_json, format_citation, generate_citation_key, assign_unique_keys, detect_references_in_text}`.
+- Model: `ecclesia-features::citations::{CitationEntry, EntryKind, AuthorName, KeyFormat, CitationStyle, parse_bibtex, export_bibtex, parse_ris, export_ris, parse_csl_json, export_csl_json, format_citation, generate_citation_key, assign_unique_keys, detect_references_in_text}`.
 
 ## Acceptance tests
 

@@ -1,0 +1,15 @@
+[package]
+name = "ecclesia-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "App data in SQLite: library, FTS5 index, notes, settings and migrations"
+
+[lints]
+workspace = true
+
+[dependencies]
+rusqlite.workspace = true
+serde_json.workspace = true

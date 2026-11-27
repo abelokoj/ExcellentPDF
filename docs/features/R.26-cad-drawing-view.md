@@ -1,6 +1,6 @@
 # Ph7: 2/32 | R.26: CAD drawing view
 
-**Tag:** R.26; **Priority:** P1; **Phase:** 7; **Needs:** R.14; **Code:** `excellent-core::cad`
+**Tag:** R.26; **Priority:** P1; **Phase:** 7; **Needs:** R.14; **Code:** `ecclesia-core::cad`
 **Plan:** §27 entry `#### Ph7: 2/32 | R.26`.
 
 ## Problem

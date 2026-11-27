@@ -1,8 +1,8 @@
 # Ph3: 48/49 | O.25: Attachments
 
-**Tag:** O.25; **Priority:** P1; **Phase:** 3; **Needs:** K.3, K.23; **Code:** `excellent-features::attachments`
-(safe names, what may open), `excellent-mupdf` (`Document::attachments`, `attachment_contents`,
-`Edit::add_attachment`, the shim), `excellent-core::edit` (`Change::AddAttachment`), `excellent-app::attachments`
+**Tag:** O.25; **Priority:** P1; **Phase:** 3; **Needs:** K.3, K.23; **Code:** `ecclesia-features::attachments`
+(safe names, what may open), `ecclesia-mupdf` (`Document::attachments`, `attachment_contents`,
+`Edit::add_attachment`, the shim), `ecclesia-core::edit` (`Change::AddAttachment`), `ecclesia-app::attachments`
 (the dialog); MuPDF patch `0095`
 **Plan:** §14.2 and §27 entry `#### Ph3: 48/49 | O.25`.
 

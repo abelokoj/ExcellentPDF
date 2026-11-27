@@ -1,6 +1,6 @@
 # Ph5: 35/45 | F.9: Folder watching
 
-**Tag:** F.9; **Priority:** P1; **Phase:** 5; **Needs:** F.6; **Code:** `excellent-features::library::watch`, `excellent-store::library`
+**Tag:** F.9; **Priority:** P1; **Phase:** 5; **Needs:** F.6; **Code:** `ecclesia-features::library::watch`, `ecclesia-store::library`
 **Plan:** §27 entry `#### Ph5: 35/45 | F.9`.
 
 ## Problem
@@ -9,7 +9,7 @@ Manually re-importing PDFs saved into download or reference folders is tedious a
 
 ## User story
 
-As a reader, I want ExcellentPDF to watch chosen folders and automatically add, update, and remove library entries as files change on disk, so that my library stays current.
+As a reader, I want EcclesiaPDF to watch chosen folders and automatically add, update, and remove library entries as files change on disk, so that my library stays current.
 
 ## UI sketch
 
@@ -27,7 +27,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::library::watch::{diff_folder, reconcile_folder, reconcile_all, FolderWatcher, WatchEvent, ReconcileReport}`.
+- Model: `ecclesia-features::library::watch::{diff_folder, reconcile_folder, reconcile_all, FolderWatcher, WatchEvent, ReconcileReport}`.
 - Storage: `watched_folder` table in `0008_library_fts_notes.sql`.
 
 ## Acceptance tests

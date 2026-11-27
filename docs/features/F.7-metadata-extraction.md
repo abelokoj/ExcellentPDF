@@ -1,6 +1,6 @@
 # Ph5: 33/45 | F.7: Metadata extraction
 
-**Tag:** F.7; **Priority:** P1; **Phase:** 5; **Needs:** F.6; **Code:** `excellent-features::library::metadata`
+**Tag:** F.7; **Priority:** P1; **Phase:** 5; **Needs:** F.6; **Code:** `ecclesia-features::library::metadata`
 **Plan:** §27 entry `#### Ph5: 33/45 | F.7`.
 
 ## Problem
@@ -9,7 +9,7 @@ Academic PDFs often have unhelpful filenames and missing `/Info` dictionaries ev
 
 ## User story
 
-As a researcher, I want ExcellentPDF to extract title, authors, year, DOI, arXiv ID, and ISBN from PDF info, XMP, and opening pages—and optionally enrich them online with my consent—so that my library has clean bibliographic metadata.
+As a researcher, I want EcclesiaPDF to extract title, authors, year, DOI, arXiv ID, and ISBN from PDF info, XMP, and opening pages—and optionally enrich them online with my consent—so that my library has clean bibliographic metadata.
 
 ## UI sketch
 
@@ -27,7 +27,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::library::metadata::{extract_from_pdf, extract_doi, extract_arxiv_id, extract_isbn, fetch_crossref_metadata, fetch_arxiv_metadata, fetch_openlibrary_metadata, OnlineConsent}`.
+- Model: `ecclesia-features::library::metadata::{extract_from_pdf, extract_doi, extract_arxiv_id, extract_isbn, fetch_crossref_metadata, fetch_arxiv_metadata, fetch_openlibrary_metadata, OnlineConsent}`.
 - Network: strictly gated behind `OnlineConsent::Allowed`.
 
 ## Acceptance tests

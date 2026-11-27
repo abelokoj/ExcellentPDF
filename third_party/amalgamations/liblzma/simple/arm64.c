@@ -70,7 +70,7 @@ arm64_code(void *simple lzma_attribute((__unused__)),
 			//
 			// Using less than the full +/-4 GiB range reduces
 			// false positives on non-code sections of the input
-			// while being excellent for executables up to 512 MiB.
+			// while being ecclesia for executables up to 512 MiB.
 			// The positive effect of ADRP conversion is smaller
 			// than that of BL but it also doesn't hurt so much in
 			// non-code sections of input because, with +/-512 MiB

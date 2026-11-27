@@ -1,6 +1,6 @@
 # Ph1: 46/60 | W.2: Create a workspace
 
-**Tag:** W.2; **Priority:** P0; **Phase:** 1; **Needs:** W.1; **Code:** `excellent-app::workspaces` (`view`), `excellent-store::workspaces`, `excellent-app::session`
+**Tag:** W.2; **Priority:** P0; **Phase:** 1; **Needs:** W.1; **Code:** `ecclesia-app::workspaces` (`view`), `ecclesia-store::workspaces`, `ecclesia-app::session`
 **Plan:** §27 entry `Ph1: 46/60 | W.2` and §11.16.
 
 ## Problem

@@ -1,6 +1,6 @@
 # Ph4: 10/44 | H.17: Eyedropper
 
-**Tag:** H.17; **Priority:** P1; **Phase:** 4; **Needs:** H.2; **Code:** `excellent-features::ink::eyedropper`
+**Tag:** H.17; **Priority:** P1; **Phase:** 4; **Needs:** H.2; **Code:** `ecclesia-features::ink::eyedropper`
 **Plan:** §8.4 and §27 entry `#### Ph4: 10/44 | H.17`.
 
 ## Problem
@@ -27,7 +27,7 @@ Write and Annotate.
 
 ## Design
 
-- **Model (`excellent-features::ink::eyedropper`):**
+- **Model (`ecclesia-features::ink::eyedropper`):**
   - `SampledColor` (`r, g, b`, `#rrggbb`, `0xRRGGBB`, normalized `[f32; 3]`, WCAG `luminance`).
   - `PixelBuffer` handles 3-channel RGB, premultiplied RGBA (MuPDF), and straight RGBA with arbitrary row strides.
   - `sample_pixel` and `sample_pixmap` sample exact 1×1 (`SampleArea::SinglePixel`) or averaged 3×3 (`SampleArea::Average3x3`) pixels.

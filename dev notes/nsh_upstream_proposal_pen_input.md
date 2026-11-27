@@ -5,8 +5,8 @@ Task T9 of the plan (§7.3, §22). A draft to file with NSH as an issue or a des
 
 ## Why
 
-ExcellentPDF is a PDF reader and notebook with pen ink. Its page view is one native component,
-`excellent.page-canvas`. On Windows it has to be an own-window component (`NativeComponent::window`) today, for two
+EcclesiaPDF is a PDF reader and notebook with pen ink. Its page view is one native component,
+`ecclesia.page-canvas`. On Windows it has to be an own-window component (`NativeComponent::window`) today, for two
 reasons:
 
 1. **Pen data.** NSH's pointer events say *that* a pen is down (`PointerType::Pen`), but not its pressure, tilt,
@@ -73,8 +73,8 @@ Sources per platform:
 | iOS / iPadOS | `UITouch.force / maximumPossibleForce`, `altitudeAngle`, `azimuthAngle`, `rollAngle` | `coalescedTouches(for:)`, `predictedTouches(for:)` |
 | Android | `MotionEvent.AXIS_PRESSURE`, `AXIS_TILT`, `AXIS_ORIENTATION`, `TOOL_TYPE_ERASER` | `getHistorical*` |
 
-ExcellentPDF has a tested Windows normalization of this data (clamping, the validity mask, history order) that it can
-offer as the starting point: `crates/excellent-canvas-win/src/pointer.rs`.
+EcclesiaPDF has a tested Windows normalization of this data (clamping, the validity mask, history order) that it can
+offer as the starting point: `crates/ecclesia-canvas-win/src/pointer.rs`.
 
 ### B. Pointer input for drawn components
 
@@ -105,7 +105,7 @@ Let an own-window component be layered like a web view, so NSH content can be dr
 - A component's own swap chain and its delegated ink trail (`IDCompositionDelegatedInkTrail`, Windows 11 24H2) keep
   working: the trail is created for the component's swap chain and lives in its visual.
 
-With C, ExcellentPDF drops the palette workaround and draws NSH popovers, menus and the selection toolbar over the
+With C, EcclesiaPDF drops the palette workaround and draws NSH popovers, menus and the selection toolbar over the
 page.
 
 ## What we ask, in order
@@ -113,12 +113,12 @@ page.
 1. A: pen state and coalesced samples. Small, useful to every app with a pen, and the Windows data is already read in
    `native/web.rs`.
 2. C: composition-visual components with raw pointer messages. Fixes overlays for every embedded native view.
-3. B: pointer input for drawn components. With C in place, ExcellentPDF does not need it, but other apps drawing ink
+3. B: pointer input for drawn components. With C in place, EcclesiaPDF does not need it, but other apps drawing ink
    with NSH's Direct2D context do.
 
-ExcellentPDF can contribute the Windows parts of A and C, with tests, if NSH agrees with the shape.
+EcclesiaPDF can contribute the Windows parts of A and C, with tests, if NSH agrees with the shape.
 
-## What ExcellentPDF does until then
+## What EcclesiaPDF does until then
 
 It keeps its own child window, reads `WM_POINTER*` with `GetPointerPenInfo` and `GetPointerPenInfoHistory`, and
 presents through its own DirectComposition target with the ink trail (plan K.8, "Built (T8)"). It hides the canvas while

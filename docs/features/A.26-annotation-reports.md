@@ -1,6 +1,6 @@
 # Ph5: 13/45 | A.26: Annotation reports
 
-**Tag:** A.26; **Priority:** P2; **Phase:** 5; **Needs:** A.14; **Code:** `excellent-features::annotate::report`
+**Tag:** A.26; **Priority:** P2; **Phase:** 5; **Needs:** A.14; **Code:** `ecclesia-features::annotate::report`
 **Plan:** §27 entry `#### Ph5: 13/45 | A.26`.
 
 ## Problem
@@ -23,12 +23,12 @@ Read, Annotate, Study.
 
 - Startup: zero startup cost.
 - Budgets touched: page crops render on demand via `DisplayList::render_area` at background priority.
-- Installer size: 0 bytes added (uses `excellent_mupdf::html_to_pdf` and `base64`).
+- Installer size: 0 bytes added (uses `ecclesia_mupdf::html_to_pdf` and `base64`).
 
 ## Design
 
-- Model: `excellent-features::annotate::report::{ReportFormat, ReportConfig, ReportItem, build_report_items, attach_page_crops, render_annotation_crop, export_markdown, export_html, export_csv, export_pdf_summary}`.
+- Model: `ecclesia-features::annotate::report::{ReportFormat, ReportConfig, ReportItem, build_report_items, attach_page_crops, render_annotation_crop, export_markdown, export_html, export_csv, export_pdf_summary}`.
 
 ## Acceptance tests
 
-- [x] `generates_markdown_html_csv_and_pdf_reports_with_deep_links`: Verifies Markdown deep links (`excellentpdf://open?...`), HTML with embedded PNG crop, formula-safe CSV, and valid compiled PDF summary.
+- [x] `generates_markdown_html_csv_and_pdf_reports_with_deep_links`: Verifies Markdown deep links (`ecclesiapdf://open?...`), HTML with embedded PNG crop, formula-safe CSV, and valid compiled PDF summary.

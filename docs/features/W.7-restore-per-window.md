@@ -1,6 +1,6 @@
 # Ph1: 51/60 | W.7: Restore per window
 
-**Tag:** W.7; **Priority:** P0; **Phase:** 1; **Needs:** R.9; **Code:** `excellent-app::workspaces` (`view`), `excellent-store::workspaces`, `excellent-app::session`
+**Tag:** W.7; **Priority:** P0; **Phase:** 1; **Needs:** R.9; **Code:** `ecclesia-app::workspaces` (`view`), `ecclesia-store::workspaces`, `ecclesia-app::session`
 **Plan:** §27 entry `Ph1: 51/60 | W.7` and §11.16.
 
 ## Problem

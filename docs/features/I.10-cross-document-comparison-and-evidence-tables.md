@@ -1,6 +1,6 @@
 # Ph6: 11/13 | I.10: Cross-document comparison and evidence tables
 
-**Tag:** I.10; **Priority:** P1; **Phase:** 6; **Needs:** I.9; **Code:** `crates/excellent-features/src/ai/extract.rs`
+**Tag:** I.10; **Priority:** P1; **Phase:** 6; **Needs:** I.9; **Code:** `crates/ecclesia-features/src/ai/extract.rs`
 **Plan:** §27 entry `#### Ph6: 11/13 | I.10`.
 
 ## Problem

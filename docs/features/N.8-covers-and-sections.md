@@ -1,6 +1,6 @@
 # Ph4: 21/44 | N.8: Covers and sections
 
-**Tag:** N.8; **Priority:** P1; **Phase:** 4; **Needs:** N.4, B.1; **Code:** `excellent-features::notebook::sections`
+**Tag:** N.8; **Priority:** P1; **Phase:** 4; **Needs:** N.4, B.1; **Code:** `ecclesia-features::notebook::sections`
 **Plan:** §27 entry `#### Ph4: 21/44 | N.8`.
 
 ## Problem

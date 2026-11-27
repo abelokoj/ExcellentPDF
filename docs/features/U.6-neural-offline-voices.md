@@ -1,6 +1,6 @@
 # Ph5: 45/45 | U.6: Neural offline voices
 
-**Tag:** U.6; **Priority:** P1; **Phase:** 5; **Needs:** U.5, K.21; **Code:** `excellent-features::neural_voices`
+**Tag:** U.6; **Priority:** P1; **Phase:** 5; **Needs:** U.5, K.21; **Code:** `ecclesia-features::neural_voices`
 **Plan:** §27 entry `#### Ph5: 45/45 | U.6: Neural offline voices`.
 
 ## Problem
@@ -27,9 +27,9 @@ All modes (Read Aloud `U.5`).
 
 ## Design
 
-- **Model (`excellent-features::neural_voices`):**
+- **Model (`ecclesia-features::neural_voices`):**
   - `VoicePackCatalog` + `VoicePackManifest` + `check_voice_license`.
-  - `PiperVoiceSynthesizer<B: NeuralAcousticBackend>` implements `excellent_platform::speech::SpeechSynth`, emitting `SpeechEvent::WordBoundary` events synchronized to synthesized PCM timings.
+  - `PiperVoiceSynthesizer<B: NeuralAcousticBackend>` implements `ecclesia_platform::speech::SpeechSynth`, emitting `SpeechEvent::WordBoundary` events synchronized to synthesized PCM timings.
 
 ## Acceptance tests
 

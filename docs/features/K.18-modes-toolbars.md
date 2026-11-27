@@ -1,7 +1,7 @@
 # Ph1: 8/60 | K.18: Modes and toolbars
 
-**Tag:** K.18; **Priority:** P0; **Phase:** 1; **Needs:** K.16, K.17; **Code:** `excellent-features::modes` (model),
-`excellent-app::modes` (view)
+**Tag:** K.18; **Priority:** P0; **Phase:** 1; **Needs:** K.16, K.17; **Code:** `ecclesia-features::modes` (model),
+`ecclesia-app::modes` (view)
 **Plan:** §27 entry `Ph1: 8/60 | K.18`, §10.2 (modes), §2.1 rule 3.
 
 ## Problem
@@ -52,12 +52,12 @@ This is the modes feature. Default toolbars:
 
 ## Design
 
-- **Model** (`excellent-features::modes`, pure Rust): `Mode` (`id`, `from_id`, `step` among the modes offered),
+- **Model** (`ecclesia-features::modes`, pure Rust): `Mode` (`id`, `from_id`, `step` among the modes offered),
   `after_pen_contact`, `Toolbar` (items by command name: `parse`, `to_text`, `add`, `add_separator`, `remove`,
   `move_item`; unknown names dropped, no duplicate command, no separator at an end or twice), `Preset` (JSON:
-  `{"excellentpdf_toolbars": 1, "toolbars": {"read": ["view.zoom_in", "|", …]}}`, `to_json`, `from_json` with
+  `{"ecclesiapdf_toolbars": 1, "toolbars": {"read": ["view.zoom_in", "|", …]}}`, `to_json`, `from_json` with
   `PresetError::{NotJson, NotPreset, Newer}`; unknown commands are counted and left out).
-- **View** (`excellent-app::modes`): `Modes` (the settings, the dialog's state), `mode_bar`, `customize_dialog`. The
+- **View** (`ecclesia-app::modes`): `Modes` (the settings, the dialog's state), `mode_bar`, `customize_dialog`. The
   tab strip reads the mode from the context for its accent.
 - **Pen:** the Windows canvas sends `penContact` on a pen's first touch; the pane hands it to `Modes::pen_contact`,
   which switches to Write when the setting is on and Write is offered. Ink still draws in any mode until H.1 gates it.

@@ -1,6 +1,6 @@
 # Ph5: 4/45 | R.27: SyncTeX forward and inverse search
 
-**Tag:** R.27; **Priority:** P1 (parity); **Phase:** 5; **Needs:** R.11; **Code:** `excellent-features::synctex`
+**Tag:** R.27; **Priority:** P1 (parity); **Phase:** 5; **Needs:** R.11; **Code:** `ecclesia-features::synctex`
 **Plan:** §27 entry `#### Ph5: 4/45 | R.27: SyncTeX forward and inverse search` and SumatraPDF `src/PdfSync.cpp`.
 
 ## Problem
@@ -28,7 +28,7 @@ All reading/study modes whenever a companion `.synctex` or `.synctex.gz` file ex
 
 ## Design
 
-- **Model (`excellent-features::synctex`):**
+- **Model (`ecclesia-features::synctex`):**
   - `SyncTexIndex` parses plain `.synctex` and gzipped `.synctex.gz` records, scales SyncTeX coordinates (`Unit`, `Magnification`, offsets) to PDF points, and tracks file `mtime` via `reload_if_changed`.
   - Rejects shell/CLI argument-injection characters (`"`, `<`, `>`, `|`, `\r`, `\n`, `\t`) in SyncTeX input paths (GHSA-jf4v-rw66-j4w2 defense ported from SumatraPDF `PdfSync.cpp`).
 

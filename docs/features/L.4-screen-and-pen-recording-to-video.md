@@ -1,6 +1,6 @@
 # Ph7: 5/32 | L.4: Screen and pen recording to video
 
-**Tag:** L.4; **Priority:** P2; **Phase:** 7; **Needs:** L.1; **Code:** `excellent-features::screencast`
+**Tag:** L.4; **Priority:** P2; **Phase:** 7; **Needs:** L.1; **Code:** `ecclesia-features::screencast`
 **Plan:** §27 entry `#### Ph7: 5/32 | L.4`.
 
 ## Problem

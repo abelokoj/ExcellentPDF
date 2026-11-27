@@ -1,7 +1,7 @@
 # Ph4: 1/44 | K.21: Pack manager
 
 **Tag:** K.21; **Priority:** P1; **Phase:** 4 (dictionaries need it), finished in Phase 5; **Needs:** K.20;
-**Code:** `crates/excellent-packs`
+**Code:** `crates/ecclesia-packs`
 **Plan:** §2.1 rule 2, D8, and §27 entry `#### Ph4: 1/44 | K.21`.
 
 ## Problem

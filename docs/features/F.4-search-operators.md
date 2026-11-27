@@ -1,6 +1,6 @@
 # Ph5: 30/45 | F.4: Search operators
 
-**Tag:** F.4; **Priority:** P1; **Phase:** 5; **Needs:** F.3; **Code:** `excellent-features::search::query`
+**Tag:** F.4; **Priority:** P1; **Phase:** 5; **Needs:** F.3; **Code:** `ecclesia-features::search::query`
 **Plan:** §27 entry `#### Ph5: 30/45 | F.4`.
 
 ## Problem
@@ -27,8 +27,8 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::search::query::{ParsedQuery, QueryExpr, QueryParseError, RegexPattern, PageFilter}`.
-- Storage: translates to `excellent_store::fts::SearchFilters` and FTS5 `MATCH` strings.
+- Model: `ecclesia-features::search::query::{ParsedQuery, QueryExpr, QueryParseError, RegexPattern, PageFilter}`.
+- Storage: translates to `ecclesia_store::fts::SearchFilters` and FTS5 `MATCH` strings.
 
 ## Acceptance tests
 

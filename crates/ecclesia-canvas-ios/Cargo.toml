@@ -1,0 +1,17 @@
+[package]
+name = "ecclesia-canvas-ios"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "iPadOS page canvas: UIView with UITouch force, altitude and azimuth"
+
+[dependencies]
+ecclesia-canvas.workspace = true
+ecclesia-core.workspace = true
+ecclesia-ink.workspace = true
+ecclesia-mupdf.workspace = true
+
+[lints]
+workspace = true

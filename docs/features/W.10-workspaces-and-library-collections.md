@@ -1,6 +1,6 @@
 # Ph5: 11/45 | W.10: Workspaces and library collections
 
-**Tag:** W.10; **Priority:** P1; **Phase:** 5; **Needs:** F.6; **Code:** `excellent-features::workspaces_rules`, `excellent-store::library`, `excellent-store::workspace`
+**Tag:** W.10; **Priority:** P1; **Phase:** 5; **Needs:** F.6; **Code:** `ecclesia-features::workspaces_rules`, `ecclesia-store::library`, `ecclesia-store::workspace`
 **Plan:** §27 entry `#### Ph5: 11/45 | W.10`.
 
 ## Problem
@@ -28,7 +28,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::workspaces_rules::{open_collection_as_workspace, save_workspace_as_collection}`.
+- Model: `ecclesia-features::workspaces_rules::{open_collection_as_workspace, save_workspace_as_collection}`.
 - Storage: `library_collection_item.position` and `workspace_tab.position` preserve exact file order in both directions.
 
 ## Acceptance tests

@@ -1,6 +1,6 @@
 # Ph9: 3/13 | G.15: Quick polls
 
-**Tag:** G.15; **Priority:** P2; **Phase:** 9; **Needs:** G.14; **Code:** `excellent-features::classroom::poll`
+**Tag:** G.15; **Priority:** P2; **Phase:** 9; **Needs:** G.14; **Code:** `ecclesia-features::classroom::poll`
 **Plan:** §27 entry `#### Ph9: 3/13 | G.15`.
 
 ## Problem
@@ -28,7 +28,7 @@ Present, Teach.
 
 ## Design
 
-- Model: `excellent-features::classroom::poll::{QuickPoll, PollVote, PollTally, PollHistogram, VotePrivacy, PollStatus}`.
+- Model: `ecclesia-features::classroom::poll::{QuickPoll, PollVote, PollTally, PollHistogram, VotePrivacy, PollStatus}`.
 - Privacy invariant: `VotePrivacy::Anonymous` is default and strips voter names so `PollHistogram::named_voters` is strictly `None`.
 
 ## Acceptance tests

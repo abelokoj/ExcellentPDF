@@ -138,7 +138,7 @@
  *   subdivided (i.e., that occupy more than one quantum volume
  *   in color space) all have approximately the same population,
  *   and (2) all large vboxes have no significant population.
- *   If these conditions are met, the quantization will be excellent.
+ *   If these conditions are met, the quantization will be ecclesia.
  *
  *   Once the subdivision has been made, the colormap is generated,
  *   with one color for each vbox and using the average color in the vbox.

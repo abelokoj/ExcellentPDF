@@ -1,7 +1,7 @@
 # Ph3: 28/49 | A.15: Annotation recovery
 
-**Tag:** A.15; **Priority:** P0 (parity); **Phase:** 3; **Needs:** K.15; **Code:** `excellent-core::document`,
-`excellent-core::oplog`, `excellent-app::editing`, `excellent-app::recovery_bar`
+**Tag:** A.15; **Priority:** P0 (parity); **Phase:** 3; **Needs:** K.15; **Code:** `ecclesia-core::document`,
+`ecclesia-core::oplog`, `ecclesia-app::editing`, `ecclesia-app::recovery_bar`
 **Plan:** §27 entry `#### Ph3: 28/49 | A.15`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

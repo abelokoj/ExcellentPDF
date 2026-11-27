@@ -1,7 +1,7 @@
 # Ph3: 36/49 | A.24: XFDF and FDF import and export
 
-**Tag:** A.24; **Priority:** P1; **Phase:** 3; **Needs:** K.14; **Code:** `excellent-features::annotate::xfdf`,
-`excellent-app::annotate::exchange`, `excellent-core::annot::fdf_annotations`, `excellent-mupdf` (`page_transform`,
+**Tag:** A.24; **Priority:** P1; **Phase:** 3; **Needs:** K.14; **Code:** `ecclesia-features::annotate::xfdf`,
+`ecclesia-app::annotate::exchange`, `ecclesia-core::annot::fdf_annotations`, `ecclesia-mupdf` (`page_transform`,
 `to_fdf`, `with_fdf_annotations`), the shim's `ex_page_transform`, `ex_fdf_write` and `ex_fdf_read`
 **Plan:** §27 entry `#### Ph3: 36/49 | A.24`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
@@ -41,7 +41,7 @@ small dependency (`quick-xml`, MIT).
   id: an annotation already here is updated (deleted and created when it moved page), a new one added, a locked one
   or one on a missing page left out, one that is the same to a hundredth of a point counted and left alone. Creates
   come before the replies and group members that name them. What only this app keeps (tags, anchor, category,
-  layer) rides in attributes of our own namespace (`urn:excellentpdf:xfdf`), which other readers pass over.
+  layer) rides in attributes of our own namespace (`urn:ecclesiapdf:xfdf`), which other readers pass over.
 - **Engine:** the shim gives each page's PDF-to-page map, writes the PDF's annotations into an FDF file (each with
   `/Page`, replies' `/IRT` pointing at the copies), and reads an FDF's annotations onto a blank copy of the
   document's pages, so they are read with the same code as the document's own.

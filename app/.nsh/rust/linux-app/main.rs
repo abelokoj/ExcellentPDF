@@ -2,18 +2,18 @@
 
 fn main() -> std::process::ExitCode {
     #[cfg(target_os = "linux")]
-    nsh_platform_linux::set_ui_sets(vec![nsh_base::registry(), set_app_excellent_app()]);
+    nsh_platform_linux::set_ui_sets(vec![nsh_base::registry(), set_app_ecclesia_app()]);
     #[cfg(target_os = "linux")]
     nsh_platform_linux::set_components(app_components);
     nsh_linux_app::main()
 }
 
-/// The UI set of the crate excellent-app: the entry `#[native_module("…")]` makes in it.
+/// The UI set of the crate ecclesia-app: the entry `#[native_module("…")]` makes in it.
 #[cfg(target_os = "linux")]
-fn set_app_excellent_app() -> nsh_core::element::Registry {
+fn set_app_ecclesia_app() -> nsh_core::element::Registry {
     #[allow(unused_imports)]
-    use app_excellent_app::*;
-    __nsh_native_module() // the crate excellent-app (nsh.json "rust")
+    use app_ecclesia_app::*;
+    __nsh_native_module() // the crate ecclesia-app (nsh.json "rust")
 }
 
 // Without the entry: nsh's stand-in, which fails the build saying what to add.
@@ -26,8 +26,8 @@ use nsh_core::element::__private::no_native_module as __nsh_native_module;
 fn app_components(__nsh_components: &nsh_platform_linux::Components) {
     {
         #[allow(unused_imports)]
-        use app_excellent_app::*;
-        __nsh_native_components_linux(__nsh_components); // the crate excellent-app (nsh.json "rust")
+        use app_ecclesia_app::*;
+        __nsh_native_components_linux(__nsh_components); // the crate ecclesia-app (nsh.json "rust")
     }
 }
 

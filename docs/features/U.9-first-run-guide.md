@@ -1,7 +1,7 @@
 # Ph1: 60/60 | U.9: First-run guide and tips
 
-**Tag:** U.9; **Priority:** P1; **Phase:** 1; **Needs:** K.18; **Code:** `excellent-features::onboarding` (model),
-`excellent-app::onboarding` (view)
+**Tag:** U.9; **Priority:** P1; **Phase:** 1; **Needs:** K.18; **Code:** `ecclesia-features::onboarding` (model),
+`ecclesia-app::onboarding` (view)
 **Plan:** §27.18 entry `Ph1: 60/60 | U.9`.
 
 ## Problem
@@ -44,11 +44,11 @@ Every mode; it lies over the window, not in a mode's tools.
 
 ## Design
 
-- **Model** (`excellent-features::onboarding`, pure Rust): `Step` (Open, Read, Palette) and `Guide` (where the reader
+- **Model** (`ecclesia-features::onboarding`, pure Rust): `Step` (Open, Read, Palette) and `Guide` (where the reader
   is: `next`, `back`, `is_first`, `is_last`); `opens_at_start(seen, launch_files)`, the rule that keeps the guide off
   any file the launch opens; `Tip` and `SeenTips` (the seen list as the settings file keeps it: ids separated by
   commas, unknown ids dropped).
-- **View** (`excellent-app::onboarding`): `Onboarding` (signals for the guide and the tip, and the settings), the
+- **View** (`ecclesia-app::onboarding`): `Onboarding` (signals for the guide and the tip, and the settings), the
   guide dialog, the tip strip. Only the desktop binary offers them (`offer_first_run_guide`), so the shell's headless
   tests never meet a dialog they didn't open.
 - **Files from the command line:** a start with files doesn't open the guide and doesn't count it seen; it waits for

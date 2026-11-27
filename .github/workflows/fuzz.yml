@@ -34,7 +34,7 @@ jobs:
         with:
           key: asan
       # --target keeps the sanitizer off build scripts.
-      - run: cargo +nightly test -p excellent-mupdf -p excellent-core --target x86_64-unknown-linux-gnu --locked
+      - run: cargo +nightly test -p ecclesia-mupdf -p ecclesia-core --target x86_64-unknown-linux-gnu --locked
 
   fuzz:
     name: fuzz open_render

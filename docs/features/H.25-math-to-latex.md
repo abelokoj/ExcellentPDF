@@ -1,6 +1,6 @@
 # Ph6: 2/13 | H.25: Math to LaTeX
 
-**Tag:** H.25; **Priority:** P1; **Phase:** 6; **Needs:** H.6, K.21; **Code:** `crates/excellent-features/src/ai/math.rs`
+**Tag:** H.25; **Priority:** P1; **Phase:** 6; **Needs:** H.6, K.21; **Code:** `crates/ecclesia-features/src/ai/math.rs`
 **Plan:** §27 entry `#### Ph6: 2/13 | H.25`.
 
 ## Problem

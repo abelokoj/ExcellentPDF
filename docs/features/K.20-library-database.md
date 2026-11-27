@@ -1,7 +1,7 @@
 # Ph1: 10/60 | K.20: Library database
 
-**Tag:** K.20; **Priority:** P0; **Phase:** 1; **Needs:** K.1; **Code:** `crates/excellent-store` (`store`,
-`migrations`, `workspace`), `excellent-app::library`, `excellent-app::settings::folder`
+**Tag:** K.20; **Priority:** P0; **Phase:** 1; **Needs:** K.1; **Code:** `crates/ecclesia-store` (`store`,
+`migrations`, `workspace`), `ecclesia-app::library`, `ecclesia-app::settings::folder`
 **Plan:** §27 entry `Ph1: 10/60 | K.20`, §11.16 (workspace storage), decision D7.
 
 ## Problem

@@ -1,6 +1,6 @@
 # Ph5: 8/45 | B.11: Import and export
 
-**Tag:** B.11; **Priority:** P1; **Phase:** 5; **Needs:** B.1; **Code:** `excellent-features::outline_extra::io`
+**Tag:** B.11; **Priority:** P1; **Phase:** 5; **Needs:** B.1; **Code:** `ecclesia-features::outline_extra::io`
 **Plan:** §27 entry `#### Ph5: 8/45 | B.11: Import and export`.
 
 ## Problem
@@ -26,7 +26,7 @@ All modes.
 
 ## Design
 
-- **Model (`excellent-features::outline_extra::io`):**
+- **Model (`ecclesia-features::outline_extra::io`):**
   - `export_indented_text` / `import_indented_text`
   - `export_json` / `import_json` (preserves bold/italic/color styles and open flags)
   - `export_pdftk` / `import_pdftk` (`BookmarkBegin`, `BookmarkTitle`, `BookmarkLevel`, 1-based `BookmarkPageNumber`)

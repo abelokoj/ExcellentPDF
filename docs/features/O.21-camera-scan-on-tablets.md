@@ -1,6 +1,6 @@
 # Ph8: 3/3 | O.21: Camera scan on tablets
 
-**Tag:** O.21; **Priority:** P2; **Phase:** 8; **Needs:** O.9, O.4; **Code:** `excellent-features::camera_scan` (`types`, `detect`, `warp`, `enhance`, `pdf_builder`), `android/.../CameraScanBridge.kt`
+**Tag:** O.21; **Priority:** P2; **Phase:** 8; **Needs:** O.9, O.4; **Code:** `ecclesia-features::camera_scan` (`types`, `detect`, `warp`, `enhance`, `pdf_builder`), `android/.../CameraScanBridge.kt`
 **Plan:** §27 entry `#### Ph8: 3/3 | O.21`.
 
 ## Problem
@@ -24,14 +24,14 @@ Home / File import ("Scan from Camera") and Notebook insert.
 
 - Startup: zero startup cost; scanner modules load only when a scan session runs.
 - Budgets: integral-image (`SummedAreaTable`) local statistics run in `O(W * H)` per page; 8×8 DLT homography solve runs in microseconds.
-- Size: pure Rust implementation using existing `excellent-core` (`O.9`), `excellent-mupdf`, and `excellent-features::ocr` (`O.4`).
+- Size: pure Rust implementation using existing `ecclesia-core` (`O.9`), `ecclesia-mupdf`, and `ecclesia-features::ocr` (`O.4`).
 
 ## Design
 
 - **`detect`**: 3×3 Gaussian smoothing + Sobel gradient magnitude + adaptive Otsu thresholding + monotone-chain convex hull + area-preserving 4-corner polygon reduction (`detect_document_quads`).
 - **`warp`**: 8×8 Gaussian-elimination DLT projective homography solver (`compute_homography`) + bilinear-interpolated `perspective_warp` with `KeystoneTarget::{AutoAspect, A4Portrait, LetterPortrait, ExplicitPixels}`.
 - **`enhance`**: integral-image local illumination normalization (`DocumentColor`, `Whiteboard`, `Grayscale`) and Sauvola adaptive binarization (`BlackAndWhite`).
-- **`pdf_builder`**: `ScannedCaptureSession` and `build_scanned_pdf` assembling multi-page PDFs via `excellent_core::export_doc::images_to_pdf`, verifying with `excellent_mupdf::Document`, and adding invisible OCR text layers (`3 Tr`) via `excellent_features::ocr::ocr_pdf_bytes`.
+- **`pdf_builder`**: `ScannedCaptureSession` and `build_scanned_pdf` assembling multi-page PDFs via `ecclesia_core::export_doc::images_to_pdf`, verifying with `ecclesia_mupdf::Document`, and adding invisible OCR text layers (`3 Tr`) via `ecclesia_features::ocr::ocr_pdf_bytes`.
 
 ## Acceptance tests
 

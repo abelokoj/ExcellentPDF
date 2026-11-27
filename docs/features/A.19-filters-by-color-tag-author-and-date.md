@@ -1,8 +1,8 @@
 # Ph3: 32/49 | A.19: Filters by color, tag, author and date
 
-**Tag:** A.19; **Priority:** P1; **Phase:** 3; **Needs:** A.14, A.18; **Code:** `excellent-features::annotate::list`,
-`excellent-app::annotate::list`, `excellent-store::annotation_filters`, `excellent-core::document`
-(`hide_annotations`), `excellent-mupdf::Page::display_list_without`
+**Tag:** A.19; **Priority:** P1; **Phase:** 3; **Needs:** A.14, A.18; **Code:** `ecclesia-features::annotate::list`,
+`ecclesia-app::annotate::list`, `ecclesia-store::annotation_filters`, `ecclesia-core::document`
+(`hide_annotations`), `ecclesia-mupdf::Page::display_list_without`
 **Plan:** §27 entry `#### Ph3: 32/49 | A.19`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

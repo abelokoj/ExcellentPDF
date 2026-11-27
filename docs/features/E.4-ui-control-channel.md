@@ -1,6 +1,6 @@
 # Ph5: 44/45 | E.4: UI control channel
 
-**Tag:** E.4; **Priority:** P1; **Phase:** 5; **Needs:** E.2; **Code:** `excellent-core::tools::control`, `crates/excellent-cli/src/commands.rs` (`control`)
+**Tag:** E.4; **Priority:** P1; **Phase:** 5; **Needs:** E.2; **Code:** `ecclesia-core::tools::control`, `crates/ecclesia-cli/src/commands.rs` (`control`)
 **Plan:** §27 entry `#### Ph5: 44/45 | E.4` and Appendix C.3.1.
 
 ## Problem
@@ -13,12 +13,12 @@ As a developer or script author, I want an authenticated loopback control channe
 
 ## UI sketch
 
-- Opt-in loopback server (`excellent-cli control serve`) generating a random 128-bit `ControlToken` written to a user-only token file (`--token-file`).
-- CLI client (`excellent-cli control send|ping|state|open|goto|action`) reading the token file and sending NDJSON or length-prefixed commands.
+- Opt-in loopback server (`ecclesia-cli control serve`) generating a random 128-bit `ControlToken` written to a user-only token file (`--token-file`).
+- CLI client (`ecclesia-cli control send|ping|state|open|goto|action`) reading the token file and sending NDJSON or length-prefixed commands.
 
 ## Mode
 
-Core protocol (`excellent-core::tools::control`) and CLI host/client (`excellent-cli control`).
+Core protocol (`ecclesia-core::tools::control`) and CLI host/client (`ecclesia-cli control`).
 
 ## Speed and size impact
 

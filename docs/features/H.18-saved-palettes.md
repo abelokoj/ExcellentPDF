@@ -1,6 +1,6 @@
 # Ph4: 11/44 | H.18: Saved palettes
 
-**Tag:** H.18; **Priority:** P1; **Phase:** 4; **Needs:** A.3; **Code:** `excellent-features::ink::palettes`
+**Tag:** H.18; **Priority:** P1; **Phase:** 4; **Needs:** A.3; **Code:** `ecclesia-features::ink::palettes`
 **Plan:** §8.4 and §27 entry `#### Ph4: 11/44 | H.18`.
 
 ## Problem
@@ -27,7 +27,7 @@ Write and Annotate.
 
 ## Design
 
-- **Model (`excellent-features::ink::palettes`):**
+- **Model (`ecclesia-features::ink::palettes`):**
   - `Swatch` (accessible name + 24-bit RGB color) and `ColorPalette` (`id`, `name`, `PaletteOrigin::BuiltIn | User`, up to 32 swatches).
   - Four curated built-in palettes (`built_in_palettes`): **Pastel**, **Neon**, **Earth**, and **Color-blind-safe** (exact 8-color Okabe & Ito set matching A.3 / U.4).
   - `PaletteLibrary` manages built-in (read-only) and up to 32 user palettes, active selection, duplication, settings persistence (`to_settings_json` / `from_settings_json`), and portable versioned JSON import/export for both single palettes (`ColorPalette::export` / `import`) and multi-palette bundles (`export_user_bundle` / `import_bundle`), including shorthand hex arrays.

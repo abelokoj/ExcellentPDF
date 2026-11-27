@@ -1,7 +1,7 @@
 # Ph1: 29/60 | R.21: Auto-scroll
 
-**Tag:** R.21; **Priority:** P1; **Phase:** 1; **Needs:** K.7; **Code:** `excellent-features::read::autoscroll`,
-`excellent-canvas-win::canvas::reading`, `excellent-app::reading`
+**Tag:** R.21; **Priority:** P1; **Phase:** 1; **Needs:** K.7; **Code:** `ecclesia-features::read::autoscroll`,
+`ecclesia-canvas-win::canvas::reading`, `ecclesia-app::reading`
 **Plan:** §27 entry `Ph1: 29/60 | R.21`.
 
 ## Problem

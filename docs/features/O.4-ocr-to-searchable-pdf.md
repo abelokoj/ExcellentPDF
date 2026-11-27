@@ -1,6 +1,6 @@
 # Ph5: 40/45 | O.4: OCR to searchable PDF
 
-**Tag:** O.4; **Priority:** P1; **Phase:** 5; **Needs:** K.21, K.22; **Code:** `excellent-features::ocr` (`ocr/model.rs`, `ocr/engine.rs`, `ocr/pdf_layer.rs`)
+**Tag:** O.4; **Priority:** P1; **Phase:** 5; **Needs:** K.21, K.22; **Code:** `ecclesia-features::ocr` (`ocr/model.rs`, `ocr/engine.rs`, `ocr/pdf_layer.rs`)
 **Plan:** §27 entry `#### Ph5: 40/45 | O.4`.
 
 ## Problem
@@ -13,7 +13,7 @@ As a reader, I want to run OCR on scanned PDFs so that every word becomes search
 
 ## UI sketch
 
-- Triggered from the CLI (`excellent-cli ocr`), agent tools (`doc.ocr`), and background scanned-page detection (`detect_scanned_page`).
+- Triggered from the CLI (`ecclesia-cli ocr`), agent tools (`doc.ocr`), and background scanned-page detection (`detect_scanned_page`).
 - Language packs (`standard_language_packs`, `discover_installed_packs`) list installed `.traineddata` packs alongside downloadable `ocr-<lang>` pack IDs.
 
 ## Mode
@@ -22,7 +22,7 @@ All modes; runs offline via local Tesseract CLI or Windows `Windows.Media.Ocr`, 
 
 ## Speed and size impact
 
-- Startup: zero startup cost (`excellent-features::ocr` loads on demand).
+- Startup: zero startup cost (`ecclesia-features::ocr` loads on demand).
 - Installer size: core binary stays under budget; Tesseract `.traineddata` language files remain external packs.
 
 ## Design

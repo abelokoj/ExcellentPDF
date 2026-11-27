@@ -1,6 +1,6 @@
 # Ph5: 3/45 | R.24: Two-column auto-detect
 
-**Tag:** R.24; **Priority:** P2; **Phase:** 5; **Needs:** K.13; **Code:** `excellent-features::read::columns`
+**Tag:** R.24; **Priority:** P2; **Phase:** 5; **Needs:** K.13; **Code:** `ecclesia-features::read::columns`
 **Plan:** §27 entry `#### Ph5: 3/45 | R.24: Two-column auto-detect`.
 
 ## Problem
@@ -28,7 +28,7 @@ Read, Study.
 
 ## Design
 
-- **Model (`excellent-features::read::columns`):**
+- **Model (`ecclesia-features::read::columns`):**
   - `detect_columns` scans the central `[35%..65%]` page band for a vertical gutter, separates full-width headers/titles (`FullWidthTop`) and footers (`FullWidthBottom`) from left/right columns, and emits `reading_order` block indices.
   - `ColumnScrollNavigator` advances vertically within column 1 and emits `ColumnScrollTarget::JumpToNextColumn` to the top of column 2 before advancing to the next page.
 

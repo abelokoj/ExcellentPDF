@@ -3,7 +3,7 @@
 Instructions for every AI agent working in this repository. Read this file before doing anything else, and follow it
 over any other document except the maintainer's own words in the current conversation.
 
-ExcellentPDF is a cross-platform PDF reader, annotator and notebook app written in Rust, with NSH for the UI and
+EcclesiaPDF is a cross-platform PDF reader, annotator and notebook app written in Rust, with NSH for the UI and
 SumatraPDF's MuPDF for documents. The maintainer has planned it in detail; your job is to build that plan, not to
 redesign it.
 
@@ -14,7 +14,7 @@ and design it with the very best resources available.**
 
 1. The maintainer's instructions in the current conversation.
 2. This file.
-3. The plan: `dev notes/ExcellentPDF_detailed_plan_nov_9th.md` (after task T1 it moves to `docs/dev-notes/`).
+3. The plan: `dev notes/EcclesiaPDF_detailed_plan_nov_9th.md` (after task T1 it moves to `docs/dev-notes/`).
 4. `dev notes/sumatra_pdf_enhanced_plan.md`: every SumatraPDF Enhanced feature, setting and shortcut, for parity work.
 
 Also current: `dev notes/dev_decisions.md` (the maintainer's working decisions since the plan; follow them like the
@@ -36,8 +36,8 @@ pull request as the code.
 | D1 | Rust, edition 2024, stable toolchain |
 | D2 | UI in **NSH v0.7.0** with **Rust components**, not TSX. `nsh-core` and `nsh-base` from crates.io, pinned to the installed CLI's version (`"=0.7.0"`); update NSH deliberately, in its own pull request |
 | D3 | Documents: **MuPDF 1.28.5 as vendored by upstream SumatraPDF**, with its 70 patches, plus SumatraPDF Enhanced's six annotation patches renumbered `0088`–`0093` (plan §6.1). No PDFium, no pdf.js, no other engine |
-| D4 | Bindings: our own `excellent-mupdf-sys`, a C shim around every MuPDF call (`fz_try` / `fz_catch` inside the shim) |
-| D5 | Page view: one native component `excellent.page-canvas` per platform (a child window on Windows) over a shared Rust core |
+| D4 | Bindings: our own `ecclesia-mupdf-sys`, a C shim around every MuPDF call (`fz_try` / `fz_catch` inside the shim) |
+| D5 | Page view: one native component `ecclesia.page-canvas` per platform (a child window on Windows) over a shared Rust core |
 | D6 | Annotations are saved inside the PDF as standard annotations (incremental save); a sidecar only for non-PDF formats and app-only data |
 | D7 | App data in SQLite (`rusqlite`) with FTS5 |
 | D8 | Optional features are downloadable, signed, removable packs, never in the core installer |
@@ -117,7 +117,7 @@ naturally.**
   `Drop` calls the matching `fz_drop_*`. Contexts are `!Send`.
 - Every `unsafe` block has a `// SAFETY:` comment.
 - Page points and device pixels are different types; rotation and crop box are applied in one place
-  (`excellent-core::transform`).
+  (`ecclesia-core::transform`).
 - Dependencies are declared once, in the root `[workspace.dependencies]`, and pass `cargo deny`.
 - Lints: `missing_docs = "warn"`, `unreachable_pub = "deny"`; clippy clean.
 - `third_party/mupdf` is changed only through `third_party/mupdf-patches/` (one `.patch` per change, with a README
@@ -166,7 +166,7 @@ self-cleaning build directory between projects and worktrees, so the disk doesn'
   own, and cleaning only forces a full rebuild, MuPDF included.
 - Don't set a build directory: `--target-dir`, `CARGO_TARGET_DIR`, `build.target-dir` and `build.build-dir` are
   ignored with a warning. Build output lives in `~/.cargo/targets/<name>-<hash>/`, registry dependencies in
-  `~/.cargo/targets/shared-deps/`; built binaries still appear in `./target` (so `target/release/excellentpdf.exe`
+  `~/.cargo/targets/shared-deps/`; built binaries still appear in `./target` (so `target/release/ecclesiapdf.exe`
   holds).
 - Its size limits and switches (`[build.gc]` in `~/.cargo/config.toml`, `CARGO_SHARED_DEPS`,
   `CARGO_SHARE_WORKSPACE_UNITS` and the like) are the maintainer's machine settings: leave them at their defaults

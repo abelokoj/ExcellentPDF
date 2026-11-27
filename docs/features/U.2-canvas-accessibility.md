@@ -1,7 +1,7 @@
 # Ph1: 57/60 | U.2: Canvas accessibility on Windows
 
-**Tag:** U.2; **Priority:** P0; **Phase:** 1; **Needs:** K.8, K.13; **Code:** `excellent-canvas-win::uia`,
-`excellent-canvas-win::canvas::access`, `excellent-text::walk`
+**Tag:** U.2; **Priority:** P0; **Phase:** 1; **Needs:** K.8, K.13; **Code:** `ecclesia-canvas-win::uia`,
+`ecclesia-canvas-win::canvas::access`, `ecclesia-text::walk`
 **Plan:** §27.18 entry `Ph1: 57/60 | U.2`; §15.
 
 ## Problem
@@ -35,7 +35,7 @@ Read mode (the only canvas mode so far); the provider is the canvas's, so later 
 
 ## Design
 
-- **Model** (`excellent-text::walk`, pure Rust): `DocumentText` walks a document's text by unit (character, word,
+- **Model** (`ecclesia-text::walk`, pure Rust): `DocumentText` walks a document's text by unit (character, word,
   line, paragraph, page, document) over positions `TextPos { page, index }`: `unit_start`, `unit_end`, `expand`,
   `move_by` (with UIA's counting: a unit's start can't be the document's end, an endpoint can), `text` and `spans`.
   A page whose text isn't read counts as an empty page. `PageText::within` finds a link's words.

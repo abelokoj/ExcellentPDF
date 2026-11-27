@@ -1,6 +1,6 @@
 # Ph7: 1/32 | R.18: Thumbnail drag reordering
 
-**Tag:** R.18; **Priority:** P1; **Phase:** 7; **Needs:** R.5, O.1; **Code:** `excellent-core::page_ops` (`plan_thumbnail_drag_reorder`, `PageOrganizer`)
+**Tag:** R.18; **Priority:** P1; **Phase:** 7; **Needs:** R.5, O.1; **Code:** `ecclesia-core::page_ops` (`plan_thumbnail_drag_reorder`, `PageOrganizer`)
 **Plan:** §27 entry `#### Ph7: 1/32 | R.18`.
 
 ## Problem

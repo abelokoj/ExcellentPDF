@@ -30,7 +30,7 @@
  * caller will create dummy rows at image top and bottom by replicating the
  * first or last real component row(s).
  *
- * An excellent reference for image resampling is
+ * An ecclesia reference for image resampling is
  *   Digital Image Warping, George Wolberg, 1990.
  *   Pub. by IEEE Computer Society Press, Los Alamitos, CA. ISBN 0-8186-8944-7.
  *

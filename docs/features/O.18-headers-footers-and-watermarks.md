@@ -1,6 +1,6 @@
 # Ph7: 29/32 | O.18: Headers, footers and watermarks
 
-**Tag:** O.18; **Priority:** P2; **Phase:** 7; **Needs:** O.1; **Code:** `excellent-core::headers`
+**Tag:** O.18; **Priority:** P2; **Phase:** 7; **Needs:** O.1; **Code:** `ecclesia-core::headers`
 **Plan:** §27 entry `#### Ph7: 29/32 | O.18`.
 
 ## Problem

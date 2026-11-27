@@ -1,7 +1,7 @@
 # Ph3: 34/49 | A.21: Comment threads with replies and resolve
 
-**Tag:** A.21; **Priority:** P1; **Phase:** 3; **Needs:** A.4; **Code:** `excellent-features::annotate::threads`,
-`excellent-app::annotate::thread`, `excellent-core::annot` (`reply_to`, `state`, `Status`, `page_replies`), the shim's
+**Tag:** A.21; **Priority:** P1; **Phase:** 3; **Needs:** A.4; **Code:** `ecclesia-features::annotate::threads`,
+`ecclesia-app::annotate::thread`, `ecclesia-core::annot` (`reply_to`, `state`, `Status`, `page_replies`), the shim's
 `ex_annot_reply` and `ex_delete_thread`
 **Plan:** §27 entry `#### Ph3: 34/49 | A.21`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 

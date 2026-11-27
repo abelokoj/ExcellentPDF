@@ -1,7 +1,7 @@
 # Ph3: 37/49 | A.25: Flatten on export
 
-**Tag:** A.25; **Priority:** P1; **Phase:** 3; **Needs:** K.15; **Code:** `excellent-app::annotate::flatten`,
-`excellent-mupdf::Document::save_flattened` (`Forms`), the shim's `ex_save_flattened`
+**Tag:** A.25; **Priority:** P1; **Phase:** 3; **Needs:** K.15; **Code:** `ecclesia-app::annotate::flatten`,
+`ecclesia-mupdf::Document::save_flattened` (`Forms`), the shim's `ex_save_flattened`
 **Plan:** §27 entry `#### Ph3: 37/49 | A.25`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

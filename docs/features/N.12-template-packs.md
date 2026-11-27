@@ -1,6 +1,6 @@
 # Ph5: 21/45 | N.12: Template packs
 
-**Tag:** N.12; **Priority:** P2; **Phase:** 5; **Needs:** K.21, N.1; **Code:** `excellent-features::notebook::packs`
+**Tag:** N.12; **Priority:** P2; **Phase:** 5; **Needs:** K.21, N.1; **Code:** `ecclesia-features::notebook::packs`
 **Plan:** §27 entry `#### Ph5: 21/45 | N.12: Template packs`.
 
 ## Problem
@@ -26,7 +26,7 @@ Write (notebook creation and page insertion).
 
 ## Design
 
-- **Model (`excellent-features::notebook::packs`):**
+- **Model (`ecclesia-features::notebook::packs`):**
   - `TemplatePackManifest` supporting both `PackTemplateKind::Procedural` (`PaperSpec` presets) and `PackTemplateKind::PdfBackground` (validated via MuPDF on install).
   - `TemplatePackCatalog` provides atomic zip-archive installation (`install_zip_bytes`), `remove`, and live `list_templates` updates without restart.
 

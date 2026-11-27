@@ -1,7 +1,7 @@
 # Ph1: 15/60 | R.4: Rotation and crop-box view
 
-**Tag:** R.4; **Priority:** P0; **Phase:** 1; **Needs:** K.6; **Code:** `excellent-core::transform`,
-`excellent-core::view`, `excellent-canvas-win::placement`
+**Tag:** R.4; **Priority:** P0; **Phase:** 1; **Needs:** K.6; **Code:** `ecclesia-core::transform`,
+`ecclesia-core::view`, `ecclesia-canvas-win::placement`
 **Plan:** §27 entry `Ph1: 15/60 | R.4`.
 
 ## Problem

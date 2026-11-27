@@ -6,12 +6,12 @@ changes the plan, the plan is updated in the same change.
 
 ## DD1. All of MuPDF, on every operating system (2026-11-13)
 
-**Decision (maintainer):** ExcellentPDF is cross-platform: Windows, Linux, macOS, Android, iOS / iPadOS, and any
+**Decision (maintainer):** EcclesiaPDF is cross-platform: Windows, Linux, macOS, Android, iOS / iPadOS, and any
 other OS Rust and a C compiler can reach. Keep everything inside MuPDF; build none of it out.
 
 **What it means:**
 
-- `excellent-mupdf-sys/build.rs` compiles every part of MuPDF that upstream SumatraPDF compiles, on every target.
+- `ecclesia-mupdf-sys/build.rs` compiles every part of MuPDF that upstream SumatraPDF compiles, on every target.
   This replaces the Phase 0 build, which left out OCR (Tesseract, Leptonica), barcodes (zxing-cpp, zint), archives
   (libarchive with bzip2 and liblzma), SumatraPDF's OFD reader and MuPDF's `tools` directory.
 - The build follows upstream exactly: `premake5.lua` / `premake5.files.lua` for Windows, and
@@ -85,14 +85,14 @@ and their artifacts. Test builds carry N = 0 in their names (DD3). Tablets stay 
 
 **What it means:**
 
-- `App` is the app's name, `ExcellentPDF`.
+- `App` is the app's name, `EcclesiaPDF`.
 - `YY-MM-DD` is the release date, two digits each.
 - `N` counts releases since the first one was published: the first release is `.1`, and it never resets (not per day,
   not per version).
 - `SEMVER` is the workspace version from `Cargo.toml` (`0.1.0`).
 - `platform` is the build's platform, such as `windows-x64` or `windows-arm64`.
 - Example: the third release ever, version 0.4.2 for 64-bit Windows on 9 March 2027, is
-  `ExcellentPDF-v27-03-09.3-v0.4.2-windows-x64`.
+  `EcclesiaPDF-v27-03-09.3-v0.4.2-windows-x64`.
 - Git tags, release titles and installer file names use it. The `release` workflow (plan §17) builds it when it is
   written.
 
@@ -112,7 +112,7 @@ go to tabs as in SumatraPDF Enhanced and the browsers. Panes take **Alt+1 to Alt
 
 **Decision (agent):** F.1 says to search "using `fz_search_stext_page_cb` on K.13 text". MuPDF's search folds case
 only; it has no whole-word option and does not fold accents, which F.1 asks for. F.1 reads each page's text with
-K.13's `TextLayout` (the same call, on the render workers) and matches in Rust (`excellent-features::search::find`),
+K.13's `TextLayout` (the same call, on the render workers) and matches in Rust (`ecclesia-features::search::find`),
 so the options are ours and the hits' quads come from K.13's `PageText::highlight`, as a selection's do.
 
 **What it means:**
@@ -132,7 +132,7 @@ choice.
 **What it means:**
 
 - One dialog the reader knows from every Windows app; the two extra choices are kept between prints.
-- If the maintainer wants them in the dialog, a property page can be added in `excellent-platform::print` alone; the
+- If the maintainer wants them in the dialog, a property page can be added in `ecclesia-platform::print` alone; the
   settings stay as the defaults it opens with.
 
 ## DD7. U.9 before K.18: the guide teaches the reading options, not the modes (2026-11-15; agent's call, flagged)
@@ -145,7 +145,7 @@ Settings, Getting started, because there is no Help menu or toolbar yet.
 **What it means:**
 
 - When K.18 lands, the second step names the modes and their toolbars, and the guide gets a toolbar or menu entry.
-  `excellent-features::onboarding::Step` changes in one place; the settings keys stay.
+  `ecclesia-features::onboarding::Step` changes in one place; the settings keys stay.
   (2026-11-15: K.18 landed; the step now names the modes. The guide is still reached from the palette and Settings.)
 - If the maintainer prefers U.9 to wait for K.18, the guide can stay off (the desktop binary's
   `offer_first_run_guide` call) without removing anything.
@@ -166,7 +166,7 @@ never offers an empty mode:
 
 **What it means:**
 
-- When a tag adds tools, it adds its command names to `excellent-app::modes::default_words`; the mode then appears.
+- When a tag adds tools, it adds its command names to `ecclesia-app::modes::default_words`; the mode then appears.
 - Icons replace the short labels in one function (`tool_button`) when an icon set is chosen.
 - If the maintainer wants the mode per workspace, `Modes` reads and writes it through the workspace instead of
   `settings.toml`; the toolbars stay app-wide.
@@ -174,17 +174,17 @@ never offers an empty mode:
 
 ## DD9. One page canvas for every platform, behind a `Host` trait (2026-11-15; agent's call, flagged)
 
-**Decision (agent):** K.9 and K.10 item 3 say the shared logic stays in `excellent-canvas`. Before them, all of it
-lived in `excellent-canvas-win`, tied to Win32 and Direct2D. It now lives in `excellent_canvas::page`:
+**Decision (agent):** K.9 and K.10 item 3 say the shared logic stays in `ecclesia-canvas`. Before them, all of it
+lived in `ecclesia-canvas-win`, tied to Win32 and Direct2D. It now lives in `ecclesia_canvas::page`:
 
 - `PageCanvas<H: Host>` holds the document, layout, viewport, tiles, input, selection, links, find, the reading aids
   and ink, and parses the component's JSON props and commands (`set_prop`, `command`). Each platform implements
   `page::Host` for its view: size, redraws, events, waking from workers, uploading tiles and a few drawing calls
   (fill, image, highlight, band, dim outside, polyline), with optional hooks for screen readers and an ink trail.
-- The reader's view model (`view`, `view/history`) moved from `excellent-core` to `excellent-canvas`, since only the
-  canvas uses it; `excellent-core` no longer depends on `excellent-canvas`, which keeps the crates acyclic.
+- The reader's view model (`view`, `view/history`) moved from `ecclesia-core` to `ecclesia-canvas`, since only the
+  canvas uses it; `ecclesia-core` no longer depends on `ecclesia-canvas`, which keeps the crates acyclic.
 - `formats::reflow_pages` takes the room inside the layout's gaps; the canvas subtracts them.
-- `excellent-canvas-win` keeps the window, Direct2D (`gfx`), `WM_POINTER` input, UI Automation and the `label` prop.
+- `ecclesia-canvas-win` keeps the window, Direct2D (`gfx`), `WM_POINTER` input, UI Automation and the `label` prop.
   Pen samples reach the shared canvas in the view's pixels (`PenSample`).
 
 **What it means:**
@@ -221,7 +221,7 @@ in the pane's row, to the right of the page canvas, rather than something the ca
 it. The canvas has no text drawing (`page::Host` draws fills, images and lines), and the cards need wrapped text, the
 platform's text input for writing in place, focus and screen-reader names, all of which NSH has. The canvas instead
 reports each page in view as a map from its points to the app's pixels (`margin` events, every frame the pages
-move), and the column places the cards with `excellent-features`' `annotate::margin::layout`.
+move), and the column places the cards with `ecclesia-features`' `annotate::margin::layout`.
 
 **What it means:**
 
@@ -234,8 +234,8 @@ move), and the column places the cards with `excellent-features`' `annotate::mar
 ## DD12. The annotation clipboard is the app's own, without the image fallback (2026-11-16; agent's call, flagged)
 
 **Decision (agent):** A.13 item 2 asks for "internal clipboard format plus an image and text fallback". Copied
-annotations are kept whole inside the running app (`excellent-features`' `annotate::edit::Clip`, serialized as
-`excellentpdf.annotations/1`), shared by its documents, panes and windows; their notes go on the system clipboard as
+annotations are kept whole inside the running app (`ecclesia-features`' `annotate::edit::Clip`, serialized as
+`ecclesiapdf.annotations/1`), shared by its documents, panes and windows; their notes go on the system clipboard as
 text. No image is put on the clipboard, and the format is not registered with the system.
 
 **Why:** NSH 0.5.0's clipboard takes text and images only (`set_clipboard`, `set_clipboard_image`); a format of the
@@ -407,8 +407,8 @@ which XFDF carries only as Acrobat's own base64 blob; FDF keeps both, so it is t
 ## DD22. Flatten keeps form fields fillable, and lives in the app (2026-11-16; agent's call, flagged)
 
 **Decision (agent):** A.25's flattened copy bakes the annotations only (`bake_widgets = 0`); form fields stay
-fillable, and there is no switch for them yet. The plan's `excellent-features/annotate/flatten.rs` isn't made: the
-feature has no model beyond one engine call, so the command is in `excellent-app::annotate::flatten`. Ctrl+Shift+E
+fillable, and there is no switch for them yet. The plan's `ecclesia-features/annotate/flatten.rs` isn't made: the
+feature has no model beyond one engine call, so the command is in `ecclesia-app::annotate::flatten`. Ctrl+Shift+E
 is its shortcut.
 
 **Why:** a flattened copy is for sharing reviewed comments; flattening a form too would throw away what a recipient
@@ -422,7 +422,7 @@ in the UI; that is a small follow-up if the maintainer wants it.
 
 **Decision (agent):** A.28 adds W3C Web Annotations as a third format of A.24's Export and Import commands, picked by
 the file type in the dialog, rather than commands of its own. Each annotation carries its full record under the
-absolute IRI `urn:excellentpdf:annotation` so nothing is lost on our own round trip. "Validates against the context"
+absolute IRI `urn:ecclesiapdf:annotation` so nothing is lost on our own round trip. "Validates against the context"
 is tested by checking that every key the export writes is a term of `anno.jsonld` (or an absolute IRI), not by a
 JSON-LD processor.
 
@@ -444,14 +444,14 @@ platform for now, and only the canvas's own frame draws it (the Windows composit
 session needs the maintainer's pen and device.
 
 **What it means:** until H.9, a pressure stroke saves as an even line; record a session with
-`EXCELLENTPDF_RECORD_INK=<folder>` and add it to `crates/excellent-ink/tests/sessions`.
+`ECCLESIAPDF_RECORD_INK=<folder>` and add it to `crates/ecclesia-ink/tests/sessions`.
 
 ## DD25. H.2's pens are per pane and drawn plain until H.9 (2026-11-16; agent's call, flagged)
 
-**Decision (agent):** H.2 builds the six pens as presets in `excellent-ink::pens` and nothing from Enhanced, which has
+**Decision (agent):** H.2 builds the six pens as presets in `ecclesia-ink::pens` and nothing from Enhanced, which has
 no pen types or nib behaviour (its `Canvas_UnitTest*` tests cover the laser pointer and tool switching). The chosen
 pen lives in each pane's annotation state, is not saved across runs, and has one size (2.4 pt) and one colour. A
-pen's texture (pencil grain) and blend show in the golden images (`excellent-ink::raster`) only; the saved ink
+pen's texture (pencil grain) and blend show in the golden images (`ecclesia-ink::raster`) only; the saved ink
 annotation and the live preview draw a plain line in the pen's widths, with the pen's opacity on the annotation.
 
 **Why:** H.7 (favourites) owns pen sizes, colours and remembering them; H.9 owns the appearance stream where texture
@@ -481,8 +481,8 @@ until N.6 lands, and is checked then on each desktop.
 
 **Decision (agent):** K.21's manager takes the public key it trusts as an argument; the app holds none yet. The
 maintainer makes the Ed25519 key pair, keeps the private half offline, and gives the public half to the app (a
-constant in `excellent-app`) and the private half to the release tool that signs the index and each `.expack`
-(`excellent_packs::file::sign`).
+constant in `ecclesia-app`) and the private half to the release tool that signs the index and each `.expack`
+(`ecclesia_packs::file::sign`).
 
 **Why:** a key made by the agent would be a secret in this repository or on this machine, and whoever holds it can
 sign packs every copy of the app installs.
@@ -502,8 +502,139 @@ machined dual-groove satin brass ferrule, gold slit and breather hole, and a tap
 **What it means:**
 
 - The philosophy is `design/icon/philosophy.md`; `design/icon/render_icon.py` renders every size analytically for its
-  pixel grid (`16` to `1024 px`), writes `design/icon/png/`, `packaging/windows/excellentpdf.ico` (all 8 Windows DPI
-  sizes as crisp PNG-encoded ICO entries), and the specimen plate `design/icon/excellentpdf-icon-sheet.png`.
-- `crates/excellent-app/build.rs` embeds `packaging/windows/excellentpdf.ico` as icon group 1 (Explorer, taskbar,
+  pixel grid (`16` to `1024 px`), writes `design/icon/png/`, `packaging/windows/ecclesiapdf.ico` (all 8 Windows DPI
+  sizes as crisp PNG-encoded ICO entries), and the specimen plate `design/icon/ecclesiapdf-icon-sheet.png`.
+- `crates/ecclesia-app/build.rs` embeds `packaging/windows/ecclesiapdf.ico` as icon group 1 (Explorer, taskbar,
   window class); `packaging/windows/build-msi.ps1` shows it in Settings > Apps.
 - macOS (`.icns`) and Linux (hicolor PNGs) take theirs from `design/icon/png/` when their packages are built.
+
+## DD29. Direct NSH `ID2D1DeviceContext` page canvas on Windows (2026-11-26; agent's call, flagged)
+
+**Decision (agent):** replaces the child-HWND page canvas plus second D3D11 swap chain on Windows with direct drawing
+into NSH's own `ID2D1DeviceContext` surface.
+
+**Why:** a native child HWND caused Win32 airspace issues (NSH popovers, dropdowns, menus, and dialogs fell behind the
+PDF canvas) and forced extra swap-chain synchronization and clipping reconciliation on resize and split-pane moves.
+
+**What it means:**
+
+- Popovers, menus, and floating bars composite cleanly above rendered pages with no HWND z-order workarounds.
+- Windows rendering shares one Direct2D device context with the shell; DirectComposition / child-HWND code is removed
+  from the hot display path.
+- Flagged for maintainer confirmation on DPI scaling, pen latency, and split-pane scroll smoothness (K.8, K.24).
+
+## DD30. Migrating PDF redaction, compression, and page operations onto MuPDF 1.28.5 via the C shim (2026-11-26; corrective decision, restoring D3/D4)
+
+**Decision (agent, restoring maintainer decisions D3 & D4):** moves PDF redaction (`O.7`), compression (`O.8`), and
+page operations (`O.1`–`O.3`) off the pure-Rust `crates/ecclesia-core/src/page_ops/pdf_doc.rs` parser/writer onto
+MuPDF 1.28.5 through `ecclesia-mupdf-sys/src/shim.c` and safe wrappers in `ecclesia-mupdf`, with the goal of deleting
+`pdf_doc.rs` once its remaining callers migrate.
+
+**Why:** D3 mandates MuPDF as the single document engine and D4 routes every document operation through the C shim.
+`pdf_doc.rs` only decoded `FlateDecode` streams and re-serialized whole files, risking silent data leaks in redaction
+(LZW/ASCII85/incremental updates) and structure loss on complex PDFs (independent review F3).
+
+**What it means:**
+
+- Redaction uses `pdf_redact_page` with `pdf_redact_options` followed by a garbage-collected full save; compression
+  uses `pdf_save_document` write options; page ops use `pdf_graft_page` / `pdf_delete_page` / `pdf_rearrange_pages`.
+- Remaining callers (`bates`, `headers`, `crypto`, `edit_content`, `cad`, `print_prod`, `notebook/pdf_ops`) are tracked
+  to migrate incrementally, after which `pdf_doc.rs` is deleted.
+
+## DD31. Dual-scope Windows MSI installer with optional per-machine UAC elevation (2026-11-26; agent's call, flagged)
+
+**Decision (agent):** extends `packaging/windows/build-msi.ps1` from K.25's planned per-user-only MSI to MSI 5.0 Single
+Package Authoring (`ALLUSERS=2`, `MSIINSTALLPERUSER=1`), defaulting to per-user install without elevation while
+allowing users or administrators to opt into a per-machine install (triggering UAC).
+
+**Why:** institutional deployments (labs, schools, shared desktops) often require per-machine installation into
+`Program Files`, while individual users still get zero-UAC per-user installation by default.
+
+**What it means:**
+
+- Single MSI artifact serves both per-user (default) and per-machine installations, validated by
+  `packaging/windows/test-msi.ps1`.
+- Flagged for maintainer review: if K.25 should remain strictly per-user with no elevation prompt path, revert the
+  per-machine scope dialog in `build-msi.ps1`.
+
+## DD32. Vivaldi-style chrome and Home page layout (2026-11-26; agent's call, flagged)
+
+**Decision (agent):** adopts Vivaldi-inspired shell chrome — a thin left icon rail with an expandable drawer, compact
+popovers, configurable Vivaldi/Chrome tab styles with a 250 px default tab width — and a full-featured Home page
+(`crates/ecclesia-app/src/home.rs`) with brand hero (`Ecclesia PDF`), document search, thumbnail/list view switch,
+inline cover zoom, and reading-progress cards.
+
+**Why:** maximises vertical and horizontal reading space while keeping sidebar panels one click away and making the
+Home view a fast library launcher matching SumatraPDF Enhanced workflows.
+
+**What it means:**
+
+- Left sidebar starts collapsed to a thin icon rail; opening any panel expands the drawer.
+- Home page displays the clean `Ecclesia PDF` brand title and supports `EnhancedWarm`, `ModernGreen`, and
+  `ClassicClean` palettes.
+- Flagged for maintainer sign-off on chrome density, default tab width, and Home layout before marking `F.17` shipped.
+
+## DD33. 300+ tab hibernation and O(1) windowed tab strip (2026-11-26; agent's call, flagged)
+
+**Decision (agent):** adds automatic tab hibernation for inactive tabs and an O(1) windowed tab strip so opening 300+
+PDFs keeps inactive tabs unparsed/unrendered until focused and bounds the number of live tab widgets laid out per
+frame.
+
+**Why:** heavy research workflows frequently keep hundreds of papers across workspaces; eagerly building NSH elements
+or keeping MuPDF handles open for every tab exhausts memory and stalls layout.
+
+**What it means:**
+
+- Inactive tabs stay hibernated (path + saved view state only) and hydrate lazily on activation.
+- The tab bar renders a fixed window of visible tabs with overflow indicators rather than mounting all tab nodes.
+- Flagged for maintainer review alongside memory-budget verification (K.24, W.14).
+
+## DD34. Release profile `opt-level = "z"` for UI/feature crates, `opt-level = 3` for rendering/ink hot paths (2026-11-26; agent's call, flagged)
+
+**Decision (agent):** sets `opt-level = "z"` as the default `[profile.release]` optimization level in the workspace
+`Cargo.toml`, with per-package overrides keeping `opt-level = 3` on performance-critical rendering, canvas, and ink
+crates.
+
+**Why:** keeps the core Windows installer under the 15 MB budget (`13.51 MB` measured) while preserving full
+optimization on tile rendering and pen-stroke hot loops.
+
+**What it means:**
+
+- Smaller binary footprint at the risk of slower cold-start or UI-crate code paths.
+- Flagged for maintainer review: benchmark `opt-level = "s"` vs `"z"` vs `3` for `ecclesia-app` and
+  `ecclesia-features` while closing the F6 cold-start budget (`826 ms` vs `300 ms` target).
+
+## DD35. Optional pack boundary (D8) — moving Phase 4–9 heavy features out of core (2026-11-26; agent's call, flagged)
+
+**Decision (agent):** records the current gap with D8 — several Phase 4–9 modules (AI assistant, OCR, translation,
+offline dictionary data, neural Piper voices, and transcription scaffolding) were compiled into core crates during
+Phases 4–6 — and defines the pack extraction plan so optional runtimes and models ship only as signed `.expack`
+archives (DD27):
+
+| Feature | Current state | Pack target |
+| --- | --- | --- |
+| L.2 Offline transcription | UI/store in core; mock removed (`transcript.pack_required`) | `whisper.cpp` runtime + model weights as signed pack (Phase 5 follow-up) |
+| O.4 OCR | PowerShell Windows OCR in core; Tesseract built per DD1 | Tesseract `traineddata` and non-Windows OCR runtime as signed pack (Phase 5 follow-up) |
+| S.6 / S.16 Dictionary & Translation | Index/client in core; Kaikki & Bergamot loaded from packs dir | Kaikki dictionaries & Bergamot language models as signed packs (Phase 5 follow-up) |
+| U.6 Neural voices | Catalog loader in core; voices loaded from packs dir | Piper ONNX runtime & voice weights as signed packs (Phase 5 follow-up) |
+| I.1–I.12 AI Assistant | Consent-gated HTTP/local client in `ecclesia-ai` | Local LLM/embedding runtimes & model weights strictly as signed packs (Phase 6 follow-up) |
+
+**What it means:**
+
+- Core ships zero bundled ML weights, language packs, or unverified fallback keys; pack installation stays disabled
+  until the maintainer configures `PACKS_VERIFYING_KEY` (DD27).
+- Flagged for maintainer decision on whether pure-Rust UI/protocol glue stays in core while native runtimes and data
+  weights live in `.expack` archives.
+
+## DD36. Product rename to Ecclesia PDF (2026-11-26; approved by the maintainer)
+
+**Decision (maintainer):** renames the product from its working codename to **Ecclesia PDF** (crate prefix
+`ecclesia-*`, binary `ecclesiapdf`, display name `Ecclesia PDF`, deep-link scheme `ecclesiapdf://`, installer
+`EcclesiaPDF-vYY-MM-DD.N-vSEMVER-platform.msi`).
+
+**What it means:**
+
+- All workspace crates, binary targets, Windows MSI metadata, app icon resources, deep links, locale strings, and
+  Home page hero display `Ecclesia PDF` cleanly (without an `"Enhanced"` brand suffix).
+- Repository folder is `EcclesiaPDF`; historical references to earlier codenames remain only where archival commit
+  context requires them.

@@ -1,6 +1,6 @@
 # Ph4: 31/44 | S.5: Daily review on the home page
 
-**Tag:** S.5; **Priority:** P0; **Phase:** 4; **Needs:** S.4, F.17; **Code:** `excellent-features::study::review`
+**Tag:** S.5; **Priority:** P0; **Phase:** 4; **Needs:** S.4, F.17; **Code:** `ecclesia-features::study::review`
 **Plan:** §27 entry `#### Ph4: 31/44 | S.5` and §11.7. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -29,8 +29,8 @@ Home page (visible by default when cards exist) and Study mode.
 
 ## Design
 
-- **Model** (`excellent-features::study::review`): `DailySummary` + `daily_summary`, `CropKey`, `CropImage`, `CropCache` (bounded FIFO/LRU cache with `prewarm`), `rating_from_key('1'..='4')`, and `ReviewSession` (`from_due`, `prefetch_crops`, `current`, `current_crop`, `reveal_answer`, `interval_preview`, `grade`, `grade_key`).
-- **Storage**: reads due cards from `excellent-store::study::due_cards` / `due_count` and persists each `ReviewOutcome` via `save_srs` + `append_review_log`.
+- **Model** (`ecclesia-features::study::review`): `DailySummary` + `daily_summary`, `CropKey`, `CropImage`, `CropCache` (bounded FIFO/LRU cache with `prewarm`), `rating_from_key('1'..='4')`, and `ReviewSession` (`from_due`, `prefetch_crops`, `current`, `current_crop`, `reveal_answer`, `interval_preview`, `grade`, `grade_key`).
+- **Storage**: reads due cards from `ecclesia-store::study::due_cards` / `due_count` and persists each `ReviewOutcome` via `save_srs` + `append_review_log`.
 
 ## Acceptance tests
 

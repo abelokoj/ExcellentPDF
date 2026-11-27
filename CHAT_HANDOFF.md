@@ -1,17 +1,17 @@
-# ExcellentPDF Project Handoff & Session Context
+# EcclesiaPDF Project Handoff & Session Context
 
 **Original Conversation ID:** `1a354d06-8471-4185-ba11-adcbc2d411de`  
 **Date:** November 2026  
 **Status:** Architecture & Research Specification Complete  
-**Target Repository / Workspace:** `C:\dev\ExcellentPDF` (under the `dev` project at `C:\dev`)
+**Target Repository / Workspace:** `C:\dev\EcclesiaPDF` (under the `dev` project at `C:\dev`)
 
 ---
 
 ## 1. Context Summary
-This project originated from research and architectural design for building the world's #1 cross-platform PDF reader, annotator, editor, and workspace engine (**AetherPDF / ExcellentPDF**).
+This project originated from research and architectural design for building the world's #1 cross-platform PDF reader, annotator, editor, and workspace engine (**AetherPDF / EcclesiaPDF**).
 
 All core engineering findings, benchmarks, stack comparisons, rendering pipeline designs, vector inking algorithms, and implementation instructions have been compiled into:
-📄 **[`dev notes/Earths_num1_pdf_application.md`](file:///C:/dev/ExcellentPDF/dev%20notes/Earths_num1_pdf_application.md)**
+📄 **[`dev notes/Earths_num1_pdf_application.md`](file:///C:/dev/EcclesiaPDF/dev%20notes/Earths_num1_pdf_application.md)**
 
 ---
 
@@ -28,5 +28,5 @@ All core engineering findings, benchmarks, stack comparisons, rendering pipeline
 ## 3. How to Resume in the "dev" Project
 When starting a new conversation inside the **dev** project in Antigravity:
 1. Mention this file or simply prompt:
-   > *"Continue from `C:\dev\ExcellentPDF\CHAT_HANDOFF.md` and `dev notes\Earths_num1_pdf_application.md` to begin Phase 0 implementation."*
+   > *"Continue from `C:\dev\EcclesiaPDF\CHAT_HANDOFF.md` and `dev notes\Earths_num1_pdf_application.md` to begin Phase 0 implementation."*
 2. The agent will immediately have full architectural context and can proceed to scaffold the Cargo workspace, native bindings, and frontend shell.

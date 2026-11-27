@@ -1,6 +1,6 @@
 # Ph7: 3/32 | B.12: Other outline actions
 
-**Tag:** B.12; **Priority:** P2; **Phase:** 7; **Needs:** B.1; **Code:** `excellent-features::outline_extra::actions`
+**Tag:** B.12; **Priority:** P2; **Phase:** 7; **Needs:** B.1; **Code:** `ecclesia-features::outline_extra::actions`
 **Plan:** §27 entry `#### Ph7: 3/32 | B.12`.
 
 ## Problem

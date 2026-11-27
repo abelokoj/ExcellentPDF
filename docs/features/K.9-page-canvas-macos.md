@@ -1,12 +1,12 @@
 # Ph2: 1/3 | K.9: Page canvas on macOS
 
-**Tag:** K.9; **Priority:** P0; **Phase:** 2; **Needs:** K.8; **Code:** `crates/excellent-canvas-mac`,
-`excellent-canvas::page`
+**Tag:** K.9; **Priority:** P0; **Phase:** 2; **Needs:** K.8; **Code:** `crates/ecclesia-canvas-mac`,
+`ecclesia-canvas::page`
 **Plan:** §27 entry `Ph2: 1/3 | K.9`; §5.4, §7.3; DD9, DD10.
 
 ## Problem
 
-On macOS the reader has no page view: the `excellent.page-canvas` component exists only on Windows.
+On macOS the reader has no page view: the `ecclesia.page-canvas` component exists only on Windows.
 
 ## User story
 

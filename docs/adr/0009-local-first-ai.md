@@ -18,4 +18,4 @@ Privacy: nothing leaves the device without the user's consent.
 
 ## Consequences
 
-`excellent-ai` defines a provider trait; cloud adapters check consent before every request.
+`ecclesia-ai` defines a provider trait; cloud adapters check consent before every request.

@@ -1,7 +1,7 @@
 # Ph3: 24/49 | A.11: Margin notes and anchored note cards
 
-**Tag:** A.11; **Priority:** P0; **Phase:** 3; **Needs:** A.4, K.28; **Code:** `excellent-features::annotate::margin`,
-`excellent-canvas::page::canvas::margin`, `excellent-app::annotate::margin`
+**Tag:** A.11; **Priority:** P0; **Phase:** 3; **Needs:** A.4, K.28; **Code:** `ecclesia-features::annotate::margin`,
+`ecclesia-canvas::page::canvas::margin`, `ecclesia-app::annotate::margin`
 **Plan:** §27 entry `#### Ph3: 24/49 | A.11`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

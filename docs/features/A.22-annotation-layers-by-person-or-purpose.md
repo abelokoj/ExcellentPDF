@@ -1,8 +1,8 @@
 # Ph3: 35/49 | A.22: Annotation layers by person or purpose
 
-**Tag:** A.22; **Priority:** P1; **Phase:** 3; **Needs:** A.12; **Code:** `excellent-features::annotate::layers`,
-`excellent-app::annotate::layers`, `excellent-core::annot` (`layer`), `excellent-core::edit` (`Change::SetLayer`,
-`Pages`), `excellent-mupdf::Layer`, the shim's `ex_layers`, `ex_layer_set` and `ex_annot_layer`
+**Tag:** A.22; **Priority:** P1; **Phase:** 3; **Needs:** A.12; **Code:** `ecclesia-features::annotate::layers`,
+`ecclesia-app::annotate::layers`, `ecclesia-core::annot` (`layer`), `ecclesia-core::edit` (`Change::SetLayer`,
+`Pages`), `ecclesia-mupdf::Layer`, the shim's `ex_layers`, `ex_layer_set` and `ex_annot_layer`
 **Plan:** §27 entry `#### Ph3: 35/49 | A.22`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

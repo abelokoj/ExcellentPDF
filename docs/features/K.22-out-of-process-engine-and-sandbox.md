@@ -1,6 +1,6 @@
 # Ph0: 8/13 | K.22: Out-of-process engine and sandbox
 
-**Tag:** K.22; **Priority:** P0; **Phase:** 0 (spike), 1 (build); **Needs:** K.4; **Code:** `crates/excellent-core/src/sandbox.rs`, `crates/excellent-core/src/sandbox/{ipc,os,worker}.rs`
+**Tag:** K.22; **Priority:** P0; **Phase:** 0 (spike), 1 (build); **Needs:** K.4; **Code:** `crates/ecclesia-core/src/sandbox.rs`, `crates/ecclesia-core/src/sandbox/{ipc,os,worker}.rs`
 **Plan:** §27 entry `Ph0: 8/13 | K.22`, Appendix D.1.1.
 
 ## Problem
@@ -21,7 +21,7 @@ All modes.
 
 ## Speed and size impact
 
-- Startup: nothing runs until the first document opens; the sandbox module adds zero external dependencies to `excellent-core`.
+- Startup: nothing runs until the first document opens; the sandbox module adds zero external dependencies to `ecclesia-core`.
 - IPC frames carry raw tile pixel blobs without JSON/base64 expansion and enforce `max_ipc_frame_bytes` before buffer allocation.
 
 ## Design

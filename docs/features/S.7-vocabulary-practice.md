@@ -1,6 +1,6 @@
 # Ph4: 33/44 | S.7: Vocabulary practice
 
-**Tag:** S.7; **Priority:** P0 (parity); **Phase:** 4; **Needs:** S.4, S.6; **Code:** `excellent-features::vocabulary`, `excellent-store::study`
+**Tag:** S.7; **Priority:** P0 (parity); **Phase:** 4; **Needs:** S.4, S.6; **Code:** `ecclesia-features::vocabulary`, `ecclesia-store::study`
 **Plan:** §27 entry `#### Ph4: 33/44 | S.7`, §11.7, and `sumatra_pdf_enhanced_plan.md` §5.12. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -29,10 +29,10 @@ Home page learning hub and Study mode.
 
 ## Design
 
-- **Model** (`excellent-features::vocabulary`): `VocabularyLibrary`, `VocabularyWord`, `VocabularyDeck`, `BUILTIN_DECKS` (Enhanced's 11 named study decks), `VocabActivity` (6 activities), `VocabularyQuestion`, `MatchPairsBoard`, `DueWindow` (`DueNow` / `StudyAhead`), `ImportMode` (`Merge` / `Replace`), `LearnedFilter`.
+- **Model** (`ecclesia-features::vocabulary`): `VocabularyLibrary`, `VocabularyWord`, `VocabularyDeck`, `BUILTIN_DECKS` (Enhanced's 11 named study decks), `VocabActivity` (6 activities), `VocabularyQuestion`, `MatchPairsBoard`, `DueWindow` (`DueNow` / `StudyAhead`), `ImportMode` (`Merge` / `Replace`), `LearnedFilter`.
 - **Scheduler**: every review runs through `crate::study::srs::FsrsScheduler` and emits a `ReviewLogRecord`.
 - **Enhanced import/export**: `import_enhanced_json` parses both `sumatrapdf-vocabulary` v1 and `wmkeyboard-vocab` v1 (plain or gzip), migrating Leitner/SM-2 state via `srs::migrate_enhanced_state` while keeping every word, context, source page and exact `dueTime`.
-- **Storage** (`excellent-store::study`): `save_to_store`, `load_from_store`, `record_review_in_store`.
+- **Storage** (`ecclesia-store::study`): `save_to_store`, `load_from_store`, `record_review_in_store`.
 
 ## Acceptance tests
 

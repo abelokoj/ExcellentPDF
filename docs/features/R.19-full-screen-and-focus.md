@@ -1,7 +1,7 @@
 # Ph1: 27/60 | R.19: Full-screen reading and focus mode
 
-**Tag:** R.19; **Priority:** P1; **Phase:** 1; **Needs:** R.1; **Code:** `excellent-features::read::focus`,
-`excellent-canvas-win::canvas::reading`, `excellent-app::{full_screen, reading}`
+**Tag:** R.19; **Priority:** P1; **Phase:** 1; **Needs:** R.1; **Code:** `ecclesia-features::read::focus`,
+`ecclesia-canvas-win::canvas::reading`, `ecclesia-app::{full_screen, reading}`
 **Plan:** §27 entry `Ph1: 27/60 | R.19`.
 
 ## Problem

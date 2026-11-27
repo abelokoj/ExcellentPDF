@@ -1,7 +1,7 @@
 # Ph3: 20/49 | A.7: Callouts with leader lines
 
-**Tag:** A.7; **Priority:** P0; **Phase:** 3; **Needs:** A.6; **Code:** `excellent-features::annotate::freetext`,
-`excellent-core::annot` (`Shape::Callout`, `LineEnd`), `excellent-mupdf-sys/csrc/shim.c`, `excellent-app::annotate`
+**Tag:** A.7; **Priority:** P0; **Phase:** 3; **Needs:** A.6; **Code:** `ecclesia-features::annotate::freetext`,
+`ecclesia-core::annot` (`Shape::Callout`, `LineEnd`), `ecclesia-mupdf-sys/csrc/shim.c`, `ecclesia-app::annotate`
 **Plan:** §27 entry `#### Ph3: 20/49 | A.7`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

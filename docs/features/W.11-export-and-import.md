@@ -1,7 +1,7 @@
 # Ph3: 13/49 | W.11: Export and import
 
-**Tag:** W.11; **Priority:** P1; **Phase:** 3; **Needs:** W.1; **Code:** `excellent-store::workspace_file`,
-`excellent-app::workspaces::file`
+**Tag:** W.11; **Priority:** P1; **Phase:** 3; **Needs:** W.1; **Code:** `ecclesia-store::workspace_file`,
+`ecclesia-app::workspaces::file`
 **Plan:** §27 entry `#### Ph3: 13/49 | W.11`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -33,8 +33,8 @@ Nothing until the reader asks. A workspace file is a few kilobytes; reading one 
 
 ## Design
 
-- The format is `excellent-store::workspace_file`, a pure module: `to_json(look, panes, root)` and
-  `from_json(json, root)`. The file says what it is (`"kind": "excellentpdf-workspace"`) and its version; a newer
+- The format is `ecclesia-store::workspace_file`, a pure module: `to_json(look, panes, root)` and
+  `from_json(json, root)`. The file says what it is (`"kind": "ecclesiapdf-workspace"`) and its version; a newer
   version is refused.
 - The plan's "chosen root" is the folder the workspace file is saved in, so picking where to save is choosing it.
   Paths under it are relative, with `/`; others are written as they are. Reading resolves relative paths against the

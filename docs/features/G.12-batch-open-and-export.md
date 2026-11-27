@@ -1,6 +1,6 @@
 # Ph7: 9/32 | G.12: Batch open and export
 
-**Tag:** G.12; **Priority:** P1; **Phase:** 7; **Needs:** G.10, F.6; **Code:** `excellent-features::grading` (`SubmissionBatch`, `SubmissionEntry`, `BatchExportSummary`)
+**Tag:** G.12; **Priority:** P1; **Phase:** 7; **Needs:** G.10, F.6; **Code:** `ecclesia-features::grading` (`SubmissionBatch`, `SubmissionEntry`, `BatchExportSummary`)
 **Plan:** §27 entry `#### Ph7: 9/32 | G.12`.
 
 ## Problem

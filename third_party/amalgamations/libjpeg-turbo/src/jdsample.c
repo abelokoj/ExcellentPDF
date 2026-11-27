@@ -19,7 +19,7 @@
  * each component from each row group (but this could vary if the upsampler is
  * applying a scale factor of its own).
  *
- * An excellent reference for image resampling is
+ * An ecclesia reference for image resampling is
  *   Digital Image Warping, George Wolberg, 1990.
  *   Pub. by IEEE Computer Society Press, Los Alamitos, CA. ISBN 0-8186-8944-7.
  */

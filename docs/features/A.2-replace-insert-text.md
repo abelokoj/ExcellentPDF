@@ -1,7 +1,7 @@
 # Ph3: 15/49 | A.2: Replace and insert text
 
-**Tag:** A.2; **Priority:** P0; **Phase:** 3; **Needs:** A.1; **Code:** `excellent-features::annotate::replace`,
-`excellent-canvas::page::canvas::markbar`, `excellent-app::annotate`, the shim's `ex_annot_group`
+**Tag:** A.2; **Priority:** P0; **Phase:** 3; **Needs:** A.1; **Code:** `ecclesia-features::annotate::replace`,
+`ecclesia-canvas::page::canvas::markbar`, `ecclesia-app::annotate`, the shim's `ex_annot_group`
 **Plan:** §27 entry `#### Ph3: 15/49 | A.2`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

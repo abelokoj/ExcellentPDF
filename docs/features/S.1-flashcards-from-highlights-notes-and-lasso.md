@@ -1,6 +1,6 @@
 # Ph4: 27/44 | S.1: Flashcards from highlights, notes and lasso selections
 
-**Tag:** S.1; **Priority:** P0; **Phase:** 4; **Needs:** A.1, H.6, S.4; **Code:** `excellent-store::study`, `excellent-features::study::cards`
+**Tag:** S.1; **Priority:** P0; **Phase:** 4; **Needs:** A.1, H.6, S.4; **Code:** `ecclesia-store::study`, `ecclesia-features::study::cards`
 **Plan:** §27 entry `#### Ph4: 27/44 | S.1` and §11.7. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -30,9 +30,9 @@ Study mode (toolbar button visible by default) and Annotate/Write context menus.
 
 ## Design
 
-- **Model** (`excellent-features::study::cards`): `Flashcard`, `CardKind::Basic`, `SourceAnchor` (storing `path`, `page`, K.28 `Quote`, `PageRect`, `annot_id`), `JumpTarget`, `CardMedia`. Constructors: `Flashcard::from_highlight`, `Flashcard::from_note`, `Flashcard::from_lasso`, plus `jump_to_source(document_text)` which re-anchors via `excellent_core::anchor::locate` and portable `file://...#page=N` URI round-tripping.
-- **Storage** (`excellent-store::study`): `study_card` and `study_srs` tables in `library.db` via `upsert_card` / `get_card` / `list_cards` / `delete_card`.
-- **Integration hooks** (for `excellent-app` wiring): register `study.make_card` in K.16 command table, connect `Flashcard::from_highlight`/`from_note`/`from_lasso` to active selection/annotation, and route `JumpTarget` to the tab/page navigator.
+- **Model** (`ecclesia-features::study::cards`): `Flashcard`, `CardKind::Basic`, `SourceAnchor` (storing `path`, `page`, K.28 `Quote`, `PageRect`, `annot_id`), `JumpTarget`, `CardMedia`. Constructors: `Flashcard::from_highlight`, `Flashcard::from_note`, `Flashcard::from_lasso`, plus `jump_to_source(document_text)` which re-anchors via `ecclesia_core::anchor::locate` and portable `file://...#page=N` URI round-tripping.
+- **Storage** (`ecclesia-store::study`): `study_card` and `study_srs` tables in `library.db` via `upsert_card` / `get_card` / `list_cards` / `delete_card`.
+- **Integration hooks** (for `ecclesia-app` wiring): register `study.make_card` in K.16 command table, connect `Flashcard::from_highlight`/`from_note`/`from_lasso` to active selection/annotation, and route `JumpTarget` to the tab/page navigator.
 
 ## Acceptance tests
 

@@ -10,7 +10,7 @@ Reading and inking need tiled GPU rendering, and pen input with pressure and til
 
 ## Decision
 
-Draw pages in one native component, `excellent.page-canvas`, per platform (a child window on Windows), over a shared Rust core.
+Draw pages in one native component, `ecclesia.page-canvas`, per platform (a child window on Windows), over a shared Rust core.
 
 ## Why
 
@@ -18,4 +18,4 @@ NSH has no document view and no pen pressure, and ink latency needs direct OS in
 
 ## Consequences
 
-Each platform has its own canvas crate (`excellent-canvas-win`, `-mac`, `-gtk`, `-ios`, `-android`); shared logic lives in `excellent-canvas`. Pen input is read from the OS directly, never through NSH pointer events.
+Each platform has its own canvas crate (`ecclesia-canvas-win`, `-mac`, `-gtk`, `-ios`, `-android`); shared logic lives in `ecclesia-canvas`. Pen input is read from the OS directly, never through NSH pointer events.

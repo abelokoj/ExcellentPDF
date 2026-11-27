@@ -1,7 +1,7 @@
 # Ph1: 12/60 | R.1: Page layouts
 
-**Tag:** R.1; **Priority:** P0; **Phase:** 1; **Needs:** K.6, K.8; **Code:** `excellent-canvas-win::view`,
-`excellent-app::commands`
+**Tag:** R.1; **Priority:** P0; **Phase:** 1; **Needs:** K.6, K.8; **Code:** `ecclesia-canvas-win::view`,
+`ecclesia-app::commands`
 **Plan:** §27 entry `Ph1: 12/60 | R.1`.
 
 ## Problem

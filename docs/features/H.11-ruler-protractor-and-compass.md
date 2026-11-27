@@ -1,7 +1,7 @@
 # Ph4: 4/44 | H.11: Ruler, protractor and compass
 
-**Tag:** H.11; **Priority:** P1; **Phase:** 4; **Needs:** H.1; **Code:** `excellent-ink::guides` (the model),
-`excellent-canvas::page` (the guide drawn, moved and turned; strokes fitted to it), `excellent-app::annotate::guides`
+**Tag:** H.11; **Priority:** P1; **Phase:** 4; **Needs:** H.1; **Code:** `ecclesia-ink::guides` (the model),
+`ecclesia-canvas::page` (the guide drawn, moved and turned; strokes fitted to it), `ecclesia-app::annotate::guides`
 (commands, the reading)
 **Plan:** §8.4 and §27 entry `#### Ph4: 4/44 | H.11`.
 

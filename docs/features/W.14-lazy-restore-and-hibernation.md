@@ -1,6 +1,6 @@
 # Ph1: 52/60 | W.14: Lazy restore and hibernation
 
-**Tag:** W.14; **Priority:** P0; **Phase:** 1; **Needs:** K.5, K.20; **Code:** `excellent-app::workspaces`, `excellent-app::session`, `excellent-app::panes`
+**Tag:** W.14; **Priority:** P0; **Phase:** 1; **Needs:** K.5, K.20; **Code:** `ecclesia-app::workspaces`, `ecclesia-app::session`, `ecclesia-app::panes`
 **Plan:** §27 entry `Ph1: 52/60 | W.14` and §11.16.
 
 ## Problem

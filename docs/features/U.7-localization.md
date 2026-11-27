@@ -1,7 +1,7 @@
 # Ph1: 59/60 | U.7: Localization
 
 **Tag:** U.7; **Priority:** P0 infrastructure, P1 languages; **Phase:** 1; **Needs:** K.1; **Code:** `app/locales/*`,
-`excellent-app::l10n`
+`ecclesia-app::l10n`
 **Plan:** §27.18 entry `Ph1: 59/60 | U.7`.
 
 ## Problem

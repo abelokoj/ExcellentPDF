@@ -1,6 +1,6 @@
 # Ph7: 4/32 | A.23: Measurement
 
-**Tag:** A.23; **Priority:** P1; **Phase:** 7; **Needs:** A.8, A.10; **Code:** `excellent-features::measure`
+**Tag:** A.23; **Priority:** P1; **Phase:** 7; **Needs:** A.8, A.10; **Code:** `ecclesia-features::measure`
 **Plan:** §27 entry `#### Ph7: 4/32 | A.23`.
 
 ## Problem

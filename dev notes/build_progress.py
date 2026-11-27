@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "dev notes" / "build_progress.md"
-PLAN = ROOT / "dev notes" / "ExcellentPDF_detailed_plan_nov_9th.md"
+PLAN = ROOT / "dev notes" / "EcclesiaPDF_detailed_plan_nov_9th.md"
 ZONE = ZoneInfo("America/New_York")
 IDLE = timedelta(minutes=15)
 KEEP = ("<!-- outstanding: kept by hand, the script leaves this block as it is -->", "<!-- /outstanding -->")

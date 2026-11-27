@@ -1,6 +1,6 @@
 # Ph7: 23/32 | O.12: Save and reuse form values
 
-**Tag:** O.12; **Priority:** P1; **Phase:** 7; **Needs:** O.11; **Code:** `excellent-features::forms` (`exchange.rs`, `profiles.rs`)
+**Tag:** O.12; **Priority:** P1; **Phase:** 7; **Needs:** O.11; **Code:** `ecclesia-features::forms` (`exchange.rs`, `profiles.rs`)
 **Plan:** §27 entry `#### Ph7: 23/32 | O.12`.
 
 ## Problem
@@ -26,13 +26,13 @@ Read and Annotate modes on PDFs containing `/AcroForm` fields.
 
 ## Design
 
-- **Exchange (`excellent_features::forms::exchange`)**:
+- **Exchange (`ecclesia_features::forms::exchange`)**:
   - JSON (`export_json` / `import_json`) with `ExportScope` (`AllFields`, `ExportableOnly`, `NonEmptyOnly`).
   - RFC 4180 CSV (`export_csv`, `export_csv_rows` for multi-form batch export, `import_csv`).
   - ISO 19444-1 XFDF (`export_xfdf` / `import_xfdf`) preserving nested `<field name="...">` hierarchies via `quick-xml`.
   - PDF Forms Data Format `%FDF-1.2` (`export_fdf` / `import_fdf`).
   - All importers enforce read-only guards and trigger recalculation via `AcroForm::recalculate`.
-- **Profiles (`excellent_features::forms::profiles`)**: `FormProfile`, `ProfileMatchMode` (`ExactName`, `NormalizedName` ignoring case/punctuation), alias mapping, `apply_profile`, and `ProfileStore` supporting JSON file and SQLite persistence.
+- **Profiles (`ecclesia_features::forms::profiles`)**: `FormProfile`, `ProfileMatchMode` (`ExactName`, `NormalizedName` ignoring case/punctuation), alias mapping, `apply_profile`, and `ProfileStore` supporting JSON file and SQLite persistence.
 
 ## Acceptance tests
 

@@ -1,8 +1,8 @@
 # Ph3: 42/49 | H.6: Lasso
 
-**Tag:** H.6; **Priority:** P0; **Phase:** 3; **Needs:** H.5, A.13; **Code:** `excellent-ink::lasso` (the loop and
-turning), `excellent-features::annotate::lasso` (what a loop takes; resizing, turning, widths and colours of a
-selection), `excellent-canvas::page` (`lasso` prop, `annotLasso`), `excellent-app` (`ink.lasso`, `select.*`, the
+**Tag:** H.6; **Priority:** P0; **Phase:** 3; **Needs:** H.5, A.13; **Code:** `ecclesia-ink::lasso` (the loop and
+turning), `ecclesia-features::annotate::lasso` (what a loop takes; resizing, turning, widths and colours of a
+selection), `ecclesia-canvas::page` (`lasso` prop, `annotLasso`), `ecclesia-app` (`ink.lasso`, `select.*`, the
 inspector's selection panel)
 **Plan:** §8.4 and §27 entry `#### Ph3: 42/49 | H.6`.
 
@@ -38,7 +38,7 @@ ms to compute their move.
 
 ## Design
 
-- **Loop (`excellent-ink::lasso`):** Enhanced's `LassoContains` (even-odd) and `RotateLassoPoint`, ported. A loop needs
+- **Loop (`ecclesia-ink::lasso`):** Enhanced's `LassoContains` (even-odd) and `RotateLassoPoint`, ported. A loop needs
   three points.
 - **What it takes:** ink when every point is inside; anything else when its four corners are (Enhanced's rule, so
   separate strokes of a word are taken and a box half in is not).

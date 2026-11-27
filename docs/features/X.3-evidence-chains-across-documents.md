@@ -1,6 +1,6 @@
 # Ph9: 7/13 | X.3: Evidence chains across documents
 
-**Tag:** X.3; **Priority:** P1; **Phase:** 9; **Needs:** X.2; **Code:** `excellent-features::canvas_board::evidence`
+**Tag:** X.3; **Priority:** P1; **Phase:** 9; **Needs:** X.2; **Code:** `ecclesia-features::canvas_board::evidence`
 **Plan:** §27 entry `#### Ph9: 7/13 | X.3` and §11.10.
 
 ## Problem
@@ -27,7 +27,7 @@ Research.
 
 ## Design
 
-- Model: `excellent-features::canvas_board::evidence::{validate_evidence_dag, query_evidence_chains, export_evidence_chains_markdown, EvidenceChain, EvidenceStep, SourceCitation}`.
+- Model: `ecclesia-features::canvas_board::evidence::{validate_evidence_dag, query_evidence_chains, export_evidence_chains_markdown, EvidenceChain, EvidenceStep, SourceCitation}`.
 
 ## Acceptance tests
 

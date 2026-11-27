@@ -1,6 +1,6 @@
 # Ph1: 38/60 | V.2: Open another file in a pane
 
-**Tag:** V.2; **Priority:** P0; **Phase:** 1; **Needs:** V.1, R.11; **Code:** `excellent-app::panes` (`layout`, `grid`), `excellent-app::shell`, `excellent-app::commands`
+**Tag:** V.2; **Priority:** P0; **Phase:** 1; **Needs:** V.1, R.11; **Code:** `ecclesia-app::panes` (`layout`, `grid`), `ecclesia-app::shell`, `ecclesia-app::commands`
 **Plan:** §27 entry `Ph1: 38/60 | V.2` and §11.15.
 
 ## Problem

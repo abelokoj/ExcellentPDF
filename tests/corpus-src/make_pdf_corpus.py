@@ -83,7 +83,7 @@ def make_ten_page_paper() -> bytes:
         )
     for i in range(10):
         stream = (
-            f"BT /F1 14 Tf 72 720 Td (ExcellentPDF Benchmark Paper - Page {i + 1} of 10) Tj ET\n"
+            f"BT /F1 14 Tf 72 720 Td (EcclesiaPDF Benchmark Paper - Page {i + 1} of 10) Tj ET\n"
             f"BT /F1 11 Tf 72 690 Td (Paragraph sample for budget, text, and golden layout sweeps.) Tj ET"
         ).encode("ascii")
         objects.append(f"<< /Length {len(stream)} >>\nstream\n".encode("ascii") + stream + b"\nendstream")

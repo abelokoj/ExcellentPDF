@@ -1,6 +1,6 @@
 # Ph1: 50/60 | W.6: Opening a file that is open elsewhere
 
-**Tag:** W.6; **Priority:** P0; **Phase:** 1; **Needs:** W.1, K.5; **Code:** `excellent-app::workspaces` (`view`), `excellent-store::workspaces`, `excellent-app::session`
+**Tag:** W.6; **Priority:** P0; **Phase:** 1; **Needs:** W.1, K.5; **Code:** `ecclesia-app::workspaces` (`view`), `ecclesia-store::workspaces`, `ecclesia-app::session`
 **Plan:** §27 entry `Ph1: 50/60 | W.6` and §11.16.
 
 ## Problem

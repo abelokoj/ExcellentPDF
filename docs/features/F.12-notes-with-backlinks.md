@@ -1,6 +1,6 @@
 # Ph5: 38/45 | F.12: Notes with backlinks and [[links]]
 
-**Tag:** F.12; **Priority:** P1; **Phase:** 5; **Needs:** F.3, N.14; **Code:** `excellent-store::notes`, `excellent-features::notes`
+**Tag:** F.12; **Priority:** P1; **Phase:** 5; **Needs:** F.3, N.14; **Code:** `ecclesia-store::notes`, `ecclesia-features::notes`
 **Plan:** §27 entry `#### Ph5: 38/45 | F.12`.
 
 ## Problem
@@ -27,8 +27,8 @@ Read, Annotate, Study.
 
 ## Design
 
-- Model: `excellent-features::notes::{Notes, BacklinkGraph, parse_links_in_markdown}`.
-- Storage: `note` and `note_link` tables in `0008_library_fts_notes.sql`, managed by `excellent_store::notes`.
+- Model: `ecclesia-features::notes::{Notes, BacklinkGraph, parse_links_in_markdown}`.
+- Storage: `note` and `note_link` tables in `0008_library_fts_notes.sql`, managed by `ecclesia_store::notes`.
 
 ## Acceptance tests
 

@@ -1,6 +1,6 @@
 # Ph8: 2/3 | V.14: Two panes on tablets
 
-**Tag:** V.14; **Priority:** P1; **Phase:** 8; **Needs:** V.1, K.11, K.12; **Code:** `excellent-canvas-ios::split`, `excellent-canvas-android::split`, `android/.../SplitTabletContainer.kt`
+**Tag:** V.14; **Priority:** P1; **Phase:** 8; **Needs:** V.1, K.11, K.12; **Code:** `ecclesia-canvas-ios::split`, `ecclesia-canvas-android::split`, `android/.../SplitTabletContainer.kt`
 **Plan:** §27 entry `#### Ph8: 2/3 | V.14`, §11.15 (`V.1`, `V.9`).
 
 ## Problem
@@ -30,7 +30,7 @@ All reading, annotation, and study modes when tablet geometry satisfies the two-
 
 - **`SplitEligibility`**: `TwoPane`, `SinglePanePortrait`, `SinglePanePhone` computed from `width_dp` / `height_dp` breakpoints (`MIN_TABLET_SHORTEST_SIDE_DP = 600.0`, `MIN_TWO_PANE_WIDTH_DP = 840.0`).
 - **`TabletSplitController`**: tracks `PaneViewportState` (`Primary`, `Secondary`), divider ratio (`0.25..=0.75`), pointer capture across strokes, hover routing, and `open_link_in_other_pane` (V.9).
-- **`SplitTabletContainer.kt`**: Android `LinearLayout` host reading `Configuration.smallestScreenWidthDp` and dispatching `MotionEvent` touch/hover locally to the target `ExcellentCanvasView`.
+- **`SplitTabletContainer.kt`**: Android `LinearLayout` host reading `Configuration.smallestScreenWidthDp` and dispatching `MotionEvent` touch/hover locally to the target `EcclesiaCanvasView`.
 
 ## Acceptance tests
 

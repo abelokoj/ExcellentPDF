@@ -1,6 +1,6 @@
 # Ph7: 26/32 | O.15: Validate signatures and trust
 
-**Tag:** O.15; **Priority:** P1; **Phase:** 7; **Needs:** O.14; **Code:** `excellent-core::signing` (`pdf_sig.rs`, `cms.rs`, `der.rs`), `excellent-features::signing::panel`
+**Tag:** O.15; **Priority:** P1; **Phase:** 7; **Needs:** O.14; **Code:** `ecclesia-core::signing` (`pdf_sig.rs`, `cms.rs`, `der.rs`), `ecclesia-features::signing::panel`
 **Plan:** §27 entry `#### Ph7: 26/32 | O.15`.
 
 ## Problem
@@ -25,8 +25,8 @@ All document reading modes on PDFs containing `/Sig` or `/DocTimeStamp` objects.
 
 ## Design
 
-- **`verify_pdf_signatures` (`excellent_core::signing::pdf_sig`)**: Locates all `/Type /Sig` and `/Type /DocTimeStamp` dictionaries, validates `/ByteRange` bracket geometry and `%%EOF` termination, recomputes SHA-256 digests, verifies CMS Ed25519 signatures and `signing-certificate-v2` bindings, evaluates X.509 chains against `TrustStore`, and detects post-signing revisions (`modified_after_signing`).
-- **Panel & revision viewer (`excellent_features::signing::panel`)**: `SignaturePanelModel::inspect` builds `SignatureSummary` rows and `extract_signed_revision` slices the exact byte prefix covered by a signature for "View signed version".
+- **`verify_pdf_signatures` (`ecclesia_core::signing::pdf_sig`)**: Locates all `/Type /Sig` and `/Type /DocTimeStamp` dictionaries, validates `/ByteRange` bracket geometry and `%%EOF` termination, recomputes SHA-256 digests, verifies CMS Ed25519 signatures and `signing-certificate-v2` bindings, evaluates X.509 chains against `TrustStore`, and detects post-signing revisions (`modified_after_signing`).
+- **Panel & revision viewer (`ecclesia_features::signing::panel`)**: `SignaturePanelModel::inspect` builds `SignatureSummary` rows and `extract_signed_revision` slices the exact byte prefix covered by a signature for "View signed version".
 
 ## Acceptance tests
 

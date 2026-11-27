@@ -1,6 +1,6 @@
 # Ph6: 1/13 | R.31: Visual search (Google Lens)
 
-**Tag:** R.31; **Priority:** P2 (parity); **Phase:** 6; **Needs:** O.23; **Code:** `crates/excellent-features/src/lens.rs`
+**Tag:** R.31; **Priority:** P2 (parity); **Phase:** 6; **Needs:** O.23; **Code:** `crates/ecclesia-features/src/lens.rs`
 **Plan:** §27 entry `#### Ph6: 1/13 | R.31`.
 
 ## Problem

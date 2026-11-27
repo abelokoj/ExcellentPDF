@@ -1,6 +1,6 @@
 # Ph7: 22/32 | O.11: Forms: fill, validate and calculate
 
-**Tag:** O.11; **Priority:** P1; **Phase:** 7; **Needs:** K.14, U.8; **Code:** `excellent-core::forms` (`model.rs`, `calc.rs`, `pdf_codec.rs`), `excellent-features::forms::session`
+**Tag:** O.11; **Priority:** P1; **Phase:** 7; **Needs:** K.14, U.8; **Code:** `ecclesia-core::forms` (`model.rs`, `calc.rs`, `pdf_codec.rs`), `ecclesia-features::forms::session`
 **Plan:** §27 entry `#### Ph7: 22/32 | O.11`.
 
 ## Problem
@@ -28,9 +28,9 @@ Read and Annotate modes whenever the open PDF contains an `/AcroForm` dictionary
 
 ## Design
 
-- **Core model (`excellent_core::forms::model`)**: Models `Text`, `Checkbox`, `RadioGroup`, `Choice` (`Combo` / `List`), `Signature`, and `Pushbutton` fields with `/Ff` `FieldFlags`, `/Opt`, `/DA`, `/Q`, `/TM`, `/TU`, `/XFA` detection, geometric/explicit tab ordering, bounded pure-Rust regex validation, and incremental PDF `/AcroForm` + `/AP` stream serialization (`to_pdf_bytes`).
-- **Calculation DAG (`excellent_core::forms::calc`)**: Safe, bounded AcroForm JS-subset evaluator supporting `AFSimple_Calculate` (`SUM`, `AVG`, `MIN`, `MAX`, `PRD`), `AFNumber_Format`, `AFPercent_Format`, `AFDate_FormatEx`, `AFRange_Validate`, and arithmetic `getField("...").value` expressions with topological sorting (`/CO` tie-breaking) and cycle detection.
-- **Session (`excellent_features::forms::session`)**: `FormSession` manages active tab focus, dirty tracking, field highlight tones, reset-to-defaults, and validation reporting.
+- **Core model (`ecclesia_core::forms::model`)**: Models `Text`, `Checkbox`, `RadioGroup`, `Choice` (`Combo` / `List`), `Signature`, and `Pushbutton` fields with `/Ff` `FieldFlags`, `/Opt`, `/DA`, `/Q`, `/TM`, `/TU`, `/XFA` detection, geometric/explicit tab ordering, bounded pure-Rust regex validation, and incremental PDF `/AcroForm` + `/AP` stream serialization (`to_pdf_bytes`).
+- **Calculation DAG (`ecclesia_core::forms::calc`)**: Safe, bounded AcroForm JS-subset evaluator supporting `AFSimple_Calculate` (`SUM`, `AVG`, `MIN`, `MAX`, `PRD`), `AFNumber_Format`, `AFPercent_Format`, `AFDate_FormatEx`, `AFRange_Validate`, and arithmetic `getField("...").value` expressions with topological sorting (`/CO` tie-breaking) and cycle detection.
+- **Session (`ecclesia_features::forms::session`)**: `FormSession` manages active tab focus, dirty tracking, field highlight tones, reset-to-defaults, and validation reporting.
 
 ## Acceptance tests
 

@@ -1,6 +1,6 @@
 # Ph5: 15/45 | H.19: Handwriting beautify
 
-**Tag:** H.19; **Priority:** P2; **Phase:** 5; **Needs:** H.13; **Code:** `excellent-ink::beautify`
+**Tag:** H.19; **Priority:** P2; **Phase:** 5; **Needs:** H.13; **Code:** `ecclesia-ink::beautify`
 **Plan:** §27 entry `#### Ph5: 15/45 | H.19: Handwriting beautify`.
 
 ## Problem
@@ -27,7 +27,7 @@ Write (with active ink lasso selection).
 
 ## Design
 
-- **Model (`excellent-ink::beautify`):**
+- **Model (`ecclesia-ink::beautify`):**
   - `beautify_ink` smooths high-frequency pen jitter while keeping stroke endpoints pinned, groups strokes into lines via `straighten`, and gently normalizes letter x-heights and intra-word horizontal gaps according to `BeautifyOptions::strength` and `LetterNormalization`.
   - Returns `BeautifyResult` holding `original` strokes for instant `revert()`.
 

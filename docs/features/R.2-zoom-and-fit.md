@@ -1,6 +1,6 @@
 # Ph1: 13/60 | R.2: Zoom and fit modes
 
-**Tag:** R.2; **Priority:** P0; **Phase:** 1; **Needs:** K.6, K.7; **Code:** `excellent-canvas::viewport`
+**Tag:** R.2; **Priority:** P0; **Phase:** 1; **Needs:** K.6, K.7; **Code:** `ecclesia-canvas::viewport`
 **Plan:** §27 entry `Ph1: 13/60 | R.2`.
 
 ## Problem

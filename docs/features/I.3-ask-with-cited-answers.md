@@ -1,6 +1,6 @@
 # Ph6: 6/13 | I.3: Ask with cited answers
 
-**Tag:** I.3; **Priority:** P1; **Phase:** 6; **Needs:** I.2; **Code:** `crates/excellent-ai/src/rag.rs`, `crates/excellent-features/src/ai/chat.rs`
+**Tag:** I.3; **Priority:** P1; **Phase:** 6; **Needs:** I.2; **Code:** `crates/ecclesia-ai/src/rag.rs`, `crates/ecclesia-features/src/ai/chat.rs`
 **Plan:** §27 entry `#### Ph6: 6/13 | I.3` and §12.2–§12.3.
 
 ## Problem
@@ -28,7 +28,7 @@ All reading/annotation/study modes when AI is enabled.
 ## Design
 
 - `RagEngine::ask` retrieves passages inside `RagScope`, wraps them in escaped `<document_passage>` delimiters, detects prompt-injection signals, and validates every claim's `chunk_id` and `quote` via `verify_quote_in_chunk` (verbatim or normalized ligature/whitespace match).
-- `ChatPanelModel::resolve_citation` maps clicked `[n]` markers to `CitationJumpTarget` (`page`, `excellent_mupdf::Quad` list, verbatim `quote`).
+- `ChatPanelModel::resolve_citation` maps clicked `[n]` markers to `CitationJumpTarget` (`page`, `ecclesia_mupdf::Quad` list, verbatim `quote`).
 
 ## Acceptance tests
 

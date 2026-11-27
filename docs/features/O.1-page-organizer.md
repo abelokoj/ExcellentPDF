@@ -1,6 +1,6 @@
 # Ph7: 13/32 | O.1: Page organizer
 
-**Tag:** O.1; **Priority:** P0; **Phase:** 7; **Needs:** R.5, K.14; **Code:** `excellent-core::page_ops` (`PageOrganizer`, `reorder_pages`, `rotate_pages`, `insert_blank_page`, `insert_pages_from`, `duplicate_pages`, `delete_pages`, `extract_pages`, `set_page_labels`, `read_page_labels`)
+**Tag:** O.1; **Priority:** P0; **Phase:** 7; **Needs:** R.5, K.14; **Code:** `ecclesia-core::page_ops` (`PageOrganizer`, `reorder_pages`, `rotate_pages`, `insert_blank_page`, `insert_pages_from`, `duplicate_pages`, `delete_pages`, `extract_pages`, `set_page_labels`, `read_page_labels`)
 **Plan:** §27 entry `#### Ph7: 13/32 | O.1`.
 
 ## Problem

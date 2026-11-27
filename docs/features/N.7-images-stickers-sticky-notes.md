@@ -1,6 +1,6 @@
 # Ph4: 20/44 | N.7: Images, stickers and sticky notes on pages
 
-**Tag:** N.7; **Priority:** P1; **Phase:** 4; **Needs:** A.20; **Code:** `excellent-features::notebook::media`
+**Tag:** N.7; **Priority:** P1; **Phase:** 4; **Needs:** A.20; **Code:** `ecclesia-features::notebook::media`
 **Plan:** §27 entry `#### Ph4: 20/44 | N.7`.
 
 ## Problem

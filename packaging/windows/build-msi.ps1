@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-Builds ExcellentPDF's dual-purpose (per-user / per-machine) Windows installer (MSI 5.0) from a release build.
+Builds EcclesiaPDF's dual-purpose (per-user / per-machine) Windows installer (MSI 5.0) from a release build.
 
 .DESCRIPTION
 Writes a self-contained Windows Installer 5.0 database using the Windows Installer COM API and makecab.exe, both
@@ -9,23 +9,25 @@ built into Windows, so no external installer toolkit is required on developer ma
 Implements Windows Installer 5.0 Single Package Authoring (ALLUSERS=2, MSIINSTALLPERUSER=1 default, Word Count
 Summary=10, Registry Root=-1) with a native interactive wizard UI:
   - WelcomeDialog: branded intro with the Nib & Leaf icon.
-  - ScopeDialog: choose "Install just for me (Current User)" (default, %LOCALAPPDATA%\Programs\ExcellentPDF, no UAC)
-    or "Install for all users on this computer (Administrator)" (%ProgramFiles%\ExcellentPDF, triggers UAC elevation).
+  - ScopeDialog: choose "Install just for me (Current User)" (default, %LOCALAPPDATA%\Programs\EcclesiaPDF, no UAC)
+    or "Install for all users on this computer (Administrator)" (%ProgramFiles%\EcclesiaPDF, triggers UAC elevation).
   - FolderDialog + BrowseDialog: edit or browse to any target directory (DirectoryCombo, DirectoryList, PathEdit,
-    Up, NewFolder, SetTargetPath).
-  - VerifyReadyDialog: summarizes scope and target directory, shows a UAC ElevationShield on the Install button
-    when per-machine is selected.
+    Up, NewFolder, SetTargetPath) and opt in/out of registering supported file types.
+  - VerifyReadyDialog: summarizes scope, target directory, and file associations; shows a UAC ElevationShield on the
+    Install button when per-machine is selected.
   - ProgressDialog: live ActionText / ActionData / SetProgress bar with Cancel.
-  - ExitDialog: completion screen with an optional "Launch ExcellentPDF" checkbox (fresh install only, runs unelevated).
-  - MaintenanceDialog: Repair or Remove when ExcellentPDF is already installed.
+  - ExitDialog: completion screen with optional "Launch Ecclesia PDF" and "Open Windows Default Apps settings"
+    checkboxes (fresh install only, runs unelevated).
+  - MaintenanceDialog: Repair or Remove when EcclesiaPDF is already installed.
 
 Also supports silent and scripted deployments:
-  - Per-user default:  msiexec /i ExcellentPDF-....msi /qn
-  - Per-machine:       msiexec /i ExcellentPDF-....msi ALLUSERS=1 MSIINSTALLPERUSER="" /qn
-  - Custom directory:  msiexec /i ExcellentPDF-....msi INSTALLDIR="C:\Custom\ExcellentPDF" /qn
-  - Combined:          msiexec /i ExcellentPDF-....msi ALLUSERS=1 MSIINSTALLPERUSER="" INSTALLDIR="C:\Apps\ExcellentPDF" /qn
+  - Per-user default:  msiexec /i EcclesiaPDF-....msi /qn
+  - Per-machine:       msiexec /i EcclesiaPDF-....msi ALLUSERS=1 MSIINSTALLPERUSER="" /qn
+  - Custom directory:  msiexec /i EcclesiaPDF-....msi INSTALLDIR="C:\Custom\EcclesiaPDF" /qn
+  - Skip file assoc:   msiexec /i EcclesiaPDF-....msi REGISTERFILETYPES="" /qn
+  - Combined:          msiexec /i EcclesiaPDF-....msi ALLUSERS=1 MSIINSTALLPERUSER="" INSTALLDIR="C:\Apps\EcclesiaPDF" /qn
 
-Preserves DD3 release naming (ExcellentPDF-vYY-MM-DD.N-vSEMVER-windows-x64.msi), DD28 ARPPRODUCTICON, Start Menu
+Preserves DD3 release naming (EcclesiaPDF-vYY-MM-DD.N-vSEMVER-windows-x64.msi), DD28 ARPPRODUCTICON, Start Menu
 shortcut (resolves to User or Common Start Menu based on ALLUSERS), UpgradeCode upgrade/downgrade guards, app-local
 Visual C++ runtime DLLs, and uninstall preservation of user settings and library data.
 
@@ -38,7 +40,7 @@ pwsh packaging/windows/build-msi.ps1 -Release 1
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [int] $Release,
-    [string] $Exe = 'target/release/excellentpdf.exe',
+    [string] $Exe = 'target/release/ecclesiapdf.exe',
     [string] $OutDir = 'dist',
     [string] $Date = (Get-Date -Format 'yy-MM-dd'),
     # The VC++ runtime folder (Microsoft.VC143.CRT, x64); found under Visual Studio when not given.
@@ -52,6 +54,7 @@ Set-StrictMode -Version Latest
 $UpgradeCode = '{8FCE077C-FCA0-41E4-8764-CA608322B541}'
 $AppComponentId = '{71AE9D01-4A64-4D89-8A9E-FDE53EF2391E}'
 $ShortcutComponentId = '{AD14514A-6A5E-46D0-9CCF-CC3F8904E567}'
+$FileAssocComponentId = '{E2C4F6A8-5B31-4D92-9A7E-6C1D8F4B2A09}'
 
 # Pure .NET binary generators (zero System.Drawing dependency; works in both Windows PowerShell 5.1 and pwsh 7+).
 function Write-UInt16LE([byte[]] $buf, [int] $offset, [int] $value) {
@@ -471,7 +474,7 @@ function New-BrowseIcons([string] $upPath, [string] $newFolderPath) {
     Write-Icon16 $newFolderPath $newGrid $palette
 }
 
-# Extracts the 32x32 PNG-encoded entry from an ICO (such as DD28's excellentpdf.ico) and writes a standard
+# Extracts the 32x32 PNG-encoded entry from an ICO (such as DD28's ecclesiapdf.ico) and writes a standard
 # uncompressed 32x32 32-bit BGRA DIB ICO for Windows Installer's UI Icon control (which rejects PNG-compressed
 # ICO entries with DEBUG: Error 2863). Reuses Read-PngRgba (no duplicated PNG decoder).
 function Convert-PngIcoToDib32Ico([string] $srcIcoPath, [string] $dstIcoPath) {
@@ -544,21 +547,21 @@ try {
     }
     New-Item -ItemType Directory -Force $OutDir | Out-Null
     $OutDir = (Resolve-Path $OutDir).Path
-    $name = "ExcellentPDF-v$Date.$Release-v$version-windows-x64"
+    $name = "EcclesiaPDF-v$Date.$Release-v$version-windows-x64"
     $msi = Join-Path $OutDir "$name.msi"
 }
 finally { Pop-Location }
 
 # The installed files: key (the name inside the cabinet), MSI file name (short|long), source.
 $files = @(
-    @{ Key = 'excellentpdf.exe'; Name = 'EXCELL~1.EXE|excellentpdf.exe'; Path = $Exe }
+    @{ Key = 'ecclesiapdf.exe'; Name = 'ECCLES~1.EXE|ecclesiapdf.exe'; Path = $Exe }
     @{ Key = 'msvcp140.dll'; Name = 'msvcp140.dll'; Path = Join-Path $CrtDir 'msvcp140.dll' }
     @{ Key = 'vcruntime140.dll'; Name = 'VCRUNT~1.DLL|vcruntime140.dll'; Path = Join-Path $CrtDir 'vcruntime140.dll' }
     @{ Key = 'vcruntime140_1.dll'; Name = 'VCRUNT~2.DLL|vcruntime140_1.dll'; Path = Join-Path $CrtDir 'vcruntime140_1.dll' }
 )
 
 # The cabinet, LZX:21 as plan §13.1's size baseline measures it.
-$work = Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-msi-$PID"
+$work = Join-Path ([IO.Path]::GetTempPath()) "ecclesiapdf-msi-$PID"
 New-Item -ItemType Directory -Force $work | Out-Null
 try {
     $ddf = @(
@@ -577,8 +580,8 @@ try {
     $topBannerPath = Join-Path $work 'TopBanner.bmp'
     $upIcoPath = Join-Path $work 'UpIco.ico'
     $newFolderIcoPath = Join-Path $work 'NewFolderIco.ico'
-    $appIconPath = Join-Path $root 'packaging/windows/excellentpdf.ico'
-    $src256Path = Join-Path $root 'design/icon/png/excellentpdf-256.png'
+    $appIconPath = Join-Path $root 'packaging/windows/ecclesiapdf.ico'
+    $src256Path = Join-Path $root 'design/icon/png/ecclesiapdf-256.png'
     $icon256 = if (Test-Path $src256Path) { Read-PngRgba ([IO.File]::ReadAllBytes($src256Path)) } else { $null }
     $appIcon32Path = Join-Path $work 'AppIcon32.ico'
     New-BannerSideBmp $bannerSidePath $icon256
@@ -678,24 +681,27 @@ try {
     $productCode = "{$([guid]::NewGuid().ToString().ToUpper())}"
     $properties = [ordered] @{
         ProductCode            = $productCode
-        ProductName            = 'ExcellentPDF'
+        ProductName            = 'Ecclesia PDF'
         ProductVersion         = $version
         ProductLanguage        = '1033'
-        Manufacturer           = 'ExcellentPDF'
+        Manufacturer           = 'Ecclesia PDF'
         UpgradeCode            = $UpgradeCode
         # Single Package Authoring: dual-purpose per-user (default, no UAC) or per-machine (UAC elevation).
         ALLUSERS               = '2'
         MSIINSTALLPERUSER      = '1'
         INSTALLSCOPE           = 'PerUser'
         SCOPESUMMARY           = 'Current user only (no administrator privileges required)'
+        REGISTERFILETYPES      = '1'
+        FILEASSOCSUMMARY       = 'Register for supported file types (.pdf, .epub, .xps, ...)'
+        OPENDEFAULTAPPS        = '1'
         LAUNCHAPP              = '1'
         _BrowseProperty        = 'INSTALLDIR'
         ARPNOMODIFY            = '1'
         ARPPRODUCTICON         = 'AppIcon.ico'
         DefaultUIFont          = 'DlgFont8'
         ErrorDialog            = 'ErrorDialog'
-        # Forward user-selected scope and destination directory across the UAC elevation boundary.
-        SecureCustomProperties = 'OLDERFOUND;NEWERFOUND;INSTALLDIR;ALLUSERS;MSIINSTALLPERUSER;INSTALLSCOPE;LAUNCHAPP;MACHINEINSTALLDIR;USERINSTALLDIR;USERCUSTOMDIR;MAINTMODE'
+        # Forward user-selected scope, destination directory, and file association choices across the UAC elevation boundary.
+        SecureCustomProperties = 'OLDERFOUND;NEWERFOUND;INSTALLDIR;ALLUSERS;MSIINSTALLPERUSER;INSTALLSCOPE;LAUNCHAPP;REGISTERFILETYPES;OPENDEFAULTAPPS;MACHINEINSTALLDIR;USERINSTALLDIR;USERCUSTOMDIR;MAINTMODE'
     }
     foreach ($key in $properties.Keys) { Add-Row Property @($key, $properties[$key]) }
 
@@ -703,17 +709,20 @@ try {
     Add-Row Directory @('TARGETDIR', $null, 'SourceDir')
     Add-Row Directory @('LocalAppDataFolder', 'TARGETDIR', '.')
     Add-Row Directory @('UserPrograms', 'LocalAppDataFolder', 'Programs')
-    Add-Row Directory @('INSTALLDIR', 'UserPrograms', 'EXCELL~1|ExcellentPDF')
+    Add-Row Directory @('INSTALLDIR', 'UserPrograms', 'ECCLES~1|EcclesiaPDF')
     Add-Row Directory @('ProgramFiles64Folder', 'TARGETDIR', '.')
     Add-Row Directory @('ProgramMenuFolder', 'TARGETDIR', '.')
+    Add-Row Directory @('System64Folder', 'TARGETDIR', '.')
 
     # --- Components, Features, Files, Media ---
     # 4: registry KeyPath (switches HKCU/HKLM automatically via Root = -1); 256: 64-bit component.
     Add-Row Component @('App', $AppComponentId, 'INSTALLDIR', 260, $null, 'AppInstalled')
     Add-Row Component @('StartMenu', $ShortcutComponentId, 'ProgramMenuFolder', 260, $null, 'ShortcutInstalled')
-    Add-Row Feature @('Main', $null, 'ExcellentPDF', 'The ExcellentPDF reader, annotator and notebook', 1, 1, 'INSTALLDIR', 0)
+    Add-Row Component @('FileAssoc', $FileAssocComponentId, 'INSTALLDIR', 260, 'REGISTERFILETYPES = "1"', 'FileAssocRegistered')
+    Add-Row Feature @('Main', $null, 'Ecclesia PDF', 'The Ecclesia PDF reader, annotator and notebook', 1, 1, 'INSTALLDIR', 0)
     Add-Row FeatureComponents @('Main', 'App')
     Add-Row FeatureComponents @('Main', 'StartMenu')
+    Add-Row FeatureComponents @('Main', 'FileAssoc')
 
     $sequence = 0
     foreach ($file in $files) {
@@ -729,34 +738,51 @@ try {
     Add-Row Media @(1, $sequence, $null, '#product.cab', $null, $null)
 
     # --- Registry (Root = -1: HKCU for per-user, HKLM for per-machine), RemoveFile, Shortcut ---
-    $regKey = 'Software\ExcellentPDF\Installer'
+    $regKey = 'Software\EcclesiaPDF\Installer'
     Add-Row Registry @('AppInstalled', -1, $regKey, 'InstallDir', '[INSTALLDIR]', 'App')
     Add-Row Registry @('ShortcutInstalled', -1, $regKey, 'StartMenuShortcut', '#1', 'StartMenu')
     Add-Row Registry @('InstallerKey', -1, $regKey, '-', $null, 'App')
+
+    # Dual-scope Default Programs / file type associations (Root = -1: HKCU for per-user, HKLM for per-machine).
+    Add-Row Registry @('FileAssocRegistered', -1, $regKey, 'FileAssociations', '#1', 'FileAssoc')
+    Add-Row Registry @('ProgIdDesc', -1, 'Software\Classes\EcclesiaPDF.Document', $null, 'Ecclesia PDF Document', 'FileAssoc')
+    Add-Row Registry @('ProgIdIcon', -1, 'Software\Classes\EcclesiaPDF.Document\DefaultIcon', $null, '[INSTALLDIR]ecclesiapdf.exe,0', 'FileAssoc')
+    Add-Row Registry @('ProgIdOpenCmd', -1, 'Software\Classes\EcclesiaPDF.Document\shell\open\command', $null, '"[INSTALLDIR]ecclesiapdf.exe" "%1"', 'FileAssoc')
+    Add-Row Registry @('CapAppName', -1, 'Software\EcclesiaPDF\Capabilities', 'ApplicationName', 'Ecclesia PDF', 'FileAssoc')
+    Add-Row Registry @('CapAppDesc', -1, 'Software\EcclesiaPDF\Capabilities', 'ApplicationDescription', 'Fast PDF, e-book, and annotation reader', 'FileAssoc')
+    Add-Row Registry @('RegAppCap', -1, 'Software\RegisteredApplications', 'Ecclesia PDF', 'Software\EcclesiaPDF\Capabilities', 'FileAssoc')
+    $fileExtensions = @('.pdf', '.xps', '.oxps', '.epub', '.cbz', '.cbr', '.mobi', '.fb2', '.djvu', '.expdf')
+    foreach ($ext in $fileExtensions) {
+        $extTag = $ext.TrimStart('.')
+        Add-Row Registry @("OpenWith_$extTag", -1, "Software\Classes\$ext\OpenWithProgids", 'EcclesiaPDF.Document', '', 'FileAssoc')
+        Add-Row Registry @("CapExt_$extTag", -1, 'Software\EcclesiaPDF\Capabilities\FileAssociations', $ext, 'EcclesiaPDF.Document', 'FileAssoc')
+    }
+
     Add-Row RemoveFile @('RemoveInstallDir', 'App', $null, 'INSTALLDIR', 2)
-    Add-Row Shortcut @('StartMenu', 'ProgramMenuFolder', 'EXCELL~1|ExcellentPDF', 'StartMenu', '[#excellentpdf.exe]',
+    Add-Row Shortcut @('StartMenu', 'ProgramMenuFolder', 'ECCLES~1|Ecclesia PDF', 'StartMenu', '[#ecclesiapdf.exe]',
         $null, 'Read, annotate and organise PDFs', $null, $null, $null, $null, 'INSTALLDIR')
 
     # --- Upgrades and Launch Conditions ---
     # Same or older builds are replaced (512: up to this version inclusive); a newer one stops the install (2: detect only).
     Add-Row Upgrade @($UpgradeCode, $null, $version, $null, 512, $null, 'OLDERFOUND')
     Add-Row Upgrade @($UpgradeCode, $version, $null, $null, 2, $null, 'NEWERFOUND')
-    Add-Row LaunchCondition @('NOT NEWERFOUND', 'A newer version of ExcellentPDF is already installed.')
+    Add-Row LaunchCondition @('NOT NEWERFOUND', 'A newer version of Ecclesia PDF is already installed.')
 
     # --- Custom Actions ---
     # Type 51 = set property with formatted text; Type 35 = set directory with formatted text (after CostFinalize).
     # Note: [%ProgramW6432] always holds the true 64-bit Program Files path even when MSIINSTALLPERUSER=1 redirects
     # ProgramFiles64Folder to %LOCALAPPDATA%\Programs in Windows Installer 5.0.
     Add-Row CustomAction @('MarkCustomDir', 51, 'USERCUSTOMDIR', '1')
-    Add-Row CustomAction @('InitUserDir', 51, 'USERINSTALLDIR', '[LocalAppDataFolder]Programs\ExcellentPDF\')
-    Add-Row CustomAction @('InitMachineDir', 51, 'MACHINEINSTALLDIR', '[%ProgramW6432]\ExcellentPDF\')
-    Add-Row CustomAction @('InitMachineDirFallback', 51, 'MACHINEINSTALLDIR', '[ProgramFiles64Folder]ExcellentPDF\')
+    Add-Row CustomAction @('InitUserDir', 51, 'USERINSTALLDIR', '[LocalAppDataFolder]Programs\EcclesiaPDF\')
+    Add-Row CustomAction @('InitMachineDir', 51, 'MACHINEINSTALLDIR', '[%ProgramW6432]\EcclesiaPDF\')
+    Add-Row CustomAction @('InitMachineDirFallback', 51, 'MACHINEINSTALLDIR', '[ProgramFiles64Folder]EcclesiaPDF\')
     Add-Row CustomAction @('SyncScopeMachine', 51, 'INSTALLSCOPE', 'PerMachine')
     Add-Row CustomAction @('SetScopeSummaryUser', 51, 'SCOPESUMMARY', 'Current user only (no administrator privileges required)')
     Add-Row CustomAction @('SetScopeSummaryMachine', 51, 'SCOPESUMMARY', 'All users on this computer (requires administrator privileges)')
     Add-Row CustomAction @('SetInstallDirMachine', 35, 'INSTALLDIR', '[MACHINEINSTALLDIR]')
     # Type 226 = 34 (EXE in Directory) + 192 (async, ignore exit code); invoked from ExitDialog (unelevated user session).
-    Add-Row CustomAction @('LaunchApp', 226, 'INSTALLDIR', '"[INSTALLDIR]excellentpdf.exe"')
+    Add-Row CustomAction @('LaunchApp', 226, 'INSTALLDIR', '"[INSTALLDIR]ecclesiapdf.exe"')
+    Add-Row CustomAction @('OpenDefaultApps', 226, 'System64Folder', '"[System64Folder]cmd.exe" /c start "" "ms-settings:defaultapps"')
 
     # --- Text Styles ---
     # Color is BGR (65536*B + 256*G + R); $null uses the Windows system text color (High Contrast friendly).
@@ -823,7 +849,7 @@ try {
     # 1. PrepareDialog (modeless, shown briefly while costing runs)
     # =========================================================================
     Add-Row Dialog @('PrepareDialog', 50, 50, 370, 270, $DLG_MODELESS, $dlgTitle, 'Cancel', 'Cancel', 'Cancel')
-    Add-InteriorChrome 'PrepareDialog' 'Preparing to Install' 'Please wait while Windows prepares ExcellentPDF Setup.'
+    Add-InteriorChrome 'PrepareDialog' 'Preparing to Install' 'Please wait while Windows prepares Ecclesia PDF Setup.'
     Add-Row Control @('PrepareDialog', 'WaitText', 'Text', 22, 84, 326, 36, $CTL_TEXT, $null,
         'Windows Installer is computing space requirements and preparing the installation wizard...', $null, $null)
     Add-Row Control @('PrepareDialog', 'Back', 'PushButton', 172, 243, 56, 17, $CTL_BTN_DISABLED, $null, '< &Back', $null, $null)
@@ -837,9 +863,9 @@ try {
     Add-Row Dialog @('WelcomeDialog', 50, 50, 370, 270, $DLG_WIZARD, $dlgTitle, 'Next', 'Next', 'Cancel')
     Add-ExteriorChrome 'WelcomeDialog'
     Add-Row Control @('WelcomeDialog', 'Title', 'Text', 124, 20, 232, 32, $CTL_TEXT, $null,
-        '{\DlgTitleFont}Welcome to ExcellentPDF Setup', $null, $null)
+        '{\DlgTitleFont}Welcome to Ecclesia PDF Setup', $null, $null)
     Add-Row Control @('WelcomeDialog', 'Intro', 'Text', 124, 62, 232, 36, $CTL_TEXT, $null,
-        'This wizard will install ExcellentPDF [ProductVersion] on your computer.', $null, $null)
+        'This wizard will install Ecclesia PDF [ProductVersion] on your computer.', $null, $null)
     Add-Row Control @('WelcomeDialog', 'Details', 'Text', 124, 102, 232, 54, $CTL_TEXT, $null,
         'You can choose to install just for your account (no administrator rights needed) or for all users on this computer, and pick any destination folder.', $null, $null)
     Add-Row Control @('WelcomeDialog', 'Prompt', 'Text', 124, 176, 232, 28, $CTL_TEXT, $null,
@@ -854,9 +880,9 @@ try {
     # 3. ScopeDialog (Per-User vs Per-Machine selection)
     # =========================================================================
     Add-Row Dialog @('ScopeDialog', 50, 50, 370, 270, $DLG_WIZARD, $dlgTitle, 'ScopeGroup', 'Next', 'Cancel')
-    Add-InteriorChrome 'ScopeDialog' 'Installation Scope' 'Choose who should be able to use ExcellentPDF on this computer.'
+    Add-InteriorChrome 'ScopeDialog' 'Installation Scope' 'Choose who should be able to use EcclesiaPDF on this computer.'
     Add-Row Control @('ScopeDialog', 'ScopePrompt', 'Text', 22, 56, 326, 14, $CTL_TEXT, $null,
-        'Select how you want to install ExcellentPDF:', $null, $null)
+        'Select how you want to install Ecclesia PDF:', $null, $null)
     Add-Row Control @('ScopeDialog', 'ScopeGroup', 'RadioButtonGroup', 22, 74, 326, 114, $CTL_BTN, 'INSTALLSCOPE', $null, 'Back', $null)
     Add-Row RadioButton @('INSTALLSCOPE', 1, 'PerUser', 4, 4, 318, 46,
         '{\DlgFontBold8}Install just for me (Current User) - installs in your user profile. No administrator permission required.', $null)
@@ -885,20 +911,23 @@ try {
     Add-Row ControlEvent @('ScopeDialog', 'Cancel', 'SpawnDialog', 'CancelDialog', '1', 1)
 
     # =========================================================================
-    # 4. FolderDialog (Custom directory PathEdit + Browse...)
+    # 4. FolderDialog (Custom directory PathEdit + Browse... + File associations)
     # =========================================================================
     Add-Row Dialog @('FolderDialog', 50, 50, 370, 270, $DLG_WIZARD, $dlgTitle, 'FolderEdit', 'Next', 'Cancel')
     Add-InteriorChrome 'FolderDialog' 'Destination Folder' 'Click Next to install to the default folder, or choose any folder below.'
     Add-Row Control @('FolderDialog', 'FolderLabel', 'Text', 22, 62, 326, 14, $CTL_TEXT, $null,
-        '&Install ExcellentPDF to:', $null, $null)
+        '&Install Ecclesia PDF to:', $null, $null)
     Add-Row Control @('FolderDialog', 'FolderEdit', 'PathEdit', 22, 78, 252, 18, $CTL_PATHEDIT, 'INSTALLDIR', $null, 'Browse', $null)
-    Add-Row Control @('FolderDialog', 'Browse', 'PushButton', 282, 78, 66, 18, $CTL_BTN, $null, 'B&rowse...', 'Back', $null)
-    Add-Row Control @('FolderDialog', 'ScopeLabel', 'Text', 22, 114, 326, 14, $CTL_TEXT, $null,
+    Add-Row Control @('FolderDialog', 'Browse', 'PushButton', 282, 78, 66, 18, $CTL_BTN, $null, 'B&rowse...', 'FileAssocCheckBox', $null)
+    Add-Row Control @('FolderDialog', 'ScopeLabel', 'Text', 22, 106, 326, 14, $CTL_TEXT, $null,
         '{\DlgFontBold8}Selected scope:', $null, $null)
-    Add-Row Control @('FolderDialog', 'ScopeInfo', 'Text', 22, 128, 326, 18, $CTL_TEXT_PATH, $null,
+    Add-Row Control @('FolderDialog', 'ScopeInfo', 'Text', 22, 120, 326, 16, $CTL_TEXT_PATH, $null,
         '[SCOPESUMMARY]', $null, $null)
-    Add-Row Control @('FolderDialog', 'FolderHint', 'Text', 22, 158, 326, 36, $CTL_TEXT, $null,
+    Add-Row Control @('FolderDialog', 'FolderHint', 'Text', 22, 142, 326, 24, $CTL_TEXT, $null,
         'Type any valid folder path directly above or click Browse to pick or create a folder on any drive.', $null, $null)
+    Add-Row Control @('FolderDialog', 'FileAssocCheckBox', 'CheckBox', 22, 174, 326, 30, $CTL_BTN, 'REGISTERFILETYPES',
+        '&Register Ecclesia PDF as a default app for supported file types (.pdf, .xps, .epub, .cbz, .cbr, .mobi, .fb2, .djvu, .expdf)', 'Back', $null)
+    Add-Row CheckBox @('REGISTERFILETYPES', '1')
     Add-Row Control @('FolderDialog', 'Back', 'PushButton', 172, 243, 56, 17, $CTL_BTN, $null, '< &Back', 'Next', $null)
     Add-Row Control @('FolderDialog', 'Next', 'PushButton', 236, 243, 56, 17, $CTL_BTN, $null, '&Next >', 'Cancel', $null)
     Add-Row Control @('FolderDialog', 'Cancel', 'PushButton', 301, 243, 56, 17, $CTL_BTN, $null, 'Cancel', 'FolderEdit', $null)
@@ -908,14 +937,16 @@ try {
     Add-Row ControlEvent @('FolderDialog', 'Back', 'NewDialog', 'ScopeDialog', '1', 1)
     Add-Row ControlEvent @('FolderDialog', 'Next', 'SetTargetPath', 'INSTALLDIR', '1', 1)
     Add-Row ControlEvent @('FolderDialog', 'Next', '[USERCUSTOMDIR]', '1', 'INSTALLDIR <> USERINSTALLDIR AND INSTALLDIR <> MACHINEINSTALLDIR', 2)
-    Add-Row ControlEvent @('FolderDialog', 'Next', 'NewDialog', 'VerifyReadyDialog', '1', 3)
+    Add-Row ControlEvent @('FolderDialog', 'Next', '[FILEASSOCSUMMARY]', 'Register for supported file types (.pdf, .epub, .xps, ...)', 'REGISTERFILETYPES = "1"', 3)
+    Add-Row ControlEvent @('FolderDialog', 'Next', '[FILEASSOCSUMMARY]', 'Do not change file associations', 'REGISTERFILETYPES <> "1"', 4)
+    Add-Row ControlEvent @('FolderDialog', 'Next', 'NewDialog', 'VerifyReadyDialog', '1', 5)
     Add-Row ControlEvent @('FolderDialog', 'Cancel', 'SpawnDialog', 'CancelDialog', '1', 1)
 
     # =========================================================================
     # 5. BrowseDialog (Standard MSI directory browser)
     # =========================================================================
     Add-Row Dialog @('BrowseDialog', 50, 50, 370, 270, $DLG_MODAL, $dlgTitle, 'PathEdit', 'OK', 'Cancel')
-    Add-InteriorChrome 'BrowseDialog' 'Change Destination Folder' 'Browse to the folder where you want to install ExcellentPDF.'
+    Add-InteriorChrome 'BrowseDialog' 'Change Destination Folder' 'Browse to the folder where you want to install Ecclesia PDF.'
     Add-Row Control @('BrowseDialog', 'ComboLabel', 'Text', 22, 58, 44, 14, $CTL_TEXT, $null, '&Look in:', $null, $null)
     Add-Row Control @('BrowseDialog', 'DirectoryCombo', 'DirectoryCombo', 70, 55, 220, 80, $CTL_DIRCOMBO, '_BrowseProperty', $null, 'Up', $null)
     Add-Row Control @('BrowseDialog', 'Up', 'PushButton', 298, 55, 19, 19, $CTL_BTN_ICON16, $null, 'UpIco', 'NewFolder', 'Up one level|')
@@ -937,18 +968,22 @@ try {
     # 6. VerifyReadyDialog (Summary + UAC ElevationShield when Per-Machine)
     # =========================================================================
     Add-Row Dialog @('VerifyReadyDialog', 50, 50, 370, 270, $DLG_WIZARD, $dlgTitle, 'Back', 'InstallPerUser', 'Cancel')
-    Add-InteriorChrome 'VerifyReadyDialog' 'Ready to Install ExcellentPDF' 'Review your installation choices and click Install to begin.'
-    Add-Row Control @('VerifyReadyDialog', 'ScopeTitle', 'Text', 22, 62, 326, 14, $CTL_TEXT, $null,
+    Add-InteriorChrome 'VerifyReadyDialog' 'Ready to Install Ecclesia PDF' 'Review your installation choices and click Install to begin.'
+    Add-Row Control @('VerifyReadyDialog', 'ScopeTitle', 'Text', 22, 56, 326, 14, $CTL_TEXT, $null,
         '{\DlgFontBold8}Installation scope:', $null, $null)
-    Add-Row Control @('VerifyReadyDialog', 'ScopeValue', 'Text', 32, 76, 316, 18, $CTL_TEXT_PATH, $null,
+    Add-Row Control @('VerifyReadyDialog', 'ScopeValue', 'Text', 32, 70, 316, 16, $CTL_TEXT_PATH, $null,
         '[SCOPESUMMARY]', $null, $null)
-    Add-Row Control @('VerifyReadyDialog', 'DirTitle', 'Text', 22, 102, 326, 14, $CTL_TEXT, $null,
+    Add-Row Control @('VerifyReadyDialog', 'DirTitle', 'Text', 22, 92, 326, 14, $CTL_TEXT, $null,
         '{\DlgFontBold8}Destination folder:', $null, $null)
-    Add-Row Control @('VerifyReadyDialog', 'DirValue', 'Text', 32, 116, 316, 28, $CTL_TEXT_PATH, $null,
+    Add-Row Control @('VerifyReadyDialog', 'DirValue', 'Text', 32, 106, 316, 24, $CTL_TEXT_PATH, $null,
         '[INSTALLDIR]', $null, $null)
-    Add-Row Control @('VerifyReadyDialog', 'ElevationNote', 'Text', 22, 152, 326, 28, $CTL_TEXT, $null,
+    Add-Row Control @('VerifyReadyDialog', 'FileAssocTitle', 'Text', 22, 134, 326, 14, $CTL_TEXT, $null,
+        '{\DlgFontBold8}File associations:', $null, $null)
+    Add-Row Control @('VerifyReadyDialog', 'FileAssocValue', 'Text', 32, 148, 316, 18, $CTL_TEXT_PATH, $null,
+        '[FILEASSOCSUMMARY]', $null, $null)
+    Add-Row Control @('VerifyReadyDialog', 'ElevationNote', 'Text', 22, 172, 326, 24, $CTL_TEXT, $null,
         'Windows will prompt for administrator permission (UAC) when you click Install.', $null, $null)
-    Add-Row Control @('VerifyReadyDialog', 'ReadyPrompt', 'Text', 22, 190, 326, 28, $CTL_TEXT, $null,
+    Add-Row Control @('VerifyReadyDialog', 'ReadyPrompt', 'Text', 22, 200, 326, 26, $CTL_TEXT, $null,
         'Click Install to begin the installation, Back to change any settings, or Cancel to exit.', $null, $null)
     Add-Row Control @('VerifyReadyDialog', 'Back', 'PushButton', 172, 243, 56, 17, $CTL_BTN, $null, '< &Back', 'InstallPerUser', $null)
     Add-Row Control @('VerifyReadyDialog', 'InstallPerUser', 'PushButton', 236, 243, 56, 17, $CTL_BTN, $null, '&Install', 'InstallPerMachine', $null)
@@ -973,7 +1008,7 @@ try {
     # 7. MaintenanceDialog (Already installed: Repair or Remove)
     # =========================================================================
     Add-Row Dialog @('MaintenanceDialog', 50, 50, 370, 270, $DLG_WIZARD, $dlgTitle, 'Cancel', 'Cancel', 'Cancel')
-    Add-InteriorChrome 'MaintenanceDialog' 'Repair or Remove ExcellentPDF' 'ExcellentPDF is already installed on this computer.'
+    Add-InteriorChrome 'MaintenanceDialog' 'Repair or Remove EcclesiaPDF' 'EcclesiaPDF is already installed on this computer.'
     Add-Row Control @('MaintenanceDialog', 'RepairButton', 'PushButton', 22, 72, 88, 20, $CTL_BTN, $null, '&Repair', 'RepairButtonAdmin', $null)
     Add-Row Control @('MaintenanceDialog', 'RepairButtonAdmin', 'PushButton', 22, 72, 88, 20, $CTL_BTN_ELEVATED, $null, '&Repair', 'RemoveButton', $null)
     Add-Row Control @('MaintenanceDialog', 'RepairDesc', 'Text', 122, 72, 226, 36, $CTL_TEXT, $null,
@@ -981,7 +1016,7 @@ try {
     Add-Row Control @('MaintenanceDialog', 'RemoveButton', 'PushButton', 22, 134, 88, 20, $CTL_BTN, $null, 'R&emove', 'RemoveButtonAdmin', $null)
     Add-Row Control @('MaintenanceDialog', 'RemoveButtonAdmin', 'PushButton', 22, 134, 88, 20, $CTL_BTN_ELEVATED, $null, 'R&emove', 'Cancel', $null)
     Add-Row Control @('MaintenanceDialog', 'RemoveDesc', 'Text', 122, 134, 226, 36, $CTL_TEXT, $null,
-        'Removes ExcellentPDF from your computer. Your documents, settings, and library data are kept.', $null, $null)
+        'Removes Ecclesia PDF from your computer. Your documents, settings, and library data are kept.', $null, $null)
     Add-Row Control @('MaintenanceDialog', 'Cancel', 'PushButton', 301, 243, 56, 17, $CTL_BTN, $null, 'Cancel', 'RepairButton', $null)
 
     Add-Row ControlCondition @('MaintenanceDialog', 'RepairButton', 'Hide', 'ALLUSERS = "1" OR NOT MSIINSTALLPERUSER')
@@ -1012,12 +1047,12 @@ try {
     Add-Row Dialog @('ProgressDialog', 50, 50, 370, 270, $DLG_MODELESS, $dlgTitle, 'Cancel', 'Cancel', 'Cancel')
     Add-Row Control @('ProgressDialog', 'BannerBitmap', 'Bitmap', 0, 0, 370, 44, $ATTR_VISIBLE, $null, 'TopBanner', $null, $null)
     Add-Row Control @('ProgressDialog', 'BannerLine', 'Line', 0, 44, 370, 0, $ATTR_VISIBLE, $null, $null, $null, $null)
-    Add-Row Control @('ProgressDialog', 'TitleInstall', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Installing ExcellentPDF', $null, $null)
-    Add-Row Control @('ProgressDialog', 'DescInstall', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, 'Please wait while ExcellentPDF is installed.', $null, $null)
-    Add-Row Control @('ProgressDialog', 'TitleRepair', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Repairing ExcellentPDF', $null, $null)
-    Add-Row Control @('ProgressDialog', 'DescRepair', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, 'Please wait while ExcellentPDF is repaired.', $null, $null)
-    Add-Row Control @('ProgressDialog', 'TitleRemove', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Removing ExcellentPDF', $null, $null)
-    Add-Row Control @('ProgressDialog', 'DescRemove', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, 'Please wait while ExcellentPDF is removed.', $null, $null)
+    Add-Row Control @('ProgressDialog', 'TitleInstall', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Installing EcclesiaPDF', $null, $null)
+    Add-Row Control @('ProgressDialog', 'DescInstall', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, 'Please wait while EcclesiaPDF is installed.', $null, $null)
+    Add-Row Control @('ProgressDialog', 'TitleRepair', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Repairing EcclesiaPDF', $null, $null)
+    Add-Row Control @('ProgressDialog', 'DescRepair', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, 'Please wait while EcclesiaPDF is repaired.', $null, $null)
+    Add-Row Control @('ProgressDialog', 'TitleRemove', 'Text', 15, 6, 305, 15, $CTL_TEXT_BANNER, $null, '{\BannerTitleFont}Removing EcclesiaPDF', $null, $null)
+    Add-Row Control @('ProgressDialog', 'DescRemove', 'Text', 15, 23, 305, 18, $CTL_TEXT_BANNER, $null, 'Please wait while EcclesiaPDF is removed.', $null, $null)
     Add-Row Control @('ProgressDialog', 'StatusLabel', 'Text', 22, 92, 44, 14, $CTL_TEXT, $null, 'Status:', $null, $null)
     Add-Row Control @('ProgressDialog', 'ActionText', 'Text', 68, 92, 280, 16, $CTL_TEXT_PATH, $null, $null, $null, $null)
     Add-Row Control @('ProgressDialog', 'ActionData', 'Text', 68, 110, 280, 16, $CTL_TEXT_PATH, $null, $null, $null, $null)
@@ -1046,20 +1081,23 @@ try {
     Add-Row ControlEvent @('ProgressDialog', 'Cancel', 'SpawnDialog', 'CancelDialog', '1', 1)
 
     # =========================================================================
-    # 9. ExitDialog (Completion + optional Launch ExcellentPDF checkbox)
+    # 9. ExitDialog (Completion + optional Launch & Default Apps checkboxes)
     # =========================================================================
     Add-Row Dialog @('ExitDialog', 50, 50, 370, 270, $DLG_MODAL, $dlgTitle, 'Finish', 'Finish', 'Finish')
     Add-ExteriorChrome 'ExitDialog'
     Add-Row Control @('ExitDialog', 'Title', 'Text', 124, 20, 232, 32, $CTL_TEXT, $null,
-        '{\DlgTitleFont}ExcellentPDF Setup Complete', $null, $null)
+        '{\DlgTitleFont}Ecclesia PDF Setup Complete', $null, $null)
     Add-Row Control @('ExitDialog', 'BodyInstall', 'Text', 124, 62, 232, 36, $CTL_TEXT, $null,
-        'ExcellentPDF [ProductVersion] has been installed on your computer. Click Finish to exit Setup.', $null, $null)
+        'Ecclesia PDF [ProductVersion] has been installed on your computer. Click Finish to exit Setup.', $null, $null)
     Add-Row Control @('ExitDialog', 'BodyMaint', 'Text', 124, 62, 232, 36, $CTL_TEXT, $null,
-        'ExcellentPDF maintenance is complete. Click Finish to exit Setup.', $null, $null)
+        'Ecclesia PDF maintenance is complete. Click Finish to exit Setup.', $null, $null)
     Add-Row Control @('ExitDialog', 'LaunchCheckBox', 'CheckBox', 124, 114, 224, 18, $CTL_BTN, 'LAUNCHAPP',
-        '&Launch ExcellentPDF', 'Finish', $null)
+        '&Launch Ecclesia PDF', 'DefaultAppsCheckBox', $null)
+    Add-Row Control @('ExitDialog', 'DefaultAppsCheckBox', 'CheckBox', 124, 138, 224, 28, $CTL_BTN, 'OPENDEFAULTAPPS',
+        '&Open Windows Default Apps settings to set Ecclesia PDF as default', 'Finish', $null)
     Add-Row Control @('ExitDialog', 'Finish', 'PushButton', 236, 243, 56, 17, $CTL_BTN, $null, '&Finish', 'LaunchCheckBox', $null)
     Add-Row CheckBox @('LAUNCHAPP', '1')
+    Add-Row CheckBox @('OPENDEFAULTAPPS', '1')
 
     Add-Row ControlCondition @('ExitDialog', 'BodyInstall', 'Show', 'NOT Installed')
     Add-Row ControlCondition @('ExitDialog', 'BodyInstall', 'Hide', 'Installed')
@@ -1067,9 +1105,12 @@ try {
     Add-Row ControlCondition @('ExitDialog', 'BodyMaint', 'Hide', 'NOT Installed')
     Add-Row ControlCondition @('ExitDialog', 'LaunchCheckBox', 'Show', 'NOT Installed')
     Add-Row ControlCondition @('ExitDialog', 'LaunchCheckBox', 'Hide', 'Installed')
+    Add-Row ControlCondition @('ExitDialog', 'DefaultAppsCheckBox', 'Show', 'NOT Installed AND REGISTERFILETYPES = "1"')
+    Add-Row ControlCondition @('ExitDialog', 'DefaultAppsCheckBox', 'Hide', 'Installed OR REGISTERFILETYPES <> "1"')
 
-    Add-Row ControlEvent @('ExitDialog', 'Finish', 'DoAction', 'LaunchApp', 'LAUNCHAPP = "1" AND NOT Installed', 1)
-    Add-Row ControlEvent @('ExitDialog', 'Finish', 'EndDialog', 'Return', '1', 2)
+    Add-Row ControlEvent @('ExitDialog', 'Finish', 'DoAction', 'OpenDefaultApps', 'OPENDEFAULTAPPS = "1" AND REGISTERFILETYPES = "1" AND NOT Installed', 1)
+    Add-Row ControlEvent @('ExitDialog', 'Finish', 'DoAction', 'LaunchApp', 'LAUNCHAPP = "1" AND NOT Installed', 2)
+    Add-Row ControlEvent @('ExitDialog', 'Finish', 'EndDialog', 'Return', '1', 3)
 
     # =========================================================================
     # 10. CancelDialog (Cancel confirmation)
@@ -1077,7 +1118,7 @@ try {
     Add-Row Dialog @('CancelDialog', 50, 50, 260, 85, $DLG_MODAL, $dlgTitle, 'No', 'No', 'No')
     Add-Row Control @('CancelDialog', 'Icon', 'Icon', 15, 15, 24, 24, $CTL_ICON_32, $null, 'AppIconBin', $null, $null)
     Add-Row Control @('CancelDialog', 'Text', 'Text', 48, 15, 194, 34, $CTL_TEXT, $null,
-        'Are you sure you want to cancel ExcellentPDF Setup?', $null, $null)
+        'Are you sure you want to cancel Ecclesia PDF Setup?', $null, $null)
     Add-Row Control @('CancelDialog', 'Yes', 'PushButton', 72, 57, 56, 17, $CTL_BTN, $null, '&Yes', 'No', $null)
     Add-Row Control @('CancelDialog', 'No', 'PushButton', 132, 57, 56, 17, $CTL_BTN, $null, '&No', 'Yes', $null)
     Add-Row ControlEvent @('CancelDialog', 'Yes', 'EndDialog', 'Exit', '1', 1)
@@ -1089,9 +1130,9 @@ try {
     Add-Row Dialog @('UserExitDialog', 50, 50, 370, 270, $DLG_MODAL, $dlgTitle, 'Finish', 'Finish', 'Finish')
     Add-ExteriorChrome 'UserExitDialog'
     Add-Row Control @('UserExitDialog', 'Title', 'Text', 124, 20, 232, 32, $CTL_TEXT, $null,
-        '{\DlgTitleFont}ExcellentPDF Setup Cancelled', $null, $null)
+        '{\DlgTitleFont}Ecclesia PDF Setup Cancelled', $null, $null)
     Add-Row Control @('UserExitDialog', 'Body', 'Text', 124, 62, 232, 48, $CTL_TEXT, $null,
-        'ExcellentPDF Setup was interrupted. Your system has not been modified. Run Setup again at any time to complete the installation.', $null, $null)
+        'Ecclesia PDF Setup was interrupted. Your system has not been modified. Run Setup again at any time to complete the installation.', $null, $null)
     Add-Row Control @('UserExitDialog', 'Finish', 'PushButton', 236, 243, 56, 17, $CTL_BTN, $null, '&Finish', 'Finish', $null)
     Add-Row ControlEvent @('UserExitDialog', 'Finish', 'EndDialog', 'Exit', '1', 1)
 
@@ -1103,7 +1144,7 @@ try {
     Add-Row Control @('FatalErrorDialog', 'Title', 'Text', 124, 20, 232, 32, $CTL_TEXT, $null,
         '{\DlgTitleFont}Setup Ended Prematurely', $null, $null)
     Add-Row Control @('FatalErrorDialog', 'Body', 'Text', 124, 62, 232, 56, $CTL_TEXT, $null,
-        'ExcellentPDF Setup ended prematurely because of an error. Your system has not been modified. Run Setup again later to install ExcellentPDF.', $null, $null)
+        'Ecclesia PDF Setup ended prematurely because of an error. Your system has not been modified. Run Setup again later to install Ecclesia PDF.', $null, $null)
     Add-Row Control @('FatalErrorDialog', 'Finish', 'PushButton', 236, 243, 56, 17, $CTL_BTN, $null, '&Finish', 'Finish', $null)
     Add-Row ControlEvent @('FatalErrorDialog', 'Finish', 'EndDialog', 'Exit', '1', 1)
 
@@ -1149,7 +1190,7 @@ try {
     Add-Row ActionText @('CostFinalize',           'Computing space requirements',            $null)
     Add-Row ActionText @('InstallValidate',        'Validating install',                      $null)
     Add-Row ActionText @('InstallInitialize',      'Preparing installation',                  $null)
-    Add-Row ActionText @('RemoveExistingProducts', 'Removing older versions of ExcellentPDF', 'Application: [1]')
+    Add-Row ActionText @('RemoveExistingProducts', 'Removing older versions of EcclesiaPDF', 'Application: [1]')
     Add-Row ActionText @('ProcessComponents',      'Updating component registration',         $null)
     Add-Row ActionText @('UnpublishFeatures',      'Unpublishing product features',           'Feature: [1]')
     Add-Row ActionText @('RemoveRegistryValues',   'Removing registry values',                'Key: [1], Name: [2]')
@@ -1260,7 +1301,7 @@ try {
     foreach ($action in $adminUi.Keys) { Add-Row AdminUISequence @($action, $null, $adminUi[$action]) }
 
     # --- Binary & Icon Streams ---
-    # Icon table: shown in Settings > Apps (ARPPRODUCTICON); shortcut takes the icon embedded in excellentpdf.exe.
+    # Icon table: shown in Settings > Apps (ARPPRODUCTICON); shortcut takes the icon embedded in ecclesiapdf.exe.
     Add-Stream 'Icon' 'AppIcon.ico' $appIconPath
     # Binary table: used by MSI UI Bitmap, Icon, and PushButton(Icon) controls.
     Add-Stream 'Binary' 'AppIconBin' $appIcon32Path
@@ -1276,17 +1317,17 @@ try {
     $fields = [ordered] @{
         1  = [int] 1252                       # codepage
         2  = 'Installation Database'
-        3  = 'ExcellentPDF'
-        4  = 'ExcellentPDF'
+        3  = 'EcclesiaPDF'
+        4  = 'EcclesiaPDF'
         5  = 'Installer'
-        6  = 'ExcellentPDF - Dual-purpose per-user / per-machine Windows installer'
+        6  = 'EcclesiaPDF - Dual-purpose per-user / per-machine Windows installer'
         7  = 'x64;1033'                       # platform and language
         9  = "{$([guid]::NewGuid().ToString().ToUpper())}" # package code, new for every build
         12 = [datetime]::Now
         13 = [datetime]::Now
         14 = [int] 500                        # Windows Installer 5.0: required for x64 and Single Package Authoring
         15 = [int] 2                          # 2: compressed files; bit 3 clear so All Users can trigger UAC under Single Package Authoring
-        18 = 'ExcellentPDF build script'
+        18 = 'EcclesiaPDF build script'
     }
     foreach ($field in $fields.GetEnumerator()) { Set-ComProperty $summary 'Property' @([int] $field.Key, $field.Value) }
     [void] (Invoke-Com $summary 'Persist')

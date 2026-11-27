@@ -1,0 +1,22 @@
+[package]
+name = "ecclesia-packs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Optional packs: download, Ed25519 verification, install, removal and offline use"
+
+[dependencies]
+ed25519-dalek.workspace = true
+log.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+ureq.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+zip = { workspace = true, features = ["deflate"] }
+
+[lints]
+workspace = true

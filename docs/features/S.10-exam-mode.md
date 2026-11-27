@@ -1,6 +1,6 @@
 # Ph4: 35/44 | S.10: Exam mode
 
-**Tag:** S.10; **Priority:** P1; **Phase:** 4; **Needs:** S.1, H.4; **Code:** `excellent-features::study::exam`
+**Tag:** S.10; **Priority:** P1; **Phase:** 4; **Needs:** S.1, H.4; **Code:** `ecclesia-features::study::exam`
 **Plan:** §27 entry `#### Ph4: 35/44 | S.10` and §11.7. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -29,7 +29,7 @@ Study mode (toolbar button visible by default).
 
 ## Design
 
-- **Model** (`excellent-features::study::exam`): `ExamConfig`, `VisibilitySnapshot`, `ExamVisibility`, `ExamTimerState`, `ExamSession`.
+- **Model** (`ecclesia-features::study::exam`): `ExamConfig`, `VisibilitySnapshot`, `ExamVisibility`, `ExamTimerState`, `ExamSession`.
 - **Lifecycle**: `ExamSession::enter(annotations, prior, config, now)` records exact prior `VisibilitySnapshot` (including every H.4 tape's opacity) and emits covering `Change`s; `reveal_one` / `reveal_next` reveal annotations or call `tape::tapped`; `pause_timer` / `resume_timer` / `remaining_secs` drive the timer; `exit(current_annotations)` restores the exact `VisibilitySnapshot` and returns `Change`s restoring every H.4 tape to its exact prior opacity.
 
 ## Acceptance tests

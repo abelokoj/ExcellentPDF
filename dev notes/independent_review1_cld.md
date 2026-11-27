@@ -53,7 +53,7 @@ and each step leaves the repository in a state CI can check.
 | Feature claims | **Fail** | 167 shipped without acceptance; mocks behind shipped features (5) |
 | Performance budgets | **Fail** | 3 of 4 over; no baselines (6) |
 | `unsafe` hygiene | Pass | 178 new `unsafe` blocks, all with `// SAFETY:`; iOS and Android FFI catch panics |
-| MuPDF boundary | Pass | raw bindings used only inside `excellent-mupdf` |
+| MuPDF boundary | Pass | raw bindings used only inside `ecclesia-mupdf` |
 | Privacy and network | Pass | consent-gated (AI, translation) or user-started (URL, Zotero, metadata, classroom) |
 | Localization | Pass | en and ar 2,136 keys each; 1 used key missing (12) |
 | Installer size | Pass | release 7 is 13.6 MB (limit 15 MB) |
@@ -69,11 +69,11 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
 
 - **What:** every push since `9e6218a` fails on Windows, macOS and Linux; the last green run was `9a475ac`.
 - **Evidence:**
-  - `sandbox::tests::malformed_fuzz_corpus_inputs_never_panic` (`crates/excellent-core/src/sandbox/tests.rs:661`)
+  - `sandbox::tests::malformed_fuzz_corpus_inputs_never_panic` (`crates/ecclesia-core/src/sandbox/tests.rs:661`)
     asserts that `tests/fuzz/corpus` exists. `.gitignore` line 6 (`/tests/fuzz/corpus/`) keeps it out of git, so it
     exists only on this machine (27 KB: `malformed_pdf`, `malformed_expdf`, `malformed_synctex`, `malformed_xfdf`).
   - macOS only: `page::canvas::tests::corpus_pdfs_render_non_blank_tiles_through_resize_scroll_and_zoom` panics at
-    `crates/excellent-canvas/src/page/canvas.rs:2341`: on a 3000 px view the tiles don't reach past 2000 px.
+    `crates/ecclesia-canvas/src/page/canvas.rs:2341`: on a 3000 px view the tiles don't reach past 2000 px.
 - **Why it matters:** with CI red, nothing since has been checked on macOS or Linux, and every later regression hides
   behind the known failure.
 - **Fix:**
@@ -89,7 +89,7 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
 
 #### F2. Anyone can sign a pack the app trusts
 
-- **What:** `crates/excellent-app/src/packs.rs:22` sets `FALLBACK_KEY_BYTES` (`d75a9801…511a`), used whenever no key
+- **What:** `crates/ecclesia-app/src/packs.rs:22` sets `FALLBACK_KEY_BYTES` (`d75a9801…511a`), used whenever no key
   is configured. It is the public key of RFC 8032 §7.1 test 1, whose private key is printed in the RFC. The key can
   also be replaced by `packs_verifying_key` in `settings.toml` (`packs.rs:21`, `:61`, `:187`).
 - **Why it matters:** packs are executable features (D8). A pack signed with the published test key, or a key planted
@@ -97,7 +97,7 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
   the app.
 - **Fix:**
   1. Delete `FALLBACK_KEY_BYTES` and the `packs_verifying_key` setting.
-  2. Make the key `const PACKS_VERIFYING_KEY: Option<[u8; 32]> = None;` in `excellent-app`, set only by the
+  2. Make the key `const PACKS_VERIFYING_KEY: Option<[u8; 32]> = None;` in `ecclesia-app`, set only by the
      maintainer (DD27). While it is `None`, the pack manager says packs are unavailable and installs nothing.
   3. Keep the index URL setting (where packs come from), not the trust anchor (who signs them).
   4. Add a test that an index signed with the RFC 8032 test key is refused.
@@ -105,7 +105,7 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
 
 #### F3. A second PDF engine, against D3 and D4
 
-- **What:** `crates/excellent-core/src/page_ops/pdf_doc.rs` (1,541 lines, "pure-Rust PDF 1.7 parser, stream codec, and
+- **What:** `crates/ecclesia-core/src/page_ops/pdf_doc.rs` (1,541 lines, "pure-Rust PDF 1.7 parser, stream codec, and
   writer") is used by 11 tools: `redact.rs`, `compress.rs`, `page_ops.rs`, `bates.rs`, `headers.rs`, `crypto.rs`,
   `edit_content.rs`, `cad.rs`, `print_prod.rs`, `notebook/pdf_ops.rs`, and `page_ops/pdf_doc.rs` itself. Its stream
   decoder handles `FlateDecode` only (`pdf_doc.rs:202` to `:217`).
@@ -127,7 +127,7 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
   - encryption: `pdf_write_options.do_encrypt` and permissions;
   - Bates numbering, headers and watermarks: content added with MuPDF's page content APIs, as annotations are now.
 
-  Each move adds shim functions (`ex_*` in `shim.c` with `fz_try`), a safe wrapper in `excellent-mupdf`, and keeps the
+  Each move adds shim functions (`ex_*` in `shim.c` with `fz_try`), a safe wrapper in `ecclesia-mupdf`, and keeps the
   feature's current tests as the acceptance check. Delete `pdf_doc.rs` when its last user is gone.
 - **Alternative:** approve the parser as an exception in the plan (§6, D3), with a fuzz target for it and a rule
   that redaction always runs through MuPDF. Either way, record the decision as a DD entry.
@@ -138,12 +138,12 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
 
 #### F4. "Sandboxed" plugins run unsandboxed
 
-- **What:** `crates/excellent-features/src/plugins/runner.rs:120` starts a plugin with `Command::new(command)`,
+- **What:** `crates/ecclesia-features/src/plugins/runner.rs:120` starts a plugin with `Command::new(command)`,
   inheriting the user's rights, environment and working folder. The Job Object and restricted-token sandbox in
-  `excellent-core::sandbox` (K.22) is not used for plugins. E.5 is marked shipped as "sandboxed".
+  `ecclesia-core::sandbox` (K.22) is not used for plugins. E.5 is marked shipped as "sandboxed".
 - **Why it matters:** a plugin can read and write every file the user can, and reach the network.
 - **Fix:**
-  1. Start plugins through `excellent-core::sandbox` (restricted token, Job Object with kill-on-close, UI and
+  1. Start plugins through `ecclesia-core::sandbox` (restricted token, Job Object with kill-on-close, UI and
      process limits), as the engine worker is.
   2. Give the plugin an empty environment and a working folder of its own.
   3. Grant capabilities (file access, network) only through host callbacks, never by the process's own rights.
@@ -160,11 +160,11 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
 
   | Tag | Claim | What the code does |
   | --- | --- | --- |
-  | L.1 | Record audio while writing | The app holds `MockAudioCapture` and `MockAudioPlayback` (`crates/excellent-app/src/notebooks.rs:83`); nothing is recorded |
-  | L.2 | Offline transcription | `MockTranscriber` (`crates/excellent-app/src/notebooks/phase5.rs:537`); nothing is transcribed |
-  | O.15, O.20 | Validate signatures; PAdES levels | Hand-written CMS and X.509 that accept Ed25519 only (`crates/excellent-core/src/signing/der.rs:750`); RSA and ECDSA signatures, what certificate authorities issue, report "unsupported" |
+  | L.1 | Record audio while writing | The app holds `MockAudioCapture` and `MockAudioPlayback` (`crates/ecclesia-app/src/notebooks.rs:83`); nothing is recorded |
+  | L.2 | Offline transcription | `MockTranscriber` (`crates/ecclesia-app/src/notebooks/phase5.rs:537`); nothing is transcribed |
+  | O.15, O.20 | Validate signatures; PAdES levels | Hand-written CMS and X.509 that accept Ed25519 only (`crates/ecclesia-core/src/signing/der.rs:750`); RSA and ECDSA signatures, what certificate authorities issue, report "unsupported" |
   | O.14 | Sign documents | Ed25519 signatures, which Acrobat and most validators do not accept |
-  | O.4 | OCR to searchable PDF | Works on Windows by starting PowerShell per page, passing the image through a temp file (`crates/excellent-features/src/ocr/engine.rs:340`) |
+  | O.4 | OCR to searchable PDF | Works on Windows by starting PowerShell per page, passing the image through a temp file (`crates/ecclesia-features/src/ocr/engine.rs:340`) |
   | H.23, H.24 | Handwriting search and conversion | A hand-made glyph-prototype matcher, English only, with no measured accuracy (`handwriting/recognize.rs`) |
   | U.5 | Read aloud | Falls back to `MockSpeechSynth` when the system voice isn't reached |
   | E.5 | Sandboxed plugins | Not sandboxed (F4) |
@@ -216,7 +216,7 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
      build views on first use.
   4. Open: 163 ms is close; check the tile scheduler's first-frame path once cold start is fixed.
   5. Note: `opt-level = "z"` (added in the batch) makes most crates smaller but slower; measure it against `s` or 3
-     for `excellent-app` and `excellent-features`.
+     for `ecclesia-app` and `ecclesia-features`.
 - **Fixed when:** baselines are recorded and CI fails on a 10 % regression; then each budget is met in turn.
 
 ### Medium
@@ -259,8 +259,8 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
 
 ### Low
 
-- **F10.** Cargo warns of four unused workspace dependencies (`excellent-cli`, `excellent-canvas-ios`,
-  `excellent-canvas-android`, `excellent-app` in `[workspace.dependencies]`). Fix: remove them from the root table.
+- **F10.** Cargo warns of four unused workspace dependencies (`ecclesia-cli`, `ecclesia-canvas-ios`,
+  `ecclesia-canvas-android`, `ecclesia-app` in `[workspace.dependencies]`). Fix: remove them from the root table.
 - **F11.** NASM isn't installed locally, so local builds of libjpeg-turbo have no SIMD (CI installs it). Fix: install
   NASM, or note it in the build docs.
 - **F12.** The locale key `notebooks.empty` is used but missing from `en.json` and `ar.json`. Fix: add it to both.
@@ -301,7 +301,7 @@ Each finding gives what is wrong, the evidence, why it matters, the fix, and wha
   finding here came from.
 - **Shipped means accepted:** only the maintainer moves a feature to `shipped`; agents stop at `in-progress` with
   honest `open` notes.
-- **No mocks outside tests:** a mock type in `excellent-app` should fail CI (a check for `Mock` in non-test code of
+- **No mocks outside tests:** a mock type in `ecclesia-app` should fail CI (a check for `Mock` in non-test code of
   the app crate).
 - **CI must be green before the next push:** if a push turns CI red, fix it before adding more.
 - **Every agent decision gets a DD entry**, as DD5 to DD27 were.

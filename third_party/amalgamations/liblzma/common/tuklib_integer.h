@@ -631,7 +631,7 @@ write64le(uint8_t *buf, uint64_t num)
 // to memcpy() are aligned which results in slow code. As of C11 there is
 // no standard way to tell the compiler that we know that the address is
 // aligned but some compilers have language extensions to do that. With
-// such language extensions the memcpy() method gives excellent results.
+// such language extensions the memcpy() method gives ecclesia results.
 //
 // What to do on a strict-align system when no known language extensions
 // are available? Falling back to byte-by-byte access would be safe but ruin

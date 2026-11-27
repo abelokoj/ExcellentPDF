@@ -1,7 +1,7 @@
 # Ph3: 27/49 | A.14: Annotation list with filter and search
 
-**Tag:** A.14; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `excellent-features::annotate::list`,
-`excellent-core::annot::load_all`, `excellent-app::annotate::list`
+**Tag:** A.14; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `ecclesia-features::annotate::list`,
+`ecclesia-core::annot::load_all`, `ecclesia-app::annotate::list`
 **Plan:** §27 entry `#### Ph3: 27/49 | A.14`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

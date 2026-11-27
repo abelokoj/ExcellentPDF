@@ -1,6 +1,6 @@
 # Ph5: 2/45 | R.22: Bionic reading
 
-**Tag:** R.22; **Priority:** P2; **Phase:** 5; **Needs:** R.16; **Code:** `excellent-features::reflow::bionic`
+**Tag:** R.22; **Priority:** P2; **Phase:** 5; **Needs:** R.16; **Code:** `ecclesia-features::reflow::bionic`
 **Plan:** §27 entry `#### Ph5: 2/45 | R.22: Bionic reading`.
 
 ## Problem
@@ -28,7 +28,7 @@ Read, Study (active inside Reflow mode only).
 
 ## Design
 
-- **Model (`excellent-features::reflow::bionic`):**
+- **Model (`ecclesia-features::reflow::bionic`):**
   - `is_bionic_script_char` and `supports_bionic_word` allow Latin, Cyrillic, and Greek words and automatically disable prefix bolding for CJK, Arabic, Hebrew, Thai, and Indic scripts.
   - `transform_text` and `to_html` split supported words into `BionicSegment::Bold` (`<strong>`) and `BionicSegment::Normal`.
 

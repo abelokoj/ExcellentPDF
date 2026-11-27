@@ -1,6 +1,6 @@
 # Ph7: 27/32 | O.16: Signature-safe editing
 
-**Tag:** O.16; **Priority:** P1; **Phase:** 7; **Needs:** O.15; **Code:** `excellent-core::signing::mdp`, `excellent-features::signing::panel`
+**Tag:** O.16; **Priority:** P1; **Phase:** 7; **Needs:** O.15; **Code:** `ecclesia-core::signing::mdp`, `ecclesia-features::signing::panel`
 **Plan:** §27 entry `#### Ph7: 27/32 | O.16`.
 
 ## Problem
@@ -26,11 +26,11 @@ All editing modes on PDFs with at least one digital signature.
 
 ## Design
 
-- **`excellent_core::signing::mdp`**:
+- **`ecclesia_core::signing::mdp`**:
   - Models `DocMdpPermission` (`NoChangesAllowed` P1, `FormFillAndSign` P2, `FormFillSignAndAnnotate` P3) and `FieldMdpRule` (`All`, `Include`, `Exclude`).
   - `inspect_edit_safety` evaluates `DocumentEditKind` (`FormFill`, `Sign`, `Annotation`, `PageStructure`, `ContentEdit`, `MetadataOrSecurity`) against active signatures.
   - `enforce_incremental_save` guarantees the updated PDF preserves the signed PDF bytes as an exact prefix.
-- **`excellent_features::signing::evaluate_edit_guard`**: Maps safety reports to `EditGuardDecision::ProceedSilently` or `EditGuardDecision::WarnUser`.
+- **`ecclesia_features::signing::evaluate_edit_guard`**: Maps safety reports to `EditGuardDecision::ProceedSilently` or `EditGuardDecision::WarnUser`.
 
 ## Acceptance tests
 

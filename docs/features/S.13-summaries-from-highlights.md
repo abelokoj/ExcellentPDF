@@ -1,6 +1,6 @@
 # Ph5: 24/45 | S.13: Summaries from your highlights
 
-**Tag:** S.13; **Priority:** P1; **Phase:** 5; **Needs:** A.14; **Code:** `excellent-features::study::summaries`
+**Tag:** S.13; **Priority:** P1; **Phase:** 5; **Needs:** A.14; **Code:** `ecclesia-features::study::summaries`
 **Plan:** §27 entry `#### Ph5: 24/45 | S.13: Summaries from your highlights`.
 
 ## Problem
@@ -27,7 +27,7 @@ Study, Annotate.
 
 ## Design
 
-- **Model (`excellent-features::study::summaries`):**
+- **Model (`ecclesia-features::study::summaries`):**
   - `build_offline_summary` sorts `HighlightItem`s in `(page, y_pt, x_pt)` reading order, groups them under the nearest preceding `HeadingAnchor`, and emits clean Markdown.
   - `SummaryCondenser` trait defines the optional AI (`I.4`) condensation hook.
 

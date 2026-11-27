@@ -1,18 +1,18 @@
 [package]
-name = "nsh-app-excellent-app-windows-app"
+name = "nsh-app-ecclesia-app-windows-app"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 [[bin]]
-name = "nsh-app-excellent-app-windows-app"
+name = "nsh-app-ecclesia-app-windows-app"
 path = "main.rs"
 
 [dependencies]
 nsh-windows-app = { version = "=0.7.0", default-features = false }
 nsh-core = { version = "=0.7.0" }
 nsh-base = { version = "=0.7.0", default-features = false }
-app_excellent_app = { package = "excellent-app", path = "C:\\dev\\ExcellentPDF\\crates\\excellent-app" }
+app_ecclesia_app = { package = "ecclesia-app", path = "C:\\dev\\EcclesiaPDF\\crates\\ecclesia-app" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 nsh-platform-windows = { version = "=0.7.0", default-features = false }

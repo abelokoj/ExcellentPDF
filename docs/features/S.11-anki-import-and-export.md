@@ -1,6 +1,6 @@
 # Ph4: 36/44 | S.11: Anki import and export
 
-**Tag:** S.11; **Priority:** P1; **Phase:** 4; **Needs:** S.1; **Code:** `excellent-features::study::anki`
+**Tag:** S.11; **Priority:** P1; **Phase:** 4; **Needs:** S.1; **Code:** `ecclesia-features::study::anki`
 **Plan:** §27 entry `#### Ph4: 36/44 | S.11` and §11.7. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -9,7 +9,7 @@ Learners who already have decks in Anki desktop or share study decks with classm
 
 ## User story
 
-As a student using both ExcellentPDF and Anki, I want to export my PDF-linked flashcards (basic, cloze and image occlusion) to `.apkg` and import existing Anki `.apkg` decks cleanly without losing media or source links.
+As a student using both EcclesiaPDF and Anki, I want to export my PDF-linked flashcards (basic, cloze and image occlusion) to `.apkg` and import existing Anki `.apkg` decks cleanly without losing media or source links.
 
 ## UI sketch
 
@@ -28,7 +28,7 @@ Study mode.
 
 ## Design
 
-- **Format** (`excellent-features::study::anki`): writes and reads standard Anki `.apkg` ZIP archives containing SQLite `collection.anki2` (or `collection.anki21` on import) with `col`, `notes`, `cards`, `revlog` and `graves` tables, JSON `media` manifest and numbered media files (`"0"`, `"1"`, …).
+- **Format** (`ecclesia-features::study::anki`): writes and reads standard Anki `.apkg` ZIP archives containing SQLite `collection.anki2` (or `collection.anki21` on import) with `col`, `notes`, `cards`, `revlog` and `graves` tables, JSON `media` manifest and numbered media files (`"0"`, `"1"`, …).
 - **Note types**:
   - Basic (`Front`, `Back`, `SourceLink`)
   - Cloze (`Text`, `Back Extra`, `SourceLink`, `type: 1`) grouping sibling ordinals into one note

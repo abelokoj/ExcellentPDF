@@ -1,18 +1,18 @@
 [package]
-name = "nsh-app-excellent-app-macos-host"
+name = "nsh-app-ecclesia-app-macos-host"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 [[bin]]
-name = "nsh-app-excellent-app-macos-host"
+name = "nsh-app-ecclesia-app-macos-host"
 path = "main.rs"
 
 [dependencies]
 nsh-macos-host = { version = "=0.7.0" }
 nsh-core = { version = "=0.7.0" }
 nsh-base = { version = "=0.7.0", features = ["highlight"] }
-app_excellent_app = { package = "excellent-app", path = "C:\\dev\\ExcellentPDF\\crates\\excellent-app" }
-workspace-hack = { package = "nsh-app-excellent-app-hack", path = "../hack" }
+app_ecclesia_app = { package = "ecclesia-app", path = "C:\\dev\\EcclesiaPDF\\crates\\ecclesia-app" }
+workspace-hack = { package = "nsh-app-ecclesia-app-hack", path = "../hack" }
 [target.'cfg(target_os = "macos")'.dependencies]
 nsh-platform-macos = { version = "=0.7.0" }

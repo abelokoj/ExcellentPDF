@@ -1,6 +1,6 @@
 # Ph4: 8/44 | H.15: Bulk restyle
 
-**Tag:** H.15; **Priority:** P1; **Phase:** 4; **Needs:** H.6; **Code:** `excellent-features::ink::restyle`
+**Tag:** H.15; **Priority:** P1; **Phase:** 4; **Needs:** H.6; **Code:** `ecclesia-features::ink::restyle`
 **Plan:** §8.4 and §27 entry `#### Ph4: 8/44 | H.15`.
 
 ## Problem
@@ -27,7 +27,7 @@ Write.
 
 ## Design
 
-- **Model (`excellent-features::ink::restyle`):**
+- **Model (`ecclesia-features::ink::restyle`):**
   - `StrokeFilter` selects ink annotations by IDs (selection), page, RGB `ColorMatch` with tolerance, width range, `InkCategory` (pen vs highlighter), layer, or author.
   - `RestyleSpec` updates color, opacity, width (`WidthChange::Set` / `WidthChange::Scale` with proportional per-point pressure-width scaling), and `PenKind` (adjusting `multiply`, pen opacity, and flat vs variable widths).
   - `restyle_operation` packs every `Change::UpdateAnnotation` into a **single** K.14 `Operation`, skipping locked annotations (A.12) and locked layers (H.14).

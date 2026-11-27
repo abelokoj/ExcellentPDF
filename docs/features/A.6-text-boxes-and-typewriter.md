@@ -1,7 +1,7 @@
 # Ph3: 19/49 | A.6: Text boxes and typewriter
 
-**Tag:** A.6; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `excellent-features::annotate::freetext`,
-`excellent-core::annot` (`TextStyle`, `Boxed::Typewriter`), `excellent-mupdf-sys/csrc/shim.c`, `excellent-app::annotate`
+**Tag:** A.6; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `ecclesia-features::annotate::freetext`,
+`ecclesia-core::annot` (`TextStyle`, `Boxed::Typewriter`), `ecclesia-mupdf-sys/csrc/shim.c`, `ecclesia-app::annotate`
 **Plan:** §27 entry `#### Ph3: 19/49 | A.6`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

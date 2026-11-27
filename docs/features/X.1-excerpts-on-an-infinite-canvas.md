@@ -1,6 +1,6 @@
 # Ph9: 5/13 | X.1: Excerpts on an infinite canvas
 
-**Tag:** X.1; **Priority:** P1; **Phase:** 9; **Needs:** K.28, N.5; **Code:** `excellent-features::canvas_board`
+**Tag:** X.1; **Priority:** P1; **Phase:** 9; **Needs:** K.28, N.5; **Code:** `ecclesia-features::canvas_board`
 **Plan:** §27 entry `#### Ph9: 5/13 | X.1` and §11.10.
 
 ## Problem
@@ -27,8 +27,8 @@ Research, Study.
 
 ## Design
 
-- Model: `excellent-features::canvas_board::{CanvasBoard, BoardCard, CardKind, DocumentAnchor, Viewport}` + `canvas_board::spatial::SpatialGridIndex`.
-- Re-anchoring: `DocumentAnchor::relocate_in_text` delegates to `excellent_core::anchor::locate` (K.28).
+- Model: `ecclesia-features::canvas_board::{CanvasBoard, BoardCard, CardKind, DocumentAnchor, Viewport}` + `canvas_board::spatial::SpatialGridIndex`.
+- Re-anchoring: `DocumentAnchor::relocate_in_text` delegates to `ecclesia_core::anchor::locate` (K.28).
 
 ## Acceptance tests
 

@@ -1,7 +1,7 @@
 # Ph3: 16/49 | A.3: Annotation colors
 
-**Tag:** A.3; **Priority:** P0; **Phase:** 3; **Needs:** K.17; **Code:** `excellent-features::annotate::colors`,
-`excellent-canvas::page::canvas::markbar`, `excellent-app::annotate::colors`
+**Tag:** A.3; **Priority:** P0; **Phase:** 3; **Needs:** K.17; **Code:** `ecclesia-features::annotate::colors`,
+`ecclesia-canvas::page::canvas::markbar`, `ecclesia-app::annotate::colors`
 **Plan:** §27 entry `#### Ph3: 16/49 | A.3`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

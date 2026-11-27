@@ -1,6 +1,6 @@
 # Ph5: 23/45 | L.2: Offline transcription
 
-**Tag:** L.2; **Priority:** P1; **Phase:** 5; **Needs:** L.1, K.21, F.3; **Code:** `excellent-features::audio::transcribe`
+**Tag:** L.2; **Priority:** P1; **Phase:** 5; **Needs:** L.1, K.21, F.3; **Code:** `ecclesia-features::audio::transcribe`
 **Plan:** §27 entry `#### Ph5: 23/45 | L.2: Offline transcription`.
 
 ## Problem
@@ -27,7 +27,7 @@ Write / Study (Audio side panel).
 
 ## Design
 
-- **Model (`excellent-features::audio::transcribe`):**
+- **Model (`ecclesia-features::audio::transcribe`):**
   - `Transcriber` trait + `WhisperModelSize` / `WhisperModelPack` + `MockTranscriber`.
   - `link_segments_to_timeline` binds each segment to its active page via `AudioTimeline::page_marks`.
   - `TranscriptStore` indexes segments in FTS5 and exports/imports `.srt` and `.vtt`.

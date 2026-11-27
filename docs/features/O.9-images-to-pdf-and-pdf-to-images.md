@@ -1,6 +1,6 @@
 # Ph7: 20/32 | O.9: Images to PDF and PDF to images
 
-**Tag:** O.9; **Priority:** P1; **Phase:** 7; **Needs:** K.3; **Code:** `excellent-core::export_doc` (`natural_sort_paths`, `images_to_pdf`, `pdf_to_images`)
+**Tag:** O.9; **Priority:** P1; **Phase:** 7; **Needs:** K.3; **Code:** `ecclesia-core::export_doc` (`natural_sort_paths`, `images_to_pdf`, `pdf_to_images`)
 **Plan:** §27 entry `#### Ph7: 20/32 | O.9`.
 
 ## Problem

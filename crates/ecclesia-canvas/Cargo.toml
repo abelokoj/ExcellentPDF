@@ -1,0 +1,24 @@
+[package]
+name = "ecclesia-canvas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Platform-neutral page canvas: viewport, gestures, hit testing, overlays and the ink capture model"
+
+[dependencies]
+ecclesia-core.workspace = true
+ecclesia-features.workspace = true
+ecclesia-ink.workspace = true
+ecclesia-mupdf.workspace = true
+ecclesia-text.workspace = true
+log.workspace = true
+nsh-core.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

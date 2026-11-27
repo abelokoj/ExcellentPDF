@@ -1,8 +1,8 @@
-# ExcellentPDF Notebook Format (`.expdf`)
+# EcclesiaPDF Notebook Format (`.expdf`)
 
 **Version:** 1  
 **Tag:** `Ph4: 17/44 | N.4: Notebook format (.expdf) and export to PDF`  
-**Implementation:** `crates/excellent-core/src/notebook/`
+**Implementation:** `crates/ecclesia-core/src/notebook/`
 
 ## 1. Overview
 
@@ -29,10 +29,10 @@ example.expdf (ZIP)
 
 ## 3. `document.pdf`
 
-- Standard PDF 1.7 document opened in memory via MuPDF's `fz_open_document_with_stream` (`excellent_mupdf::Document::from_bytes`).
+- Standard PDF 1.7 document opened in memory via MuPDF's `fz_open_document_with_stream` (`ecclesia_mupdf::Document::from_bytes`).
 - Procedural paper templates (N.1) are **not** baked into `document.pdf` during interactive editing; they are drawn procedurally under the page so blank notebooks stay tiny and paper themes adapt dynamically.
 - Edits such as page insertion (N.2), margin expansion/restoration (N.3), section reordering (N.8), and inter-page links (N.9) append **incremental PDF revisions** where possible so the original bytes remain intact.
-- Expanded page margins record the pre-expansion boxes in the PDF page dictionary private key `/ExcellentPdfOrigBoxes [[mx0 my0 mx1 my1] [cx0 cy0 cx1 cy1]]` so removing margins restores the original MediaBox and CropBox exactly.
+- Expanded page margins record the pre-expansion boxes in the PDF page dictionary private key `/EcclesiaPdfOrigBoxes [[mx0 my0 mx1 my1] [cx0 cy0 cx1 cy1]]` so removing margins restores the original MediaBox and CropBox exactly.
 
 ## 4. `notebook.json` Schema (Version 1)
 
@@ -102,12 +102,12 @@ example.expdf (ZIP)
 - `default_page_size`: `{"kind": "a4" | "letter" | "a5" | "phone"}` or `{"kind": "custom", "width_pt": <f32>, "height_pt": <f32>}`.
 - `default_template` / `pages[].template`: `"blank"`, `"lined"`, `"college-ruled"`, `"grid"`, `"dot"`, `"cornell"`, `"music"`, `"graph"`, `"isometric"`, or `"planner"`.
 - `pages[].kind`: `"fixed"` or `"infinite"` (N.5).
-- `links[].destination`: `{"kind": "page", "page": <usize>, "point": [x, y] | null, "zoom": <f32> | null}` or `{"kind": "uri", "uri": "excellentpdf://..."}`.
+- `links[].destination`: `{"kind": "page", "page": <usize>, "point": [x, y] | null, "zoom": <f32> | null}` or `{"kind": "uri", "uri": "ecclesiapdf://..."}`.
 - `audio[].format`: `"wav"` or `"ogg-opus"`.
 
 ## 5. Atomic Save Semantics (K.15)
 
-`Notebook::save_atomic` writes the complete ZIP archive to a hidden sibling file `.<filename>.excellentpdf-saving`, reopens and validates both the ZIP structure and `document.pdf` page count with MuPDF, calls `sync_all()`, and atomically renames over the destination file. Any failure deletes the temporary file and leaves the existing `.expdf` untouched.
+`Notebook::save_atomic` writes the complete ZIP archive to a hidden sibling file `.<filename>.ecclesiapdf-saving`, reopens and validates both the ZIP structure and `document.pdf` page count with MuPDF, calls `sync_all()`, and atomically renames over the destination file. Any failure deletes the temporary file and leaves the existing `.expdf` untouched.
 
 ## 6. Plain PDF Export
 

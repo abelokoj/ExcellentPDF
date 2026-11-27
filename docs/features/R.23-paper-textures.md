@@ -1,8 +1,8 @@
 # Ph4: 2/44 | R.23: Paper textures
 
-**Tag:** R.23; **Priority:** P2; **Phase:** 4; **Needs:** R.15; **Code:** `excellent-core::darkmode::paper` (the grain),
-`excellent-canvas::page` (drawn over each page, the `paperTexture` prop; `Host::faint_image` on Windows, macOS and
-GTK), `excellent-app` (the setting)
+**Tag:** R.23; **Priority:** P2; **Phase:** 4; **Needs:** R.15; **Code:** `ecclesia-core::darkmode::paper` (the grain),
+`ecclesia-canvas::page` (drawn over each page, the `paperTexture` prop; `Host::faint_image` on Windows, macOS and
+GTK), `ecclesia-app` (the setting)
 **Plan:** §27 entry `#### Ph4: 2/44 | R.23`.
 
 ## Problem

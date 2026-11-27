@@ -18,4 +18,4 @@ The Small rule: the core installer stays at or under 15 MB.
 
 ## Consequences
 
-Pack sources live in `packs/`. `excellent-packs` downloads, verifies (Ed25519), installs and removes them. Every feature that needs a pack works, or fails clearly, without it.
+Pack sources live in `packs/`. `ecclesia-packs` downloads, verifies (Ed25519), installs and removes them. Every feature that needs a pack works, or fails clearly, without it.

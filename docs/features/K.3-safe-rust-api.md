@@ -1,6 +1,6 @@
 # Ph0: 3/13 | K.3: Safe Rust API
 
-**Tag:** K.3; **Priority:** P0; **Phase:** 0; **Needs:** K.2; **Code:** `crates/excellent-mupdf/`
+**Tag:** K.3; **Priority:** P0; **Phase:** 0; **Needs:** K.2; **Code:** `crates/ecclesia-mupdf/`
 **Plan:** §27 entry `Ph0: 3/13 | K.3`.
 
 ## Problem
@@ -31,5 +31,5 @@ Thread-local cloned `fz_context` avoids passing contexts across threads while ke
 
 ## Acceptance tests
 
-- [x] `every_corpus_file_renders_page_one_to_png_and_gives_text` (`crates/excellent-mupdf/tests/corpus.rs`).
+- [x] `every_corpus_file_renders_page_one_to_png_and_gives_text` (`crates/ecclesia-mupdf/tests/corpus.rs`).
 - [x] `thread_rules_are_in_the_types`, `an_aborted_cookie_cancels_the_work`, `opens_from_bytes`, `writes_pages_to_a_new_pdf`.

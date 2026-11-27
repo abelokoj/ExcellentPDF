@@ -1,6 +1,6 @@
 # Ph3: 1/49 | K.28: Annotation anchors
 
-**Tag:** K.28; **Priority:** P0; **Phase:** 3; **Needs:** K.13, K.14; **Code:** `excellent-core::anchor`
+**Tag:** K.28; **Priority:** P0; **Phase:** 3; **Needs:** K.13, K.14; **Code:** `ecclesia-core::anchor`
 **Plan:** §27 entry `#### Ph3: 1/49 | K.28` and Appendix D.1.5. The label is the entry's place in its phase
 (plan §27.0, Tag rules).
 
@@ -35,7 +35,7 @@ All modes; nothing visible.
 
 ## Design
 
-Model, `excellent-core::anchor`, pure Rust:
+Model, `ecclesia-core::anchor`, pure Rust:
 
 - `Quote::of(text, range)`: the W3C text-quote selector of a range of the flat text (K.13), 32 characters of prefix
   and suffix and the start as a hint.

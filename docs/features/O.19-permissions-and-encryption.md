@@ -1,6 +1,6 @@
 # Ph7: 30/32 | O.19: Permissions and encryption
 
-**Tag:** O.19; **Priority:** P2; **Phase:** 7; **Needs:** K.15; **Code:** `excellent-core::crypto`
+**Tag:** O.19; **Priority:** P2; **Phase:** 7; **Needs:** K.15; **Code:** `ecclesia-core::crypto`
 **Plan:** §27 entry `#### Ph7: 30/32 | O.19`.
 
 ## Problem
@@ -26,7 +26,7 @@ File -> Security Properties & Sanitize.
 ## Design
 
 - **Permission policy (`PdfPermissions`, `DocumentAction`, `enforce_permission`)**: Encodes/decodes ISO `/P` permission bitfields cleanly and guards viewer actions (`PrintLowRes`, `PrintHighRes`, `CopyContent`, `ModifyContents`, etc.).
-- **PDF encryption & inspection (`EncryptionScheme::Rc4_128 | Aes256`, `encrypt_pdf`, `decrypt_pdf`, `inspect_encryption`)**: Implements `/V 2 /R 3` RC4-128 and `/V 5 /R 6` AES-256 key derivation and object encryption/decryption round-tripping cleanly with `excellent_mupdf`.
+- **PDF encryption & inspection (`EncryptionScheme::Rc4_128 | Aes256`, `encrypt_pdf`, `decrypt_pdf`, `inspect_encryption`)**: Implements `/V 2 /R 3` RC4-128 and `/V 5 /R 6` AES-256 key derivation and object encryption/decryption round-tripping cleanly with `ecclesia_mupdf`.
 - **Sanitization (`sanitize_pdf`, `SanitizeOptions`)**: Strips `/Info`, XMP `/Metadata`, `/JavaScript`/`/JS`/`/OpenAction`/`/AA`, attachments, hidden OCGs, or annotations per policy.
 
 ## Acceptance tests

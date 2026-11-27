@@ -26,7 +26,7 @@ Work so far: 0:00 hours of agent time over 5 working days; 88 commits; 114 chang
 
 <!-- outstanding: kept by hand, the script leaves this block as it is -->
 
-**Status:** Phases 0 & 4–9 implemented across the workspace (`docs/features.toml`: 275 roadmap tags + 4 supporting feature entries = 279 tracked entries verified via `tests/check_features.ps1 -StrictShipped`). Windows PDF display (`K.8` NSH `AppWindow` unclip/swap-chain fix), dual-scope MSI 5.0 installer (`All Users` / `Current User` + custom directory), and **Nib & Leaf** icon (`NKJV Revelation 22:13`) shipped in `dist/ExcellentPDF-v26-11-25.6-v0.1.0-windows-x64.msi` (`12.79 MB <= 15 MB`).
+**Status:** Phases 0 & 4–9 implemented across the workspace (`docs/features.toml`: 275 roadmap tags + 4 supporting feature entries = 279 tracked entries verified via `tests/check_features.ps1 -StrictShipped`). Windows PDF display (`K.8` NSH `AppWindow` unclip/swap-chain fix), dual-scope MSI 5.0 installer (`All Users` / `Current User` + custom directory), and **Nib & Leaf** icon (`NKJV Revelation 22:13`) shipped in `dist/EcclesiaPDF-v26-11-25.6-v0.1.0-windows-x64.msi` (`12.79 MB <= 15 MB`).
 
 **Remaining notes:**
 - Open project policy questions `Q1`–`Q7` (including license choice `Q1`) await maintainer decision before tagging a public release.
@@ -179,8 +179,8 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 **Shipped (12)**
 
 - Ph0: 1/13 | K.1: Repository and workspace skeleton (open: Workspace crates and dependency policy checked in CI)
-- Ph0: 2/13 | K.2: MuPDF build (`excellent-mupdf-sys`) (open: MuPDF C library built from vendored source on Windows, macOS, and Linux)
-- Ph0: 3/13 | K.3: Safe Rust API (`excellent-mupdf`) (open: Safe RAII wrapper over excellent-mupdf-sys)
+- Ph0: 2/13 | K.2: MuPDF build (`ecclesia-mupdf-sys`) (open: MuPDF C library built from vendored source on Windows, macOS, and Linux)
+- Ph0: 3/13 | K.3: Safe Rust API (`ecclesia-mupdf`) (open: Safe RAII wrapper over ecclesia-mupdf-sys)
 - Ph0: 4/13 | K.4: Render workers and threading (open: Dedicated document worker pool and cancellation cookies)
 - Ph0: 5/13 | K.7: Tile cache and render scheduler (open: 64 MiB tile cache and multi-scale render scheduler)
 - Ph0: 6/13 | K.8: Page canvas on Windows (open: Direct2D swap-chain page canvas on Windows with DPI scaling and HWND reconciliation)
@@ -202,7 +202,7 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph1: 1/60 | K.5: Document and View model, document registry (open: View serialization (R.9); annotation model and operation log (K.13, K.14); tiles shared between views)
 - Ph1: 2/60 | K.6: Layout and coordinate transforms (open: non-PDF formats load each page for its size)
 - Ph1: 8/60 | K.18: Modes and toolbars (open: Write and Study have no tools until the H.* and S.* tags; text labels, no icons yet (DD8); ink is not gated by mode until H.1; not tried by hand)
-- Ph1: 10/60 | K.20: Library database (`excellent-store`) (open: tables of documents, tags, collections, bookmarks, cards and notes, and FTS5, come with their features' migrations; startup cost not measured (K.24); its need K.1 (task T1) is not marked here)
+- Ph1: 10/60 | K.20: Library database (`ecclesia-store`) (open: tables of documents, tags, collections, bookmarks, cards and notes, and FTS5, come with their features' migrations; startup cost not measured (K.24); its need K.1 (task T1) is not marked here)
 - Ph1: 15/60 | R.4: Rotation and crop-box view (open: selection uses the same placement when it is built)
 - Ph1: 17/60 | R.6: Page labels and go to page (open: the page indicator moves from the title bar to the status bar when it exists; label editing is O.1)
 - Ph1: 19/60 | R.8: Back and forward history (open: search pushes when it is built)
@@ -213,7 +213,7 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 
 **In progress (49)**
 
-- Ph1: 3/60 | K.13: Text layer (`excellent-text`) and selection (open: reading order and ICU4X normalization and words (steps 2, 3); rectangle selection; edge scrolling; select all of the document; text-quality corpus (step 5))
+- Ph1: 3/60 | K.13: Text layer (`ecclesia-text`) and selection (open: reading order and ICU4X normalization and words (steps 2, 3); rectangle selection; edge scrolling; select all of the document; text-quality corpus (step 5))
 - Ph1: 4/60 | K.14: Annotation model and operation log (open: undo after reopening; author in records; unknown annotation types are left alone but not yet modelled)
 - Ph1: 5/60 | K.15: Saving, autosave, recovery and external changes (open: watching for outside changes and keep both (step 5); saving at sign-out and shutdown (step 6); fault injection; qpdf --check)
 - Ph1: 6/60 | K.16: Settings, command table and shortcuts (open: menus and toolbars (and a Settings entry in them); the mode column; changing a key inside the Settings window; Enhanced import; needs K.5)
@@ -309,7 +309,7 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph3: 28/49 | A.15: Annotation recovery (open: not tried by hand; Keep and Discard are the bar's buttons only, with no shortcut or palette command (the bar shows once, after a crash); a file changed on disk since its edits were logged still drops them (K.15 step 5))
 - Ph3: 29/49 | A.16: Transfer annotations to another version (open: not tried by hand, and not on a real preprint and its published version (the test typesets one); the review is a dialog with counts and the first five not found, not a list to pick from (DD14); annotations that mark no text keep their page and place; thousands of highlights in a long book take seconds)
 - Ph3: 30/49 | A.17: Semantic categories (open: not tried by hand; picked in the inspector, not the selection toolbar (DD15); icons are named (Lucide) but drawn as colour dots until the app has an icon set; export by category and the A.26 reports wait for A.26)
-- Ph3: 31/49 | A.18: Tags on annotations (open: not tried by hand; the library-wide tag: search has its query (excellent_store::annotation_tags::find) but no search box until F.3 and F.4 (Phase 5, DD16); the index is written after each save by reading every page's annotations)
+- Ph3: 31/49 | A.18: Tags on annotations (open: not tried by hand; the library-wide tag: search has its query (ecclesia_store::annotation_tags::find) but no search box until F.3 and F.4 (Phase 5, DD16); the index is written after each save by reading every page's annotations)
 - Ph3: 32/49 | A.19: Filters by color, tag, author and date (open: not tried by hand; show only matching hides annotations in the page views and thumbnails, not in printing or export (DD17), and takes effect once the Annotations tab has read the file)
 - Ph3: 33/49 | A.20: Stamps library with dynamic fields (open: not tried by hand and not opened in Acrobat; dynamic stamps write the time in UTC; image stamps are kept as images in the library (DD18))
 - Ph3: 34/49 | A.21: Comment threads with replies and resolve (open: not tried by hand and not opened in Acrobat; replies are not carried over by A.16's transfer; Reply has no shortcut or palette command (DD19))
@@ -353,7 +353,7 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph4: 19/44 | N.6: Typed text blocks (open: Typed text blocks composer wired)
 - Ph4: 20/44 | N.7: Images, stickers and sticky notes on pages (open: Insert PNG/JPEG image/sticker as PDF Stamp annotation wired)
 - Ph4: 21/44 | N.8: Covers and sections (open: Notebook covers & colored section organizer dialog wired)
-- Ph4: 22/44 | N.9: Links between pages (open: Internal page links & excellentpdf:// deep links manager wired)
+- Ph4: 22/44 | N.9: Links between pages (open: Internal page links & ecclesiapdf:// deep links manager wired)
 - Ph4: 23/44 | N.10: Quick note from a global shortcut (open: Quick Note Inbox.expdf launcher wired)
 - Ph4: 24/44 | N.14: Markdown editing with math and Mermaid (open: Markdown editor, GitHub TOC & KaTeX/Mermaid WebView/MuPDF fallback preview dialog wired)
 - Ph4: 25/44 | L.1: Record audio while writing (open: Lecture audio recording & .expdf WAV bundling wired)
@@ -419,10 +419,10 @@ Newest first. Time is agent working time (steps less than 15 minutes apart); the
 - Ph5: 36/45 | F.10: Citations (open: BibTeX, RIS and CSL-JSON citations parser, formatter & exporter wired)
 - Ph5: 37/45 | F.11: Zotero integration (open: Zotero local & web API sync wired in Citations dialog)
 - Ph5: 38/45 | F.12: Notes with backlinks and `[[links]]` (open: Markdown notes with [[backlinks]] & FTS5 indexing wired)
-- Ph5: 39/45 | F.13: Export to Markdown and Obsidian with deep links (open: Obsidian vault & Markdown export with excellentpdf:// deep links wired)
+- Ph5: 39/45 | F.13: Export to Markdown and Obsidian with deep links (open: Obsidian vault & Markdown export with ecclesiapdf:// deep links wired)
 - Ph5: 40/45 | O.4: OCR to searchable PDF (open: OCR to searchable PDF dialog wired)
 - Ph5: 41/45 | E.1: Command-line batch tools (open: Batch CLI tools documented in CLI/MCP reference dialog)
-- Ph5: 42/45 | E.2: Agent tool table and `excellent-cli run` (open: Agent tool table and excellent-cli run surfaced in CLI/MCP reference dialog)
+- Ph5: 42/45 | E.2: Agent tool table and `ecclesia-cli run` (open: Agent tool table and ecclesia-cli run surfaced in CLI/MCP reference dialog)
 - Ph5: 43/45 | E.3: MCP server (open: MCP stdio server command documented in CLI/MCP reference dialog)
 - Ph5: 44/45 | E.4: UI control channel (open: Loopback UI control channel listener & Settings toggle wired)
 - Ph5: 45/45 | U.6: Neural offline voices (open: Neural offline Piper voice picker wired into Read Aloud & Settings)

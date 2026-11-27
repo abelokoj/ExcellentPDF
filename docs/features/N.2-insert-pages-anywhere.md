@@ -1,6 +1,6 @@
 # Ph4: 15/44 | N.2: Insert pages anywhere
 
-**Tag:** N.2; **Priority:** P0; **Phase:** 4; **Needs:** K.14; **Code:** `excellent-features::notebook::pages`, `excellent-core::notebook::pdf_ops`
+**Tag:** N.2; **Priority:** P0; **Phase:** 4; **Needs:** K.14; **Code:** `ecclesia-features::notebook::pages`, `ecclesia-core::notebook::pdf_ops`
 **Plan:** §27 entry `#### Ph4: 15/44 | N.2`.
 
 ## Problem
@@ -27,8 +27,8 @@ Read, Annotate, and Write modes.
 
 ## Design
 
-- `excellent_core::notebook::pdf_ops::insert_page` appends a new PDF page object and updates `/Pages /Kids` incrementally while preserving indirect page object identities so `/Outlines` destinations keep pointing to the right pages.
-- `excellent_features::notebook::pages::{insert_page_in_pdf, insert_page_in_notebook}` support `InsertPosition::Before | After` and `InsertPageSource::{Blank, Template, CopyCurrentSize}`, shifting notebook sections, page metadata, and internal links consistently.
+- `ecclesia_core::notebook::pdf_ops::insert_page` appends a new PDF page object and updates `/Pages /Kids` incrementally while preserving indirect page object identities so `/Outlines` destinations keep pointing to the right pages.
+- `ecclesia_features::notebook::pages::{insert_page_in_pdf, insert_page_in_notebook}` support `InsertPosition::Before | After` and `InsertPageSource::{Blank, Template, CopyCurrentSize}`, shifting notebook sections, page metadata, and internal links consistently.
 
 ## Acceptance tests
 

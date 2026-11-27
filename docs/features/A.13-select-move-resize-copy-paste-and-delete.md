@@ -1,7 +1,7 @@
 # Ph3: 26/49 | A.13: Select, move, resize, copy, paste and delete
 
-**Tag:** A.13; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `excellent-features::annotate::edit`,
-`excellent-canvas::page::canvas::select`, `excellent-app::annotate::select`
+**Tag:** A.13; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `ecclesia-features::annotate::edit`,
+`ecclesia-canvas::page::canvas::select`, `ecclesia-app::annotate::select`
 **Plan:** §27 entry `#### Ph3: 26/49 | A.13`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

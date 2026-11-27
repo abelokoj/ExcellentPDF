@@ -13,8 +13,8 @@ pwsh packaging/windows/test-msi.ps1
 #>
 [CmdletBinding()]
 param(
-    [string] $Exe = 'target/release/excellentpdf.exe',
-    [string] $OutDir = (Join-Path ([IO.Path]::GetTempPath()) "excellentpdf-msi-test-$PID"),
+    [string] $Exe = 'target/release/ecclesiapdf.exe',
+    [string] $OutDir = (Join-Path ([IO.Path]::GetTempPath()) "ecclesiapdf-msi-test-$PID"),
     [string] $CrtDir,
     [switch] $KeepTemp
 )
@@ -58,7 +58,7 @@ try {
     Write-Host "Built: $($msiItem.Name) ($sizeMb MB)"
 
     # 1. Naming (DD3) and size budget (<= 15 MB)
-    Assert-True ($msiItem.Name -match '^ExcellentPDF-v\d{2}-\d{2}-\d{2}\.0-v\d+\.\d+\.\d+-windows-x64\.msi$') "MSI name violates DD3: $($msiItem.Name)"
+    Assert-True ($msiItem.Name -match '^EcclesiaPDF-v\d{2}-\d{2}-\d{2}\.0-v\d+\.\d+\.\d+-windows-x64\.msi$') "MSI name violates DD3: $($msiItem.Name)"
     Assert-True ($msiItem.Length -le (15 * 1MB)) "MSI size $sizeMb MB exceeds 15 MB budget"
 
     # 2. Open MSI read-only and validate every table and cross-reference
@@ -98,10 +98,11 @@ try {
         foreach ($r in (Read-Table 'Property' @('Property', 'Value'))) { $props[$r.Property] = $r.Value }
         Assert-True ($props['ALLUSERS'] -eq '2') "Expected ALLUSERS=2, got '$($props['ALLUSERS'])'"
         Assert-True ($props['MSIINSTALLPERUSER'] -eq '1') "Expected MSIINSTALLPERUSER=1, got '$($props['MSIINSTALLPERUSER'])'"
+        Assert-True ($props['REGISTERFILETYPES'] -eq '1') "Expected REGISTERFILETYPES=1, got '$($props['REGISTERFILETYPES'])'"
         Assert-True ($props['ARPPRODUCTICON'] -eq 'AppIcon.ico') "Expected ARPPRODUCTICON=AppIcon.ico"
         Assert-True ($props['ErrorDialog'] -eq 'ErrorDialog') "Expected ErrorDialog='ErrorDialog'"
         Assert-True ($props['DefaultUIFont'] -eq 'DlgFont8') "Expected DefaultUIFont='DlgFont8'"
-        foreach ($sec in @('OLDERFOUND', 'NEWERFOUND', 'INSTALLDIR', 'ALLUSERS', 'MSIINSTALLPERUSER', 'USERCUSTOMDIR')) {
+        foreach ($sec in @('OLDERFOUND', 'NEWERFOUND', 'INSTALLDIR', 'ALLUSERS', 'MSIINSTALLPERUSER', 'REGISTERFILETYPES', 'OPENDEFAULTAPPS', 'USERCUSTOMDIR')) {
             Assert-True (($props['SecureCustomProperties'] -split ';') -contains $sec) "SecureCustomProperties missing $sec"
         }
 
@@ -124,19 +125,35 @@ try {
         Assert-True ($dirs.ContainsKey('INSTALLDIR')) "Directory INSTALLDIR missing"
         Assert-True ($dirs.ContainsKey('ProgramFiles64Folder')) "Directory ProgramFiles64Folder missing"
         Assert-True ($dirs.ContainsKey('ProgramMenuFolder')) "Directory ProgramMenuFolder missing"
+        Assert-True ($dirs.ContainsKey('System64Folder')) "Directory System64Folder missing"
 
         # Registry table: Root must be -1 (HKCU/HKLM dynamic)
         $regs = @{}
-        foreach ($r in (Read-Table 'Registry' @('Registry', 'Root', 'Key', 'Name', 'Value', 'Component_'))) {
+        $regRows = Read-Table 'Registry' @('Registry', 'Root', 'Key', 'Name', 'Value', 'Component_')
+        foreach ($r in $regRows) {
             $regs[$r.Registry] = $r
             Assert-True ([int]$r.Root -eq -1) "Registry '$($r.Registry)' Root must be -1 for dual-scope, got $($r.Root)"
         }
+        # Validate Default Programs / file type associations for all 10 supported extensions
+        $regAppRow = $regRows | Where-Object { $_.Key -eq 'Software\RegisteredApplications' -and $_.Name -eq 'Ecclesia PDF' } | Select-Object -First 1
+        Assert-True ($null -ne $regAppRow -and $regAppRow.Value -eq 'Software\EcclesiaPDF\Capabilities') "Missing Software\RegisteredApplications entry for Ecclesia PDF"
+        $progIdCmd = $regRows | Where-Object { $_.Key -eq 'Software\Classes\EcclesiaPDF.Document\shell\open\command' } | Select-Object -First 1
+        Assert-True ($null -ne $progIdCmd -and $progIdCmd.Value -eq '"[INSTALLDIR]ecclesiapdf.exe" "%1"') "Missing ProgId shell\open\command entry"
+        $expectedExtensions = @('.pdf', '.xps', '.oxps', '.epub', '.cbz', '.cbr', '.mobi', '.fb2', '.djvu', '.expdf')
+        foreach ($ext in $expectedExtensions) {
+            $capRow = $regRows | Where-Object { $_.Key -eq 'Software\EcclesiaPDF\Capabilities\FileAssociations' -and $_.Name -eq $ext } | Select-Object -First 1
+            Assert-True ($null -ne $capRow -and $capRow.Value -eq 'EcclesiaPDF.Document') "Missing Capabilities\FileAssociations entry for $ext"
+            $owRow = $regRows | Where-Object { $_.Key -eq "Software\Classes\$ext\OpenWithProgids" -and $_.Name -eq 'EcclesiaPDF.Document' } | Select-Object -First 1
+            Assert-True ($null -ne $owRow) "Missing Software\Classes\$ext\OpenWithProgids entry for EcclesiaPDF.Document"
+        }
 
-        # Component table: Directory_ and KeyPath valid
+        # Component table: Directory_ and KeyPath valid, FileAssoc component conditioned on REGISTERFILETYPES = "1"
         $filesTbl = @{}
         foreach ($r in (Read-Table 'File' @('File', 'Component_', 'FileName', 'FileSize'))) { $filesTbl[$r.File] = $r }
         Assert-True ($filesTbl.Count -eq 4) "Expected 4 files in File table, got $($filesTbl.Count)"
-        foreach ($c in (Read-Table 'Component' @('Component', 'Directory_', 'Attributes', 'KeyPath'))) {
+        $components = @{}
+        foreach ($c in (Read-Table 'Component' @('Component', 'Directory_', 'Attributes', 'Condition', 'KeyPath'))) {
+            $components[$c.Component] = $c
             Assert-True ($dirs.ContainsKey($c.Directory_)) "Component '$($c.Component)' references unknown Directory '$($c.Directory_)'"
             $attrs = [int]$c.Attributes
             if (($attrs -band 4) -ne 0) {
@@ -145,6 +162,10 @@ try {
                 Assert-True ($filesTbl.ContainsKey($c.KeyPath)) "Component '$($c.Component)' file KeyPath '$($c.KeyPath)' not in File table"
             }
         }
+        Assert-True ($components.ContainsKey('FileAssoc') -and $components['FileAssoc'].Condition -eq 'REGISTERFILETYPES = "1"') "Component 'FileAssoc' missing or lacks condition 'REGISTERFILETYPES = ""1""'"
+        $featComps = Read-Table 'FeatureComponents' @('Feature_', 'Component_')
+        $hasFileAssocFeat = $null -ne ($featComps | Where-Object { $_.Feature_ -eq 'Main' -and $_.Component_ -eq 'FileAssoc' } | Select-Object -First 1)
+        Assert-True $hasFileAssocFeat "FeatureComponents missing ('Main', 'FileAssoc')"
 
         # Icon & Binary streams
         $icons = @{}
@@ -192,6 +213,8 @@ try {
         $checkboxes = @{}
         foreach ($r in (Read-Table 'CheckBox' @('Property', 'Value'))) { $checkboxes[$r.Property] = $r.Value }
         Assert-True ($checkboxes['LAUNCHAPP'] -eq '1') "CheckBox LAUNCHAPP missing or != 1"
+        Assert-True ($checkboxes['REGISTERFILETYPES'] -eq '1') "CheckBox REGISTERFILETYPES missing or != 1"
+        Assert-True ($checkboxes['OPENDEFAULTAPPS'] -eq '1') "CheckBox OPENDEFAULTAPPS missing or != 1"
 
         $uiTextMap = @{}
         foreach ($r in (Read-Table 'UIText' @('Key', 'Text'))) { $uiTextMap[$r.Key] = $r.Text }
@@ -238,6 +261,8 @@ try {
         }
         Assert-True $hasElevationShield "VerifyReadyDialog missing PushButton with ElevationShield (8388608)"
         Assert-True $hasPathEdit "FolderDialog missing PathEdit bound to INSTALLDIR"
+        Assert-True ($controlsByDialog['FolderDialog'].ContainsKey('FileAssocCheckBox') -and $controlsByDialog['FolderDialog']['FileAssocCheckBox'].Property -eq 'REGISTERFILETYPES') "FolderDialog missing FileAssocCheckBox bound to REGISTERFILETYPES"
+        Assert-True ($controlsByDialog['ExitDialog'].ContainsKey('DefaultAppsCheckBox') -and $controlsByDialog['ExitDialog']['DefaultAppsCheckBox'].Property -eq 'OPENDEFAULTAPPS') "ExitDialog missing DefaultAppsCheckBox bound to OPENDEFAULTAPPS"
         Assert-True ($hasDirCombo -and $hasDirList) "BrowseDialog missing DirectoryCombo / DirectoryList"
         Assert-True $hasProgressBar "ProgressDialog missing ProgressBar"
 
@@ -265,6 +290,7 @@ try {
         # Verify ControlEvent targets (dialogs, custom actions, standard browse events)
         $customActions = @{}
         foreach ($r in (Read-Table 'CustomAction' @('Action', 'Type'))) { $customActions[$r.Action] = [int]$r.Type }
+        Assert-True ($customActions.ContainsKey('OpenDefaultApps') -and $customActions['OpenDefaultApps'] -eq 226) "CustomAction OpenDefaultApps missing or not Type 226"
         $browseEvents = @{}
         foreach ($ev in (Read-Table 'ControlEvent' @('Dialog_', 'Control_', 'Event', 'Argument', 'Condition'))) {
             Assert-True ($dialogs.ContainsKey($ev.Dialog_) -and $controlsByDialog[$ev.Dialog_].ContainsKey($ev.Control_)) "ControlEvent references missing control '$($ev.Dialog_).$($ev.Control_)'"
@@ -335,7 +361,7 @@ try {
         ) | Sort-Object FullName | Select-Object -Last 1 -ExpandProperty FullName
     }
     $expectedSources = @{
-        'excellentpdf.exe' = $exeFull
+        'ecclesiapdf.exe' = $exeFull
         'msvcp140.dll'     = (Join-Path $CrtDir 'msvcp140.dll')
         'vcruntime140.dll' = (Join-Path $CrtDir 'vcruntime140.dll')
         'vcruntime140_1.dll' = (Join-Path $CrtDir 'vcruntime140_1.dll')

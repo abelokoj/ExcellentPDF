@@ -1,7 +1,7 @@
 # Ph3: 30/49 | A.17: Semantic categories
 
-**Tag:** A.17; **Priority:** P1; **Phase:** 3; **Needs:** A.12; **Code:** `excellent-features::annotate::categories`,
-`excellent-core::annot` (`Annotation::category`), `excellent-app::annotate::inspector`, `excellent-app::annotate::list`
+**Tag:** A.17; **Priority:** P1; **Phase:** 3; **Needs:** A.12; **Code:** `ecclesia-features::annotate::categories`,
+`ecclesia-core::annot` (`Annotation::category`), `ecclesia-app::annotate::inspector`, `ecclesia-app::annotate::list`
 **Plan:** §27 entry `#### Ph3: 30/49 | A.17`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -31,7 +31,7 @@ None at startup. The category is a short string in the annotation's private key.
 
 ## Design
 
-- **Core:** `Annotation::category: Option<String>` (the key), in the private `/ExcellentPDF` JSON and the log.
+- **Core:** `Annotation::category: Option<String>` (the key), in the private `/EcclesiaPDF` JSON and the log.
 - **Model** (`annotate::categories`, pure): `Category` (seven), `key`, `from_key`, `color`, `icon`, `of`,
   `set_category`. A key this version doesn't know reads as none and is kept as it is.
 - **List:** `Row::category`, `Filter::categories`, `toggled_category`, `categories(rows)`.

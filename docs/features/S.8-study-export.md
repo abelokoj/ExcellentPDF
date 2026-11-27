@@ -1,6 +1,6 @@
 # Ph4: 34/44 | S.8: Study export
 
-**Tag:** S.8; **Priority:** P0 (parity); **Phase:** 4; **Needs:** A.14; **Code:** `excellent-features::study::export`
+**Tag:** S.8; **Priority:** P0 (parity); **Phase:** 4; **Needs:** A.14; **Code:** `ecclesia-features::study::export`
 **Plan:** §27 entry `#### Ph4: 34/44 | S.8`, §11.7, and `sumatra_pdf_enhanced_plan.md` §5.15. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -29,7 +29,7 @@ All modes (File menu, command palette) and Study mode toolbar.
 
 ## Design
 
-- **Model** (`excellent-features::study::export`): `StudyFormat` (Markdown, Text, Typst, Html, Docx, Json, Csv), `StudyNoteKind`, `StudyNote`, `StudyDocument`, `StudyFilter`, `StudyOrder`, `select_notes`, `render_study`, `render_vocabulary_study`.
+- **Model** (`ecclesia-features::study::export`): `StudyFormat` (Markdown, Text, Typst, Html, Docx, Json, Csv), `StudyNoteKind`, `StudyNote`, `StudyDocument`, `StudyFilter`, `StudyOrder`, `select_notes`, `render_study`, `render_vocabulary_study`.
 - **Enhanced parity helpers**: `study_date`, `study_timestamp`, `study_color`, `study_link`, `json_text`, `xml_text`, `typst_text`, `markdown_text`, `csv_text` (prefixes `'` on cells starting with `=`, `+`, `-`, `@`, `\t`, `\r`), `note_page_label`, `note_heading`, `note_details`, `note_body`, and OOXML `.docx` ZIP packaging.
 
 ## Acceptance tests

@@ -1,6 +1,6 @@
 # Ph6: 10/13 | I.9: Claim, method, finding and limitation extraction
 
-**Tag:** I.9; **Priority:** P1; **Phase:** 6; **Needs:** I.3, A.17; **Code:** `crates/excellent-features/src/ai/extract.rs`
+**Tag:** I.9; **Priority:** P1; **Phase:** 6; **Needs:** I.3, A.17; **Code:** `crates/ecclesia-features/src/ai/extract.rs`
 **Plan:** §27 entry `#### Ph6: 10/13 | I.9`.
 
 ## Problem

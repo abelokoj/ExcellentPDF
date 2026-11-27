@@ -1,0 +1,20 @@
+[package]
+name = "ecclesia-canvas-win"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "Windows page canvas: Direct2D rendering directly into NSH's device context"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+ecclesia-canvas.workspace = true
+ecclesia-mupdf.workspace = true
+log.workspace = true
+nsh-core.workspace = true
+nsh-platform-windows.workspace = true
+windows.workspace = true
+windows-numerics.workspace = true
+
+[lints]
+workspace = true

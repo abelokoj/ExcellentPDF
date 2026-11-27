@@ -1,6 +1,6 @@
 # Ph5: 25/45 | S.14: Assignments with due dates
 
-**Tag:** S.14; **Priority:** P2; **Phase:** 5; **Needs:** F.6; **Code:** `excellent-features::study::assignments`
+**Tag:** S.14; **Priority:** P2; **Phase:** 5; **Needs:** F.6; **Code:** `ecclesia-features::study::assignments`
 **Plan:** §27 entry `#### Ph5: 25/45 | S.14: Assignments with due dates`.
 
 ## Problem
@@ -26,7 +26,7 @@ Study.
 
 ## Design
 
-- **Model (`excellent-features::study::assignments`):**
+- **Model (`ecclesia-features::study::assignments`):**
   - `AssignmentStore` manages CRUD, checklist item completion (`AssignmentStatus` auto-updates), `in_window` calendar queries, and `poll_due_reminders`.
 
 ## Acceptance tests

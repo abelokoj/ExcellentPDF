@@ -1,7 +1,7 @@
 # Ph3: 18/49 | A.5: Sticky notes
 
-**Tag:** A.5; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `excellent-features::annotate::sticky`,
-`excellent-core::annot` (`icon`, `open`), `excellent-mupdf-sys/csrc/shim.c`, `excellent-app::annotate`
+**Tag:** A.5; **Priority:** P0; **Phase:** 3; **Needs:** K.14; **Code:** `ecclesia-features::annotate::sticky`,
+`ecclesia-core::annot` (`icon`, `open`), `ecclesia-mupdf-sys/csrc/shim.c`, `ecclesia-app::annotate`
 **Plan:** §27 entry `#### Ph3: 18/49 | A.5`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

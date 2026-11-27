@@ -1,6 +1,6 @@
 # Ph4: 38/44 | G.1: Present mode
 
-**Tag:** G.1; **Priority:** P0; **Phase:** 4; **Needs:** R.19; **Code:** `excellent-features::present::session`
+**Tag:** G.1; **Priority:** P0; **Phase:** 4; **Needs:** R.19; **Code:** `ecclesia-features::present::session`
 **Plan:** §27 entry `#### Ph4: 38/44 | G.1`.
 
 ## Problem

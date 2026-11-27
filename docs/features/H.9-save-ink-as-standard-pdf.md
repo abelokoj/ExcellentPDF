@@ -1,8 +1,8 @@
 # Ph3: 45/49 | H.9: Save ink as standard PDF
 
-**Tag:** H.9; **Priority:** P0; **Phase:** 3; **Needs:** H.1, K.14; **Code:** `excellent-ink::outline` (a stroke's
-outline), `excellent-core::annot` (`Annotation::widths`, the outlines written), `excellent-mupdf` / the shim
-(`/ExcellentWidths`, the appearance), `excellent-features` (the ink event's widths, the eraser keeping them)
+**Tag:** H.9; **Priority:** P0; **Phase:** 3; **Needs:** H.1, K.14; **Code:** `ecclesia-ink::outline` (a stroke's
+outline), `ecclesia-core::annot` (`Annotation::widths`, the outlines written), `ecclesia-mupdf` / the shim
+(`/EcclesiaWidths`, the appearance), `ecclesia-features` (the ink event's widths, the eraser keeping them)
 **Plan:** §8.3 and §27 entry `#### Ph3: 45/49 | H.9`.
 
 ## Problem
@@ -32,8 +32,8 @@ and a fill in its appearance stream; a few kilobytes for a long stroke.
 - **InkList:** the smoothed points, as before (§8.3), so readers that redraw ink from the list still get the stroke.
 - **Constant-width pens** (ballpoint, marker, highlighter; widths within 2 %): MuPDF's own appearance
   (`pdf_update_annot`), as the plan says; the highlighter keeps patch `0094`'s Multiply.
-- **Pressure pens:** each point's width goes into the private `/ExcellentWidths` key, and the appearance is the
-  strokes' outlines (`excellent-ink::outline`: each side offset by half the width at each point, round ends), filled
+- **Pressure pens:** each point's width goes into the private `/EcclesiaWidths` key, and the appearance is the
+  strokes' outlines (`ecclesia-ink::outline`: each side offset by half the width at each point, round ends), filled
   in the annotation's colour and opacity (multiplied for a highlighter) through a display list and
   `pdf_set_annot_appearance_from_display_list`. The outlines are drawn in the page's unrotated PDF space and `/Rect`
   becomes their bounds, so the form's bounding box maps onto it in every reader.

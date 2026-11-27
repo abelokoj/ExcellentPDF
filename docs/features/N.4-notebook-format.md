@@ -1,6 +1,6 @@
 # Ph4: 17/44 | N.4: Notebook format (.expdf) and export to PDF
 
-**Tag:** N.4; **Priority:** P0; **Phase:** 4; **Needs:** K.15; **Code:** `excellent-core::notebook`
+**Tag:** N.4; **Priority:** P0; **Phase:** 4; **Needs:** K.15; **Code:** `ecclesia-core::notebook`
 **Plan:** §27 entry `#### Ph4: 17/44 | N.4` and `docs/formats/expdf.md`.
 
 ## Problem
@@ -26,7 +26,7 @@ All modes; primary format in Write mode.
 
 ## Design
 
-- `excellent-core::notebook::{Notebook, NotebookMetadata, ExportOptions, AttachAudio}` implements `.expdf` ZIP reading, atomic saving, MuPDF in-memory opening (`Document::from_bytes`), asset management under `assets/`, and plain PDF export baking vector templates, `/Outlines` bookmarks, `/Link` annotations, and optional `/EmbeddedFiles` audio attachments.
+- `ecclesia-core::notebook::{Notebook, NotebookMetadata, ExportOptions, AttachAudio}` implements `.expdf` ZIP reading, atomic saving, MuPDF in-memory opening (`Document::from_bytes`), asset management under `assets/`, and plain PDF export baking vector templates, `/Outlines` bookmarks, `/Link` annotations, and optional `/EmbeddedFiles` audio attachments.
 - Full specification documented in `docs/formats/expdf.md`.
 
 ## Acceptance tests

@@ -1,6 +1,6 @@
 # Ph4: 19/44 | N.6: Typed text blocks
 
-**Tag:** N.6 (plus U.8 canvas IME bridge); **Priority:** P1; **Phase:** 4; **Needs:** N.4, U.8; **Code:** `excellent-features::notebook::textblocks`, `excellent-features::notebook::ime`
+**Tag:** N.6 (plus U.8 canvas IME bridge); **Priority:** P1; **Phase:** 4; **Needs:** N.4, U.8; **Code:** `ecclesia-features::notebook::textblocks`, `ecclesia-features::notebook::ime`
 **Plan:** §27 entry `#### Ph4: 19/44 | N.6` and `#### Ph3: 49/49 | U.8` (DD26).
 
 ## Problem
@@ -9,7 +9,7 @@ Notebook users mix handwriting with structured typed notes (headings, bulleted/n
 
 ## User story
 
-As a bilingual note-taker, I want structured typed text blocks with Chinese/Japanese/Korean IME support that display cleanly as readable text in other PDF readers while keeping full block structure in ExcellentPDF.
+As a bilingual note-taker, I want structured typed text blocks with Chinese/Japanese/Korean IME support that display cleanly as readable text in other PDF readers while keeping full block structure in EcclesiaPDF.
 
 ## UI sketch
 
@@ -26,8 +26,8 @@ Write and Annotate modes.
 
 ## Design
 
-- `excellent-features::notebook::textblocks::TextBlock`: models all 6 `BlockKind` variants (`Paragraph`, `Heading`, `List`, `Checkbox`, `Code`, `Table`), UTF-8-safe cursor/selection editing, wrapped `layout_lines()`, caret geometry, XHTML rich contents (`/RC`), standard PDF FreeText annotation conversion (`to_freetext_annotation`), and lossless sidecar JSON serialization (`to_json`/`from_json`).
-- `excellent-features::notebook::ime::ImeBridge` (U.8): platform-agnostic state machine receiving `ImeEvent::{Start, Preedit, Commit, End}` from Windows IMM32/TSF, macOS `NSTextInputClient`, and GTK `GtkIMContext`, tracking styled `CompositionClause` spans and updating the candidate window caret rectangle.
+- `ecclesia-features::notebook::textblocks::TextBlock`: models all 6 `BlockKind` variants (`Paragraph`, `Heading`, `List`, `Checkbox`, `Code`, `Table`), UTF-8-safe cursor/selection editing, wrapped `layout_lines()`, caret geometry, XHTML rich contents (`/RC`), standard PDF FreeText annotation conversion (`to_freetext_annotation`), and lossless sidecar JSON serialization (`to_json`/`from_json`).
+- `ecclesia-features::notebook::ime::ImeBridge` (U.8): platform-agnostic state machine receiving `ImeEvent::{Start, Preedit, Commit, End}` from Windows IMM32/TSF, macOS `NSTextInputClient`, and GTK `GtkIMContext`, tracking styled `CompositionClause` spans and updating the candidate window caret rectangle.
 
 ## Acceptance tests
 

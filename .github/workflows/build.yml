@@ -99,11 +99,11 @@ jobs:
       - name: Package
         if: inputs.package
         run: |
-          cargo build --release --locked -p excellent-app --target ${{ inputs.target }}
-          version=$(cargo pkgid -p excellent-app | sed 's/.*[#@]//')
-          name="ExcellentPDF-v$(date +%y-%m-%d).0-v$version-${{ inputs.name }}"
+          cargo build --release --locked -p ecclesia-app --target ${{ inputs.target }}
+          version=$(cargo pkgid -p ecclesia-app | sed 's/.*[#@]//')
+          name="EcclesiaPDF-v$(date +%y-%m-%d).0-v$version-${{ inputs.name }}"
           mkdir -p "dist/$name"
-          cp target/${{ inputs.target }}/release/excellentpdf "dist/$name/"
+          cp target/${{ inputs.target }}/release/ecclesiapdf "dist/$name/"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
           echo "ARTIFACT=$name" >> "$GITHUB_ENV"
 

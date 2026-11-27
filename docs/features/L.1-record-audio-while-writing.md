@@ -1,6 +1,6 @@
 # Ph4: 25/44 | L.1: Record audio while writing
 
-**Tag:** L.1; **Priority:** P0; **Phase:** 4; **Needs:** H.9, N.4; **Code:** `excellent-features::audio`
+**Tag:** L.1; **Priority:** P0; **Phase:** 4; **Needs:** H.9, N.4; **Code:** `ecclesia-features::audio`
 **Plan:** §27 entry `#### Ph4: 25/44 | L.1`.
 
 ## Problem
@@ -29,7 +29,7 @@ Write and Study modes.
 
 - `audio::device`: mockable `AudioCapture` and `AudioPlayback` traits plus `MicPermission` (`Granted`, `Denied`, `PromptRequired`, `NotRequired`) and `MockAudioCapture`/`MockAudioPlayback`.
 - `audio::codec`: 16-bit PCM WAV encoder/decoder and RFC 7845 Ogg/Opus container muxer/demuxer with CRC-32 verification and `.expdf` `assets/audio/` bundling (`bundle_audio_in_notebook`).
-- `audio::sync`: `AudioTimeline` tracks pause/resume `RecordingSegment`s on the ink sample clock, maps any `excellent_ink::stroke::Stroke` to its playback offset, seeks playback, and reports highlighted strokes and page marks during playback.
+- `audio::sync`: `AudioTimeline` tracks pause/resume `RecordingSegment`s on the ink sample clock, maps any `ecclesia_ink::stroke::Stroke` to its playback offset, seeks playback, and reports highlighted strokes and page marks during playback.
 
 ## Acceptance tests
 

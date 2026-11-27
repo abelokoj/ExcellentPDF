@@ -31,5 +31,5 @@ None at startup. One operation.
 ## Acceptance tests
 
 - [x] The repointed entry opens at the new place after save and reopen:
-  `a_repointed_entry_opens_its_new_place_after_reopening` (`excellent-mupdf`), which also undoes it.
+  `a_repointed_entry_opens_its_new_place_after_reopening` (`ecclesia-mupdf`), which also undoes it.
 - [ ] The inspector shows the entry's page and zoom (needs the inspector's outline view).

@@ -1,7 +1,7 @@
 # Ph3: 5/49 | B.9: Check destinations
 
-**Tag:** B.9; **Priority:** P1; **Phase:** 3; **Needs:** B.1; **Code:** `excellent-features::outline` (`broken`,
-`check`, `search_from`, `heading_top`), `excellent-core::outline::find_headings`, `excellent-app::outline`
+**Tag:** B.9; **Priority:** P1; **Phase:** 3; **Needs:** B.1; **Code:** `ecclesia-features::outline` (`broken`,
+`check`, `search_from`, `heading_top`), `ecclesia-core::outline::find_headings`, `ecclesia-app::outline`
 **Plan:** §27 entry `#### Ph3: 5/49 | B.9`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

@@ -2275,7 +2275,7 @@ static const char *single_name_list[] = {
 "ideographiccorrectcircle",
 "ideographicearthparen",
 "ideographicenterpriseparen",
-"ideographicexcellentcircle",
+"ideographicecclesiacircle",
 "ideographicfestivalparen",
 "ideographicfinancialcircle",
 "ideographicfinancialparen",

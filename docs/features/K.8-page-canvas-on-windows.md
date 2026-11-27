@@ -1,6 +1,6 @@
 # Ph0: 6/13 | K.8: Page canvas on Windows
 
-**Tag:** K.8; **Priority:** P0; **Phase:** 0–1; **Needs:** K.7; **Code:** `crates/excellent-canvas-win/`
+**Tag:** K.8; **Priority:** P0; **Phase:** 0–1; **Needs:** K.7; **Code:** `crates/ecclesia-canvas-win/`
 **Plan:** §27 entry `Ph0: 6/13 | K.8`, §7.1–§7.3, Appendix C.4.
 
 ## Problem
@@ -13,7 +13,7 @@ As a Windows reader or Surface stylus user, I want smooth flip-model Direct2D pa
 
 ## UI sketch
 
-Hosted inside NSH via the `excellent.page-canvas` native component, receiving JSON props/commands and emitting selection, navigation, link, and ink events.
+Hosted inside NSH via the `ecclesia.page-canvas` native component, receiving JSON props/commands and emitting selection, navigation, link, and ink events.
 
 ## Mode
 
@@ -25,11 +25,11 @@ D3D11/Direct2D device initializes off the critical first-paint path; flip-model 
 
 ## Design
 
-- Native Win32 child `HWND` registered as `excellent.page-canvas`.
+- Native Win32 child `HWND` registered as `ecclesia.page-canvas`.
 - `WM_POINTERDOWN`/`UPDATE`/`UP` with `GetPointerPenInfo` and `GetPointerPenInfoHistory` normalized into `PointerSample`.
 - Direct2D composition swap chain with automatic GDI software-blit fallback.
 
 ## Acceptance tests
 
-- [x] `excellent-canvas-win` pointer normalization, placement, and saved view unit tests.
+- [x] `ecclesia-canvas-win` pointer normalization, placement, and saved view unit tests.
 - [ ] Manual Surface Pro hardware latency verification (`<= 1 display frame`).

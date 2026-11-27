@@ -1,7 +1,7 @@
 # Ph1: 16/60 | R.5: Thumbnails
 
-**Tag:** R.5; **Priority:** P0; **Phase:** 1; **Needs:** K.7; **Code:** `excellent-features::read::thumbnails`,
-`excellent-core::thumbnail`, `excellent-app::thumbnails`
+**Tag:** R.5; **Priority:** P0; **Phase:** 1; **Needs:** K.7; **Code:** `ecclesia-features::read::thumbnails`,
+`ecclesia-core::thumbnail`, `ecclesia-app::thumbnails`
 **Plan:** §27 entry `Ph1: 16/60 | R.5`.
 
 ## Problem
@@ -37,12 +37,12 @@ revision and the width, so reopening the file shows them without rendering. Not 
 
 ## Design
 
-- Model (`excellent-features::read::thumbnails`): `frame` (a page's frame inside the 136 × 176-point box),
+- Model (`ecclesia-features::read::thumbnails`): `frame` (a page's frame inside the 136 × 176-point box),
   `wanted` (the pages to render for the rows shown), `file_name` (the cache name).
-- Rendering (`excellent-core::thumbnail::render`): one job on the shared pool (`excellent-core::shared`, which the
+- Rendering (`ecclesia-core::thumbnail::render`): one job on the shared pool (`ecclesia-core::shared`, which the
   canvas uses too) that draws the page and writes the PNG atomically.
 - The canvas's `pages` event carries each page's size, so frames have their final shape before any render.
-- View (`excellent-app::thumbnails`): the list, the renders under way (dropped, so cancelled, when they leave the
+- View (`ecclesia-app::thumbnails`): the list, the renders under way (dropped, so cancelled, when they leave the
   wanted range), and the rendered files.
 
 ## Acceptance tests

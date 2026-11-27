@@ -1,6 +1,6 @@
 # Ph5: 14/45 | A.27: Annotation history timeline
 
-**Tag:** A.27; **Priority:** P2; **Phase:** 5; **Needs:** K.14; **Code:** `excellent-features::annotate::history`
+**Tag:** A.27; **Priority:** P2; **Phase:** 5; **Needs:** K.14; **Code:** `ecclesia-features::annotate::history`
 **Plan:** §27 entry `#### Ph5: 14/45 | A.27`.
 
 ## Problem
@@ -27,7 +27,7 @@ Annotate.
 
 ## Design
 
-- Model: `excellent-features::annotate::history::{AnnotationTimeline, HistoryEntry, HistoryError}` producing standard `excellent_core::edit::Operation`s for non-destructive restore.
+- Model: `ecclesia-features::annotate::history::{AnnotationTimeline, HistoryEntry, HistoryError}` producing standard `ecclesia_core::edit::Operation`s for non-destructive restore.
 
 ## Acceptance tests
 

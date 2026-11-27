@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "Deterministic AI evaluation and safety corpus for ExcellentPDF (plan I.12)",
+  "description": "Deterministic AI evaluation and safety corpus for EcclesiaPDF (plan I.12)",
   "cases": [
     {
       "id": "fact-redaction-pipeline",
@@ -16,7 +16,7 @@
             {
               "page": 0,
               "chapter": "Overview",
-              "text": "ExcellentPDF keeps credentials in the OS key store and verifies downloaded packs with Ed25519."
+              "text": "EcclesiaPDF keeps credentials in the OS key store and verifies downloaded packs with Ed25519."
             },
             {
               "page": 1,

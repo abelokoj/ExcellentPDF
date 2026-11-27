@@ -1,6 +1,6 @@
 # Ph9: 10/13 | Y.2: Same settings on every OS
 
-**Tag:** Y.2; **Priority:** P1; **Phase:** 9; **Needs:** K.16, Y.1; **Code:** `excellent-features::sync::settings`
+**Tag:** Y.2; **Priority:** P1; **Phase:** 9; **Needs:** K.16, Y.1; **Code:** `ecclesia-features::sync::settings`
 **Plan:** §27 entry `#### Ph9: 10/13 | Y.2`.
 
 ## Problem
@@ -27,7 +27,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::sync::settings::{PortableSettings, PortablePen, TargetOs, sanitize_local_settings, materialize_for_os, merge_portable_settings}`.
+- Model: `ecclesia-features::sync::settings::{PortableSettings, PortablePen, TargetOs, sanitize_local_settings, materialize_for_os, merge_portable_settings}`.
 
 ## Acceptance tests
 

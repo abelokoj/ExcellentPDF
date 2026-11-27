@@ -1,7 +1,7 @@
 # Ph3: 46/49 | H.10: Shape recognition (hold to snap)
 
-**Tag:** H.10; **Priority:** P1; **Phase:** 3; **Needs:** H.1; **Code:** `excellent-ink::shapes` (the recognizer),
-`excellent-canvas::page` (the hold, and the stroke replaced)
+**Tag:** H.10; **Priority:** P1; **Phase:** 3; **Needs:** H.1; **Code:** `ecclesia-ink::shapes` (the recognizer),
+`ecclesia-canvas::page` (the hold, and the stroke replaced)
 **Plan:** §8.4 and §27 entry `#### Ph3: 46/49 | H.10`.
 
 ## Problem

@@ -6,7 +6,7 @@
 
 ## Context
 
-ExcellentPDF replaces SumatraPDF Enhanced and must render at least as well, across PDF, EPUB, XPS, CBZ and images.
+EcclesiaPDF replaces SumatraPDF Enhanced and must render at least as well, across PDF, EPUB, XPS, CBZ and images.
 
 ## Decision
 

@@ -1,6 +1,6 @@
 # Ph9: 6/13 | X.2: Connect, group and label
 
-**Tag:** X.2; **Priority:** P1; **Phase:** 9; **Needs:** X.1; **Code:** `excellent-features::canvas_board`
+**Tag:** X.2; **Priority:** P1; **Phase:** 9; **Needs:** X.1; **Code:** `ecclesia-features::canvas_board`
 **Plan:** §27 entry `#### Ph9: 6/13 | X.2` and §11.10.
 
 ## Problem
@@ -27,7 +27,7 @@ Research, Study.
 
 ## Design
 
-- Model: `excellent-features::canvas_board::{BoardGroup, BoardConnector, ConnectorKind, ArgumentRole, CubicBezier}` and `CanvasBoard::move_group`.
+- Model: `ecclesia-features::canvas_board::{BoardGroup, BoardConnector, ConnectorKind, ArgumentRole, CubicBezier}` and `CanvasBoard::move_group`.
 
 ## Acceptance tests
 

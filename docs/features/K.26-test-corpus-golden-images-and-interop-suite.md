@@ -1,6 +1,6 @@
 # Ph0: 11/13 | K.26: Test corpus, golden images and interop suite
 
-**Tag:** K.26; **Priority:** P0; **Phase:** 0 onward; **Needs:** K.3; **Code:** `tests/corpus/`, `tests/golden/`, `tests/interop/`, `crates/excellent-mupdf/tests/corpus.rs`
+**Tag:** K.26; **Priority:** P0; **Phase:** 0 onward; **Needs:** K.3; **Code:** `tests/corpus/`, `tests/golden/`, `tests/interop/`, `crates/ecclesia-mupdf/tests/corpus.rs`
 **Plan:** §27 entry `Ph0: 11/13 | K.26`, §16, Appendix C.4.
 
 ## Problem
@@ -9,7 +9,7 @@ Single-file smoke tests miss format edge cases, theme contrast regressions, RTL/
 
 ## User story
 
-As a user sharing annotated or exported PDFs, I want ExcellentPDF tested across PDF, EPUB, XPS, CBZ, FB2, MOBI, SVG, HTML, Markdown, RTL, and AcroForm documents and checked against external PDF oracles, so that files open reliably everywhere.
+As a user sharing annotated or exported PDFs, I want EcclesiaPDF tested across PDF, EPUB, XPS, CBZ, FB2, MOBI, SVG, HTML, Markdown, RTL, and AcroForm documents and checked against external PDF oracles, so that files open reliably everywhere.
 
 ## UI sketch
 
@@ -31,6 +31,6 @@ Test assets live strictly under `tests/` and never ship in the core binary or in
 
 ## Acceptance tests
 
-- [x] `every_corpus_file_renders_page_one_to_png_and_gives_text` (`crates/excellent-mupdf/tests/corpus.rs`): opens, renders, and extracts text across the full corpus.
-- [x] `each_reading_theme_renders_the_corpus_with_aa_text_contrast` (`crates/excellent-core/tests/reading_themes.rs`): verifies WCAG AA contrast across built-in themes.
+- [x] `every_corpus_file_renders_page_one_to_png_and_gives_text` (`crates/ecclesia-mupdf/tests/corpus.rs`): opens, renders, and extracts text across the full corpus.
+- [x] `each_reading_theme_renders_the_corpus_with_aa_text_contrast` (`crates/ecclesia-core/tests/reading_themes.rs`): verifies WCAG AA contrast across built-in themes.
 - [x] `tests/interop/verify_interop.ps1`: passes structural and CLI oracle checks across `tests/interop/checklist.json`.

@@ -1,6 +1,6 @@
 # Ph9: 13/13 | E.5: Plugins
 
-**Tag:** E.5; **Priority:** P2; **Phase:** 9; **Needs:** E.2, K.21; **Code:** `excellent-features::plugins`
+**Tag:** E.5; **Priority:** P2; **Phase:** 9; **Needs:** E.2, K.21; **Code:** `ecclesia-features::plugins`
 **Plan:** §27 entry `#### Ph9: 13/13 | E.5`.
 
 ## Problem
@@ -27,7 +27,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::plugins::{PluginRegistry, PluginLifecycle}` + `plugins::manifest::{PluginManifest, PluginCapability, PluginHook, pack_signed_plugin, verify_signed_plugin}` + `plugins::sandbox::PermissionSandbox` + `plugins::hooks::HookDispatcher` + `plugins::runner::{PluginRunner, InMemoryJsonRpcPlugin, StdioJsonRpcRunner}`.
+- Model: `ecclesia-features::plugins::{PluginRegistry, PluginLifecycle}` + `plugins::manifest::{PluginManifest, PluginCapability, PluginHook, pack_signed_plugin, verify_signed_plugin}` + `plugins::sandbox::PermissionSandbox` + `plugins::hooks::HookDispatcher` + `plugins::runner::{PluginRunner, InMemoryJsonRpcPlugin, StdioJsonRpcRunner}`.
 
 ## Acceptance tests
 

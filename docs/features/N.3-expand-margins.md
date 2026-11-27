@@ -1,6 +1,6 @@
 # Ph4: 16/44 | N.3: Expand margins
 
-**Tag:** N.3; **Priority:** P0; **Phase:** 4; **Needs:** K.14; **Code:** `excellent-features::notebook::pages`, `excellent-core::notebook::pdf_ops`
+**Tag:** N.3; **Priority:** P0; **Phase:** 4; **Needs:** K.14; **Code:** `ecclesia-features::notebook::pages`, `ecclesia-core::notebook::pdf_ops`
 **Plan:** §27 entry `#### Ph4: 16/44 | N.3`.
 
 ## Problem
@@ -23,13 +23,13 @@ Annotate and Write modes.
 ## Speed and size impact
 
 - Startup: zero cost.
-- Only updates the page dictionary's `/MediaBox`, `/CropBox`, and `/ExcellentPdfOrigBoxes` via incremental PDF update.
+- Only updates the page dictionary's `/MediaBox`, `/CropBox`, and `/EcclesiaPdfOrigBoxes` via incremental PDF update.
 
 ## Design
 
-- `expand_page_margins_pdf` / `expand_page_margins_notebook` widen `/MediaBox` and `/CropBox` in PDF user space without shifting existing page content, storing the first pre-expansion `[media_box, crop_box]` in `/ExcellentPdfOrigBoxes` (and `notebook.json`).
+- `expand_page_margins_pdf` / `expand_page_margins_notebook` widen `/MediaBox` and `/CropBox` in PDF user space without shifting existing page content, storing the first pre-expansion `[media_box, crop_box]` in `/EcclesiaPdfOrigBoxes` (and `notebook.json`).
 - Repeated expansions never overwrite the original boxes.
-- `remove_added_margins_pdf` / `remove_added_margins_notebook` restore the exact original `/MediaBox` and `/CropBox` and delete `/ExcellentPdfOrigBoxes`.
+- `remove_added_margins_pdf` / `remove_added_margins_notebook` restore the exact original `/MediaBox` and `/CropBox` and delete `/EcclesiaPdfOrigBoxes`.
 
 ## Acceptance tests
 

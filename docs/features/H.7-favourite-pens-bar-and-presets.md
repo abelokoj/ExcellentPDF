@@ -1,7 +1,7 @@
 # Ph3: 43/49 | H.7: Favourite pens bar and presets
 
-**Tag:** H.7; **Priority:** P0; **Phase:** 3; **Needs:** H.2; **Code:** `excellent-features::ink::favorites` (the
-bar), `excellent-app::annotate::favorites` (settings, the bar and its dialog), `excellent-canvas::page` (the `pen`
+**Tag:** H.7; **Priority:** P0; **Phase:** 3; **Needs:** H.2; **Code:** `ecclesia-features::ink::favorites` (the
+bar), `ecclesia-app::annotate::favorites` (settings, the bar and its dialog), `ecclesia-canvas::page` (the `pen`
 prop's colour and pressure)
 **Plan:** §8.4 and §27 entry `#### Ph3: 43/49 | H.7`.
 

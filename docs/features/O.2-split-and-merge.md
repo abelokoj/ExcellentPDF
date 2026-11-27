@@ -1,6 +1,6 @@
 # Ph7: 14/32 | O.2: Split and merge
 
-**Tag:** O.2; **Priority:** P0; **Phase:** 7; **Needs:** O.1; **Code:** `excellent-core::page_ops` (`merge_pdfs`, `split_pdf`, `SplitStrategy`, `OutlineSynthesis`)
+**Tag:** O.2; **Priority:** P0; **Phase:** 7; **Needs:** O.1; **Code:** `ecclesia-core::page_ops` (`merge_pdfs`, `split_pdf`, `SplitStrategy`, `OutlineSynthesis`)
 **Plan:** §27 entry `#### Ph7: 14/32 | O.2`.
 
 ## Problem

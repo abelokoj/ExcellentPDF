@@ -1,7 +1,7 @@
 # Ph1: 2/60 | K.6: Layout and coordinate transforms
 
-**Tag:** K.6; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `excellent-canvas::layout`,
-`excellent-core::transform`, `excellent-mupdf::Document::page_box`, `excellent-canvas-win::placement`
+**Tag:** K.6; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `ecclesia-canvas::layout`,
+`ecclesia-core::transform`, `ecclesia-mupdf::Document::page_box`, `ecclesia-canvas-win::placement`
 **Plan:** §27 entry `Ph1: 2/60 | K.6`.
 
 ## Problem
@@ -30,8 +30,8 @@ Every mode.
 ## Design
 
 - Model: `layout::Spec { mode, flow, direction }`; `Layout::new(sizes, spec)` gives page rectangles in bands, so
-  `pages_in` and `page_at` are binary searches. `excellent-core::transform` maps page points to device pixels and back.
-- View: `excellent-canvas-win::placement` places a page's points in the layout under the view rotation.
+  `pages_in` and `page_at` are binary searches. `ecclesia-core::transform` maps page points to device pixels and back.
+- View: `ecclesia-canvas-win::placement` places a page's points in the layout under the view rotation.
 
 ## Acceptance tests
 

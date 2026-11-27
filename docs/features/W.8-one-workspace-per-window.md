@@ -1,7 +1,7 @@
 # Ph3: 11/49 | W.8: One workspace per window
 
-**Tag:** W.8; **Priority:** P1; **Phase:** 3; **Needs:** W.7; **Code:** `excellent-app::workspaces` (`claims`,
-`windows`), `excellent-app::shell`, `excellent-store::workspaces`
+**Tag:** W.8; **Priority:** P1; **Phase:** 3; **Needs:** W.7; **Code:** `ecclesia-app::workspaces` (`claims`,
+`windows`), `ecclesia-app::shell`, `ecclesia-store::workspaces`
 **Plan:** §27 entry `#### Ph3: 11/49 | W.8`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

@@ -1,6 +1,6 @@
 # Ph7: 15/32 | O.3: Crop pages
 
-**Tag:** O.3; **Priority:** P0; **Phase:** 7; **Needs:** O.1; **Code:** `excellent-core::page_ops` (`set_page_box`, `uncrop_pages`, `auto_crop_to_content`, `PdfBoxKind`, `PageTarget`)
+**Tag:** O.3; **Priority:** P0; **Phase:** 7; **Needs:** O.1; **Code:** `ecclesia-core::page_ops` (`set_page_box`, `uncrop_pages`, `auto_crop_to_content`, `PdfBoxKind`, `PageTarget`)
 **Plan:** §27 entry `#### Ph7: 15/32 | O.3`.
 
 ## Problem

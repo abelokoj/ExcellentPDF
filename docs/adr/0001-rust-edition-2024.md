@@ -10,7 +10,7 @@ The app is a long-lived document editor on five platforms. A reader that opens u
 
 ## Decision
 
-Write ExcellentPDF in Rust, edition 2024, on the stable toolchain pinned in `rust-toolchain.toml`.
+Write EcclesiaPDF in Rust, edition 2024, on the stable toolchain pinned in `rust-toolchain.toml`.
 
 ## Why
 

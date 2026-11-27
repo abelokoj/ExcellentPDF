@@ -1,7 +1,7 @@
 # Ph3: 7/49 | V.8: Synchronized scrolling
 
-**Tag:** V.8; **Priority:** P1; **Phase:** 3; **Needs:** V.1; **Code:** `excellent-features::split`,
-`excellent-app::panes::sync`, the page canvas's `follow` command (`excellent-canvas::page`)
+**Tag:** V.8; **Priority:** P1; **Phase:** 3; **Needs:** V.1; **Code:** `ecclesia-features::split`,
+`ecclesia-app::panes::sync`, the page canvas's `follow` command (`ecclesia-canvas::page`)
 **Plan:** §27 entry `#### Ph3: 7/49 | V.8`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem
@@ -38,7 +38,7 @@ All modes; only while the window is split.
 
 ## Design
 
-- The model (`excellent_features::split`) maps a place (page, across, down) from one pane's pages to another's:
+- The model (`ecclesia_features::split`) maps a place (page, across, down) from one pane's pages to another's:
   - Same page: the same page number and place on it, stopping at the last page.
   - Same position: the same share of the whole document's height, measured with each document's own page heights,
     so documents of different page sizes and lengths stay level.

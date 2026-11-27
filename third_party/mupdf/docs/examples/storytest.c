@@ -131,7 +131,7 @@ const char snark[] =
 
 	"<p style=\"-mupdf-leading:20pt;\">This the Banker suggested, and offered for hire<br>"
 	"(On moderate terms), or for sale,<br>"
-	"Two excellent Policies, one Against Fire,<br>"
+	"Two ecclesia Policies, one Against Fire,<br>"
 	"And one Against Damage From Hail.</p>"
 
 	"<p style=\"-mupdf-leading:30pt;\">Yet still, ever after that sorrowful day,<br>"

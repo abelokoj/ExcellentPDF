@@ -1,18 +1,18 @@
 # Items for later
 
-Ideas and findings to come back to. Not yet in the plan (`ExcellentPDF_detailed_plan_nov_9th.md`); each item says
+Ideas and findings to come back to. Not yet in the plan (`EcclesiaPDF_detailed_plan_nov_9th.md`); each item says
 what would change there if adopted.
 
 ---
 
 ## L1. Plugins: themes, skins, interface and features from other developers (noted 2026-11-13)
 
-**Goal:** other people can write plugins that add skins, themes, interface and new functions to ExcellentPDF.
+**Goal:** other people can write plugins that add skins, themes, interface and new functions to EcclesiaPDF.
 
 ### What already makes it possible
 
 NSH is built for this. Its own `AGENTS.md` says plugins for native apps use the same machinery as embedded apps. A
-Rust app such as ExcellentPDF can load **signed TSX packages** (`.nshpkg`) written by others at run time. Each package:
+Rust app such as EcclesiaPDF can load **signed TSX packages** (`.nshpkg`) written by others at run time. Each package:
 
 - **Runs in a sandbox** (its own QuickJS VM) with memory, time and node limits enforced in Rust.
 - **Has capabilities:** it declares what it needs (network hosts, files, web views, host functions); the app grants

@@ -1,15 +1,15 @@
 # Ph5: 37/45 | F.11: Zotero integration
 
-**Tag:** F.11; **Priority:** P1; **Phase:** 5; **Needs:** F.10; **Code:** `excellent-features::citations::zotero`
+**Tag:** F.11; **Priority:** P1; **Phase:** 5; **Needs:** F.10; **Code:** `ecclesia-features::citations::zotero`
 **Plan:** §27 entry `#### Ph5: 37/45 | F.11`.
 
 ## Problem
 
-Zotero users want to browse their Zotero items, open attached PDFs in ExcellentPDF with metadata shown, and optionally send annotations back as Zotero notes.
+Zotero users want to browse their Zotero items, open attached PDFs in EcclesiaPDF with metadata shown, and optionally send annotations back as Zotero notes.
 
 ## User story
 
-As a Zotero user, I want ExcellentPDF to read my Zotero library via Zotero 7's local API, local `zotero.sqlite`, or Web API v3, so that I can open Zotero PDFs and sync notes seamlessly.
+As a Zotero user, I want EcclesiaPDF to read my Zotero library via Zotero 7's local API, local `zotero.sqlite`, or Web API v3, so that I can open Zotero PDFs and sync notes seamlessly.
 
 ## UI sketch
 
@@ -28,7 +28,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::citations::zotero::{ZoteroClient, ZoteroSource, ZoteroItem, read_local_sqlite, parse_zotero_items_json, build_child_note_payload}`.
+- Model: `ecclesia-features::citations::zotero::{ZoteroClient, ZoteroSource, ZoteroItem, read_local_sqlite, parse_zotero_items_json, build_child_note_payload}`.
 
 ## Acceptance tests
 

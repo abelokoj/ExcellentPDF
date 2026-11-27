@@ -1,6 +1,6 @@
 # Changelog
 
-All notable work on ExcellentPDF is recorded here, newest first. The format follows
+All notable work on EcclesiaPDF is recorded here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one dated entry per piece of work. Times are local
 (UTC−05:00) and mark when the work was finished.
 
@@ -8,22 +8,22 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ### 2026-11-26 11:00; Win32 PDF display fix, 300+ tab lazy hibernation, Vivaldi chrome, SumatraPDF Enhanced Home Page & MSI release 7
 
-- **Win32 PDF display & redraw reliability (`excellent-canvas-win`):** Eliminated intermittent blank/black Document panes by adding coalesced `WM_CANVAS_PAINT` messages alongside `InvalidateRect` (so `ValidateRect` on NSH's non-`WS_CLIPCHILDREN` parent HWND during thumbnail repaints can no longer cancel child redraws), preserving `PlacementSync::last_rect` across temporary dialog hides, re-posting re-entrant `WM_JOB_DONE`/`WM_CANVAS_PAINT` messages, and moving `data_dir()` resolution onto the reactive UI thread in `thumbnails.rs` and `home.rs`. Verified `7/7` first-page opens (`215.8 ms` median, `123.4 ms` fastest) with zero stalls.
-- **Nib & Leaf icon parity:** Fixed icon loading on Windows title bars/taskbar (`WM_SETICON` + 32-bit uncompressed DIB entries in `excellentpdf.ico`) and in-app UI icons using crisp 4x-supersampled white monochrome PNG assets (`render_ui_icons.py`) with dynamic `tint_color(...)`.
+- **Win32 PDF display & redraw reliability (`ecclesia-canvas-win`):** Eliminated intermittent blank/black Document panes by adding coalesced `WM_CANVAS_PAINT` messages alongside `InvalidateRect` (so `ValidateRect` on NSH's non-`WS_CLIPCHILDREN` parent HWND during thumbnail repaints can no longer cancel child redraws), preserving `PlacementSync::last_rect` across temporary dialog hides, re-posting re-entrant `WM_JOB_DONE`/`WM_CANVAS_PAINT` messages, and moving `data_dir()` resolution onto the reactive UI thread in `thumbnails.rs` and `home.rs`. Verified `7/7` first-page opens (`215.8 ms` median, `123.4 ms` fastest) with zero stalls.
+- **Nib & Leaf icon parity:** Fixed icon loading on Windows title bars/taskbar (`WM_SETICON` + 32-bit uncompressed DIB entries in `ecclesiapdf.ico`) and in-app UI icons using crisp 4x-supersampled white monochrome PNG assets (`render_ui_icons.py`) with dynamic `tint_color(...)`.
 - **300+ tab lazy loading & hibernation:** Kept all inactive tabs hibernated with zero MuPDF parsing/stat calls until activated, bounded tab strip mounting (`MAX_STRIP_TABS = 20`) with horizontal scrolling and `+N` overflow badge, clamped render pool workers (`2..=6`), and deferred auxiliary metadata & loopback server startup past first frame.
 - **Vivaldi-style title bar & tab customization:** Added top-left Nib & Leaf application menu (`app_menu.rs`) with cascading commands (`File`, `Edit`, `View`, `Bookmarks`, `Tools`, `Window`, `Help`, `Settings...`, `Exit`), replaced `⌄` chevrons with crisp solid `dropdown_arrow()` triangles across chrome, added a dedicated draggable gap left of the framed top-right `[ ▾ ]` workspace-grouped tab list button (`tabs/list.rs`), made Vivaldi rounded pill tabs the default (Chrome style optional in Settings), and added a configurable minimum tab width setting defaulting to **`250 px`** (`60..500 px`, with legacy `tab_min_width_cm` fallback).
-- **SumatraPDF Enhanced Home Page parity (`home.rs`):** Added persistent `Home` tab (`pane.home_open`), warm hero header (`ExcellentPDF Enhanced`), flanking Command Palette & Shortcuts circles with pill search, 2-row action CTAs (`Explore Files`, `Resume Last`, `Word of the Day`, `Learning Hub`, `Dictionary`, `Enhanced Features` drawer), workspace quick-switch chips, Recent Documents / Frequently Read toggles with inline zoom (`75%–250%`), Grid/List/Pin/Whole-page toggles, numbered cover cards with pin & reading progress badges (`total_pages`, `open_count`, `completed` in migration `0009`), Completed Documents section, bottom rotating Tip band, and 3 design styles (`Enhanced Warm` default, `Modern Green`, `Classic Clean`) with full EN/AR localization.
-- **MSI Release 7 (`dist/ExcellentPDF-v26-11-26.7-v0.1.0-windows-x64.msi`):** Built and verified Dual-Scope MSI 5.0 package at **`13.63 MB`** (`<= 15 MB` budget).
+- **SumatraPDF Enhanced Home Page parity (`home.rs`):** Added persistent `Home` tab (`pane.home_open`), warm hero header (`EcclesiaPDF Enhanced`), flanking Command Palette & Shortcuts circles with pill search, 2-row action CTAs (`Explore Files`, `Resume Last`, `Word of the Day`, `Learning Hub`, `Dictionary`, `Enhanced Features` drawer), workspace quick-switch chips, Recent Documents / Frequently Read toggles with inline zoom (`75%–250%`), Grid/List/Pin/Whole-page toggles, numbered cover cards with pin & reading progress badges (`total_pages`, `open_count`, `completed` in migration `0009`), Completed Documents section, bottom rotating Tip band, and 3 design styles (`Enhanced Warm` default, `Modern Green`, `Classic Clean`) with full EN/AR localization.
+- **MSI Release 7 (`dist/EcclesiaPDF-v26-11-26.7-v0.1.0-windows-x64.msi`):** Built and verified Dual-Scope MSI 5.0 package at **`13.63 MB`** (`<= 15 MB` budget).
 
 ### 2026-11-25 21:55; Phases 0 & 4–9 complete, Windows PDF display fix, dual-scope Windows MSI installer, and "Nib & Leaf" icon integration
 
-- **Windows PDF display fix (`K.8`):** Reconciled child HWND clipping (`PlacementSync::reconcile` in `excellent-canvas-win`) to clear truncated `SetWindowRgn` regions applied by the NSH 0.7 hidden host surface, restoring crisp Direct2D swap-chain PDF rendering across main windows and split panes.
-- **Dual-scope Windows MSI 5.0 installer (`packaging/windows/build-msi.ps1`):** Added interactive Windows Installer 5.0 Single Package Authoring (`ALLUSERS=2`, `MSIINSTALLPERUSER=1` default) with Scope selection (*Current User* into `%LOCALAPPDATA%\Programs\ExcellentPDF` without UAC, or *All Users* into `%ProgramFiles%\ExcellentPDF` with UAC elevation badge), browsable custom target directory (`INSTALLDIR`), branded *Nib & Leaf* banner bitmaps and Revelation 22:13 icon (`ARPPRODUCTICON`), silent CLI overrides, and uninstall preservation of user settings/library data.
+- **Windows PDF display fix (`K.8`):** Reconciled child HWND clipping (`PlacementSync::reconcile` in `ecclesia-canvas-win`) to clear truncated `SetWindowRgn` regions applied by the NSH 0.7 hidden host surface, restoring crisp Direct2D swap-chain PDF rendering across main windows and split panes.
+- **Dual-scope Windows MSI 5.0 installer (`packaging/windows/build-msi.ps1`):** Added interactive Windows Installer 5.0 Single Package Authoring (`ALLUSERS=2`, `MSIINSTALLPERUSER=1` default) with Scope selection (*Current User* into `%LOCALAPPDATA%\Programs\EcclesiaPDF` without UAC, or *All Users* into `%ProgramFiles%\EcclesiaPDF` with UAC elevation badge), browsable custom target directory (`INSTALLDIR`), branded *Nib & Leaf* banner bitmaps and Revelation 22:13 icon (`ARPPRODUCTICON`), silent CLI overrides, and uninstall preservation of user settings/library data.
 - **Phase 4 — Notebooks, Templates, Chalk & Study (`H.4`, `H.11`–`H.21`, `H.26`, `N.1`–`N.14`, `L.1`–`L.3`, `G.1`–`G.8`, `S.1`–`S.8`, `S.10`–`S.12`, `K.21`, `R.23`):** Shipped procedural paper notebooks, `.expdf` format, infinite canvas whiteboard, typed text blocks, planners, templates, lecture audio recording, Slide Presenter tools (laser, spotlight, magnifier, curtain, whiteboard, presenter view), and FSRS-5 spaced repetition flashcards/Anki `.apkg` exchange.
-- **Phase 5 — Library, Citations, Reading Modes, CLI & Offline AI Prep (`F.2`–`F.13`, `W.10`, `W.12`, `V.12`, `R.16`, `R.22`, `R.24`, `R.27`, `R.29`, `R.30`, `B.8`, `B.11`, `B.13`, `A.26`, `A.27`, `H.19`–`H.24`, `O.4`, `S.13`–`S.16`, `E.1`–`E.4`, `U.6`):** Shipped SQLite/FTS5 library search, BibTeX/RIS/CSL-JSON & Zotero sync, Markdown notes with `[[backlinks]]` and Obsidian deep-links, Reflow, Bionic Reading, SyncTeX, offline OCR, handwriting search/to-text, 73-language Bergamot translation, offline Piper voices, CLI (`excellent-cli`), MCP server, and loopback UI control channel.
+- **Phase 5 — Library, Citations, Reading Modes, CLI & Offline AI Prep (`F.2`–`F.13`, `W.10`, `W.12`, `V.12`, `R.16`, `R.22`, `R.24`, `R.27`, `R.29`, `R.30`, `B.8`, `B.11`, `B.13`, `A.26`, `A.27`, `H.19`–`H.24`, `O.4`, `S.13`–`S.16`, `E.1`–`E.4`, `U.6`):** Shipped SQLite/FTS5 library search, BibTeX/RIS/CSL-JSON & Zotero sync, Markdown notes with `[[backlinks]]` and Obsidian deep-links, Reflow, Bionic Reading, SyncTeX, offline OCR, handwriting search/to-text, 73-language Bergamot translation, offline Piper voices, CLI (`ecclesia-cli`), MCP server, and loopback UI control channel.
 - **Phase 6 — AI Assistant & Visual Search (`I.1`–`I.12`, `R.31`, `H.25`, `S.9`):** Wired consent-gated local/cloud AI providers with PII redaction and token budgets, hybrid FTS5 + dense vector indexing, Ask-with-citations, summaries, plain-language rewrites, equation breakdowns, term definitions, study material/quiz generation, claim/evidence extraction, Ghost Highlights, Math-to-LaTeX preview, and consent-gated Google Lens visual search.
 - **Phase 7 — Forms, Signatures, Pro PDF, CAD & Grading (`O.1`–`O.3`, `O.5`–`O.20`, `O.24`, `R.18`, `R.26`, `B.12`, `A.23`, `F.15`, `F.16`, `L.4`, `G.9`–`G.13`):** Wired interactive AcroForm filling/validation/exchange/flattening, Ed25519 PAdES B-B/B-T/B-LT/B-LTA signing & verification inspector, Page Organizer (drag reorder, split/merge, auto-crop, labels), text run editing, image replacement, true redaction, compression, Images↔PDF, Markdown/DOCX export, Bates/headers/watermarks, encryption/sanitization, print preflight, CAD blueprint view, extended outline actions, calibrated measurements, PDF Compare, table/figure extraction, screencast recording, and the Grading Suite.
-- **Phase 8 & 9 + Phase 0 Security & Platform Completion (`K.1`–`K.12`, `K.22`–`K.27`, `V.14`, `O.21`, `W.13`, `X.1`–`X.4`, `Y.1`–`Y.4`, `G.14`–`G.15`, `F.14`, `E.5`):** Shipped iPadOS (`excellent-canvas-ios`) and Android (`excellent-canvas-android` + Kotlin views) page canvases and split-pane stylus routing, camera scan import/rectification, Infinite Canvas Excerpt Board (groups, Bezier connectors, evidence DAG, `.exboard`/SVG/PNG/MD export), Knowledge Graph, CRDT Folder & Workspace Sync, OS-portable settings, signed `.exbundle` sharing, Live Encrypted Co-Editing Relay, Live Classroom & Quick Polls, Sandboxed `.explugin` Manager, Windows Job Object + restricted token sandbox & `SecurityLimits` preferences, CI budgets/fuzz/interop suites, and verified `docs/features.toml` tracking.
+- **Phase 8 & 9 + Phase 0 Security & Platform Completion (`K.1`–`K.12`, `K.22`–`K.27`, `V.14`, `O.21`, `W.13`, `X.1`–`X.4`, `Y.1`–`Y.4`, `G.14`–`G.15`, `F.14`, `E.5`):** Shipped iPadOS (`ecclesia-canvas-ios`) and Android (`ecclesia-canvas-android` + Kotlin views) page canvases and split-pane stylus routing, camera scan import/rectification, Infinite Canvas Excerpt Board (groups, Bezier connectors, evidence DAG, `.exboard`/SVG/PNG/MD export), Knowledge Graph, CRDT Folder & Workspace Sync, OS-portable settings, signed `.exbundle` sharing, Live Encrypted Co-Editing Relay, Live Classroom & Quick Polls, Sandboxed `.explugin` Manager, Windows Job Object + restricted token sandbox & `SecurityLimits` preferences, CI budgets/fuzz/interop suites, and verified `docs/features.toml` tracking.
 
 ### 2026-11-25 15:25; App icon ("Nib & Leaf", Classic Indigo — Revelation 22:13) and MSI release 5
 
@@ -32,14 +32,14 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   *“¹³ I am the Alpha and the Omega, the Beginning and the End, the First and the Last.” — (NKJV Revelation 22:13)* in
   Palatino Italic with a true superscript verse numeral (simplifying cleanly at `≤ 48 px`), a faceted royal-indigo
   fountain nib with machined dual-groove satin brass ferrule and gold slit, and a tapered indigo ink flourish.
-- Regenerated `design/icon/png/` (`16`–`1024 px`), `packaging/windows/excellentpdf.ico` (all 8 DPI sizes),
-  `design/icon/excellentpdf-icon-sheet.png`, and built installer release 5
-  (`dist/ExcellentPDF-v26-11-25.5-v0.1.0-windows-x64.msi`).
+- Regenerated `design/icon/png/` (`16`–`1024 px`), `packaging/windows/ecclesiapdf.ico` (all 8 DPI sizes),
+  `design/icon/ecclesiapdf-icon-sheet.png`, and built installer release 5
+  (`dist/EcclesiaPDF-v26-11-25.5-v0.1.0-windows-x64.msi`).
 
 ### 2026-11-25 11:36; App icon
 
-- ExcellentPDF has an icon ("Marginalia", DD28): a pale page crossed by one blue broad-nib stroke that runs past its
-  edge, drawn separately for each size from 16 to 1024 pixels. It is embedded in `excellentpdf.exe` (Explorer, the
+- EcclesiaPDF has an icon ("Marginalia", DD28): a pale page crossed by one blue broad-nib stroke that runs past its
+  edge, drawn separately for each size from 16 to 1024 pixels. It is embedded in `ecclesiapdf.exe` (Explorer, the
   Start menu shortcut, the window and the taskbar) and shown for the app in Settings > Apps.
 
 ### 2026-11-25 11:23; Ph4: 5/44 | H.12: Zoom writing pad
@@ -68,7 +68,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ### 2026-11-25 10:26; Ph4: 1/44 | K.21: Pack manager (Phase 4 part)
 
-- The pack manager (`excellent-packs`) behind optional downloads such as dictionaries, fonts and voices: a signed list
+- The pack manager (`ecclesia-packs`) behind optional downloads such as dictionaries, fonts and voices: a signed list
   of what is offered, downloads that resume after a dropped connection, every pack checked by its size, its hash and
   its own Ed25519 signature before it is installed, installs that are all or nothing, removal that leaves no files,
   and install from a file for machines that are offline.
@@ -180,7 +180,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   CLI (it now passes the app's info and capabilities to the runtime). The local tool in `C:\dev\nsh` and the source in
   `C:\dev\nsh-src` are at 0.7.0 too.
 - Code changes the update needed: `nsh_engine::data_dir` is now `support_dir` (the settings folder stays
-  `<support_dir>/com.excellentpdf.app`, so nothing moves); `set_clipboard` returns an answer, which the two copy
+  `<support_dir>/com.ecclesiapdf.app`, so nothing moves); `set_clipboard` returns an answer, which the two copy
   commands drop (the write happens either way); and the quick dialogs (`list_dialog`) bind Escape themselves in text
   fields, because a focused field no longer lets it reach the dialog's cancel (the go-to box stayed open).
 - `url` 2.5.8 to 2.5.9 for RUSTSEC-2026-0592; RUSTSEC-2026-0543 (chrono unmaintained, no successor, only through
@@ -198,8 +198,8 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - Pen strokes are now saved: when the pen lifts, the stroke becomes an ink annotation in the document, one step of
   undo. Strokes are smoothed (a Catmull-Rom spline), their width follows pressure on a 1.25 curve, tilt and speed,
   and while the pen moves the preview runs a frame ahead of it.
-- Windows passes the pen's tilt and sample times through. Set `EXCELLENTPDF_RECORD_INK` to a folder to record pen
-  sessions; recorded sessions in `crates/excellent-ink/tests/sessions` are replayed by the tests.
+- Windows passes the pen's tilt and sample times through. Set `ECCLESIAPDF_RECORD_INK` to a folder to record pen
+  sessions; recorded sessions in `crates/ecclesia-ink/tests/sessions` are replayed by the tests.
 
 ### 2026-11-16 11:42; Ph3: 38/49 | A.28: W3C Web Annotation export
 
@@ -378,7 +378,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   slash), written as `/LE` so Acrobat draws the same heads. A click on a line opens it again; Delete line removes it.
 - The page canvas has a `drawing` prop and sends `pageDraw`; the host tells it whether Shift is down (Windows reads
   the key; the others draw unsnapped for now).
-- The model is `excellent-features::annotate::shapes`.
+- The model is `ecclesia-features::annotate::shapes`.
 
 ### 2026-11-16 00:39; Ph3: 20/49 | A.7: Callouts with leader lines
 
@@ -405,7 +405,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - The annotation model keeps a text box's style (`TextStyle`: `/DA` and `/Q`) and typewriter text as its own kind;
   the shim reads and writes the intent, alignment, font, size and colour, and leaves another app's rich text alone
   when the style is unchanged. A test saves Chinese typewriter text, checks the bytes Acrobat reads, and reopens it.
-- The model is `excellent-features::annotate::freetext`.
+- The model is `ecclesia-features::annotate::freetext`.
 
 ### 2026-11-16 00:04; Ph3: 18/49 | A.5: Sticky notes
 
@@ -416,7 +416,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - A click on a sticky note opens its note, as a click on a markup does (A.4).
 - The annotation model keeps the icon (`/Name`, as the file has it) and the open state (`/Open`, the note's own or
   its popup's); the shim reads and writes both. A test saves, reopens and checks the bytes Acrobat reads.
-- The model is `excellent-features::annotate::sticky`.
+- The model is `ecclesia-features::annotate::sticky`.
 
 ### 2026-11-15 23:48; Ph3: 17/49 | A.4: Notes on highlights
 
@@ -427,7 +427,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   note clears it. Opening another note saves the first.
 - The markup bar has a Note tool (a speech bubble) after the proposed edits: it highlights the selection and opens
   the new highlight's note. Also in the palette, the Annotate toolbar and `Shift+N` on the pages.
-- The model is `excellent-features::annotate::notes`.
+- The model is `ecclesia-features::annotate::notes`.
 
 ### 2026-11-15 23:19; Ph3: 16/49 | A.3: Annotation colors
 
@@ -441,7 +441,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   swatches and the custom colours used lately. Done keeps the changes; Cancel or Escape drops them.
 - Settings, Annotation: the palette, Standard or Colour-blind safe (Okabe and Ito's colours). Everything is kept in
   `settings.toml` under `[annotation]`.
-- The model is `excellent-features::annotate::colors`.
+- The model is `ecclesia-features::annotate::colors`.
 
 ### 2026-11-15 23:04; Ph3: 15/49 | A.2: Replace and insert text
 
@@ -454,7 +454,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   undoable edit, saved into the PDF.
 - Annotations now keep the annotation they are grouped with (`/IRT` with `/RT /Group`) through save, reopen and the
   operation log.
-- The model is `excellent-features::annotate::replace`; the shim writes and reads the group.
+- The model is `ecclesia-features::annotate::replace`; the shim writes and reads the group.
 
 ### 2026-11-15 22:34; Ph3: 14/49 | A.1: Text markup: highlight, underline, squiggly, strikeout
 
@@ -469,7 +469,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - Each markup keeps the text under it, with a little context either side (K.28), to find it again in another
   version of the document.
 - The page canvas now draws again the pages an edit, undo or redo changed (it kept the old drawing before).
-- The model is `excellent-features::annotate::markup`; the bar is the canvas's `markbar`; the app's side is
+- The model is `ecclesia-features::annotate::markup`; the bar is the canvas's `markbar`; the app's side is
   `annotate`.
 
 ### 2026-11-16 02:20; Ph3: 13/49 | W.11: Export and import
@@ -482,7 +482,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   says come in greyed out with "Locate…" (R.9), and a notice says how many.
 - A file that isn't a workspace, is larger than 8 MB, or comes from a newer version is refused with a notice; a
   file's places that point past its lists are dropped rather than trusted.
-- `excellent-store::workspace_file` is the format, a pure module; the app's side is `workspaces::file`.
+- `ecclesia-store::workspace_file` is the format, a pure module; the app's side is `workspaces::file`.
 
 ### 2026-11-16 01:30; Ph3: 12/49 | W.9: Search tabs across workspaces
 
@@ -515,7 +515,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   in both windows is read once and shares its edits.
 - The same command in that window, its "Dock" button, or closing it, moves its tabs back to the main window's active
   pane; closing its last tab closes it. The session keeps its tabs with the active pane's.
-- The page canvas is now one view (`panes::pages_view`) used by the grid and the new windows (`excellent-app::windows`).
+- The page canvas is now one view (`panes::pages_view`) used by the grid and the new windows (`ecclesia-app::windows`).
 
 ### 2026-11-15 22:45; Ph3: 9/49 | V.10: Swap, flip and maximize
 
@@ -580,9 +580,9 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - Resting the pointer on a citation (`[12]`, `(Smith et al., 2020)`) or an equation reference shows the entry or the
   equation in a preview drawn over the pages; clicking it goes there. Papers without links work too: the entry is
   found in the references by its text.
-- `excellent-features::read::refhover`: SumatraPDF Enhanced's reference hover ported to pure Rust (`cite`, `layout`,
+- `ecclesia-features::read::refhover`: SumatraPDF Enhanced's reference hover ported to pure Rust (`cite`, `layout`,
   `resolve`) with its tests.
-- `excellent-canvas`: a worker per canvas debounces, resolves and renders the preview off the UI thread.
+- `ecclesia-canvas`: a worker per canvas debounces, resolves and renders the preview off the UI thread.
 - Settings, Links: "Preview citations and equations" and "Preview delay".
 - Done when met by test: the ported tests pass; `[12]` in a paper without links shows reference 12. Not tried by
   hand.
@@ -592,7 +592,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - A strip on the right edge of the pages shows the whole document: a tick per page, a thumb over the part on screen,
   and the reader's highlights, notes, bookmarks and search hits in lanes, each in its colour. Press or drag it to
   scroll.
-- `excellent-core`: `annot::page_marks` and `Renderer::load_marks`; operations know their pages, and apply, undo and
+- `ecclesia-core`: `annot::page_marks` and `Renderer::load_marks`; operations know their pages, and apply, undo and
   redo bump those pages' revisions, so the strip (and later the pages) redraw only what changed.
 - Bookmarks load whenever a document is shown, not only when their panel is open, and reach the canvas as a
   `bookmarks` prop.
@@ -601,16 +601,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ### 2026-11-15 11:25; Ph1: 4/60 | K.14: Annotation model
 
-- `excellent-core::annot`: the annotation model (step 1). Each annotation has its `/NM` id, page, shape (text
+- `ecclesia-core::annot`: the annotation model (step 1). Each annotation has its `/NM` id, page, shape (text
   markup, a boxed kind, ink, a line, a polygon or polyline), style, author, dates, contents, tags and K.28 anchor;
-  tags and the anchor are kept in a private `/ExcellentPDF` key that other readers ignore.
+  tags and the anchor are kept in a private `/EcclesiaPDF` key that other readers ignore.
 - Creating, changing and deleting an annotation are operations in the log, undone and redone like outline edits.
 - Done when met: a model test of 10,000 random edit sequences, each saved, reopened and compared with the model, then
   undone back to the start. Still open: undo after reopening.
 
 ### 2026-11-15 10:50; Ph3: 1/49 | K.28: Annotation anchors
 
-- `excellent-core::anchor`: W3C text-quote anchors (prefix, exact text, suffix, start) and `locate`, which places a
+- `ecclesia-core::anchor`: W3C text-quote anchors (prefix, exact text, suffix, start) and `locate`, which places a
   quote in a changed document exactly, approximately (at most a quarter of its characters wrong, widened to whole
   words) or not at all ("orphaned", for the reader to place). Line breaks, hyphenation, ligatures and curly quotes are
   normalized away first, so a re-typeset version usually matches exactly.
@@ -632,7 +632,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ### 2026-11-15 10:23; Ph2: 3/3 | U.3: Canvas accessibility on macOS and Linux
 
-- `excellent_text::FlatText` lays the document's text out as one string (a line break after each line, unread pages
+- `ecclesia_text::FlatText` lays the document's text out as one string (a line break after each line, unread pages
   adding nothing) and maps offsets to page positions and back; the shared canvas answers units, the selection, the
   pages shown and screen areas in those offsets.
 - Linux: the GTK canvas widget implements `GtkAccessibleText`, so Orca reads the pages by character, word and line
@@ -643,7 +643,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ### 2026-11-15 10:41; Ph2: 1/3 | K.9: Page canvas on macOS (AppKit view)
 
-- `excellent-canvas-mac` is the shared canvas's AppKit host: a flipped, layer-backed `NSView` drawing each frame with
+- `ecclesia-canvas-mac` is the shared canvas's AppKit host: a flipped, layer-backed `NSView` drawing each frame with
   Core Graphics in `drawRect:` (DD10), tiles as `CGImage`s, darkest-wins highlights through `kCGBlendModeDarken`,
   workers waking it on the main dispatch queue.
 - Input: trackpad and wheel scrolling (Command zooms, Shift scrolls sideways), pinch zoom, the mouse (links,
@@ -653,7 +653,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 ### 2026-11-15 10:06; Ph2: 2/3 | K.10: Page canvas on Linux (GTK widget)
 
-- `excellent-canvas-gtk` is the shared canvas's GTK 4 host: frames are GSK render nodes drawn in the widget's
+- `ecclesia-canvas-gtk` is the shared canvas's GTK 4 host: frames are GSK render nodes drawn in the widget's
   `snapshot`, tiles are `GdkMemoryTexture`s, darkest-wins highlights blend with `GskBlendMode::Darken`, and workers
   wake the widget through the main context.
 - The widget follows its size and the surface's (fractional) scale, and takes the wheel and touchpad (Ctrl zooms,
@@ -666,9 +666,9 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Changed
 
-- **One page canvas for every platform** (DD9): the canvas's logic moved from `excellent-canvas-win` to
-  `excellent_canvas::page`, as `PageCanvas<H: Host>`, with the component's props and commands. Windows is now one
-  host of it; GTK and macOS follow. The reader's view model moved from `excellent-core` to `excellent-canvas`.
+- **One page canvas for every platform** (DD9): the canvas's logic moved from `ecclesia-canvas-win` to
+  `ecclesia_canvas::page`, as `PageCanvas<H: Host>`, with the component's props and commands. Windows is now one
+  host of it; GTK and macOS follow. The reader's view model moved from `ecclesia-core` to `ecclesia-canvas`.
 - The size budget's baseline is 13.98 MB, up from 11.79 MB at Phase 0 (still under the 15 MB limit); the budget
   script prints the app's log when a run draws no first page.
 
@@ -864,7 +864,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Changed
 
-- The shell's document area moved to `excellent-app::panes`; the old single-document wiring is gone.
+- The shell's document area moved to `ecclesia-app::panes`; the old single-document wiring is gone.
 
 #### Proposed (waiting for the maintainer)
 
@@ -880,14 +880,14 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 #### Added
 
 - `packaging/windows/build-msi.ps1` builds a per-user Windows installer from a release build:
-  `ExcellentPDF-vYY-MM-DD.N-v0.1.0-windows-x64.msi` (DD3). It installs into `%LOCALAPPDATA%\Programs\ExcellentPDF`
+  `EcclesiaPDF-vYY-MM-DD.N-v0.1.0-windows-x64.msi` (DD3). It installs into `%LOCALAPPDATA%\Programs\EcclesiaPDF`
   without administrator rights. It adds a Start menu shortcut and an entry in Settings > Apps, from where it
   uninstalls, keeping the reader's settings and library. It replaces an installed build of the same or an older
   version and refuses to replace a newer one. It ships the Visual C++ runtime next to the app, because the exe needs
   `msvcp140.dll` and `vcruntime140*.dll`. It opens the app when an install run from its window finishes.
 - The script uses only what comes with Windows (the Windows Installer API and makecab, LZX:21), so nothing has to be
   installed to build it. Installers go to `dist/`, which git ignores.
-- First test installer: `ExcellentPDF-v26-11-14.1-v0.1.0-windows-x64.msi`, 13.78 MB (budget 15 MB).
+- First test installer: `EcclesiaPDF-v26-11-14.1-v0.1.0-windows-x64.msi`, 13.78 MB (budget 15 MB).
 
 #### Checked
 
@@ -913,7 +913,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 #### Changed
 
 - K.15's fault-injection test cuts the log at each line's end, either side of it and inside each line, instead of at
-  every byte: excellent-core's tests took 58 s instead of 1396 s on this machine.
+  every byte: ecclesia-core's tests took 58 s instead of 1396 s on this machine.
 
 ### 2026-11-14 21:56; Ph1: 4/60, 5/60, 31/60 to 35/60 | K.14, K.15, B.1 to B.5: Editing the outline, with undo and autosave
 
@@ -973,7 +973,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 #### Changed
 
 - DjVu is no longer offered: MuPDF can't read it (it is R.29's). Files are recognised by their contents in one place,
-  `excellent-core::formats`.
+  `ecclesia-core::formats`.
 
 ### 2026-11-14 17:59; Phase labels for every feature
 
@@ -994,7 +994,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   window to the front and opens them there. A file that already has a tab is shown in that tab.
 - Command line: `--page N` shows the files at page N.
 - "Set as default PDF viewer" in the command palette offers the app for its document types and opens Windows'
-  Default apps settings at ExcellentPDF.
+  Default apps settings at EcclesiaPDF.
 
 ### 2026-11-14 17:12; Ph1: 21/60 | R.10: Recent and pinned files
 
@@ -1051,7 +1051,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 #### Added
 
 - Reading themes: App theme (the default), Light, Sepia, Dark, OLED black, High contrast and Custom, each a paper and
-  ink the pages are drawn in (`excellent-core::darkmode::themes`). Every built-in one passes WCAG AA, checked on a
+  ink the pages are drawn in (`ecclesia-core::darkmode::themes`). Every built-in one passes WCAG AA, checked on a
   rendered tile of the corpus.
 - The reading-theme bar: "Choose reading theme" in the palette, or the Reading theme button in Settings, puts the
   themes as swatches in the title bar; the arrow keys show each one on the open page, Enter keeps it, Escape goes
@@ -1141,7 +1141,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 - Text can be selected: drag across it, or double-, triple- or quadruple-click for a word, a line or a paragraph, and
   keep dragging to grow by the same unit, across pages if need be. The pointer is an I-beam over text.
 - **Copy selected text** (`Ctrl+C`, `Ctrl+Insert`) and **Select all text on this page** (`Ctrl+A`).
-- `excellent-text`, the text layer every text feature will read pages through.
+- `ecclesia-text`, the text layer every text feature will read pages through.
 
 #### Changed
 
@@ -1166,7 +1166,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Changed
 
-- The render workers and the open documents are shared by the whole app (`excellent-core::shared`), not owned by the
+- The render workers and the open documents are shared by the whole app (`ecclesia-core::shared`), not owned by the
   page canvas.
 
 ### 2026-11-14 07:49; Ph1: 18/60 | R.7: Links
@@ -1193,7 +1193,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 - A file open in two views is parsed once and shares its display lists; a document can be put to sleep and woken
   again, never while it has unsaved changes.
-- The view state (layout, rotation, page box, history) moved from the Windows canvas to `excellent-core::view`, so
+- The view state (layout, rotation, page box, history) moved from the Windows canvas to `ecclesia-core::view`, so
   every platform shares it.
 
 ### 2026-11-14 06:37; Ph1: 2/60 | K.6: Layout and transforms; Ph1: 12/60 | R.1: Page layouts; Ph1: 13/60 | R.2: Fit modes; Ph1: 14/60 | R.3: Reading direction; Ph1: 15/60 | R.4: Rotation and page boxes
@@ -1220,7 +1220,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Added
 
-- `settings.toml` in the app's data folder (`%APPDATA%\com.excellentpdf.app`), or next to the exe in portable mode.
+- `settings.toml` in the app's data folder (`%APPDATA%\com.ecclesiapdf.app`), or next to the exe in portable mode.
   Only changed values are written, unknown keys are kept, writes are atomic, and a file that doesn't parse is never
   overwritten.
 - The theme and appearance you pick are kept and in place from the first frame of the next run.
@@ -1273,7 +1273,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Added
 
-- `dev notes/nsh_upstream_proposal_pen_input.md`: what ExcellentPDF asks of NSH. Pen pressure, tilt, twist, eraser
+- `dev notes/nsh_upstream_proposal_pen_input.md`: what EcclesiaPDF asks of NSH. Pen pressure, tilt, twist, eraser
   and coalesced samples on pointer events; pointer input for drawn components; native components layered in NSH's
   composition tree, so NSH content can show over the page. Not filed yet.
 
@@ -1285,8 +1285,8 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
   the ones Windows coalesces between messages.
 - On Windows 11 24H2 and later, Windows draws the newest pen points itself on its next screen refresh (a delegated ink
   trail), so ink keeps up with the pen tip without waiting for the app's frame.
-- `excellent-ink::stroke`: strokes with a width per point, and a pressure-to-width curve.
-- `crates/excellent-canvas-win/src/pointer.rs`: pen, touch and mouse samples, ported from SumatraPDF Enhanced's
+- `ecclesia-ink::stroke`: strokes with a width per point, and a pressure-to-width curve.
+- `crates/ecclesia-canvas-win/src/pointer.rs`: pen, touch and mouse samples, ported from SumatraPDF Enhanced's
   `PointerInput.h` with its tests.
 - Each stroke logs how long its samples took to reach `Present`.
 
@@ -1301,16 +1301,16 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Added
 
-- `crates/excellent-canvas`: the platform-neutral canvas model. The continuous page layout, the viewport (scroll, zoom
+- `crates/ecclesia-canvas`: the platform-neutral canvas model. The continuous page layout, the viewport (scroll, zoom
   about a point, fit width, SumatraPDF's zoom steps from 8.33 % to 6400 %) and the tiles it needs, with a cache that
   cancels tiles no longer on screen and evicts the least recently drawn over 64 MB.
-- `crates/excellent-canvas-win`: the `excellent.page-canvas` NSH component on Windows. A child window drawn with
+- `crates/ecclesia-canvas-win`: the `ecclesia.page-canvas` NSH component on Windows. A child window drawn with
   Direct2D on a DXGI flip-model swap chain, showing tiles that the render workers make. While a new zoom renders,
   the previous zoom's tiles stay on screen. Wheel scrolls, Shift+wheel scrolls across, Ctrl+wheel zooms about the
   pointer.
-- `excellent-core::render::Job::try_take` and `Job::when_done`: the UI thread is woken when a job finishes instead of
+- `ecclesia-core::render::Job::try_take` and `Job::when_done`: the UI thread is woken when a job finishes instead of
   waiting on it.
-- The app opens the document named on the command line (`excellentpdf file.pdf`) in the Document panel, at fit width.
+- The app opens the document named on the command line (`ecclesiapdf file.pdf`) in the Document panel, at fit width.
 - Commands Zoom in (Ctrl+Plus), Zoom out (Ctrl+Minus), Actual size (Ctrl+1), Fit width (Ctrl+2), and Scroll one
   screen down or up (Page Down, Page Up), in the palette and as shortcuts.
 
@@ -1328,14 +1328,14 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Added
 
-- `crates/excellent-app` and `app/nsh.json`: the NSH 0.5.0 app (binary `excellentpdf`), with Rust components. A
+- `crates/ecclesia-app` and `app/nsh.json`: the NSH 0.5.0 app (binary `ecclesiapdf`), with Rust components. A
   title bar of our own (sidebar toggle, app name, a command-palette button, inspector toggle; Windows draws the caption
   buttons) over a dock area with the document between a sidebar and an inspector. Each panel has an empty state that
   teaches one next step.
-- The command table's first form (`excellent-app::commands`): the palette and the keyboard shortcuts are both built
+- The command table's first form (`ecclesia-app::commands`): the palette and the keyboard shortcuts are both built
   from it. Ctrl+K or Ctrl+Shift+P opens the palette, F12 toggles the sidebar, Ctrl+Alt+B the inspector.
 - `app/locales/en.json`: all UI text, through NSH's translations.
-- Headless tests (`crates/excellent-app/tests/shell.rs`): the three panels show, the shortcuts toggle the docks, and
+- Headless tests (`crates/ecclesia-app/tests/shell.rs`): the three panels show, the shortcuts toggle the docks, and
   the palette lists every command and runs the one chosen.
 - Plan §10.1 and R.12: the tab-list button at the right end of the tab strip (Vivaldi's), with search, open, inactive,
   duplicate and recently closed tabs. Reference image `dev notes/images/ui-reference-vivaldi-tab-list.png`.
@@ -1350,13 +1350,13 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Added
 
-- `excellent-core::render::RenderPool`: worker threads (one per core but one) that build display lists, render tiles
+- `ecclesia-core::render::RenderPool`: worker threads (one per core but one) that build display lists, render tiles
   and extract text, highest priority first in the order of plan §7.4. Each job returns a `Job` you can wait on or
   cancel; dropping a job cancels it, and closing the pool cancels what is still waiting.
-- `excellent_mupdf::Cookie`: cancels a running display-list build, tile render or text extraction from another
+- `ecclesia_mupdf::Cookie`: cancels a running display-list build, tile render or text extraction from another
   thread. These three operations now take an optional cookie, and report a cancelled run as an error, never as a
   half-drawn result.
-- Stress tests (`crates/excellent-core/tests/render_stress.rs`): four workers render 10,000 tiles from one document,
+- Stress tests (`crates/ecclesia-core/tests/render_stress.rs`): four workers render 10,000 tiles from one document,
   each identical to the reference; cancelling a running render returns within 20 ms. New corpus file
   `heavy-vector.pdf`, a page slow enough to cancel part-way.
 - The ASan job in `.github/workflows/fuzz.yml` runs the render stress tests too.
@@ -1370,14 +1370,14 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Added
 
-- `crates/excellent-mupdf`: the safe Rust API over the shim. `Document` (open from a path or from bytes, page count,
+- `crates/ecclesia-mupdf`: the safe Rust API over the shim. `Document` (open from a path or from bytes, page count,
   outline), `Page` (bounds, render, display list, text, annotations), `DisplayList` (render whole or a tile, from any
   thread), `Pixmap` (pixels, PNG), `StextPage`, `Annot`, `Writer` (write pages to a new PDF) and `MuError`, which
   carries MuPDF's message. Thread rules are in the types: `DisplayList` and `Pixmap` are `Send + Sync`, `Document` is
   `Send`, pages and annotations stay on their thread.
 - Contexts: one base context with real locks per process, and one cloned per thread on first use.
 - Typed geometry (`PagePoint`, `DevicePoint`, `PageRect`, `DeviceRect`, `Quad`, `Matrix`) and
-  `excellent-core::transform`, the one place zoom, rotation and crop box become the page-to-device matrix.
+  `ecclesia-core::transform`, the one place zoom, rotation and crop box become the page-to-device matrix.
 - The PDF base-14 fonts and Charis SIL are compiled in, so documents without embedded fonts draw.
 - The corpus test (`tests/corpus.rs`): page 1 of every corpus file renders to PNG and gives text; outline,
   annotations, threads, tiles, writing and errors are tested too. New corpus file `base14-outline-annot.pdf`.
@@ -1405,7 +1405,7 @@ All notable work on ExcellentPDF is recorded here, newest first. The format foll
 
 #### Added
 
-- `excellent-mupdf-sys`: `build.rs` compiles MuPDF and its libraries on Windows (MSVC); a C shim (`csrc/shim.c`)
+- `ecclesia-mupdf-sys`: `build.rs` compiles MuPDF and its libraries on Windows (MSVC); a C shim (`csrc/shim.c`)
   wraps context, open, page count, page load and bounds, rendering, and structured text in `fz_try` / `fz_catch`;
   committed bindgen bindings; smoke tests on `tests/corpus/zlib-manual.pdf`.
 

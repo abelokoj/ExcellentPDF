@@ -18,4 +18,4 @@ Proven, offline, a single file, and fast full-text search.
 
 ## Consequences
 
-Schema changes go through migrations in `excellent-store`.
+Schema changes go through migrations in `ecclesia-store`.

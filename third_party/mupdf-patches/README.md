@@ -1,4 +1,4 @@
-# MuPDF patches for ExcellentPDF
+# MuPDF patches for EcclesiaPDF
 
 `third_party/mupdf` is MuPDF **1.28.5** (tag `1.28.5`, commit `8ad45e92f`) plus the 77 patches in this directory, and
 nothing else. Every change to `third_party/mupdf` is a patch here, added in the same commit, with a row in the table

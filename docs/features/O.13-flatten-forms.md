@@ -1,6 +1,6 @@
 # Ph7: 24/32 | O.13: Flatten forms
 
-**Tag:** O.13; **Priority:** P1; **Phase:** 7; **Needs:** O.11; **Code:** `excellent-core::forms::flatten`, `excellent-features::forms::session`
+**Tag:** O.13; **Priority:** P1; **Phase:** 7; **Needs:** O.11; **Code:** `ecclesia-core::forms::flatten`, `ecclesia-features::forms::session`
 **Plan:** §27 entry `#### Ph7: 24/32 | O.13`.
 
 ## Problem
@@ -26,8 +26,8 @@ Read and Annotate modes on PDFs with forms.
 
 ## Design
 
-- `excellent_core::forms::save_flattened_forms(doc, dest)` delegates to `excellent_mupdf::Document::save_flattened(dest, Forms::Flatten)`.
-- `excellent_core::forms::flatten_pdf_bytes(pdf_bytes, target)` bakes interactive widgets into static page content streams and verifies that zero `/AcroForm` fields remain in the output PDF.
+- `ecclesia_core::forms::save_flattened_forms(doc, dest)` delegates to `ecclesia_mupdf::Document::save_flattened(dest, Forms::Flatten)`.
+- `ecclesia_core::forms::flatten_pdf_bytes(pdf_bytes, target)` bakes interactive widgets into static page content streams and verifies that zero `/AcroForm` fields remain in the output PDF.
 - `FormSession::save_flattened_copy` exposes flattening directly on active form sessions.
 
 ## Acceptance tests

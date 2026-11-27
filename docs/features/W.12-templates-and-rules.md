@@ -1,6 +1,6 @@
 # Ph5: 12/45 | W.12: Templates and rules
 
-**Tag:** W.12; **Priority:** P2; **Phase:** 5; **Needs:** W.2; **Code:** `excellent-features::workspaces_rules`
+**Tag:** W.12; **Priority:** P2; **Phase:** 5; **Needs:** W.2; **Code:** `ecclesia-features::workspaces_rules`
 **Plan:** §27 entry `#### Ph5: 12/45 | W.12`.
 
 ## Problem
@@ -28,7 +28,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::workspaces_rules::{WorkspaceTemplate, TemplateItem, RoutingRule, instantiate_template, match_rule, route_file}`.
+- Model: `ecclesia-features::workspaces_rules::{WorkspaceTemplate, TemplateItem, RoutingRule, instantiate_template, match_rule, route_file}`.
 - Storage: `workspace_template` and `workspace_rule` tables in `0008_library_fts_notes.sql`.
 
 ## Acceptance tests

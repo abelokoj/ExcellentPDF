@@ -1,6 +1,6 @@
 # Ph4: 40/44 | G.5: Pen on slides and fading ink
 
-**Tag:** G.5; **Priority:** P0; **Phase:** 4; **Needs:** G.1, H.1; **Code:** `excellent-features::present::ink`
+**Tag:** G.5; **Priority:** P0; **Phase:** 4; **Needs:** G.1, H.1; **Code:** `ecclesia-features::present::ink`
 **Plan:** §27 entry `#### Ph4: 40/44 | G.5`.
 
 ## Problem

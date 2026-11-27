@@ -1,6 +1,6 @@
 # Ph4: 18/44 | N.5: Infinite canvas pages and whiteboards
 
-**Tag:** N.5; **Priority:** P1; **Phase:** 4; **Needs:** N.4, H.1; **Code:** `excellent-features::notebook::infinite`
+**Tag:** N.5; **Priority:** P1; **Phase:** 4; **Needs:** N.4, H.1; **Code:** `ecclesia-features::notebook::infinite`
 **Plan:** §27 entry `#### Ph4: 18/44 | N.5`.
 
 ## Problem

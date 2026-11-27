@@ -1,6 +1,6 @@
 # Ph1: 42/60 | V.6: Closing panes
 
-**Tag:** V.6; **Priority:** P0; **Phase:** 1; **Needs:** V.3; **Code:** `excellent-app::panes` (`layout`, `grid`), `excellent-app::shell`, `excellent-app::commands`
+**Tag:** V.6; **Priority:** P0; **Phase:** 1; **Needs:** V.3; **Code:** `ecclesia-app::panes` (`layout`, `grid`), `ecclesia-app::shell`, `ecclesia-app::commands`
 **Plan:** §27 entry `Ph1: 42/60 | V.6` and §11.15.
 
 ## Problem

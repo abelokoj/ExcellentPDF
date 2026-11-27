@@ -1,6 +1,6 @@
 # Ph1: 56/60 | U.1: Keyboard access and focus
 
-**Tag:** U.1; **Priority:** P0; **Phase:** 1; **Needs:** K.16; **Code:** everywhere (`excellent-app`)
+**Tag:** U.1; **Priority:** P0; **Phase:** 1; **Needs:** K.16; **Code:** everywhere (`ecclesia-app`)
 **Plan:** §27.18 entry `Ph1: 56/60 | U.1`.
 
 ## Problem

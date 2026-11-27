@@ -1,6 +1,6 @@
 # Ph4: 32/44 | S.6: Offline dictionary
 
-**Tag:** S.6; **Priority:** P0 (parity); **Phase:** 4; **Needs:** K.21, K.13; **Code:** `excellent-features::dictionary`
+**Tag:** S.6; **Priority:** P0 (parity); **Phase:** 4; **Needs:** K.21, K.13; **Code:** `ecclesia-features::dictionary`
 **Plan:** §27 entry `#### Ph4: 32/44 | S.6`, §11.7, and `sumatra_pdf_enhanced_plan.md` §5.12. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

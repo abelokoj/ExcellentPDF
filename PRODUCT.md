@@ -6,7 +6,7 @@
 
 web
 
-ExcellentPDF is a native app (Rust with NSH, not a website). The value is `web` because it keeps **one design language
+EcclesiaPDF is a native app (Rust with NSH, not a website). The value is `web` because it keeps **one design language
 on every OS** (maintainer, 2026-11-14): the same tab strip, panels, tokens and themes on Windows, macOS, Linux and
 tablets; only window controls and system dialogs are native. Windows first (plan D10).
 
@@ -54,12 +54,12 @@ keyboard, and pen. The reference parity target is SumatraPDF Enhanced (`dev note
 
 ## Brand Commitments
 
-The name ExcellentPDF. Calm chrome with joyful accents; the document is the hero. An original duotone icon set that
+The name EcclesiaPDF. Calm chrome with joyful accents; the document is the hero. An original duotone icon set that
 recolors with the theme; one bundled UI font in the core (more fonts are packs).
 
 ## Evidence on Hand
 
-The plan (`dev notes/ExcellentPDF_detailed_plan_nov_9th.md`), the maintainer's layout references
+The plan (`dev notes/EcclesiaPDF_detailed_plan_nov_9th.md`), the maintainer's layout references
 (`dev notes/images/ui-reference-vivaldi-layout.jpg`, `ui-reference-vivaldi-tab-list.png`) and the test corpus
 (`tests/corpus/`). There are no users, testimonials, benchmarks against competitors or press yet; do not invent them.
 

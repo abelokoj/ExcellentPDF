@@ -1,8 +1,8 @@
 # Ph1: 25/60 | R.14: Smart dark mode
 
-**Tag:** R.14; **Priority:** P0; **Phase:** 1; **Needs:** K.7; **Code:** `excellent-core::darkmode`,
-`excellent-core::render` (`Recolor`), `excellent-mupdf` (`DisplayList::images`, `PageImage`), the shim's
-`ex_display_list_images`, `excellent-canvas-win` (`pageColors`), `excellent-app::reading` (`document_colors`)
+**Tag:** R.14; **Priority:** P0; **Phase:** 1; **Needs:** K.7; **Code:** `ecclesia-core::darkmode`,
+`ecclesia-core::render` (`Recolor`), `ecclesia-mupdf` (`DisplayList::images`, `PageImage`), the shim's
+`ex_display_list_images`, `ecclesia-canvas-win` (`pageColors`), `ecclesia-app::reading` (`document_colors`)
 **Plan:** §27 entry `Ph1: 25/60 | R.14` and §7.5.
 
 ## Problem
@@ -41,7 +41,7 @@ All modes; off by default.
 
 ## Design
 
-- Model (`excellent-core::darkmode`, pure Rust): `PageColors` (ink, paper, link, `Pictures::Keep` or `Recolor`);
+- Model (`ecclesia-core::darkmode`, pure Rust): `PageColors` (ink, paper, link, `Pictures::Keep` or `Recolor`);
   `recolor` maps a tile's pixels from black-on-white to ink-on-paper, outside a kept region (Enhanced's
   `RecolorPixels`); `SampleStats` judges a small sample of a picture (Enhanced's `PdfDarkModeImageStats.cpp`, every
   threshold kept); `kept_region` picks the one picture region of a page that keeps its colours (Enhanced's

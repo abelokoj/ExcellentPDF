@@ -1,6 +1,6 @@
 # Ph7: 11/32 | F.15: PDF compare
 
-**Tag:** F.15; **Priority:** P2; **Phase:** 7; **Needs:** K.13, V.8; **Code:** `excellent-features::compare`
+**Tag:** F.15; **Priority:** P2; **Phase:** 7; **Needs:** K.13, V.8; **Code:** `ecclesia-features::compare`
 **Plan:** §27 entry `#### Ph7: 11/32 | F.15`.
 
 ## Problem

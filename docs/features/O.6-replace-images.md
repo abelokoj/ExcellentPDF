@@ -1,6 +1,6 @@
 # Ph7: 17/32 | O.6: Replace images
 
-**Tag:** O.6; **Priority:** P1; **Phase:** 7; **Needs:** K.13; **Code:** `excellent-core::edit_content` (`list_page_images`, `extract_image`, `replace_image`, `apply_image_mask`)
+**Tag:** O.6; **Priority:** P1; **Phase:** 7; **Needs:** K.13; **Code:** `ecclesia-core::edit_content` (`list_page_images`, `extract_image`, `replace_image`, `apply_image_mask`)
 **Plan:** §27 entry `#### Ph7: 17/32 | O.6`.
 
 ## Problem

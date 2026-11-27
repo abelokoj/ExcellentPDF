@@ -1,4 +1,4 @@
-"""Draws the ExcellentPDF app icon ("Nib & Leaf", Classic Indigo — Sharp Inscribed Edition,
+"""Draws the EcclesiaPDF app icon ("Nib & Leaf", Classic Indigo — Sharp Inscribed Edition,
 NKJV Revelation 22:13; see philosophy.md) at every icon size, each size tuned for its own pixel
 grid rather than shrunk, and writes the PNGs, the Windows .ico and the specimen sheet.
 
@@ -480,7 +480,7 @@ def sheet(icons: dict[int, Image.Image], out: Path) -> None:
     big = icons[1024].resize((880, 880), Image.LANCZOS)
     img.alpha_composite(big, (110, 250))
     d.text((140, 112), "N I B  &  L E A F", font=title, fill=(30, 36, 54, 255))
-    d.text((140, 166), "PLATE II: THE EXCELLENTPDF MARK (CLASSIC INDIGO — REVELATION 22:13)", font=small, fill=ink_grey)
+    d.text((140, 166), "PLATE II: THE ECCLESIAPDF MARK (CLASSIC INDIGO — REVELATION 22:13)", font=small, fill=ink_grey)
     d.line([(1080, 140), (1080, H - 140)], fill=rule, width=1)
 
     x, base = 1160, 560
@@ -570,13 +570,13 @@ def main() -> None:
     png_dir = HERE / "png"
     png_dir.mkdir(exist_ok=True)
     for sz in PNG_SIZES:
-        icons[sz].save(png_dir / f"excellentpdf-{sz}.png", optimize=True)
-    ico = ROOT / "packaging" / "windows" / "excellentpdf.ico"
+        icons[sz].save(png_dir / f"ecclesiapdf-{sz}.png", optimize=True)
+    ico = ROOT / "packaging" / "windows" / "ecclesiapdf.ico"
     write_ico(icons, ico)
-    app_asset = ROOT / "crates" / "excellent-app" / "assets" / "app-icon-64.png"
+    app_asset = ROOT / "crates" / "ecclesia-app" / "assets" / "app-icon-64.png"
     app_asset.parent.mkdir(parents=True, exist_ok=True)
     icons[64].save(app_asset, format="PNG", optimize=True)
-    sheet(icons, HERE / "excellentpdf-icon-sheet.png")
+    sheet(icons, HERE / "ecclesiapdf-icon-sheet.png")
     print(f"wrote {ico} ({ico.stat().st_size:,} bytes, {len(ICO_SIZES)} sizes) and {app_asset}")
 
 

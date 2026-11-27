@@ -1,0 +1,32 @@
+[package]
+name = "ecclesia-features"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "One module per feature tag: model, view and tests"
+
+[dependencies]
+base64.workspace = true
+ed25519-dalek.workspace = true
+ecclesia-ai.workspace = true
+ecclesia-core.workspace = true
+ecclesia-ink.workspace = true
+ecclesia-mupdf.workspace = true
+ecclesia-platform.workspace = true
+ecclesia-store.workspace = true
+ecclesia-text.workspace = true
+flate2.workspace = true
+quick-xml.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+ureq.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
+
+[lints]
+workspace = true

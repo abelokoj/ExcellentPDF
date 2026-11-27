@@ -16,13 +16,16 @@ concurrency:
 
 jobs:
   checks:
-    name: fmt and cargo-deny
+    name: fmt, cargo-deny, and features
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - run: rustup toolchain install
       - run: cargo fmt --all --check
       - uses: EmbarkStudios/cargo-deny-action@v2
+      - name: Verify feature checklist
+        run: ./tests/check_features.ps1 -StrictShipped
+        shell: pwsh
 
   x64:
     uses: ./.github/workflows/build.yml
@@ -45,7 +48,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: release
-      - run: cargo build --release --locked -p excellent-app
+      - run: cargo build --release --locked -p ecclesia-app
       # The test installer (K.25): N is 0, a test build, not a release (dev_decisions.md, DD3).
       - run: ./packaging/windows/build-msi.ps1 -Release 0
         shell: pwsh
@@ -54,7 +57,7 @@ jobs:
           name: windows-x64-installer
           path: dist/*.msi
           retention-days: 14
-      - run: ./tests/budgets.ps1 -Exe target/release/excellentpdf.exe
+      - run: ./tests/budgets.ps1 -Exe target/release/ecclesiapdf.exe
         shell: pwsh
 
   # Not built on push yet: run it from the Actions tab until Windows on ARM is a release target.

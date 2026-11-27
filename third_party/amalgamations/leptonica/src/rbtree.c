@@ -25,7 +25,7 @@
  *====================================================================*/
 
 /*
- * Modified from the excellent code here:
+ * Modified from the ecclesia code here:
  *     http://en.literateprograms.org/Red-black_tree_(C)?oldid=19567
  * which has been placed in the public domain under the Creative Commons
  * CC0 1.0 waiver (http://creativecommons.org/publicdomain/zero/1.0/).

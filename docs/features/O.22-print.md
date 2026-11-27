@@ -1,7 +1,7 @@
 # Ph1: 55/60 | O.22: Print
 
 **Tag:** O.22; **Priority:** P0; **Phase:** 1 (Windows), 2 (macOS, Linux); **Needs:** K.19; **Code:**
-`excellent-core::print`, `excellent-platform::print`, `excellent-app::print`
+`ecclesia-core::print`, `ecclesia-platform::print`, `ecclesia-app::print`
 **Plan:** §27 entry `Ph1: 55/60 | O.22`.
 
 ## Problem
@@ -37,17 +37,17 @@ All modes, while a document is shown.
 
 ## Design
 
-- Model (`excellent-core::print`, no OS types): `Scaling`, `Paper`, `placement` (the page's map onto the printable
+- Model (`ecclesia-core::print`, no OS types): `Scaling`, `Paper`, `placement` (the page's map onto the printable
   area: fit, shrink or actual, turned to the paper's shape, centred, clipped), `bands`, `pages_in` (the dialog's
   ranges to pages from 0), `Job`, `Progress` (pages sent; cancel through a MuPDF cookie, so a page being drawn stops
   at once), the `Sheets` trait the printer is drawn through, and `print`, which runs a job on the calling thread.
 - MuPDF: a page without its annotations is recorded by `ex_new_contents_display_list` (`fz_run_page_contents` and
   `fz_run_page_widgets`), new in the shim. With annotations on, the views' display list is reused when there is one.
-- Platform (`excellent-platform::print`, Windows): `ask` shows `PrintDlgExW` (with `PD_RETURNDC` and the driver's
+- Platform (`ecclesia-platform::print`, Windows): `ask` shows `PrintDlgExW` (with `PD_RETURNDC` and the driver's
   own copies and collation) on the calling thread; `Printer` wraps the printer's device context: `StartDocW`, a
   `StretchDIBits` per band (RGB to a top-down 24-bit DIB), `EndPage`, `EndDoc`. Dropped before it finishes, it calls
   `AbortDoc`. This is how SumatraPDF prints, minus its own property page.
-- App (`excellent-app::print`): `Printing` per window (status, file name, progress), the `file.print` command, and
+- App (`ecclesia-app::print`): `Printing` per window (status, file name, progress), the `file.print` command, and
   the strip. The dialog and the job each run on a blocking thread (`blocking`), as NSH runs its file dialogs, so the
   window's message loop never runs inside an app callback. The registry's document prints, so edits not saved yet
   print too.

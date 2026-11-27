@@ -10,7 +10,7 @@ Existing MuPDF crates build stock MuPDF and call it straight from Rust. That los
 
 ## Decision
 
-Write our own `excellent-mupdf-sys`, built from SumatraPDF's tree, with a C shim around every MuPDF call (`fz_try` / `fz_catch` inside the shim).
+Write our own `ecclesia-mupdf-sys`, built from SumatraPDF's tree, with a C shim around every MuPDF call (`fz_try` / `fz_catch` inside the shim).
 
 ## Why
 

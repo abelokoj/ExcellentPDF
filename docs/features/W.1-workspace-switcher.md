@@ -1,6 +1,6 @@
 # Ph1: 45/60 | W.1: Workspace switcher
 
-**Tag:** W.1; **Priority:** P0; **Phase:** 1; **Needs:** W.14; **Code:** `excellent-app::workspaces` (`view`), `excellent-store::workspaces`, `excellent-app::session`
+**Tag:** W.1; **Priority:** P0; **Phase:** 1; **Needs:** W.14; **Code:** `ecclesia-app::workspaces` (`view`), `ecclesia-store::workspaces`, `ecclesia-app::session`
 **Plan:** §27 entry `Ph1: 45/60 | W.1` and §11.16.
 
 ## Problem

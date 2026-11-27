@@ -1,6 +1,6 @@
 # Ph7: 16/32 | O.5: Edit text runs
 
-**Tag:** O.5; **Priority:** P1; **Phase:** 7; **Needs:** K.13, O.7; **Code:** `excellent-core::edit_content` (`edit_text_run`, `reflow_text_in_box`, `SignatureGuard`)
+**Tag:** O.5; **Priority:** P1; **Phase:** 7; **Needs:** K.13, O.7; **Code:** `ecclesia-core::edit_content` (`edit_text_run`, `reflow_text_in_box`, `SignatureGuard`)
 **Plan:** §27 entry `#### Ph7: 16/32 | O.5`.
 
 ## Problem

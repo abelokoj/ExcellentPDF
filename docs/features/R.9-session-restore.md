@@ -1,7 +1,7 @@
 # Ph1: 20/60 | R.9: Session restore
 
-**Tag:** R.9; **Priority:** P0; **Phase:** 1; **Needs:** K.5, K.20; **Code:** `excellent-app::session`,
-`excellent-app::tabs` (`TabState::current`, `locate`), `excellent-app::shell` (`document_missing`)
+**Tag:** R.9; **Priority:** P0; **Phase:** 1; **Needs:** K.5, K.20; **Code:** `ecclesia-app::session`,
+`ecclesia-app::tabs` (`TabState::current`, `locate`), `ecclesia-app::shell` (`document_missing`)
 **Plan:** §27 entry `Ph1: 20/60 | R.9`, §11.16.
 
 ## Problem
@@ -39,7 +39,7 @@ All modes.
 - `session::restored()` reads the default workspace's tabs (K.20) and turns them into the tab model, marking the
   tabs whose files are missing. `session::keep(state)` watches the tabs and the shown page, and saves a second after
   the last change and on quit (`on_app_quit`, then `flush`).
-- A tab's View state is the page canvas's `view` event (`excellent-canvas-win::saved`): the page and the place on it
+- A tab's View state is the page canvas's `view` event (`ecclesia-canvas-win::saved`): the page and the place on it
   (as fractions of the page), the zoom and how it was chosen, the layout, paged or continuous, the direction and the
   view rotation. The canvas reports it when the view settles somewhere new; the tab keeps it while it is at the
   view's page, and the session saves it in place of `{"page": 3}`, which older sessions and a page given alone (a

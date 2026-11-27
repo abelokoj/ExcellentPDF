@@ -1,8 +1,8 @@
 # Ph1: 30/60 | R.28: Other formats through MuPDF
 
-**Tag:** R.28; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `excellent-core::formats`,
-`excellent-mupdf` (`Document::is_reflowable`, `Document::reflow`), `excellent-core::document` (`Document::reflow`),
-`excellent-canvas-win` (laying books out to the window)
+**Tag:** R.28; **Priority:** P0; **Phase:** 1; **Needs:** K.3; **Code:** `ecclesia-core::formats`,
+`ecclesia-mupdf` (`Document::is_reflowable`, `Document::reflow`), `ecclesia-core::document` (`Document::reflow`),
+`ecclesia-canvas-win` (laying books out to the window)
 **Plan:** §27 entry `Ph1: 30/60 | R.28`.
 
 ## Problem
@@ -41,10 +41,10 @@ All modes.
 - `formats` (pure): the extensions, the signature of each format (PDF anywhere in the first kilobyte, ZIP, PalmDB,
   XML and HTML, the picture formats; Markdown by its name, when it is text), and the page size for a window and a text
   size.
-- `excellent-mupdf`: `is_reflowable`, and `reflow(size, keep)`, which takes `&mut self` so no page is loaded while
+- `ecclesia-mupdf`: `is_reflowable`, and `reflow(size, keep)`, which takes `&mut self` so no page is loaded while
   the layout replaces them. The shim makes a bookmark (a place in the text) of `keep`'s start, lays the book out, and
   finds the bookmark's page.
-- `excellent-core::Document::reflow`: lays the book out once for all its views, clears its display lists and raises
+- `ecclesia-core::Document::reflow`: lays the book out once for all its views, clears its display lists and raises
   every page's revision, so stale lists are refused. It remembers the size to lay the book out again after
   hibernating. A layout is not an edit: no unsaved changes.
 - The canvas: lays a book out for its window when opening it, shows it at zoom 1, and lays it out again on a resize or

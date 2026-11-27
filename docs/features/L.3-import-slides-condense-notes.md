@@ -1,6 +1,6 @@
 # Ph4: 26/44 | L.3: Import slides and condense to notes
 
-**Tag:** L.3; **Priority:** P1; **Phase:** 4; **Needs:** N.4; **Code:** `excellent-features::notebook::slides`, `excellent-core::notebook::pdf_ops`
+**Tag:** L.3; **Priority:** P1; **Phase:** 4; **Needs:** N.4; **Code:** `ecclesia-features::notebook::slides`, `ecclesia-core::notebook::pdf_ops`
 **Plan:** §27 entry `#### Ph4: 26/44 | L.3`.
 
 ## Problem

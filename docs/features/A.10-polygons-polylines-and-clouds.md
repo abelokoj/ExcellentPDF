@@ -1,7 +1,7 @@
 # Ph3: 23/49 | A.10: Polygons, polylines and clouds
 
-**Tag:** A.10; **Priority:** P0; **Phase:** 3; **Needs:** A.8; **Code:** `excellent-features::annotate::{shapes,
-polygons}`, `excellent-canvas::page::canvas::draw`, `excellent-app::annotate`
+**Tag:** A.10; **Priority:** P0; **Phase:** 3; **Needs:** A.8; **Code:** `ecclesia-features::annotate::{shapes,
+polygons}`, `ecclesia-canvas::page::canvas::draw`, `ecclesia-app::annotate`
 **Plan:** §27 entry `#### Ph3: 23/49 | A.10`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 
 ## Problem

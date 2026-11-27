@@ -1,6 +1,6 @@
 # Ph9: 12/13 | Y.4: Live co-editing through a relay
 
-**Tag:** Y.4; **Priority:** P2; **Phase:** 9; **Needs:** Y.1; **Code:** `excellent-features::sync::relay`
+**Tag:** Y.4; **Priority:** P2; **Phase:** 9; **Needs:** Y.1; **Code:** `ecclesia-features::sync::relay`
 **Plan:** §27 entry `#### Ph9: 12/13 | Y.4`.
 
 ## Problem
@@ -27,7 +27,7 @@ Annotate, Study, Research.
 
 ## Design
 
-- Model: `excellent-features::sync::relay::{WsFrame, WsOpcode, FrameMask, InviteLink, PresenceCursor, EncryptedRelayPacket, LocalRelayHub, CoEditPeer}`.
+- Model: `ecclesia-features::sync::relay::{WsFrame, WsOpcode, FrameMask, InviteLink, PresenceCursor, EncryptedRelayPacket, LocalRelayHub, CoEditPeer}`.
 
 ## Acceptance tests
 

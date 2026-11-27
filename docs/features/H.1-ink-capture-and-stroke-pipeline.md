@@ -1,8 +1,8 @@
 # Ph0: 13/13 | H.1: Ink capture and stroke pipeline
 
-**Tag:** H.1; **Priority:** P0; **Phase:** 0 spike (T8), 3 build; **Needs:** K.8; **Code:** `excellent-ink`
-(`sample`, `width`, `predict`, `smooth`, `stroke`, `session`), `excellent-canvas::page::canvas` (pen input, preview,
-commit), `excellent-features::annotate::ink` (the committed annotation)
+**Tag:** H.1; **Priority:** P0; **Phase:** 0 spike (T8), 3 build; **Needs:** K.8; **Code:** `ecclesia-ink`
+(`sample`, `width`, `predict`, `smooth`, `stroke`, `session`), `ecclesia-canvas::page::canvas` (pen input, preview,
+commit), `ecclesia-features::annotate::ink` (the committed annotation)
 **Plan:** §8.2 and §27 entry `#### Ph0: 13/13 | H.1`.
 
 ## Problem
@@ -42,7 +42,7 @@ samples. On pen-up: smoothing and flattening of one stroke (microseconds), one e
 - **Commit (step 6):** on pen-up the canvas sends `ink` (`{page, points: [[x, y, width]], color}`); the app adds an
   ink annotation as one step of undo, with the stroke's mean width, until H.9 writes per-point widths. The canvas
   keeps showing the stroke until its page is drawn again with the annotation.
-- **Sessions (§16):** `Session` reads and writes a plain-text sample format; `EXCELLENTPDF_RECORD_INK=<folder>`
+- **Sessions (§16):** `Session` reads and writes a plain-text sample format; `ECCLESIAPDF_RECORD_INK=<folder>`
   records every finished stroke; `tests/sessions/*.session` are replayed by `recorded_sessions_replay`.
 
 ## Acceptance tests

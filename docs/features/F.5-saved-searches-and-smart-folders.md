@@ -1,6 +1,6 @@
 # Ph5: 31/45 | F.5: Saved searches and smart folders
 
-**Tag:** F.5; **Priority:** P1; **Phase:** 5; **Needs:** F.4, F.6; **Code:** `excellent-store::fts`, `excellent-features::search::query`, `excellent-features::search::global`
+**Tag:** F.5; **Priority:** P1; **Phase:** 5; **Needs:** F.4, F.6; **Code:** `ecclesia-store::fts`, `ecclesia-features::search::query`, `ecclesia-features::search::global`
 **Plan:** §27 entry `#### Ph5: 31/45 | F.5`.
 
 ## Problem
@@ -28,8 +28,8 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::search::query::{create_saved_search, list_saved_searches}` and `excellent-features::search::global::smart_folder_counts`.
-- Storage: `saved_search` table in `0008_library_fts_notes.sql` accessed via `excellent_store::fts::{save_search, list_searches, rename_search, delete_search}`.
+- Model: `ecclesia-features::search::query::{create_saved_search, list_saved_searches}` and `ecclesia-features::search::global::smart_folder_counts`.
+- Storage: `saved_search` table in `0008_library_fts_notes.sql` accessed via `ecclesia_store::fts::{save_search, list_searches, rename_search, delete_search}`.
 
 ## Acceptance tests
 

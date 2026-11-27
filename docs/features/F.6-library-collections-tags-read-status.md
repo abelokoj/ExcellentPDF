@@ -1,6 +1,6 @@
 # Ph5: 32/45 | F.6: Library: collections, tags, read status
 
-**Tag:** F.6; **Priority:** P1; **Phase:** 5; **Needs:** K.20; **Code:** `excellent-store::library`, `excellent-features::library`
+**Tag:** F.6; **Priority:** P1; **Phase:** 5; **Needs:** K.20; **Code:** `ecclesia-store::library`, `ecclesia-features::library`
 **Plan:** §27 entry `#### Ph5: 32/45 | F.6`.
 
 ## Problem
@@ -27,7 +27,7 @@ All modes.
 
 ## Design
 
-- Model: `excellent-features::library::{Library, CollectionNode, build_collection_tree}`.
+- Model: `ecclesia-features::library::{Library, CollectionNode, build_collection_tree}`.
 - Storage: `library_item`, `library_collection`, `library_collection_item`, `library_file_tag` in `0008_library_fts_notes.sql`.
 
 ## Acceptance tests

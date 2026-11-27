@@ -1,7 +1,7 @@
 # Ph3: 33/49 | A.20: Stamps library with dynamic fields
 
-**Tag:** A.20; **Priority:** P1; **Phase:** 3; **Needs:** K.14; **Code:** `excellent-features::annotate::stamps`,
-`excellent-app::annotate::stamps`, `excellent-core::edit` (`Change::StampArt`), `excellent-mupdf` (`StampArt`,
+**Tag:** A.20; **Priority:** P1; **Phase:** 3; **Needs:** K.14; **Code:** `ecclesia-features::annotate::stamps`,
+`ecclesia-app::annotate::stamps`, `ecclesia-core::edit` (`Change::StampArt`), `ecclesia-mupdf` (`StampArt`,
 `Edit::set_stamp_art`, `Page::to_pdf`, `html_to_pdf`)
 **Plan:** §27 entry `#### Ph3: 33/49 | A.20`. The label is the entry's place in its phase (plan §27.0, Tag rules).
 

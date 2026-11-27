@@ -1,6 +1,6 @@
 # Ph1: 43/60 | V.7: Saving split layouts
 
-**Tag:** V.7; **Priority:** P0; **Phase:** 1; **Needs:** V.4, R.9; **Code:** `excellent-app::session`, `excellent-store::workspace` (migration `0005_panes.sql`)
+**Tag:** V.7; **Priority:** P0; **Phase:** 1; **Needs:** V.4, R.9; **Code:** `ecclesia-app::session`, `ecclesia-store::workspace` (migration `0005_panes.sql`)
 **Plan:** §27 entry `Ph1: 43/60 | V.7` and §11.15.
 
 ## Problem
