@@ -141,31 +141,52 @@ impl Keeper {
 
 /// Adds `tab` to workspace `id` (not the one shown), shown in its active pane (W.4). It waits for the library: the
 /// workspace's tab count is read right after.
+#[allow(dead_code)]
 pub(crate) fn add_to(id: WorkspaceId, tab: &Closed) {
+    add_many_to(id, std::slice::from_ref(tab));
+}
+
+/// Adds `tabs` in order to workspace `id` (not the one shown) in a single atomic transaction,
+/// activating the last added tab in its active pane.
+pub(crate) fn add_many_to(id: WorkspaceId, tabs: &[Closed]) {
+    if tabs.is_empty() {
+        return;
+    }
     let Some(store) = crate::library::store() else {
         return;
     };
-    let saved = saved_tab(&tab.path, tab.page, tab.view.as_deref(), tab.pinned, None);
+    let saved: Vec<SavedTab> = tabs
+        .iter()
+        .map(|tab| saved_tab(&tab.path, tab.page, tab.view.as_deref(), tab.pinned, None))
+        .collect();
     let result = store
         .write(move |tx| {
             let mut panes = workspace::load_panes(tx, id)?;
-            let cell = panes
-                .layout
-                .as_deref()
-                .map_or_else(Layout::default, Layout::from_json)
-                .active();
-            if panes.panes.len() <= cell {
-                panes.panes.resize_with(cell + 1, Default::default);
-            }
-            let pane = &mut panes.panes[cell];
-            pane.open.push(saved);
-            pane.active = Some(pane.open.len() - 1);
+            append_saved_tabs(&mut panes, saved);
             workspace::save_panes(tx, id, &panes)
         })
         .wait();
     if let Err(err) = result {
-        log::warn!("session: can't add the tab to the workspace: {err}");
+        log::warn!("session: can't add tabs to the workspace: {err}");
     }
+}
+
+/// Appends `saved` tabs in order to the active pane of `panes` and marks the last appended tab active.
+fn append_saved_tabs(panes: &mut workspace::Panes, saved: Vec<SavedTab>) {
+    if saved.is_empty() {
+        return;
+    }
+    let cell = panes
+        .layout
+        .as_deref()
+        .map_or_else(Layout::default, Layout::from_json)
+        .active();
+    if panes.panes.len() <= cell {
+        panes.panes.resize_with(cell + 1, Default::default);
+    }
+    let pane = &mut panes.panes[cell];
+    pane.open.extend(saved);
+    pane.active = pane.open.len().checked_sub(1);
 }
 
 /// Hands `workspace`'s panes to the library's writer.
@@ -466,5 +487,38 @@ mod tests {
         let active = restored.tabs[0].active().expect("active tab");
         assert_eq!(active.page, 175);
         assert!(!active.missing);
+    }
+
+    #[test]
+    fn append_saved_tabs_appends_batch_in_order_and_activates_last() {
+        let mut panes = workspace::Panes {
+            layout: None,
+            panes: vec![workspace::Tabs {
+                open: vec![saved_tab(&path("existing"), 1, None, false, None)],
+                active: Some(0),
+                groups: Vec::new(),
+                closed: Vec::new(),
+            }],
+        };
+        append_saved_tabs(
+            &mut panes,
+            vec![
+                saved_tab(&path("first"), 2, None, false, None),
+                saved_tab(&path("second"), 5, None, true, None),
+                saved_tab(&path("third"), 9, None, false, None),
+            ],
+        );
+        let paths: Vec<_> = panes.panes[0].open.iter().map(|t| t.path.clone()).collect();
+        assert_eq!(
+            paths,
+            vec![
+                path("existing"),
+                path("first"),
+                path("second"),
+                path("third")
+            ]
+        );
+        assert_eq!(panes.panes[0].active, Some(3));
+        assert!(panes.panes[0].open[2].pinned);
     }
 }

@@ -561,60 +561,63 @@ impl Workspaces {
             if dest == self.shown.get_untracked() {
                 self.panes.active().tabs.adopt(moved);
             } else {
-                for tab in &moved {
-                    session::add_to(dest, tab);
-                }
+                session::add_many_to(dest, &moved);
             }
         }
         self.write(move |tx| workspaces::delete(tx, id).map(drop));
         self.reload();
     }
 
-    /// Sends the shown tab to workspace `to` (W.4); a moved tab leaves this one. It keeps its page and view.
+    /// Sends the multi-selected tabs (or the shown tab when fewer than 2 are selected) to workspace
+    /// `to` (W.4); moved tabs leave this workspace, keeping their pages and views.
     pub(crate) fn send_tab(self, send: Transfer, to: WorkspaceId) {
         let tabs = self.panes.active().tabs;
-        let tab = match send {
-            Transfer::Move => tabs.take_shown(),
-            Transfer::Copy => tabs.shown_copy(),
+        let moved = match send {
+            Transfer::Move => tabs.take_selected_or_shown(),
+            Transfer::Copy => tabs.copy_selected_or_shown(),
         };
-        if let Some(tab) = tab {
-            // W.8: a workspace another window shows takes it there and then; its saved tabs would be written over.
+        if !moved.is_empty() {
+            // W.8: a workspace another window shows takes them there and then; its saved tabs would be written over.
             match windows::holder(to, self.window).and_then(windows::workspaces) {
-                Some(there) => there.panes.active().tabs.adopt(vec![tab]),
-                None => session::add_to(to, &tab),
+                Some(there) => there.panes.active().tabs.adopt(moved),
+                None => session::add_many_to(to, &moved),
             }
             self.reload();
         }
     }
 
-    /// Moves tab `id` from `tabs` into workspace `to`, keeping its page and view.
+    /// Moves tab `id` — or all multi-selected tabs when `id` is part of a 2+ tab selection — from
+    /// `tabs` into workspace `to`, preserving strip order, pages, and views.
     pub(crate) fn move_tab_to(self, tabs: TabState, id: TabId, to: WorkspaceId) -> bool {
         if to == self.shown.get_untracked() {
             return false;
         }
-        let Some(tab) = tabs.take_tab(id) else {
+        let moved = tabs.take_tabs_for(id);
+        if moved.is_empty() {
             return false;
-        };
-        // W.8: a workspace another window shows takes it there and then; its saved tabs would be written over.
+        }
+        // W.8: a workspace another window shows takes them there and then; its saved tabs would be written over.
         match windows::holder(to, self.window).and_then(windows::workspaces) {
-            Some(there) => there.panes.active().tabs.adopt(vec![tab]),
-            None => session::add_to(to, &tab),
+            Some(there) => there.panes.active().tabs.adopt(moved),
+            None => session::add_many_to(to, &moved),
         }
         self.reload();
         true
     }
 
-    /// Moves tab `id` from `tabs` into a newly created workspace without switching away from the current workspace.
+    /// Moves tab `id` — or all multi-selected tabs when `id` is part of a 2+ tab selection — from
+    /// `tabs` into a newly created workspace without switching away from the current workspace.
     pub(crate) fn move_tab_to_new_workspace(self, tabs: TabState, id: TabId) -> bool {
-        let Some(tab) = tabs.take_tab(id) else {
+        let moved = tabs.take_tabs_for(id);
+        if moved.is_empty() {
             return false;
-        };
+        }
         let look = self.next_workspace_look();
         let Some(new_id) = self.write(move |tx| workspaces::create(tx, &look)) else {
-            tabs.adopt(vec![tab]);
+            tabs.adopt(moved);
             return false;
         };
-        session::add_to(new_id, &tab);
+        session::add_many_to(new_id, &moved);
         self.reload();
         true
     }
@@ -652,7 +655,7 @@ impl Workspaces {
         let tabs: Vec<Closed> = match start {
             Start::Empty => Vec::new(),
             Start::AllTabs => self.panes.take_every_tab(),
-            Start::ShownTab => self.panes.active().tabs.take_shown().into_iter().collect(),
+            Start::ShownTab => self.panes.active().tabs.take_selected_or_shown(),
         };
         self.reload();
         self.switch(id);

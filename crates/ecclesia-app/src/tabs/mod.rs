@@ -676,20 +676,52 @@ impl TabState {
 
     /// Takes tab `id` out at its current page and view, saving them first if it is currently shown.
     pub(crate) fn take_tab(self, id: TabId) -> Option<Closed> {
-        let was_shown = self
+        self.take_tabs(&[id]).into_iter().next()
+    }
+
+    /// Takes `clicked` — or all multi-selected tabs in strip order when `clicked` is part of a 2+
+    /// tab selection — saving the shown tab's page and view first if it is among them.
+    pub(crate) fn take_tabs_for(self, clicked: TabId) -> Vec<Closed> {
+        let ids = self
             .tabs
-            .with_untracked(|tabs| tabs.active().map(|tab| tab.id) == Some(id));
-        if was_shown {
+            .with_untracked(|tabs| tabs.target_ids_for(clicked));
+        self.take_tabs(&ids)
+    }
+
+    /// Takes every tab in `ids` in the order given, saving the shown tab's page and view first if
+    /// it is among them and restoring the newly shown tab afterward.
+    pub(crate) fn take_tabs(self, ids: &[TabId]) -> Vec<Closed> {
+        if ids.is_empty() {
+            return Vec::new();
+        }
+        let takes_shown = self
+            .tabs
+            .with_untracked(|tabs| tabs.active().is_some_and(|tab| ids.contains(&tab.id)));
+        if takes_shown {
             self.leave_shown();
         }
-        let mut taken = None;
+        let mut taken = Vec::new();
         self.tabs.update(|tabs| {
-            taken = tabs.take(id);
+            taken = tabs.take_many(ids);
         });
-        if was_shown && taken.is_some() {
+        if takes_shown && !taken.is_empty() {
             self.arrive();
         }
         taken
+    }
+
+    /// Takes all multi-selected tabs in strip order when 2+ are selected, otherwise the shown tab.
+    pub(crate) fn take_selected_or_shown(self) -> Vec<Closed> {
+        let ids = self.tabs.with_untracked(Tabs::selected_or_active_ids);
+        self.take_tabs(&ids)
+    }
+
+    /// Copies all multi-selected non-missing tabs in strip order when 2+ are selected, otherwise
+    /// the shown tab.
+    pub(crate) fn copy_selected_or_shown(self) -> Vec<Closed> {
+        let tabs = untracked(|| self.current());
+        let ids = tabs.selected_or_active_ids();
+        tabs.copy_many(&ids)
     }
 
     /// Takes every tab out, the shown one last: a closing pane's (V.6).

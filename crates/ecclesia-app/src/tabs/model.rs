@@ -568,6 +568,70 @@ impl Tabs {
         &self.selected
     }
 
+    /// The currently multi-selected tab ids ordered left-to-right as they appear in the strip.
+    pub(crate) fn selected_in_strip_order(&self) -> Vec<TabId> {
+        self.tabs
+            .iter()
+            .filter(|tab| self.selected.contains(&tab.id))
+            .map(|tab| tab.id)
+            .collect()
+    }
+
+    /// The tab ids targeted by a context-menu action on `clicked`: all multi-selected tabs in strip
+    /// order when `clicked` is part of a 2+ tab selection, otherwise just `[clicked]`.
+    pub(crate) fn target_ids_for(&self, clicked: TabId) -> Vec<TabId> {
+        if self.is_selected(clicked) && self.selected.len() >= 2 {
+            self.selected_in_strip_order()
+        } else if self.get(clicked).is_some() {
+            vec![clicked]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// The tab ids targeted by a command-palette workspace transfer: all multi-selected tabs in
+    /// strip order when 2+ tabs are selected, otherwise the active tab.
+    pub(crate) fn selected_or_active_ids(&self) -> Vec<TabId> {
+        if self.selected.len() >= 2 {
+            self.selected_in_strip_order()
+        } else if let Some(active) = self.active {
+            vec![active]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Takes every tab in `ids` out in the order given, clearing multi-selection when moving a
+    /// batch of two or more tabs.
+    pub(crate) fn take_many(&mut self, ids: &[TabId]) -> Vec<Closed> {
+        let mut taken = Vec::with_capacity(ids.len());
+        for &id in ids {
+            if let Some(closed) = self.take(id) {
+                taken.push(closed);
+            }
+        }
+        if ids.len() >= 2 {
+            self.clear_selected();
+        }
+        taken
+    }
+
+    /// Returns non-destructive copies of every existing, non-missing tab in `ids` in the order given.
+    pub(crate) fn copy_many(&self, ids: &[TabId]) -> Vec<Closed> {
+        ids.iter()
+            .filter_map(|&id| {
+                let tab = self.get(id).filter(|tab| !tab.missing)?;
+                Some(Closed {
+                    path: tab.path.clone(),
+                    page: tab.page,
+                    view: tab.view.clone(),
+                    pinned: false,
+                    index: 0,
+                })
+            })
+            .collect()
+    }
+
     /// Clears multi-selection (V.12).
     pub(crate) fn clear_selected(&mut self) {
         self.selected.clear();
@@ -947,5 +1011,68 @@ mod tests {
         // Shift+Click selects the contiguous range from the anchor to the clicked tab.
         tabs.select_range_to(ids[3]);
         assert_eq!(tabs.selected_ids(), &[ids[0], ids[1], ids[2], ids[3]]);
+    }
+
+    #[test]
+    fn target_ids_for_and_take_many_move_all_selected_tabs_in_strip_order() {
+        let (mut tabs, ids) = tabs(&["a", "b", "c", "d", "e"]);
+        tabs.set_page(ids[0], 3);
+        tabs.set_page(ids[2], 7);
+        tabs.set_page(ids[4], 11);
+        tabs.activate(ids[4]);
+
+        // Ctrl+Click out of strip order: active (e), then c, then a.
+        tabs.ctrl_toggle_selected(ids[2]);
+        tabs.ctrl_toggle_selected(ids[0]);
+        assert_eq!(tabs.selected_ids(), &[ids[4], ids[2], ids[0]]);
+
+        // Right-clicking any selected tab targets all selected tabs in strip order (a, c, e).
+        assert_eq!(tabs.target_ids_for(ids[2]), vec![ids[0], ids[2], ids[4]]);
+        assert_eq!(tabs.selected_or_active_ids(), vec![ids[0], ids[2], ids[4]]);
+
+        // Right-clicking an unselected tab targets only that single tab.
+        assert_eq!(tabs.target_ids_for(ids[1]), vec![ids[1]]);
+
+        // Taking all selected tabs preserves order and pages, clears selection, and leaves b & d.
+        let targets = tabs.target_ids_for(ids[2]);
+        let moved = tabs.take_many(&targets);
+        let moved_pages: Vec<_> = moved.iter().map(|t| (t.title(), t.page)).collect();
+        assert_eq!(
+            moved_pages,
+            vec![
+                ("a.pdf".to_owned(), 3),
+                ("c.pdf".to_owned(), 7),
+                ("e.pdf".to_owned(), 11),
+            ]
+        );
+        assert!(tabs.selected_ids().is_empty());
+        assert_eq!(titles(&tabs), ["b.pdf", "d.pdf"]);
+        assert!(tabs.active().is_some());
+    }
+
+    #[test]
+    fn shift_range_selection_and_copy_many_preserve_strip_order() {
+        let (mut tabs, ids) = tabs(&["a", "b", "c", "d"]);
+        tabs.activate(ids[3]);
+        tabs.set_page(ids[1], 2);
+        tabs.set_page(ids[2], 4);
+        tabs.set_page(ids[3], 6);
+
+        // Backwards Shift+Click from d to b selects b, c, d in strip order.
+        tabs.select_range_to(ids[1]);
+        assert_eq!(tabs.target_ids_for(ids[1]), vec![ids[1], ids[2], ids[3]]);
+
+        let copies = tabs.copy_many(&tabs.selected_or_active_ids());
+        let copied_pages: Vec<_> = copies.iter().map(|t| (t.title(), t.page)).collect();
+        assert_eq!(
+            copied_pages,
+            vec![
+                ("b.pdf".to_owned(), 2),
+                ("c.pdf".to_owned(), 4),
+                ("d.pdf".to_owned(), 6),
+            ]
+        );
+        // Originals remain intact.
+        assert_eq!(titles(&tabs), ["a.pdf", "b.pdf", "c.pdf", "d.pdf"]);
     }
 }

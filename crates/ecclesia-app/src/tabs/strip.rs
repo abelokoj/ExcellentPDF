@@ -502,9 +502,14 @@ fn tab_view(
             .or_else(mode_accent)
             .unwrap_or_else(|| Hsla::transparent_black().into())
     };
+    let modifier_press = signal(false);
     let tab_view = nsh_base::tab()
         .selected(shown)
         .on_press(move || {
+            if modifier_press.get_untracked() {
+                modifier_press.set(false);
+                return;
+            }
             home_open.set(false);
             state.show(id);
         })
@@ -707,10 +712,17 @@ fn tab_view(
         })
         .child(tab_view);
     // The middle button closes, as in browsers; Ctrl/Cmd+Left click and Shift+Left click multi-select
-    // tabs for split/tiling (V.12); plain left-click clears any multi-selection.
+    // tabs for split/tiling and batch workspace moves without switching the active tab first; plain
+    // left-click clears any multi-selection.
     let trigger = view()
         .window_drag(false)
+        .on_press_down(move |event: &PressEvent| {
+            modifier_press
+                .set(event.modifiers.ctrl || event.modifiers.cmd || event.modifiers.shift);
+        })
+        .on_mouse_leave(move |_: &MouseEvent| modifier_press.set(false))
         .on_mouse_up(move |event: &MouseEvent| {
+            modifier_press.set(false);
             if event.button == Some(MouseButton::Middle) && !pinned() {
                 state.close(id);
             } else if event.button == Some(MouseButton::Left) && drag.get_untracked().is_none() {
@@ -977,17 +989,32 @@ fn open_in_split_submenu(
 }
 
 /// The "Move to Workspace" submenu listing every other workspace plus "Move to New Workspace".
+/// When `id` is part of a `Ctrl+Click` / `Shift+Click` multi-selection, all selected tabs move
+/// together in strip order.
 fn move_to_workspace_submenu(state: TabState, workspaces: Workspaces, id: TabId) -> SubmenuElement {
     let has_other_workspaces = move || {
         let shown = workspaces.shown_id();
         workspaces.list().iter().any(|w| w.id != shown)
     };
+    let trigger_label = move || {
+        let count = state.selected_count();
+        if state.is_selected(id) && count >= 2 {
+            t!("tabs.menu.move_selected_to_workspace", count = count)
+        } else {
+            t!("tabs.menu.move_to_workspace")
+        }
+    };
+    let new_workspace_label = move || {
+        let count = state.selected_count();
+        if state.is_selected(id) && count >= 2 {
+            t!("tabs.menu.move_selected_to_new_workspace", count = count)
+        } else {
+            t!("tabs.menu.move_to_new_workspace")
+        }
+    };
     submenu()
         .offset(px(2.0))
-        .trigger(submenu_row(
-            t!("tabs.menu.move_to_workspace"),
-            SubmenuArrow::Right,
-        ))
+        .trigger(submenu_row_reactive(trigger_label, SubmenuArrow::Right))
         .back(submenu_row(
             t!("tabs.menu.move_to_workspace_back"),
             SubmenuArrow::Left,
@@ -1041,12 +1068,9 @@ fn move_to_workspace_submenu(state: TabState, workspaces: Workspaces, id: TabId)
             move || tab_menu_item(t!("tabs.menu.no_other_workspaces"), || {}).disabled(true),
         ))
         .child(tab_menu_separator())
-        .child(tab_menu_item(
-            t!("tabs.menu.move_to_new_workspace"),
-            move || {
-                let _ = workspaces.move_tab_to_new_workspace(state, id);
-            },
-        ))
+        .child(tab_menu_item_reactive(new_workspace_label, move || {
+            let _ = workspaces.move_tab_to_new_workspace(state, id);
+        }))
 }
 
 /// The "Change Tab Color" submenu with Default + every [`GroupColor`] swatch.
