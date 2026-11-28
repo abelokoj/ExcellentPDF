@@ -34,12 +34,12 @@ const MIN_TRACK_HEIGHT: f32 = 24.0;
 const THUMB_INSET_X: f32 = 3.0;
 /// Least width of the scrollbar thumb pill, in pixels at 96 dpi.
 const MIN_THUMB_WIDTH: f32 = 4.0;
-/// Width of each scrollbar arrow triangle, in pixels at 96 dpi.
+/// Width of each scrollbar arrow triangle (75° apex at 30% corner curve), in pixels at 96 dpi.
 const ARROW_TRIANGLE_WIDTH: f32 = 9.5;
-/// Height of each scrollbar arrow triangle, in pixels at 96 dpi.
-const ARROW_TRIANGLE_HEIGHT: f32 = 6.5;
-/// Corner rounding of each scrollbar arrow triangle, in pixels at 96 dpi.
-const ARROW_CORNER_RADIUS: f32 = 1.8;
+/// Height of each scrollbar arrow triangle (75° apex: `9.5 / (2 * tan(37.5°)) ≈ 6.2`), in pixels at 96 dpi.
+const ARROW_TRIANGLE_HEIGHT: f32 = 6.2;
+/// Corner rounding of each scrollbar arrow triangle (30% curve), in pixels at 96 dpi.
+const ARROW_CORNER_RADIUS: f32 = 1.9;
 /// Share of the viewport's height scrolled per press on a scrollbar arrow button.
 const ARROW_SCROLL_FRACTION: f32 = 0.15;
 /// Least scroll step per press on a scrollbar arrow button, in pixels at 96 dpi.

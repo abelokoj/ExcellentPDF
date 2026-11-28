@@ -193,7 +193,11 @@ fn the_settings_window_opens_from_its_key_and_hands_over_to_the_theme_picker() {
     app.wait_for("Light or dark")
         .expect("Appearance section shows again");
 
-    // Selecting a theme and toggling High contrast happen inline without leaving Settings.
+    // Selecting a theme via the dropdown and toggling High contrast happen inline without leaving Settings.
+    app.press("role:dialog >> label:Theme")
+        .expect("open inline theme dropdown");
+    app.wait_for("Catppuccin")
+        .expect("theme dropdown list opens inside Settings");
     app.press("role:dialog >> text:Catppuccin")
         .expect("select Catppuccin theme inline");
     app.settle();
@@ -211,6 +215,9 @@ fn the_settings_window_opens_from_its_key_and_hands_over_to_the_theme_picker() {
     // Restore default Neutral + Standard contrast so headless state stays clean.
     app.press("role:dialog >> label:High contrast")
         .expect("restore standard contrast");
+    app.press("role:dialog >> label:Theme")
+        .expect("reopen theme dropdown");
+    app.wait_for("Neutral").expect("Neutral appears in list");
     app.press("role:dialog >> text:Neutral")
         .expect("restore Neutral theme");
     app.settle();

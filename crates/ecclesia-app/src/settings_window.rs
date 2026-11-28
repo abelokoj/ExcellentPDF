@@ -1162,70 +1162,132 @@ fn appearance_cards(
         ))
     });
 
-    let theme_grid = dynamic(move || {
-        let current = theme_choice.get();
-        themes::FAMILIES.iter().fold(
-            view().flex_row().flex_wrap().gap(px(8.0)),
-            |grid, family| {
-                let selected = current.family == family;
-                grid.child(
-                    button()
-                        .accessibility_label(family.name())
-                        .on_press(move || {
-                            let mut next = theme_choice.get_untracked();
-                            next.family = family;
-                            apply_choice(next);
-                        })
-                        .h(px(36.0))
-                        .px(px(10.0))
-                        .flex_row()
-                        .items_center()
-                        .gap(px(8.0))
-                        .rounded(px(8.0))
-                        .border_1()
-                        .border_color(move || {
-                            if selected {
-                                theme().primary
-                            } else {
-                                theme().border
-                            }
-                        })
-                        .bg(move || {
-                            if selected {
-                                theme().accent
-                            } else {
-                                theme().background
-                            }
-                        })
-                        .hover(|s| s.bg(move || theme().accent))
-                        .active(|s| s.opacity(0.85))
-                        .focus_visible(|s| s.border_color(move || theme().ring))
-                        .child(themes::swatch_of(family, current.contrast))
-                        .child(
-                            text(family.name())
-                                .text_size(px(12.5))
-                                .font_weight(if selected {
-                                    FontWeight::SEMIBOLD
-                                } else {
-                                    FontWeight::MEDIUM
-                                })
-                                .text_color(move || theme().foreground),
-                        ),
+    let theme_open = signal(false);
+    let theme_trigger = button()
+        .accessibility_label(t!("settings.theme"))
+        .on_press(move || theme_open.update(|o| *o = !*o))
+        .h(px(34.0))
+        .min_w(px(210.0))
+        .max_w(px(250.0))
+        .px_3()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .gap_2()
+        .rounded(px(CONTROL_RADIUS))
+        .border_1()
+        .border_color(move || theme().border)
+        .bg(move || theme().background)
+        .hover(|s| s.bg(move || theme().accent))
+        .focus_visible(|s| s.border_color(move || theme().ring))
+        .child(dynamic(move || {
+            let current = theme_choice.get();
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(8.0))
+                .flex_1()
+                .min_w(px(0.0))
+                .child(themes::swatch_of(current.family, current.contrast))
+                .child(
+                    text(current.family.name())
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .truncate()
+                        .text_size(px(13.0))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(move || theme().popover_foreground),
                 )
-            },
-        )
-    });
+        }))
+        .child(view().flex_shrink(0.0).child(dropdown_arrow()));
 
-    let theme_row_matches = query.is_none_or(|needle| {
-        matches_query(&t!("settings.section.appearance"), needle)
-            || matches_query(&t!("settings.theme"), needle)
-            || matches_query(&t!("settings.theme_hint"), needle)
-            || themes::FAMILIES
-                .iter()
-                .any(|f| matches_query(&f.name(), needle))
-    });
+    let theme_dropdown = when(
+        move || theme_open.get(),
+        move || {
+            let list = dynamic(move || {
+                let current = theme_choice.get();
+                themes::FAMILIES
+                    .iter()
+                    .fold(view().gap(px(2.0)), |col, family| {
+                        let selected = current.family == family;
+                        col.child(
+                            button()
+                                .accessibility_label(family.name())
+                                .on_press(move || {
+                                    let mut next = theme_choice.get_untracked();
+                                    next.family = family;
+                                    apply_choice(next);
+                                    theme_open.set(false);
+                                })
+                                .w_full()
+                                .h(px(32.0))
+                                .px_2p5()
+                                .flex_row()
+                                .items_center()
+                                .justify_between()
+                                .gap_2()
+                                .rounded(px(6.0))
+                                .bg(move || {
+                                    if selected {
+                                        theme().accent
+                                    } else {
+                                        Hsla::transparent_black().into()
+                                    }
+                                })
+                                .hover(|s| s.bg(move || theme().accent))
+                                .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+                                .child(
+                                    view()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap(px(8.0))
+                                        .flex_1()
+                                        .min_w(px(0.0))
+                                        .child(themes::swatch_of(family, current.contrast))
+                                        .child(
+                                            text(family.name())
+                                                .flex_1()
+                                                .min_w(px(0.0))
+                                                .truncate()
+                                                .text_size(px(13.0))
+                                                .font_weight(if selected {
+                                                    FontWeight::SEMIBOLD
+                                                } else {
+                                                    FontWeight::NORMAL
+                                                })
+                                                .text_color(move || theme().foreground),
+                                        ),
+                                )
+                                .child(
+                                    text(if selected { "✓" } else { "" })
+                                        .w(px(14.0))
+                                        .text_size(px(13.0))
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_color(move || theme().primary),
+                                ),
+                        )
+                    })
+            });
+            view()
+                .w(px(240.0))
+                .p(px(6.0))
+                .rounded(px(10.0))
+                .border_1()
+                .border_color(move || theme().border)
+                .bg(move || theme().popover)
+                .shadow_lg()
+                .child(scroll().max_h(px(280.0)).child(list))
+        },
+    );
+
+    let theme_picker = view()
+        .items_end()
+        .gap(px(6.0))
+        .child(theme_trigger)
+        .child(theme_dropdown);
 
     let rows = vec![
+        RowItem::new("settings.theme", "settings.theme_hint", theme_picker),
         RowItem::new(
             "settings.appearance",
             "settings.appearance_hint",
@@ -1267,56 +1329,9 @@ fn appearance_cards(
             ),
         ),
     ];
-
-    let row_query =
-        query.filter(|needle| !matches_query(&t!("settings.section.appearance"), needle));
-    let mut card_rows: Vec<View> = Vec::new();
-    if theme_row_matches {
-        card_rows.push(
-            view()
-                .px(px(16.0))
-                .py(px(14.0))
-                .gap(px(10.0))
-                .child(
-                    view()
-                        .gap(px(2.0))
-                        .child(
-                            text(move || t!("settings.theme"))
-                                .text_size(px(13.5))
-                                .font_weight(FontWeight::MEDIUM)
-                                .text_color(move || theme().foreground),
-                        )
-                        .child(
-                            text(move || t!("settings.theme_hint"))
-                                .text_size(px(12.0))
-                                .text_color(move || theme().muted_foreground),
-                        ),
-                )
-                .child(theme_grid),
-        );
-    }
-    let filtered_rows: Vec<RowItem> = match row_query {
-        None => rows,
-        Some(needle) => rows
-            .into_iter()
-            .filter(|item| {
-                matches_query(&t!(item.label), needle) || matches_query(&t!(item.hint), needle)
-            })
-            .collect(),
-    };
-    for item in filtered_rows {
-        let divider = if card_rows.is_empty() {
-            RowDivider::First
-        } else {
-            RowDivider::Divided
-        };
-        card_rows.push(card_row(divider, item.label, item.hint, item.control));
-    }
-    if card_rows.is_empty() {
-        Vec::new()
-    } else {
-        vec![settings_card("settings.section.appearance", card_rows)]
-    }
+    card_from_rows("settings.section.appearance", query, rows)
+        .into_iter()
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -1414,75 +1429,7 @@ fn reading_cards(live: Live, query: Option<&str>) -> Vec<View> {
             RowItem::new(
                 "settings.reading_theme",
                 "settings.reading_theme_hint",
-                ReadingTheme::ALL.into_iter().fold(
-                    view()
-                        .flex_row()
-                        .flex_wrap()
-                        .justify_end()
-                        .gap(px(6.0))
-                        .max_w(px(380.0)),
-                    |grid, choice| {
-                        let selected = move || reading.reading_theme() == choice;
-                        let palette = move || reading.palette(choice);
-                        let color = |rgb| Hsla::parse_hex(&hex(rgb)).expect("hex() writes #rrggbb");
-                        grid.child(
-                            button()
-                                .accessibility_label(t!(reading_theme_bar::label(choice)))
-                                .on_press(move || reading.set_reading_theme(choice))
-                                .h(px(30.0))
-                                .pl(px(5.0))
-                                .pr(px(9.0))
-                                .flex_row()
-                                .items_center()
-                                .gap(px(6.0))
-                                .rounded(px(7.0))
-                                .border_1()
-                                .border_color(move || {
-                                    if selected() {
-                                        theme().primary
-                                    } else {
-                                        theme().border
-                                    }
-                                })
-                                .bg(move || {
-                                    if selected() {
-                                        theme().accent
-                                    } else {
-                                        theme().background
-                                    }
-                                })
-                                .hover(|s| s.bg(move || theme().accent))
-                                .focus_visible(|s| s.border_color(move || theme().ring))
-                                .child(
-                                    view()
-                                        .w(px(18.0))
-                                        .h(px(18.0))
-                                        .rounded(px(4.0))
-                                        .border_1()
-                                        .border_color(move || theme().border)
-                                        .bg(move || color(palette().paper))
-                                        .items_center()
-                                        .justify_center()
-                                        .child(
-                                            text("A")
-                                                .text_size(px(11.0))
-                                                .font_weight(FontWeight::SEMIBOLD)
-                                                .text_color(move || color(palette().ink)),
-                                        ),
-                                )
-                                .child(
-                                    text(move || t!(reading_theme_bar::label(choice)))
-                                        .text_size(px(12.0))
-                                        .font_weight(if selected() {
-                                            FontWeight::SEMIBOLD
-                                        } else {
-                                            FontWeight::MEDIUM
-                                        })
-                                        .text_color(move || theme().foreground),
-                                ),
-                        )
-                    },
-                ),
+                reading_theme_dropdown(reading),
             ),
             RowItem::new(
                 "settings.reading_custom",
@@ -1660,6 +1607,147 @@ fn reading_cards(live: Live, query: Option<&str>) -> Vec<View> {
         .into_iter()
         .flatten()
         .collect()
+}
+
+/// Compact dropdown selector for the page reading theme right inside Settings.
+fn reading_theme_dropdown(reading: Reading) -> View {
+    let open = signal(false);
+    let swatch = move |choice: ReadingTheme| {
+        let palette = move || reading.palette(choice);
+        let color = |rgb| Hsla::parse_hex(&hex(rgb)).expect("hex() writes #rrggbb");
+        view()
+            .w(px(18.0))
+            .h(px(18.0))
+            .flex_shrink(0.0)
+            .rounded(px(4.0))
+            .border_1()
+            .border_color(move || theme().border)
+            .bg(move || color(palette().paper))
+            .items_center()
+            .justify_center()
+            .child(
+                text("A")
+                    .text_size(px(11.0))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(move || color(palette().ink)),
+            )
+    };
+    let trigger = button()
+        .accessibility_label(t!("settings.reading_theme"))
+        .on_press(move || open.update(|o| *o = !*o))
+        .h(px(34.0))
+        .min_w(px(210.0))
+        .max_w(px(250.0))
+        .px_3()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .gap_2()
+        .rounded(px(CONTROL_RADIUS))
+        .border_1()
+        .border_color(move || theme().border)
+        .bg(move || theme().background)
+        .hover(|s| s.bg(move || theme().accent))
+        .focus_visible(|s| s.border_color(move || theme().ring))
+        .child(dynamic(move || {
+            let active = reading.reading_theme();
+            view()
+                .flex_row()
+                .items_center()
+                .gap(px(8.0))
+                .flex_1()
+                .min_w(px(0.0))
+                .child(swatch(active))
+                .child(
+                    text(move || t!(reading_theme_bar::label(active)))
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .truncate()
+                        .text_size(px(13.0))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(move || theme().popover_foreground),
+                )
+        }))
+        .child(view().flex_shrink(0.0).child(dropdown_arrow()));
+
+    let panel = when(
+        move || open.get(),
+        move || {
+            let list = dynamic(move || {
+                let active = reading.reading_theme();
+                ReadingTheme::ALL
+                    .into_iter()
+                    .fold(view().gap(px(2.0)), |col, choice| {
+                        let selected = active == choice;
+                        col.child(
+                            button()
+                                .accessibility_label(t!(reading_theme_bar::label(choice)))
+                                .on_press(move || {
+                                    reading.set_reading_theme(choice);
+                                    open.set(false);
+                                })
+                                .w_full()
+                                .h(px(32.0))
+                                .px_2p5()
+                                .flex_row()
+                                .items_center()
+                                .justify_between()
+                                .gap_2()
+                                .rounded(px(6.0))
+                                .bg(move || {
+                                    if selected {
+                                        theme().accent
+                                    } else {
+                                        Hsla::transparent_black().into()
+                                    }
+                                })
+                                .hover(|s| s.bg(move || theme().accent))
+                                .focus_visible(|s| s.border_1().border_color(move || theme().ring))
+                                .child(
+                                    view()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap(px(8.0))
+                                        .flex_1()
+                                        .min_w(px(0.0))
+                                        .child(swatch(choice))
+                                        .child(
+                                            text(move || t!(reading_theme_bar::label(choice)))
+                                                .flex_1()
+                                                .min_w(px(0.0))
+                                                .truncate()
+                                                .text_size(px(13.0))
+                                                .font_weight(if selected {
+                                                    FontWeight::SEMIBOLD
+                                                } else {
+                                                    FontWeight::NORMAL
+                                                })
+                                                .text_color(move || theme().foreground),
+                                        ),
+                                )
+                                .child(
+                                    text(if selected { "✓" } else { "" })
+                                        .w(px(14.0))
+                                        .text_size(px(13.0))
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_color(move || theme().primary),
+                                ),
+                        )
+                    })
+            });
+            view()
+                .w(px(240.0))
+                .p(px(6.0))
+                .rounded(px(10.0))
+                .border_1()
+                .border_color(move || theme().border)
+                .bg(move || theme().popover)
+                .shadow_lg()
+                .child(scroll().max_h(px(260.0)).child(list))
+        },
+    );
+
+    view().items_end().gap(px(6.0)).child(trigger).child(panel)
 }
 
 /// Searchable system-font picker for reflowable books (EPUB, FB2, MOBI, HTML, Markdown).
