@@ -17,14 +17,20 @@ use ecclesia_features::read::autoscroll::{DEFAULT_SPEED, SPEEDS};
 use ecclesia_features::read::links::DEFAULT_PROTOCOLS;
 use ecclesia_features::read::ruler::{self, MAX_HEIGHT, MIN_HEIGHT};
 use ecclesia_features::split::Follow;
-use nsh_base::{SliderValue, button, input, number_input, slider, switch, theme, toggle};
+use nsh_base::{
+    ColorChannel, ColorPickerEvent, ColorSpace, SliderValue, button, color_area, color_picker,
+    color_slider, color_swatch, input, number_input, slider, switch, theme, toggle,
+};
 use nsh_core::desktop::WindowKind;
 use nsh_core::element::desktop::{OpenChange, WindowRef, current_window, open_window};
 use nsh_core::keymap::When;
 use nsh_core::platform::Appearance;
 use nsh_core::prelude::*;
 
-use crate::annotate::selection_popup::{ColorPickerIcon, PopupItem, selection_popup_settings_rows};
+use crate::annotate::selection_popup::{
+    ColorPickerIcon, PopupItem, picker_icon_glyph, selected_picker_icon,
+    selection_popup_settings_rows,
+};
 use crate::autoreload::{AUTO_RELOAD_MODE, AutoReloadMode};
 use crate::commands::{COMMANDS, CommandId};
 use crate::home::{
@@ -1434,34 +1440,7 @@ fn reading_cards(live: Live, query: Option<&str>) -> Vec<View> {
             RowItem::new(
                 "settings.reading_custom",
                 "settings.reading_custom_hint",
-                view()
-                    .items_end()
-                    .gap_1()
-                    .child(
-                        view()
-                            .flex_row()
-                            .gap_2()
-                            .child(color_field(
-                                reading,
-                                READING_PAPER,
-                                "settings.reading_paper",
-                                |p| p.paper,
-                            ))
-                            .child(color_field(
-                                reading,
-                                READING_INK,
-                                "settings.reading_ink",
-                                |p| p.ink,
-                            )),
-                    )
-                    // Said in words as well as colour.
-                    .child(text(contrast).text_size(px(12.0)).text_color(move || {
-                        if reading.custom_palette().passes_aa() {
-                            theme().muted_foreground
-                        } else {
-                            theme().destructive
-                        }
-                    })),
+                custom_reading_theme_control(live, reading, contrast),
             ),
         ],
     );
@@ -3810,16 +3789,249 @@ pub(crate) fn segment_owned(
         }))
 }
 
-/// A custom reading-theme colour (`key`): a swatch of it and its `#rrggbb`. What is typed is kept on Return or when
-/// the field loses the focus; text that is no colour is dropped and the kept colour shows again.
+/// Which Custom reading theme slot currently has its inline color picker open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CustomColorSlot {
+    Paper,
+    Ink,
+}
+
+/// Curated quick presets for Paper (day/background) and Ink (night/text) custom reading themes.
+const CUSTOM_PAPER_PRESETS: [Rgb; 8] = [
+    [0xff, 0xff, 0xff],
+    [0xf8, 0xf5, 0xee],
+    [0xf4, 0xec, 0xd8],
+    [0xea, 0xdf, 0xc8],
+    [0xee, 0xf2, 0xf5],
+    [0x1e, 0x1e, 0x1e],
+    [0x14, 0x18, 0x20],
+    [0x1b, 0x17, 0x14],
+];
+
+const CUSTOM_INK_PRESETS: [Rgb; 8] = [
+    [0x1a, 0x1a, 0x1a],
+    [0x00, 0x00, 0x00],
+    [0x3b, 0x2f, 0x24],
+    [0x1f, 0x29, 0x37],
+    [0xe5, 0xe7, 0xeb],
+    [0xf3, 0xe9, 0xd2],
+    [0xd8, 0xde, 0xe9],
+    [0xff, 0xff, 0xff],
+];
+
+fn rgb_to_hsla([r, g, b]: Rgb) -> Hsla {
+    Hsla::from(nsh_core::color::rgb(
+        u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b),
+    ))
+}
+
+fn hsla_to_rgb(color: Hsla) -> Rgb {
+    let rgba = Rgba::from(color);
+    let ch = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    [ch(rgba.r), ch(rgba.g), ch(rgba.b)]
+}
+
+/// Custom reading theme control: Paper (day/background) & Ink (night/text) hex inputs paired with
+/// clickable color picker icons (matching the selection popup's chosen picker icon) and an inline
+/// interactive color picker panel that inserts the chosen `#rrggbb` code directly into the box.
+fn custom_reading_theme_control(
+    live: Live,
+    reading: Reading,
+    contrast: impl Fn() -> String + Copy + 'static,
+) -> impl IntoElement {
+    let active_picker = signal(None::<CustomColorSlot>);
+    let typed_paper = signal(None::<String>);
+    let typed_ink = signal(None::<String>);
+
+    let toggle_slot = move |slot: CustomColorSlot| {
+        active_picker.update(|cur| {
+            *cur = if *cur == Some(slot) { None } else { Some(slot) };
+        });
+    };
+
+    view()
+        .items_end()
+        .gap_2()
+        .child(
+            view()
+                .flex_row()
+                .flex_wrap()
+                .justify_end()
+                .gap_3()
+                .child(color_field(
+                    live,
+                    reading,
+                    READING_PAPER,
+                    "settings.reading_paper",
+                    |p| p.paper,
+                    typed_paper,
+                    move || active_picker.get() == Some(CustomColorSlot::Paper),
+                    move || toggle_slot(CustomColorSlot::Paper),
+                ))
+                .child(color_field(
+                    live,
+                    reading,
+                    READING_INK,
+                    "settings.reading_ink",
+                    |p| p.ink,
+                    typed_ink,
+                    move || active_picker.get() == Some(CustomColorSlot::Ink),
+                    move || toggle_slot(CustomColorSlot::Ink),
+                )),
+        )
+        // Said in words as well as colour.
+        .child(text(contrast).text_size(px(12.0)).text_color(move || {
+            if reading.custom_palette().passes_aa() {
+                theme().muted_foreground
+            } else {
+                theme().destructive
+            }
+        }))
+        .child(when(
+            move || active_picker.get().is_some(),
+            move || {
+                let is_paper = move || active_picker.get() == Some(CustomColorSlot::Paper);
+                let current_rgb = move || {
+                    let palette = reading.custom_palette();
+                    if is_paper() {
+                        palette.paper
+                    } else {
+                        palette.ink
+                    }
+                };
+                let apply_rgb = move |color: Rgb| {
+                    let slot = active_picker
+                        .get_untracked()
+                        .unwrap_or(CustomColorSlot::Paper);
+                    match slot {
+                        CustomColorSlot::Paper => {
+                            typed_paper.set(None);
+                            reading.set_custom_color(READING_PAPER, Some(color));
+                        }
+                        CustomColorSlot::Ink => {
+                            typed_ink.set(None);
+                            reading.set_custom_color(READING_INK, Some(color));
+                        }
+                    }
+                };
+                let presets = dynamic(move || {
+                    let list = if is_paper() {
+                        CUSTOM_PAPER_PRESETS
+                    } else {
+                        CUSTOM_INK_PRESETS
+                    };
+                    list.into_iter()
+                        .fold(view().flex_row().flex_wrap().gap_2(), |row, preset| {
+                            let hex_code = hex(preset);
+                            row.child(
+                                color_swatch()
+                                    .color(move || Some(rgb_to_hsla(preset)))
+                                    .accessibility_label(hex_code)
+                                    .size(px(22.0))
+                                    .rounded_full()
+                                    .border_1()
+                                    .border_color(move || theme().border)
+                                    .selected_style(|s| {
+                                        s.border_2().border_color(move || theme().foreground)
+                                    }),
+                            )
+                        })
+                });
+                view()
+                    .w(px(300.0))
+                    .p(px(12.0))
+                    .gap_2p5()
+                    .rounded(px(10.0))
+                    .bg(move || theme().popover)
+                    .border_1()
+                    .border_color(move || theme().border)
+                    .child(
+                        view()
+                            .flex_row()
+                            .items_center()
+                            .justify_between()
+                            .child(
+                                text(move || {
+                                    if is_paper() {
+                                        t!("settings.reading_picker_paper")
+                                    } else {
+                                        t!("settings.reading_picker_ink")
+                                    }
+                                })
+                                .text_size(px(12.5))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(move || theme().popover_foreground),
+                            )
+                            .child(
+                                button()
+                                    .accessibility_label(t!("settings.reading_picker_done"))
+                                    .on_press(move || active_picker.set(None))
+                                    .h(px(24.0))
+                                    .px_2()
+                                    .rounded(px(6.0))
+                                    .items_center()
+                                    .justify_center()
+                                    .hover(|s| s.bg(move || theme().accent))
+                                    .child(
+                                        text(move || t!("settings.reading_picker_done"))
+                                            .text_size(px(11.5))
+                                            .font_weight(FontWeight::MEDIUM)
+                                            .text_color(move || theme().muted_foreground),
+                                    ),
+                            ),
+                    )
+                    .child(
+                        color_picker()
+                            .value(move || Some(rgb_to_hsla(current_rgb())))
+                            .on_change(move |event: &ColorPickerEvent| {
+                                if let ColorPickerEvent::Change(value, _) = event {
+                                    apply_rgb(hsla_to_rgb(*value));
+                                }
+                            })
+                            .child(
+                                view()
+                                    .gap_2p5()
+                                    .child(
+                                        color_area()
+                                            .accessibility_label(t!("annotation_colors.area"))
+                                            .w_full()
+                                            .h(px(132.0)),
+                                    )
+                                    .child(
+                                        color_slider()
+                                            .color_space(ColorSpace::Hsb)
+                                            .channel(ColorChannel::Hue)
+                                            .accessibility_label(t!("annotation_colors.hue"))
+                                            .w_full()
+                                            .h(px(20.0))
+                                            .justify_center(),
+                                    )
+                                    .child(
+                                        text(move || t!("settings.reading_picker_presets"))
+                                            .text_size(px(11.5))
+                                            .text_color(move || theme().muted_foreground),
+                                    )
+                                    .child(presets),
+                            ),
+                    )
+            },
+        ))
+}
+
+/// A custom reading-theme colour (`key`): a clickable swatch, `#rrggbb` / `rgb(...)` input, and
+/// color picker icon button matching the text-selection popup.
+#[allow(clippy::too_many_arguments)]
 fn color_field(
+    live: Live,
     reading: Reading,
     key: &'static str,
     label: &'static str,
     of: fn(Palette) -> Rgb,
+    typed: Signal<Option<String>>,
+    picker_open: impl Fn() -> bool + Copy + 'static,
+    on_toggle_picker: impl Fn() + Copy + 'static,
 ) -> impl IntoElement {
     let kept = move || of(reading.custom_palette());
-    let typed = signal(None::<String>);
     let keep = move || {
         let Some(text) = typed.get_untracked() else {
             return;
@@ -3832,15 +4044,24 @@ fn color_field(
     view()
         .flex_row()
         .items_center()
-        .gap_2()
+        .gap_1p5()
         .child(
-            view()
-                .w(px(20.0))
-                .h(px(20.0))
-                .rounded(px(4.0))
+            button()
+                .accessibility_label(t!("settings.reading_pick_color", name = t!(label)))
+                .on_press(on_toggle_picker)
+                .w(px(24.0))
+                .h(px(24.0))
+                .rounded(px(5.0))
                 .border_1()
-                .border_color(move || theme().border)
-                .bg(move || Hsla::parse_hex(&hex(kept())).expect("hex() writes #rrggbb")),
+                .border_color(move || {
+                    if picker_open() {
+                        theme().ring
+                    } else {
+                        theme().border
+                    }
+                })
+                .bg(move || Hsla::parse_hex(&hex(kept())).expect("hex() writes #rrggbb"))
+                .hover(|s| s.opacity(0.9)),
         )
         .child(
             input()
@@ -3849,7 +4070,7 @@ fn color_field(
                 .on_submit(move |_: &str| keep())
                 .on_blur(keep)
                 .label(t!(label))
-                .w(px(92.0))
+                .w(px(88.0))
                 .h(px(32.0))
                 .px_2()
                 .rounded(px(CONTROL_RADIUS))
@@ -3859,6 +4080,35 @@ fn color_field(
                 .text_size(px(13.0))
                 .tabular_nums()
                 .text_color(move || theme().popover_foreground),
+        )
+        .child(
+            button()
+                .accessibility_label(t!("settings.reading_pick_color", name = t!(label)))
+                .on_press(on_toggle_picker)
+                .w(px(32.0))
+                .h(px(32.0))
+                .rounded(px(CONTROL_RADIUS))
+                .border_1()
+                .border_color(move || {
+                    if picker_open() {
+                        theme().ring
+                    } else {
+                        theme().input
+                    }
+                })
+                .bg(move || {
+                    if picker_open() {
+                        theme().accent
+                    } else {
+                        theme().background
+                    }
+                })
+                .items_center()
+                .justify_center()
+                .hover(|s| s.bg(move || theme().accent))
+                .child(dynamic(move || {
+                    picker_icon_glyph(live.read(selected_picker_icon), 18.0)
+                })),
         )
 }
 

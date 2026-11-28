@@ -21,7 +21,7 @@ use ecclesia_features::home::{
 };
 use ecclesia_store::recent::RecentFile;
 use ecclesia_store::workspaces::Workspace;
-use nsh_base::{button, input, number_input, theme};
+use nsh_base::{button, context_menu, input, menu_item, menu_separator, number_input, theme};
 use nsh_core::color::{rgb, rgba, white};
 use nsh_core::prelude::*;
 
@@ -30,7 +30,7 @@ use crate::panes::Shared;
 use crate::recent::RecentState;
 use crate::settings::{Live, Settings};
 use crate::study_ui::{HomeStudySummary, home_study_summary};
-use crate::tabs::{TabState, pin_mark_sized};
+use crate::tabs::{TabState, pin_mark_sized, reveal_in_folder};
 use crate::workspaces::{Workspaces, color_dot, display_name};
 
 /// `settings.toml` key for Home design style: `"enhanced_warm"` (default), `"modern_green"`, or `"classic_clean"`.
@@ -91,6 +91,7 @@ const ICON_PAGE_FULL: &[u8] = include_bytes!("../assets/icons/home-page-full.svg
 struct HomeStyleProps {
     recent: RecentState,
     covers: Covers,
+    tabs: TabState,
     live: Live,
     style: fn(&Settings) -> HomeDesignStyle,
 }
@@ -383,22 +384,40 @@ pub(crate) fn filter_and_partition(
     (active, completed)
 }
 
+/// Persistent cover cache folder beside `library.db` (falling back to NSH `data_dir` or temp).
+fn cover_cache_dir() -> PathBuf {
+    crate::settings::folder()
+        .or_else(data_dir)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("covers")
+}
+
+type CoverKey = (PathBuf, bool);
+type CoverSlot = Signal<Option<SharedString>>;
+
 /// Asynchronous cover thumbnail cache for recent documents, keyed by `(path, full_page)`.
+///
+/// Captures the window-level [`Owner`] on creation and maintains an independent signal per
+/// `(path, full_page)` slot so finishing one cover never re-runs other cards' `when(...)` effects
+/// or cancels in-flight background cover renders.
 #[derive(Clone, Copy)]
 pub(crate) struct Covers {
-    /// Each rendered cover's file, separated into top-cropped (`false`) and whole-page (`true`).
-    ready: Signal<HashMap<(PathBuf, bool), SharedString>>,
-    /// The `(path, full_page)` covers already requested, rendered or not.
-    asked: Stored<HashSet<(PathBuf, bool)>>,
+    /// Window-level reactive owner so background cover render tasks outlive per-card `when` effects.
+    owner: Stored<Owner>,
+    /// Independent per-`(path, full_page)` signal populated once that cover PNG is ready on disk.
+    slots: Stored<HashMap<CoverKey, CoverSlot>>,
+    /// `(path, full_page)` keys already requested, rendered or in-flight.
+    asked: Stored<HashSet<CoverKey>>,
     /// The renders under way: they live as long as the window.
     running: Stored<Vec<Spawned<()>>>,
 }
 
 impl Covers {
-    /// Creates an empty per-window cover cache.
+    /// Creates an empty per-window cover cache anchored to the current (window) reactive owner.
     pub(crate) fn new() -> Self {
         Self {
-            ready: signal(HashMap::new()),
+            owner: stored(Owner::current()),
+            slots: stored(HashMap::new()),
             asked: stored(HashSet::new()),
             running: stored(Vec::new()),
         }
@@ -413,99 +432,138 @@ impl Covers {
     /// whole-page (`full_page == true`, `530×750` fit) mode; schedules rendering off the UI thread.
     pub(crate) fn of_mode(self, path: &Path, full_page: bool) -> Option<SharedString> {
         let key = (path.to_owned(), full_page);
-        if self.asked.with(|asked| asked.insert(key.clone())) {
-            untracked(|| self.start(path.to_owned(), full_page));
+        let slot = self.slots.with(|slots| {
+            *slots
+                .entry(key.clone())
+                .or_insert_with(|| self.owner.with(|owner| owner.run(|| signal(None))))
+        });
+        if self.asked.with(|asked| asked.insert(key)) {
+            self.start(path.to_owned(), full_page, slot);
         }
-        self.ready.with(|ready| ready.get(&key).cloned())
+        slot.get()
     }
 
-    /// Resolves cached cover or renders page 0 on a background thread.
-    fn start(self, path: PathBuf, full_page: bool) {
-        let ready = self.ready;
-        let show = move |path: PathBuf, file: &Path| {
+    /// Evicts cached cover entries and disk PNGs for `path` (e.g., when removed from history or deleted).
+    pub(crate) fn evict(self, path: &Path) {
+        let covers_dir = cover_cache_dir();
+        let meta = fs::metadata(path).ok();
+        for full_page in [false, true] {
+            let key = (path.to_owned(), full_page);
+            self.asked.with(|asked| asked.remove(&key));
+            let existing = self.slots.with(|slots| slots.get(&key).copied());
+            if let Some(slot) = existing {
+                if let Some(cached_path) = slot.get_untracked() {
+                    let _ = fs::remove_file(cached_path.as_ref());
+                }
+                slot.set(None);
+            }
+            if let Some(meta) = &meta {
+                let modified = meta
+                    .modified()
+                    .ok()
+                    .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                    .map_or(0, |since| since.as_secs());
+                let out =
+                    covers_dir.join(cover_name_for_mode(path, meta.len(), modified, full_page));
+                let _ = fs::remove_file(out);
+            }
+        }
+    }
+
+    /// Resolves cached cover or renders page 0 on a background thread under the window owner.
+    fn start(self, path: PathBuf, full_page: bool, slot: Signal<Option<SharedString>>) {
+        let asked = self.asked;
+        let show = move |file: &Path| {
             let file = SharedString::from(file.to_string_lossy().into_owned());
-            ready.update(|ready| {
-                ready.insert((path, full_page), file);
-            });
+            slot.set(Some(file));
         };
-        let covers_dir = data_dir().unwrap_or_else(std::env::temp_dir).join("covers");
-        let task = spawn(async move {
-            let meta_out = blocking({
-                let path = path.clone();
-                move || {
-                    let meta = fs::metadata(&path).ok()?;
-                    if !meta.is_file() {
-                        return None;
+        let covers_dir = cover_cache_dir();
+        let task = self.owner.with(|owner| {
+            owner.run(|| {
+                spawn(async move {
+                    let meta_out = blocking({
+                        let path = path.clone();
+                        move || {
+                            let meta = fs::metadata(&path).ok()?;
+                            if !meta.is_file() {
+                                return None;
+                            }
+                            let modified = meta
+                                .modified()
+                                .ok()
+                                .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                                .map_or(0, |since| since.as_secs());
+                            let out = covers_dir.join(cover_name_for_mode(
+                                &path,
+                                meta.len(),
+                                modified,
+                                full_page,
+                            ));
+                            let cached = out.is_file();
+                            Some((out, cached))
+                        }
+                    })
+                    .await;
+                    let Ok(Some((out, cached))) = meta_out else {
+                        return;
+                    };
+                    if cached {
+                        show(&out);
+                        return;
                     }
-                    let modified = meta
-                        .modified()
-                        .ok()
-                        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-                        .map_or(0, |since| since.as_secs());
-                    let out = covers_dir.join(cover_name_for_mode(
-                        &path,
-                        meta.len(),
-                        modified,
-                        full_page,
-                    ));
-                    let cached = out.is_file();
-                    Some((out, cached))
-                }
+                    let opened = blocking({
+                        let path = path.clone();
+                        move || {
+                            let open_path = crate::expdf::resolve_open_path(&path);
+                            let document = Arc::new(Document::open(&open_path)?);
+                            let mupdf = document.mupdf()?;
+                            Ok::<_, ecclesia_core::document::Error>((document, mupdf))
+                        }
+                    })
+                    .await;
+                    let (document, mupdf) = match opened {
+                        Ok(Ok(opened)) => opened,
+                        Ok(Err(err)) => {
+                            log::info!("home: no cover for {}: {err}", path.display());
+                            return;
+                        }
+                        Err(err) => {
+                            log::warn!("home: opening {} failed: {err}", path.display());
+                            return;
+                        }
+                    };
+                    let max_h = if full_page {
+                        THUMB_MAX_FULL_HEIGHT
+                    } else {
+                        THUMB_MAX_CROPPED_HEIGHT
+                    };
+                    match thumbnail::render_cover(
+                        pool(),
+                        &document,
+                        mupdf,
+                        0,
+                        THUMB_MAX_WIDTH,
+                        max_h,
+                        !full_page,
+                        out,
+                    )
+                    .await
+                    {
+                        Ok(Ok(file)) => show(&file),
+                        Ok(Err(err)) => {
+                            log::warn!("home: cannot save the cover of {}: {err}", path.display())
+                        }
+                        Err(err) if err.is_aborted() => {
+                            asked.with(|set| {
+                                set.remove(&(path, full_page));
+                            });
+                        }
+                        Err(err) => {
+                            log::warn!("home: cannot draw the cover of {}: {err}", path.display());
+                        }
+                    }
+                })
             })
-            .await;
-            let Ok(Some((out, cached))) = meta_out else {
-                return;
-            };
-            if cached {
-                show(path, &out);
-                return;
-            }
-            let opened = blocking({
-                let path = path.clone();
-                move || {
-                    let document = Arc::new(Document::open(&path)?);
-                    let mupdf = document.mupdf()?;
-                    Ok::<_, ecclesia_core::document::Error>((document, mupdf))
-                }
-            })
-            .await;
-            let (document, mupdf) = match opened {
-                Ok(Ok(opened)) => opened,
-                Ok(Err(err)) => {
-                    log::info!("home: no cover for {}: {err}", path.display());
-                    return;
-                }
-                Err(err) => {
-                    log::warn!("home: opening {} failed: {err}", path.display());
-                    return;
-                }
-            };
-            let max_h = if full_page {
-                THUMB_MAX_FULL_HEIGHT
-            } else {
-                THUMB_MAX_CROPPED_HEIGHT
-            };
-            match thumbnail::render_cover(
-                pool(),
-                &document,
-                mupdf,
-                0,
-                THUMB_MAX_WIDTH,
-                max_h,
-                !full_page,
-                out,
-            )
-            .await
-            {
-                Ok(Ok(file)) => show(path, &file),
-                Ok(Err(err)) => {
-                    log::warn!("home: cannot save the cover of {}: {err}", path.display())
-                }
-                Err(err) if !err.is_aborted() => {
-                    log::warn!("home: cannot draw the cover of {}: {err}", path.display());
-                }
-                Err(_) => {}
-            }
         });
         self.running.with(|running| running.push(task));
     }
@@ -596,6 +654,7 @@ pub(crate) fn home_page(
     let props = HomeStyleProps {
         recent,
         covers,
+        tabs,
         live,
         style: design_style_of,
     };
@@ -1693,7 +1752,7 @@ fn thumbnail_card(
             move || recent.remove(path_remove.clone()),
         ));
 
-    view()
+    let card = view()
         .w(move || px(card_w() + if thumb_padding() { 20.0 } else { 0.0 }))
         .flex_shrink(0.0)
         .rounded(px(16.0))
@@ -1713,7 +1772,9 @@ fn thumbnail_card(
                 .w_full()
                 .child(cover_box),
         )
-        .child(footer)
+        .child(footer);
+
+    home_document_context_menu(file, props, open_file, card)
 }
 
 fn list_row(
@@ -1741,7 +1802,7 @@ fn list_row(
     let path_done = path.clone();
     let path_remove = path.clone();
 
-    view()
+    let row = view()
         .w_full()
         .flex_row()
         .items_center()
@@ -1858,7 +1919,230 @@ fn list_row(
             12.0,
             13.0,
             move || recent.remove(path_remove.clone()),
+        ));
+
+    home_document_context_menu(file, props, open_file, row)
+}
+
+/// SumatraPDF Enhanced-parity right-click context menu for any Home page document card or list row:
+/// Open Document, Show in folder, Copy file path, Move to Completed / Return to Recent Documents,
+/// Pin / Unpin Document, Remove From History, and Delete File (to Recycle Bin).
+fn home_document_context_menu(
+    file: RecentFile,
+    props: HomeStyleProps,
+    open_file: impl Fn(PathBuf, usize) + Copy + 'static,
+    trigger: impl IntoElement,
+) -> impl IntoElement {
+    let recent = props.recent;
+    let covers = props.covers;
+    let tabs = props.tabs;
+    let path = file.path.clone();
+    let page = file.page;
+    let pinned = file.pinned;
+    let completed = file.completed;
+
+    let path_open = path.clone();
+    let path_folder = path.clone();
+    let path_copy = path.clone();
+    let path_completed = path.clone();
+    let path_pin = path.clone();
+    let path_remove = path.clone();
+    let path_delete = path.clone();
+
+    let item_row = |label: String, destructive: bool, select: Box<dyn Fn()>| {
+        menu_item()
+            .on_select(select)
+            .accessibility_label(label.clone())
+            .flex_row()
+            .items_center()
+            .gap_2()
+            .h(px(30.0))
+            .px_2p5()
+            .rounded(px(6.0))
+            .hover(|s| s.bg(move || theme().accent))
+            .focus(|s| s.bg(move || theme().accent))
+            .child(
+                text(label)
+                    .flex_1()
+                    .text_size(px(13.0))
+                    .text_color(move || {
+                        if destructive {
+                            theme().destructive
+                        } else {
+                            theme().popover_foreground
+                        }
+                    }),
+            )
+    };
+
+    let pin_row = {
+        let label = if pinned {
+            t!("home.menu.unpin")
+        } else {
+            t!("home.menu.pin")
+        };
+        menu_item()
+            .checked(pinned)
+            .on_select(move || recent.set_pinned(path_pin.clone(), !pinned))
+            .accessibility_label(label.clone())
+            .flex_row()
+            .items_center()
+            .gap_2()
+            .h(px(30.0))
+            .px_2p5()
+            .rounded(px(6.0))
+            .hover(|s| s.bg(move || theme().accent))
+            .focus(|s| s.bg(move || theme().accent))
+            .child(pin_mark_sized(14.0, move || theme().popover_foreground))
+            .child(
+                text(label)
+                    .flex_1()
+                    .text_size(px(13.0))
+                    .text_color(move || theme().popover_foreground),
+            )
+    };
+
+    let completed_label = if completed {
+        t!("home.menu.return_to_recent")
+    } else {
+        t!("home.menu.move_to_completed")
+    };
+
+    context_menu()
+        .trigger(trigger)
+        .popup_class("w-64 p-1 rounded-lg border border-border bg-popover shadow-lg")
+        .child(item_row(
+            t!("home.menu.open"),
+            false,
+            Box::new(move || open_file(path_open.clone(), page)),
         ))
+        .child(item_row(
+            t!("home.menu.show_in_folder"),
+            false,
+            Box::new(move || reveal_in_folder(&path_folder)),
+        ))
+        .child(item_row(
+            t!("home.menu.copy_path"),
+            false,
+            Box::new(move || {
+                drop(set_clipboard(path_copy.to_string_lossy().into_owned()));
+            }),
+        ))
+        .child(item_row(
+            completed_label,
+            false,
+            Box::new(move || recent.set_completed(path_completed.clone(), !completed)),
+        ))
+        .child(pin_row)
+        .child(
+            menu_separator()
+                .h(px(1.0))
+                .my(px(4.0))
+                .bg(move || theme().border),
+        )
+        .child(item_row(
+            t!("home.menu.remove_from_history"),
+            false,
+            Box::new(move || {
+                covers.evict(&path_remove);
+                recent.remove(path_remove.clone());
+            }),
+        ))
+        .child(item_row(
+            t!("home.menu.delete_file"),
+            true,
+            Box::new(move || {
+                if !tabs.close_path_if_clean(&path_delete) {
+                    return;
+                }
+                let target = path_delete.clone();
+                if !target.exists() {
+                    covers.evict(&target);
+                    recent.remove(target);
+                    return;
+                }
+                covers.evict(&target);
+                covers.owner.with(|owner| {
+                    owner.run(|| {
+                        let task = spawn(async move {
+                            let deleted = blocking({
+                                let target = target.clone();
+                                move || move_to_trash(&target)
+                            })
+                            .await
+                            .unwrap_or(false);
+                            if deleted || !target.exists() {
+                                recent.remove(target);
+                            }
+                        });
+                        covers.running.with(|running| running.push(task));
+                    });
+                });
+            }),
+        ))
+}
+
+/// Moves `path` to the operating system's Recycle Bin / Trash (matching SumatraPDF Enhanced's
+/// `DeleteFileToTrash`). Returns `true` if the file was moved to Trash.
+fn move_to_trash(path: &Path) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let script = "Add-Type -AssemblyName Microsoft.VisualBasic; \
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\
+                $env:ECCLESIA_TRASH_PATH, \
+                'OnlyErrorDialogs', \
+                'SendToRecycleBin')";
+        match std::process::Command::new("powershell.exe")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
+                "-Command",
+                script,
+            ])
+            .env("ECCLESIA_TRASH_PATH", path)
+            .creation_flags(CREATE_NO_WINDOW)
+            .status()
+        {
+            Ok(status) if status.success() => true,
+            Ok(status) => {
+                log::warn!(
+                    "home: moving {} to Recycle Bin exited with {status}",
+                    path.display()
+                );
+                false
+            }
+            Err(err) => {
+                log::warn!(
+                    "home: failed to move {} to Recycle Bin: {err}",
+                    path.display()
+                );
+                false
+            }
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let script = r#"on run argv
+            tell application "Finder" to delete POSIX file (item 1 of argv)
+        end run"#;
+        std::process::Command::new("osascript")
+            .args(["-e", script, "--"])
+            .arg(path)
+            .status()
+            .is_ok_and(|s| s.success())
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("gio")
+            .arg("trash")
+            .arg(path)
+            .status()
+            .is_ok_and(|s| s.success())
+    }
 }
 
 /// The workspaces, each a chip with its colour, icon, name and tab count; pressing one switches to it.

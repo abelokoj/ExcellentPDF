@@ -2375,5 +2375,19 @@
   "annotate.popup.comment_title": "Quick comment",
   "annotate.popup.comment_placeholder": "Add a note about this highlight…",
   "annotate.popup.comment_save": "Save",
-  "annotate.popup.comment_cancel": "Cancel"
+  "annotate.popup.comment_cancel": "Cancel",
+  "home.menu.open": "Open Document",
+  "home.menu.show_in_folder": "Show in folder",
+  "home.menu.copy_path": "Copy file path",
+  "home.menu.move_to_completed": "Move to Completed Documents",
+  "home.menu.return_to_recent": "Return to Recent Documents",
+  "home.menu.pin": "Pin Document",
+  "home.menu.unpin": "Unpin Document",
+  "home.menu.remove_from_history": "Remove From History",
+  "home.menu.delete_file": "Delete File",
+  "settings.reading_pick_color": "Pick %{name} colour",
+  "settings.reading_picker_paper": "Paper (background) colour",
+  "settings.reading_picker_ink": "Ink (text) colour",
+  "settings.reading_picker_done": "Done",
+  "settings.reading_picker_presets": "Quick presets"
 }

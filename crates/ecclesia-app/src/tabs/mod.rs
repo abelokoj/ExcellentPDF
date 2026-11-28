@@ -432,6 +432,23 @@ impl TabState {
         self.tabs.update(|tabs| tabs.set_tab_color(id, color));
     }
 
+    /// Closes any open tab showing `path` if it has no unsaved edits. Returns `false` if a matching
+    /// tab has unsaved changes (leaving it open so work is not lost).
+    pub(crate) fn close_path_if_clean(self, path: &std::path::Path) -> bool {
+        let open = self.tabs.with_untracked(|tabs| {
+            tabs.find(path)
+                .and_then(|id| tabs.get(id).map(|t| (id, t.dirty)))
+        });
+        match open {
+            Some((_, true)) => false,
+            Some((id, false)) => {
+                self.close(id);
+                true
+            }
+            None => true,
+        }
+    }
+
     /// Reveals the file of tab `id` in the OS file manager.
     pub(crate) fn show_in_folder(self, id: TabId) {
         if let Some(path) = self
@@ -1086,7 +1103,7 @@ impl Restore {
 }
 
 /// Opens the OS file manager selecting `path` (or its parent folder on Linux).
-fn reveal_in_folder(path: &std::path::Path) {
+pub(crate) fn reveal_in_folder(path: &std::path::Path) {
     #[cfg(target_os = "windows")]
     {
         if let Err(err) = std::process::Command::new("explorer.exe")

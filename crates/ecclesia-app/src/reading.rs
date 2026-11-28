@@ -378,8 +378,21 @@ impl DocumentColors {
 }
 
 /// `#rrggbb` (either case) as a colour.
+/// Parses `#rrggbb` or `rgb(r, g, b)` into an `[r, g, b]` triple.
 pub(crate) fn parse_hex(text: &str) -> Option<Rgb> {
-    let hex = text.trim().strip_prefix('#').filter(|hex| hex.len() == 6)?;
+    let trimmed = text.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix("rgb(")
+        .or_else(|| trimmed.strip_prefix("RGB("))
+        .and_then(|rest| rest.strip_suffix(')'))
+    {
+        let mut parts = inner.split(',').map(|s| s.trim().parse::<u8>().ok());
+        let r = parts.next()??;
+        let g = parts.next()??;
+        let b = parts.next()??;
+        return parts.next().is_none().then_some([r, g, b]);
+    }
+    let hex = trimmed.strip_prefix('#').filter(|hex| hex.len() == 6)?;
     let value = u32::from_str_radix(hex, 16).ok()?;
     Some([16, 8, 0].map(|shift| ((value >> shift) & 0xff) as u8))
 }
@@ -410,9 +423,11 @@ mod tests {
     #[test]
     fn hex_colours_round_trip() {
         assert_eq!(parse_hex("#F4ecD8"), Some([0xf4, 0xec, 0xd8]));
+        assert_eq!(parse_hex("rgb(244, 236, 216)"), Some([0xf4, 0xec, 0xd8]));
         assert_eq!(hex([0xf4, 0xec, 0xd8]), "#f4ecd8");
         assert_eq!(parse_hex("f4ecd8"), None);
         assert_eq!(parse_hex("#fff"), None);
         assert_eq!(parse_hex("#f4ecdz"), None);
+        assert_eq!(parse_hex("rgb(300, 0, 0)"), None);
     }
 }

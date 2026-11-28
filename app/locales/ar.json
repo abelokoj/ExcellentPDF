@@ -2375,5 +2375,19 @@
   "annotate.popup.comment_title": "تعليق سريع",
   "annotate.popup.comment_placeholder": "أضف ملاحظة حول هذا التظليل…",
   "annotate.popup.comment_save": "حفظ",
-  "annotate.popup.comment_cancel": "إلغاء"
+  "annotate.popup.comment_cancel": "إلغاء",
+  "home.menu.open": "فتح المستند",
+  "home.menu.show_in_folder": "إظهار في المجلد",
+  "home.menu.copy_path": "نسخ مسار الملف",
+  "home.menu.move_to_completed": "نقل إلى المستندات المكتملة",
+  "home.menu.return_to_recent": "إرجاع إلى المستندات الأخيرة",
+  "home.menu.pin": "تثبيت المستند",
+  "home.menu.unpin": "إلغاء تثبيت المستند",
+  "home.menu.remove_from_history": "إزالة من السجل",
+  "home.menu.delete_file": "حذف الملف",
+  "settings.reading_pick_color": "اختيار لون %{name}",
+  "settings.reading_picker_paper": "لون الورق (الخلفية)",
+  "settings.reading_picker_ink": "لون الحبر (النص)",
+  "settings.reading_picker_done": "تم",
+  "settings.reading_picker_presets": "ألوان جاهزة"
 }
