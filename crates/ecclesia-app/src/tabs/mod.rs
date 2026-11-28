@@ -33,7 +33,7 @@ pub(crate) use groups::{GroupColor, GroupId};
 pub(crate) use list::tab_list;
 pub(crate) use model::{Closed, Cycle, Step, TabId, Tabs};
 pub(crate) use properties::properties_dialog;
-pub(crate) use strip::{home_icon_src, pin_mark, tab_strip};
+pub(crate) use strip::{home_icon_src, pin_mark_sized, tab_strip};
 
 /// `settings.toml`'s key for the order Ctrl+Tab goes through the tabs in: `"recent"` (the default) or `"strip"`.
 pub(crate) const TAB_CYCLE_ORDER: &str = "tab_cycle_order";

@@ -1186,14 +1186,37 @@ fn close_button(
         ))
 }
 
-/// The mark of something pinned (a tab, a recent file): a small filled disc on a stem, drawn from views in `color`.
-pub(crate) fn pin_mark(color: impl Fn() -> AdaptiveColor + Copy + 'static) -> impl IntoElement {
-    view()
-        .items_center()
+/// SumatraPDF Enhanced soft pushpin SVG (`PinIconStyle::Soft`, rotated 38°).
+const PIN_ICON_SVG: &[u8] = include_bytes!("../../assets/icons/pin.svg");
+
+fn pin_icon_src() -> String {
+    static SRC: OnceLock<String> = OnceLock::new();
+    SRC.get_or_init(|| {
+        format!(
+            "data:image/svg+xml;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(PIN_ICON_SVG)
+        )
+    })
+    .clone()
+}
+
+/// The SumatraPDF Enhanced soft pushpin icon at `size` px, tinted in `color`.
+pub(crate) fn pin_mark_sized(
+    size: f32,
+    color: impl Fn() -> AdaptiveColor + Copy + 'static,
+) -> impl IntoElement {
+    image(pin_icon_src())
+        .w(px(size))
+        .h(px(size))
         .flex_shrink(0.0)
+        .object_fit(ResizeMode::Contain)
+        .tint_color(color)
         .accessibility_elements_hidden(true)
-        .child(view().w(px(7.0)).h(px(7.0)).rounded_full().bg(color))
-        .child(view().w(px(1.5)).h(px(5.0)).bg(color))
+}
+
+/// The mark of something pinned (a tab, a recent file): the SumatraPDF Enhanced soft pushpin in `color`.
+pub(crate) fn pin_mark(color: impl Fn() -> AdaptiveColor + Copy + 'static) -> impl IntoElement {
+    pin_mark_sized(14.0, color)
 }
 
 /// Compact overflow indicator (`+N`) opening the searchable tab list when more tabs are open than fit in the strip.

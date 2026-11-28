@@ -3,8 +3,21 @@
 
 use std::path::Path;
 
-/// The pixel width covers are rendered at: sharp at 200 % display scale for the widest cover the page draws.
+/// The pixel width covers are rendered at for compact/legacy uses.
 pub const COVER_WIDTH: u32 = 192;
+
+/// SumatraPDF Enhanced home thumbnail base width at 100% scale (`212 px`).
+pub const THUMB_BASE_WIDTH: u32 = 212;
+/// SumatraPDF Enhanced top-cropped half-page thumbnail height at 100% scale (`150 px`, `√2 : 1`).
+pub const THUMB_CROPPED_HEIGHT: u32 = 150;
+/// SumatraPDF Enhanced whole-page thumbnail height at 100% scale (`300 px`, `1 : √2`, exact `2×` cropped height).
+pub const THUMB_FULL_HEIGHT: u32 = 300;
+/// Maximum home thumbnail render width at 250% zoom (`530 px`).
+pub const THUMB_MAX_WIDTH: u32 = THUMB_BASE_WIDTH * 250 / 100;
+/// Maximum top-cropped half-page thumbnail render height at 250% zoom (`375 px`).
+pub const THUMB_MAX_CROPPED_HEIGHT: u32 = THUMB_CROPPED_HEIGHT * 250 / 100;
+/// Maximum whole-page thumbnail render height at 250% zoom (`750 px`).
+pub const THUMB_MAX_FULL_HEIGHT: u32 = THUMB_FULL_HEIGHT * 250 / 100;
 
 /// The file to continue reading: the one shown last, of those `exists` finds. `files` are `(path, last shown)`
 /// pairs, the time in any unit that grows.
@@ -38,6 +51,16 @@ pub fn cover_name(path: &Path, len: u64, modified: u64) -> String {
     hash.write(&len.to_le_bytes());
     hash.write(&modified.to_le_bytes());
     format!("cover-{:016x}-w{COVER_WIDTH}.png", hash.0)
+}
+
+/// Cache file name for a SumatraPDF Enhanced-sized home cover (`530×375` top-cropped or `530×750` full-page).
+pub fn cover_name_for_mode(path: &Path, len: u64, modified: u64, full_page: bool) -> String {
+    let mut hash = Fnv::default();
+    hash.write(path.to_string_lossy().as_bytes());
+    hash.write(&len.to_le_bytes());
+    hash.write(&modified.to_le_bytes());
+    let mode = if full_page { "full" } else { "cropped" };
+    format!("cover-{:016x}-w{THUMB_MAX_WIDTH}-{mode}.png", hash.0)
 }
 
 /// FNV-1a, 64 bits: the same name on every run and every build, as a cache file name must be.

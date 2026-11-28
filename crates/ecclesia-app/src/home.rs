@@ -15,7 +15,10 @@ use base64::Engine as _;
 use ecclesia_core::document::Document;
 use ecclesia_core::shared::pool;
 use ecclesia_core::thumbnail;
-use ecclesia_features::home::{self, COVER_WIDTH, cover_name};
+use ecclesia_features::home::{
+    self, THUMB_BASE_WIDTH, THUMB_CROPPED_HEIGHT, THUMB_FULL_HEIGHT, THUMB_MAX_CROPPED_HEIGHT,
+    THUMB_MAX_FULL_HEIGHT, THUMB_MAX_WIDTH, cover_name_for_mode,
+};
 use ecclesia_store::recent::RecentFile;
 use ecclesia_store::workspaces::Workspace;
 use nsh_base::{button, input, number_input, theme};
@@ -27,7 +30,7 @@ use crate::panes::Shared;
 use crate::recent::RecentState;
 use crate::settings::{Live, Settings};
 use crate::study_ui::{HomeStudySummary, home_study_summary};
-use crate::tabs::{TabState, pin_mark};
+use crate::tabs::{TabState, pin_mark_sized};
 use crate::workspaces::{Workspaces, color_dot, display_name};
 
 /// `settings.toml` key for Home design style: `"enhanced_warm"` (default), `"modern_green"`, or `"classic_clean"`.
@@ -58,9 +61,9 @@ pub(crate) const DEFAULT_HOME_MAX_RECENT: u32 = 100;
 pub(crate) const MIN_HOME_MAX_RECENT: u32 = 1;
 pub(crate) const MAX_HOME_MAX_RECENT: u32 = 200;
 
-const BASE_CARD_W: f32 = 158.0;
-const BASE_COVER_CROPPED_H: f32 = 192.0;
-const BASE_COVER_FULL_H: f32 = 224.0;
+const BASE_CARD_W: f32 = THUMB_BASE_WIDTH as f32;
+const BASE_COVER_CROPPED_H: f32 = THUMB_CROPPED_HEIGHT as f32;
+const BASE_COVER_FULL_H: f32 = THUMB_FULL_HEIGHT as f32;
 
 const TIP_KEYS: [&str; 6] = [
     "home.tip.palette",
@@ -81,6 +84,8 @@ const ICON_LIST: &[u8] = include_bytes!("../assets/icons/list.svg");
 const ICON_ZOOM_OUT: &[u8] = include_bytes!("../assets/icons/zoom-out.svg");
 const ICON_ZOOM_IN: &[u8] = include_bytes!("../assets/icons/zoom-in.svg");
 const ICON_BOOK: &[u8] = include_bytes!("../assets/icons/book.svg");
+const ICON_PAGE_HALF: &[u8] = include_bytes!("../assets/icons/home-page-half.svg");
+const ICON_PAGE_FULL: &[u8] = include_bytes!("../assets/icons/home-page-full.svg");
 
 #[derive(Clone, Copy)]
 struct HomeStyleProps {
@@ -146,11 +151,15 @@ enum HomeSvg {
     ZoomOut,
     ZoomIn,
     Book,
+    PageHalf,
+    PageFull,
 }
 
 impl HomeSvg {
     fn uri(self) -> String {
-        static CACHE: [OnceLock<String>; 10] = [
+        static CACHE: [OnceLock<String>; 12] = [
+            OnceLock::new(),
+            OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
@@ -173,6 +182,8 @@ impl HomeSvg {
             Self::ZoomOut => (7, ICON_ZOOM_OUT),
             Self::ZoomIn => (8, ICON_ZOOM_IN),
             Self::Book => (9, ICON_BOOK),
+            Self::PageHalf => (10, ICON_PAGE_HALF),
+            Self::PageFull => (11, ICON_PAGE_FULL),
         };
         CACHE[slot]
             .get_or_init(|| {
@@ -372,13 +383,13 @@ pub(crate) fn filter_and_partition(
     (active, completed)
 }
 
-/// Asynchronous cover thumbnail cache for recent documents.
+/// Asynchronous cover thumbnail cache for recent documents, keyed by `(path, full_page)`.
 #[derive(Clone, Copy)]
 pub(crate) struct Covers {
-    /// Each rendered cover's file.
-    ready: Signal<HashMap<PathBuf, SharedString>>,
-    /// The files whose cover was asked for, rendered or not.
-    asked: Stored<HashSet<PathBuf>>,
+    /// Each rendered cover's file, separated into top-cropped (`false`) and whole-page (`true`).
+    ready: Signal<HashMap<(PathBuf, bool), SharedString>>,
+    /// The `(path, full_page)` covers already requested, rendered or not.
+    asked: Stored<HashSet<(PathBuf, bool)>>,
     /// The renders under way: they live as long as the window.
     running: Stored<Vec<Spawned<()>>>,
 }
@@ -393,21 +404,28 @@ impl Covers {
         }
     }
 
-    /// The cover of the file at `path` once rendered (tracked); the first call schedules it off the UI thread.
+    /// The whole-page cover of the file at `path` once rendered (tracked).
     pub(crate) fn of(self, path: &Path) -> Option<SharedString> {
-        if self.asked.with(|asked| asked.insert(path.to_owned())) {
-            untracked(|| self.start(path.to_owned()));
+        self.of_mode(path, true)
+    }
+
+    /// The cover of `path` in cropped half-page (`full_page == false`, `530×375` top-crop) or
+    /// whole-page (`full_page == true`, `530×750` fit) mode; schedules rendering off the UI thread.
+    pub(crate) fn of_mode(self, path: &Path, full_page: bool) -> Option<SharedString> {
+        let key = (path.to_owned(), full_page);
+        if self.asked.with(|asked| asked.insert(key.clone())) {
+            untracked(|| self.start(path.to_owned(), full_page));
         }
-        self.ready.with(|ready| ready.get(path).cloned())
+        self.ready.with(|ready| ready.get(&key).cloned())
     }
 
     /// Resolves cached cover or renders page 0 on a background thread.
-    fn start(self, path: PathBuf) {
+    fn start(self, path: PathBuf, full_page: bool) {
         let ready = self.ready;
         let show = move |path: PathBuf, file: &Path| {
             let file = SharedString::from(file.to_string_lossy().into_owned());
             ready.update(|ready| {
-                ready.insert(path, file);
+                ready.insert((path, full_page), file);
             });
         };
         let covers_dir = data_dir().unwrap_or_else(std::env::temp_dir).join("covers");
@@ -424,7 +442,12 @@ impl Covers {
                         .ok()
                         .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
                         .map_or(0, |since| since.as_secs());
-                    let out = covers_dir.join(cover_name(&path, meta.len(), modified));
+                    let out = covers_dir.join(cover_name_for_mode(
+                        &path,
+                        meta.len(),
+                        modified,
+                        full_page,
+                    ));
                     let cached = out.is_file();
                     Some((out, cached))
                 }
@@ -457,7 +480,23 @@ impl Covers {
                     return;
                 }
             };
-            match thumbnail::render(pool(), &document, mupdf, 0, COVER_WIDTH, out).await {
+            let max_h = if full_page {
+                THUMB_MAX_FULL_HEIGHT
+            } else {
+                THUMB_MAX_CROPPED_HEIGHT
+            };
+            match thumbnail::render_cover(
+                pool(),
+                &document,
+                mupdf,
+                0,
+                THUMB_MAX_WIDTH,
+                max_h,
+                !full_page,
+                out,
+            )
+            .await
+            {
                 Ok(Ok(file)) => show(path, &file),
                 Ok(Err(err)) => {
                     log::warn!("home: cannot save the cover of {}: {err}", path.display())
@@ -1348,19 +1387,54 @@ fn library_toolbar(props: HomeStyleProps) -> impl IntoElement {
                         .items_center()
                         .justify_center()
                         .hover(|s| s.bg(move || theme().muted))
-                        .child(pin_mark(move || theme().foreground)),
+                        .child(pin_mark_sized(16.0, move || theme().foreground)),
                 )
-                .child(icon_btn(
-                    "home.full_page_previews",
-                    Box::new(full_page),
-                    Box::new(move || {
-                        live.change(|s| {
-                            let next = !s.flag(HOME_FULL_PAGE_THUMBNAILS).unwrap_or(false);
-                            s.set_flag(HOME_FULL_PAGE_THUMBNAILS, next.then_some(true));
-                        });
-                    }),
-                    HomeSvg::Book,
-                )),
+                .child(
+                    button()
+                        .accessibility_label(move || {
+                            Some(SharedString::from(t!("home.full_page_previews")))
+                        })
+                        .on_press(move || {
+                            live.change(|s| {
+                                let next = !s.flag(HOME_FULL_PAGE_THUMBNAILS).unwrap_or(false);
+                                s.set_flag(HOME_FULL_PAGE_THUMBNAILS, next.then_some(true));
+                            });
+                        })
+                        .w(px(30.0))
+                        .h(px(28.0))
+                        .rounded(px(7.0))
+                        .border_1()
+                        .border_color(move || {
+                            if full_page() {
+                                theme().ring
+                            } else {
+                                theme().border
+                            }
+                        })
+                        .bg(move || {
+                            if full_page() {
+                                theme().sidebar_accent
+                            } else {
+                                palette().card_bg
+                            }
+                        })
+                        .items_center()
+                        .justify_center()
+                        .hover(|s| s.bg(move || theme().muted))
+                        .child(
+                            image(move || {
+                                if full_page() {
+                                    HomeSvg::PageFull.uri()
+                                } else {
+                                    HomeSvg::PageHalf.uri()
+                                }
+                            })
+                            .w(px(16.0))
+                            .h(px(16.0))
+                            .object_fit(ResizeMode::Contain)
+                            .tint_color(move || theme().foreground),
+                        ),
+                ),
         )
         .child(view().w_full().h(px(1.0)).bg(move || theme().border))
 }
@@ -1386,7 +1460,7 @@ fn document_collection(
                     .w_full()
                     .flex_row()
                     .flex_wrap()
-                    .gap(px(16.0))
+                    .gap(move || px(if props.thumb_padding() { 18.0 } else { 24.0 }))
                     .child(each(
                         numbered,
                         |(idx, file): &(usize, RecentFile)| {
@@ -1474,7 +1548,7 @@ fn thumbnail_card(
     };
 
     let path_cover = stored(path.clone());
-    let cover_file = move || path_cover.with(|p| covers.of(p));
+    let cover_file = move || path_cover.with(|p| covers.of_mode(p, full_page()));
     let kind = extension_label(&path);
     let path_open = path.clone();
     let path_pin = path.clone();
@@ -1498,11 +1572,7 @@ fn thumbnail_card(
                     move || cover_file().is_some(),
                     move || {
                         image(move || cover_file().unwrap_or_default())
-                            .object_fit(if full_page() {
-                                ResizeMode::Contain
-                            } else {
-                                ResizeMode::Cover
-                            })
+                            .object_fit(ResizeMode::Contain)
                             .size_full()
                     },
                 )
@@ -1551,7 +1621,7 @@ fn thumbnail_card(
                 .items_center()
                 .justify_center()
                 .hover(|s| s.opacity(0.9))
-                .child(pin_mark(move || {
+                .child(pin_mark_sized(14.0, move || {
                     if file.pinned {
                         palette().brand_cta_fg
                     } else {
@@ -1624,11 +1694,11 @@ fn thumbnail_card(
         ));
 
     view()
-        .w(move || px(card_w() + if thumb_padding() { 18.0 } else { 0.0 }))
+        .w(move || px(card_w() + if thumb_padding() { 20.0 } else { 0.0 }))
         .flex_shrink(0.0)
-        .rounded(px(12.0))
+        .rounded(px(16.0))
         .style_when(thumb_padding, |s| {
-            s.p(px(9.0))
+            s.p(px(10.0))
                 .border_1()
                 .border_b(px(2.0))
                 .border_color(move || theme().border)
@@ -1709,7 +1779,7 @@ fn list_row(
                                 .text_color(white()),
                         ),
                 )
-                .child(cover(covers, path.clone(), 28.0, 38.0))
+                .child(cover(covers, path.clone(), 30.0, 40.0))
                 .child(extension_badge(&path))
                 .child(
                     text(name.clone())
@@ -1751,7 +1821,7 @@ fn list_row(
                 .items_center()
                 .justify_center()
                 .hover(|s| s.bg(move || theme().muted))
-                .child(pin_mark(move || {
+                .child(pin_mark_sized(16.0, move || {
                     if file.pinned {
                         palette().brand_cta_fg
                     } else {
