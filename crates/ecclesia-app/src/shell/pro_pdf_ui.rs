@@ -2140,9 +2140,23 @@ fn grading_stamps_rubric_view(state: ProPdfUiState, panes: Panes) -> impl IntoEl
                 .flex_row()
                 .flex_wrap()
                 .gap_2()
-                .child(pill_button("✓", false, move || {
-                    stamp(GradingStampKind::Check)
-                }))
+                .child(
+                    nsh_base::button()
+                        .accessibility_label("✓")
+                        .on_press(move || stamp(GradingStampKind::Check))
+                        .h(px(30.0))
+                        .px(px(12.0))
+                        .rounded(px(8.0))
+                        .border_1()
+                        .border_color(move || theme().border)
+                        .bg(move || theme().secondary)
+                        .items_center()
+                        .justify_center()
+                        .hover(|s| s.opacity(0.9))
+                        .child(crate::shell::app_menu::check_mark(13.0, move || {
+                            theme().foreground
+                        })),
+                )
                 .child(pill_button("✗", false, move || {
                     stamp(GradingStampKind::Cross)
                 }))

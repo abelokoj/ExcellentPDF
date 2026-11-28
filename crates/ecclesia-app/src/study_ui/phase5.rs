@@ -414,9 +414,19 @@ pub(crate) fn assignments_dialog(state: StudyState) -> impl IntoElement {
                                     }
                                 })
                                 .child(
-                                    text(if done { "✓" } else { "○" })
-                                        .text_size(px(13.0))
-                                        .text_color(move || theme().foreground),
+                                    when(
+                                        move || done,
+                                        move || {
+                                            crate::shell::app_menu::check_mark(13.0, move || {
+                                                theme().foreground
+                                            })
+                                        },
+                                    )
+                                    .otherwise(move || {
+                                        text("○")
+                                            .text_size(px(13.0))
+                                            .text_color(move || theme().foreground)
+                                    }),
                                 ),
                         )
                         .child(

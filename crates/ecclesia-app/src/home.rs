@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use base64::Engine as _;
 use ecclesia_core::document::Document;
@@ -87,16 +87,41 @@ const ICON_BOOK: &[u8] = include_bytes!("../assets/icons/book.svg");
 const ICON_PAGE_HALF: &[u8] = include_bytes!("../assets/icons/home-page-half.svg");
 const ICON_PAGE_FULL: &[u8] = include_bytes!("../assets/icons/home-page-full.svg");
 
+/// Maximum interval between two clicks on the same Home document to open it (matching `panes/grid.rs`).
+const DOUBLE_CLICK: Duration = Duration::from_millis(500);
+
 #[derive(Clone, Copy)]
 struct HomeStyleProps {
     recent: RecentState,
     covers: Covers,
     tabs: TabState,
     live: Live,
+    selected_path: Signal<Option<PathBuf>>,
+    last_click: Stored<Option<(PathBuf, Instant)>>,
     style: fn(&Settings) -> HomeDesignStyle,
 }
 
 impl HomeStyleProps {
+    fn is_selected(self, path: &Path) -> bool {
+        self.selected_path
+            .with(|selected| selected.as_deref() == Some(path))
+    }
+
+    /// Single-click selects the document (turning its thin edge red); double-click within 500 ms opens it.
+    fn click_entry(self, path: PathBuf, page: usize, open_file: impl Fn(PathBuf, usize)) {
+        let now = Instant::now();
+        let is_double = self.last_click.with(|last| {
+            last.as_ref()
+                .is_some_and(|(prev, at)| prev == &path && now.duration_since(*at) < DOUBLE_CLICK)
+        });
+        self.selected_path.set(Some(path.clone()));
+        if is_double {
+            self.last_click.replace(None);
+            open_file(path, page);
+        } else {
+            self.last_click.replace(Some((path, now)));
+        }
+    }
     fn palette(self) -> HomePalette {
         HomePalette::for_style(self.live.read(self.style))
     }
@@ -268,6 +293,7 @@ struct HomePalette {
     card_bg: AdaptiveColor,
     brand_cta_bg: AdaptiveColor,
     brand_cta_fg: AdaptiveColor,
+    item_edge: AdaptiveColor,
     selection_outline: AdaptiveColor,
     badge_bg: AdaptiveColor,
 }
@@ -275,7 +301,8 @@ struct HomePalette {
 impl HomePalette {
     fn for_style(style: HomeDesignStyle) -> Self {
         let base = theme();
-        let selection_outline = AdaptiveColor::new(rgb(0x4ca6ff), rgb(0x4ca6ff));
+        let item_edge = AdaptiveColor::new(rgba(0x52565e88), rgba(0x9ca3af78));
+        let selection_outline = AdaptiveColor::new(rgb(0xdc2626), rgb(0xef4444));
         let badge_bg = AdaptiveColor::new(rgba(0x14161ad4), rgba(0x0c0d10dc));
         match style {
             HomeDesignStyle::EnhancedWarm => Self {
@@ -283,6 +310,7 @@ impl HomePalette {
                 card_bg: AdaptiveColor::new(rgb(0xffffff), rgb(0x1e2128)),
                 brand_cta_bg: AdaptiveColor::new(rgb(0xf59e0b), rgb(0xd97706)),
                 brand_cta_fg: AdaptiveColor::new(rgb(0x1d1d1f), rgb(0xffffff)),
+                item_edge,
                 selection_outline,
                 badge_bg,
             },
@@ -291,6 +319,7 @@ impl HomePalette {
                 card_bg: AdaptiveColor::new(rgb(0xffffff), rgb(0x173124)),
                 brand_cta_bg: AdaptiveColor::new(rgb(0x22c55e), rgb(0x16a34a)),
                 brand_cta_fg: AdaptiveColor::new(rgb(0x0f172a), rgb(0xffffff)),
+                item_edge,
                 selection_outline,
                 badge_bg,
             },
@@ -299,6 +328,7 @@ impl HomePalette {
                 card_bg: base.popover,
                 brand_cta_bg: base.primary,
                 brand_cta_fg: base.primary_foreground,
+                item_edge,
                 selection_outline,
                 badge_bg,
             },
@@ -650,12 +680,16 @@ pub(crate) fn home_page(
     let query = signal(String::new());
     let features_open = signal(false);
     let tip_index = signal(0usize);
+    let selected_path = signal(None::<PathBuf>);
+    let last_click = stored(None::<(PathBuf, Instant)>);
 
     let props = HomeStyleProps {
         recent,
         covers,
         tabs,
         live,
+        selected_path,
+        last_click,
         style: design_style_of,
     };
     let palette = move || props.palette();
@@ -680,6 +714,24 @@ pub(crate) fn home_page(
         home_open.set(false);
         tabs.open_at(path, page);
     };
+    on_key("enter", move |_| {
+        if let Some(sel) = selected_path.get_untracked()
+            && let Some(file) = partitioned.with_untracked(|(active, completed)| {
+                active
+                    .iter()
+                    .chain(completed.iter())
+                    .find(|f| f.path == sel)
+                    .cloned()
+            })
+        {
+            open_recent_file(file.path, file.page);
+        }
+    });
+    on_key("escape", move |_| {
+        if selected_path.with_untracked(Option::is_some) {
+            selected_path.set(None);
+        }
+    });
 
     let header_block = move || {
         view()
@@ -1385,11 +1437,12 @@ fn library_toolbar(props: HomeStyleProps) -> impl IntoElement {
                                         button()
                                             .on_press(move || zoom_editing.set(false))
                                             .px(px(4.0))
-                                            .child(
-                                                text("✓")
-                                                    .text_size(px(11.0))
-                                                    .text_color(move || theme().muted_foreground),
-                                            ),
+                                            .items_center()
+                                            .justify_center()
+                                            .child(crate::shell::app_menu::check_mark(
+                                                11.0,
+                                                move || theme().muted_foreground,
+                                            )),
                                     )
                             }))
                             .child(icon_btn(
@@ -1706,20 +1759,34 @@ fn thumbnail_card(
                 )
         }));
 
+    let path_sel = stored(path.clone());
+    let is_selected = move || path_sel.with(|p| props.is_selected(p));
+    let path_title_click = path.clone();
+
     let footer = view()
         .w_full()
         .flex_row()
         .items_center()
         .gap(px(5.0))
-        .child(extension_badge(&path))
         .child(
-            text(name.clone())
+            button()
+                .accessibility_label(t!("recent.open", name = name.clone(), page = file.page + 1))
+                .on_press(move || props.click_entry(path_title_click.clone(), file.page, open_file))
                 .flex_1()
                 .min_w(px(0.0))
-                .truncate()
-                .text_size(px(12.5))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(move || theme().foreground),
+                .flex_row()
+                .items_center()
+                .gap(px(5.0))
+                .child(extension_badge(&path))
+                .child(
+                    text(name.clone())
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .truncate()
+                        .text_size(px(12.5))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(move || theme().foreground),
+                ),
         )
         .child(
             button()
@@ -1739,9 +1806,17 @@ fn thumbnail_card(
                 .justify_center()
                 .hover(|s| s.bg(move || theme().muted))
                 .child(
-                    text(if file.completed { "↺" } else { "✓" })
-                        .text_size(px(11.0))
-                        .text_color(move || theme().muted_foreground),
+                    when(
+                        move || file.completed,
+                        move || {
+                            text("↺")
+                                .text_size(px(11.0))
+                                .text_color(move || theme().muted_foreground)
+                        },
+                    )
+                    .otherwise(move || {
+                        crate::shell::app_menu::check_mark(11.0, move || theme().muted_foreground)
+                    }),
                 ),
         )
         .child(crate::shell::app_menu::close_x_button(
@@ -1752,27 +1827,45 @@ fn thumbnail_card(
             move || recent.remove(path_remove.clone()),
         ));
 
+    // Inner thin frame matching SumatraPDF Enhanced (`HomeSelectionOutlineRect` + `DrawHomeItemEdge`):
+    // always wraps BOTH the cover preview and the caption text (`Inflate(4, 3)`, 10 px radius),
+    // even when thumbnail card padding is off, and turns red when the document is selected.
+    let inner_frame = view()
+        .w(move || px(card_w() + 8.0))
+        .px(px(4.0))
+        .py(px(3.0))
+        .rounded(px(10.0))
+        .border_1()
+        .border_color(move || {
+            if is_selected() {
+                palette().selection_outline
+            } else {
+                palette().item_edge
+            }
+        })
+        .gap(px(5.0))
+        .child(
+            button()
+                .accessibility_label(t!("recent.open", name = name, page = file.page + 1))
+                .on_press(move || props.click_entry(path_open.clone(), file.page, open_file))
+                .w_full()
+                .child(cover_box),
+        )
+        .child(footer);
+
+    // Outer padded card (`card.Inflate(10, 10)`, 16 px radius) shown only when thumbnail padding is on.
     let card = view()
-        .w(move || px(card_w() + if thumb_padding() { 20.0 } else { 0.0 }))
+        .w(move || px(card_w() + if thumb_padding() { 20.0 } else { 8.0 }))
         .flex_shrink(0.0)
         .rounded(px(16.0))
         .style_when(thumb_padding, |s| {
-            s.p(px(10.0))
+            s.p(px(6.0))
                 .border_1()
                 .border_b(px(2.0))
                 .border_color(move || theme().border)
                 .bg(move || palette().card_bg)
         })
-        .hover(|s| s.border_color(move || palette().selection_outline))
-        .gap(px(6.0))
-        .child(
-            button()
-                .accessibility_label(t!("recent.open", name = name, page = file.page + 1))
-                .on_press(move || open_file(path_open.clone(), file.page))
-                .w_full()
-                .child(cover_box),
-        )
-        .child(footer);
+        .child(inner_frame);
 
     home_document_context_menu(file, props, open_file, card)
 }
@@ -1797,6 +1890,8 @@ fn list_row(
         .map(|d| d.display().to_string())
         .unwrap_or_default();
     let progress = format_progress(file.page, file.total_pages);
+    let path_sel = stored(path.clone());
+    let is_selected = move || path_sel.with(|p| props.is_selected(p));
     let path_open = path.clone();
     let path_pin = path.clone();
     let path_done = path.clone();
@@ -1811,13 +1906,18 @@ fn list_row(
         .py(px(6.0))
         .rounded(px(10.0))
         .border_1()
-        .border_color(move || theme().border)
+        .border_color(move || {
+            if is_selected() {
+                palette().selection_outline
+            } else {
+                palette().item_edge
+            }
+        })
         .bg(move || palette().card_bg)
-        .hover(|s| s.border_color(move || palette().selection_outline))
         .child(
             button()
                 .accessibility_label(t!("recent.open", name = name.clone(), page = file.page + 1))
-                .on_press(move || open_file(path_open.clone(), file.page))
+                .on_press(move || props.click_entry(path_open.clone(), file.page, open_file))
                 .flex_1()
                 .min_w(px(0.0))
                 .flex_row()
@@ -1908,9 +2008,17 @@ fn list_row(
                 .justify_center()
                 .hover(|s| s.bg(move || theme().muted))
                 .child(
-                    text(if file.completed { "↺" } else { "✓" })
-                        .text_size(px(13.0))
-                        .text_color(move || theme().muted_foreground),
+                    when(
+                        move || file.completed,
+                        move || {
+                            text("↺")
+                                .text_size(px(13.0))
+                                .text_color(move || theme().muted_foreground)
+                        },
+                    )
+                    .otherwise(move || {
+                        crate::shell::app_menu::check_mark(13.0, move || theme().muted_foreground)
+                    }),
                 ),
         )
         .child(crate::shell::app_menu::close_x_button(
@@ -2008,8 +2116,11 @@ fn home_document_context_menu(
         t!("home.menu.move_to_completed")
     };
 
+    let path_select = path.clone();
+
     context_menu()
         .trigger(trigger)
+        .on_open(move || props.selected_path.set(Some(path_select.clone())))
         .popup_class("w-64 p-1 rounded-lg border border-border bg-popover shadow-lg")
         .child(item_row(
             t!("home.menu.open"),

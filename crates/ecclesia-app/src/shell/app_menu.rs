@@ -128,6 +128,29 @@ fn triangle_left_src() -> String {
         .clone()
 }
 
+/// Calligraphic checkmark SVG (Option B — softer rounded ends, theme-tintable) used app-wide.
+const CHECK_MARK_SVG: &[u8] = include_bytes!("../../assets/icons/ws-check.svg");
+
+fn check_mark_src() -> String {
+    static SRC: OnceLock<String> = OnceLock::new();
+    SRC.get_or_init(|| encode_data_uri("data:image/svg+xml;base64,", CHECK_MARK_SVG))
+        .clone()
+}
+
+/// Renders the app-wide calligraphic checkmark SVG at `size` px, tinted in `color`.
+pub(crate) fn check_mark(
+    size: f32,
+    color: impl Fn() -> AdaptiveColor + Copy + 'static,
+) -> impl IntoElement {
+    image(check_mark_src())
+        .w(px(size))
+        .h(px(size))
+        .flex_shrink(0.0)
+        .object_fit(ResizeMode::Contain)
+        .tint_color(color)
+        .accessibility_elements_hidden(true)
+}
+
 fn tab_list_chevron_src() -> String {
     static SRC: OnceLock<String> = OnceLock::new();
     SRC.get_or_init(|| encode_data_uri("data:image/svg+xml;base64,", CHEVRON_DOWN_SVG))

@@ -356,13 +356,18 @@ fn sync_entry(
         .focus(|s| s.bg(move || theme().accent))
         .disabled_style(|s| s.opacity(0.5))
         .child(
-            text(move || match &mark {
-                Some(checked) if checked() => "✓",
-                _ => "",
-            })
-            .w(px(14.0))
-            .text_size(px(13.0))
-            .text_color(move || theme().primary),
+            view()
+                .w(px(14.0))
+                .h(px(14.0))
+                .items_center()
+                .justify_center()
+                .child(when(
+                    move || match &mark {
+                        Some(checked) => checked(),
+                        None => false,
+                    },
+                    move || crate::shell::app_menu::check_mark(13.0, move || theme().primary),
+                )),
         )
         .child(
             text(commands::label(id))

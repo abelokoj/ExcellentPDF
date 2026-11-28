@@ -1493,10 +1493,15 @@ fn highlight_menu_row(
         .hover(|s| s.bg(move || theme().accent))
         .focus(|s| s.bg(move || theme().accent))
         .child(
-            text(if checked { "✓" } else { "" })
+            view()
                 .w(px(14.0))
-                .text_size(px(13.0))
-                .text_color(move || theme().primary),
+                .h(px(14.0))
+                .items_center()
+                .justify_center()
+                .child(when(
+                    move || checked,
+                    move || crate::shell::app_menu::check_mark(13.0, move || theme().primary),
+                )),
         )
         .child(
             text(move || t!(label_key))
@@ -1906,10 +1911,14 @@ fn attach_customization_menu(live: Live, pill: View) -> impl IntoElement {
                 .hover(|s| s.bg(move || theme().accent))
                 .focus(|s| s.bg(move || theme().accent))
                 .child(
-                    text(move || if checked() { "✓" } else { "" })
+                    view()
                         .w(px(14.0))
-                        .text_size(px(13.0))
-                        .text_color(move || theme().primary),
+                        .h(px(14.0))
+                        .items_center()
+                        .justify_center()
+                        .child(when(checked, move || {
+                            crate::shell::app_menu::check_mark(13.0, move || theme().primary)
+                        })),
                 )
                 .child(
                     text(move || t!(item.label_key()))

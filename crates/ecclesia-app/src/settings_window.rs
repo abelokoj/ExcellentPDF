@@ -56,7 +56,7 @@ use crate::reading::{
 };
 use crate::reading_theme_bar;
 use crate::settings::{self, Live};
-use crate::shell::app_menu::{ChromeIcon, chrome_icon, dropdown_arrow};
+use crate::shell::app_menu::{ChromeIcon, check_mark, chrome_icon, dropdown_arrow};
 use crate::tabs::{
     Cycle, DEFAULT_TAB_FONT_SIZE_PX, DEFAULT_TAB_HEIGHT_PX, DEFAULT_TAB_MIN_WIDTH_PX,
     MAX_TAB_FONT_SIZE_PX, MAX_TAB_HEIGHT_PX, MAX_TAB_MIN_WIDTH_PX, MIN_TAB_FONT_SIZE_PX,
@@ -1265,11 +1265,15 @@ fn appearance_cards(
                                         ),
                                 )
                                 .child(
-                                    text(if selected { "✓" } else { "" })
+                                    view()
                                         .w(px(14.0))
-                                        .text_size(px(13.0))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(move || theme().primary),
+                                        .h(px(14.0))
+                                        .items_center()
+                                        .justify_center()
+                                        .child(when(
+                                            move || selected,
+                                            move || check_mark(13.0, move || theme().primary),
+                                        )),
                                 ),
                         )
                     })
@@ -1705,11 +1709,15 @@ fn reading_theme_dropdown(reading: Reading) -> View {
                                         ),
                                 )
                                 .child(
-                                    text(if selected { "✓" } else { "" })
+                                    view()
                                         .w(px(14.0))
-                                        .text_size(px(13.0))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(move || theme().primary),
+                                        .h(px(14.0))
+                                        .items_center()
+                                        .justify_center()
+                                        .child(when(
+                                            move || selected,
+                                            move || check_mark(13.0, move || theme().primary),
+                                        )),
                                 ),
                         )
                     })

@@ -1143,9 +1143,14 @@ fn tab_color_swatch_item(
                 .text_color(move || theme().popover_foreground),
         )
         .child(
-            text(move || if selected() { "✓" } else { "" })
-                .text_size(px(12.0))
-                .text_color(move || theme().primary),
+            view()
+                .w(px(14.0))
+                .h(px(14.0))
+                .items_center()
+                .justify_center()
+                .child(when(selected, move || {
+                    crate::shell::app_menu::check_mark(12.0, move || theme().primary)
+                })),
         )
 }
 
